@@ -1,0 +1,245 @@
+syntax = "proto3";
+
+import "shared/shared.proto";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+message JfkTemplatePB {
+    int32 id = 1;  // jfk_templates.id
+    string dept_id = 2;  // 科室ID
+    string name = 3;  // 模板名称
+
+    bool is_duplex_single_sided = 4;  // 是否单双面打印：true, SIMPLEX; false, DUPLEX
+    bool is_flipping_long_edge = 5;  // 是否长边翻转：true, LONG_EDGE; false, SHORT_EDGE
+
+    int32 page_size_id = 6;  // 纸张大小， JfkEnumsPB.page_size_XXX.id
+    bool is_page_orientation_portrait = 7;  // 是否纵向打印：true, PORTRAIT; false, LANDSCAPE
+
+    repeated string data_source_meta_ids = 8;
+
+    repeated JfkPagePB pages = 9;  // 模板页面列表
+    bool page_expandable = 10; // 在模板的实例中，是否允许手动扩展页面
+}
+
+message JfkPagePB {
+    repeated JfkTextPB texts = 1;  // 页面上的文本组件列表
+    repeated JfkTablePB tables = 2;  // 页面上的表格组件列表
+    repeated JfkLinePB lines = 3;  // 页面上的线条组件列表
+}
+
+enum JfkPageElementDataTypePB {
+    JFK_PAGE_ELEMENT_DATA_TYPE_NOT_USED = 0;
+    STATIC = 1;  // 静态内容
+    USER_INPUT = 2;  // 用户输入内容，对应 JfkFieldMetaPB(id)
+    JFK_INPUT = 3;  // 数据由用户输入，用于获取数据，对应 JfkValMetaPB
+    JFK_DATA_SOURCE = 4;  // 数据由数据源提供，对应 JfkDataSourcePB(id + output_fields[i].id)
+    JFK_CUR_PAGE_ID = 5;  // 当前页码，从1开始
+    JFK_TOTAL_PAGES = 6;  // 总页数
+}
+
+message JfkElementMetaPB {
+    int32 content_type = 1;  // JfkPageElementDataTypePB
+    //// content_type为 JfkPageElementDataTypePB.STATIC 时，用控件的预设内容
+    //// content_type为 JfkPageElementDataTypePB.USER_INPUT 时
+    JfkValMetaPB input_val_meta = 2;  // 输入值元数据
+    //// content_type为 JfkPageElementDataTypePB.JFK_INPUT 时
+    string input_field_id = 3;  // 输入字段ID
+    //// content_type为 JfkPageElementDataTypePB.JFK_DATA_SOURCE 时
+    string data_source_meta_id = 4;  // 数据源ID
+    string data_source_field_id = 5;  // 数据源字段ID
+    //// content_type为 JfkPageElementDataTypePB.JFK_CUR_PAGE_ID 时，无额外信息
+    //// content_type为 JfkPageElementDataTypePB.JFK_TOTAL_PAGES 时，无额外信息
+}
+
+message JfkTextPB {
+    string id = 1;
+    string type = 2;  // 组件类型，'text'
+    float x = 3;  // X坐标
+    float y = 4;  // Y坐标
+    int32 z_index = 5;  // Z轴顺序
+    float width = 6;  // 宽度
+    float height = 7;  // 高度
+    int32 v_align_id = 8;  // 垂直对齐方式， JfkEnumsPB.v_align.id
+    int32 h_align_id = 9;  // 水平对齐方式， JfkEnumsPB.h_align.id
+    string font = 10;  // 字体
+    float font_size = 11;  // 字体大小
+    string font_color = 12;  // 字体颜色
+    float char_spacing = 13;  // 字符间距
+    string content = 14;  // 文本内容
+
+    bool extend_to_next_page = 15;  // 是否跨页延伸该组件
+    float next_page_x = 16;  // 跨页延伸时的X坐标
+    float next_page_y = 17;  // 跨页延伸时的Y坐标
+
+    JfkElementMetaPB element_meta = 18;
+}
+
+message JfkTableColumnMetaPB {
+    string id = 1;  // 列ID
+    string name = 2;  // 列名称
+    JfkElementMetaPB element_meta = 3;  // 列数据元信息
+
+    // element_meta.content_type为 JfkPageElementDataTypePB.STATIC 时有效
+    repeated string static_vals = 4;  // 静态内容列表，长度为rows
+}
+
+message JfkTablePB {
+    string id = 1;
+    string custom_name = 2;  // 自定义名称
+    string type = 3;  // 组件类型，'table'
+
+    // 页面左下角为(0,0)
+    float x = 4;  // X坐标
+    float y = 5;  // Y坐标
+
+    int32 z_index = 6;  // Z轴顺序
+    int32 rows = 7;  // 行数
+    int32 cols = 8;  // 列数
+
+    // 每个单元格的宽度和高度可以不同
+    repeated float cell_widths = 9;  // 单元格宽度列表，长度为cols，单位为pt； cell_widths.length 必须等于 cols
+    repeated float cell_heights = 10;  // 单元格高度列表，长度为rows，单位为pt； cell_heights.length 必须等于 rows
+
+    // 文本属性
+    int32 v_align_id = 11;  // 垂直对齐方式， JfkEnumsPB.v_align.id
+    int32 h_align_id = 12;  // 水平对齐方式， JfkEnumsPB.h_align.id
+    string font = 13;  // 字体
+    float font_size = 14;  // 字体大小
+    string font_color = 15;  // 字体颜色
+    float char_spacing = 16;  // 字符间距
+    float h_padding = 17;  // 水平内边距，单位为pt；单元格可用内容宽度 = cell_widths[col] - 2 * h_padding
+    // 垂直内边距固定0
+
+    string data_source_meta_id = 18;  // 数据源ID
+    // 每一列的元数据，column_metas.length 必须等于 cols
+    repeated JfkTableColumnMetaPB column_metas = 19;
+
+    // 扩展属性
+    bool extend_to_next_page = 20;  // 是否跨页延伸该组件
+    float next_page_x = 21;  // 跨页延伸时的X坐标
+    float next_page_y = 22;  // 跨页延伸时的Y坐标
+
+    int32 h_replicas = 23;  // 水平扩展的次数（0代表不扩展）
+    bool h_replica_data_direction_is_col = 24;  // 水平扩展时，数据填充方向：true, 按列填充; false, 按行填充
+}
+
+message JfkLinePB {
+    float x1 = 1;  // 起点X坐标
+    float y1 = 2;  // 起点Y坐标
+    float x2 = 3;  // 终点X坐标
+    float y2 = 4;  // 终点Y坐标
+    int32 z_index = 5;  // Z轴顺序
+    float line_width = 6;  // 线宽
+    string line_color = 7;  // 线颜色
+
+    bool extend_to_next_page = 8;  // 是否跨页延伸该组件
+    float next_page_x1 = 9; // 跨页延伸时的起点X坐标
+    float next_page_y1 = 10; // 跨页延伸时的起点Y坐标
+    float next_page_x2 = 11; // 跨页延伸时的终点X坐标
+    float next_page_y2 = 12; // 跨页延伸时的终点Y坐标
+
+    // unused: to be deleted from both FE and BE
+    float x = 13;
+    float y = 14;
+    float width = 15;
+    float height = 16;
+}
+
+message JfkEnumsPB {
+    shared.EnumValue page_size_a3 = 1;  // A3纸张大小
+    shared.EnumValue page_size_a4 = 2;  // A4纸张大小
+
+    shared.EnumValue v_align_top = 3;  // 顶部对齐
+    shared.EnumValue v_align_middle = 4;  // 居中对齐
+    shared.EnumValue v_align_bottom = 5;  // 底部对齐
+
+    shared.EnumValue h_align_left = 6;  // 左对齐
+    shared.EnumValue h_align_center = 7;  // 居中对齐
+    shared.EnumValue h_align_right = 8;  // 右对齐
+
+    shared.EnumValue font_microsoft_yahei = 9;
+    shared.EnumValue font_microsoft_yahei_bold = 10;
+}
+
+////// ------------------ 元数据相关 ------------------
+message JfkValPB {
+    bool bool_val = 1;
+    int64 int64_val = 2;
+    double double_val = 3;
+    string str_val = 4;  // 对应于 STRING 和 DATETIME 和 IMAGE 类型
+}
+
+enum JfkValTypePB {
+    JFK_VAL_TYPE_NOT_USED = 0;
+    BOOL = 1;
+    INT64 = 2;
+    DOUBLE = 3;
+    STRING = 4;
+    DATETIME = 5;
+    IMAGE = 6;
+}
+
+message JfkValMetaPB {
+    int32 val_type = 1;  // JfkValTypePB
+    JfkValPB default_val = 2;
+    bool is_restricted = 3;
+    repeated JfkValPB allowed_vals = 4;
+    string time_display_format = 5;  // 仅当 val_type 为 DATETIME 时有效，如 "YYYY-MM-DD HH:MM:SS" （实际的iso8601格式存储在str_val中）
+}
+
+message JfkFieldMetaPB {
+    string id = 1;
+    string name = 2;
+    JfkValMetaPB val_meta = 3;
+    int32 content_type = 4;  // 合法值为 USER_INPUT(2), JFK_INPUT(3), JFK_DATA_SOURCE(4)
+    bool is_array = 5;  // true: 该字段为数组类型; false: 该字段为单值类型
+    bool is_options = 6;  // true: 该字段为选项类型(is_array必须为true); false: 该字段为非选项类型
+}
+
+message JfkDataSourceMetaPB {
+    string id = 1;
+    string name = 2;
+    repeated string input_field_ids = 3;
+    repeated JfkFieldMetaPB output_fields = 4;
+}
+
+message JfkFieldDataPB {
+    // 数据源: JfkDataSourcePB.output_fields[i].id
+    // 表单元素: 文本：JfkTextPB.id; 表格: JfkTablePB.dataMeta[i].id
+    string id = 1;
+    string custom_name = 2;  // 自定义名称，表单实例中，用于该字段关联具体数据
+    JfkValPB val = 3;  // 单值
+    repeated JfkValPB vals = 4;  // 多值
+}
+
+message JfkDataSourcePB {
+    string id = 1;  // 实例ID
+    string meta_id = 2;  // JfkDataSourceMetaPB.id
+    repeated JfkFieldDataPB input_data = 3;  // 输入数据列表
+    repeated JfkFieldDataPB output_data = 4;  // 输出数据列表
+}
+
+////// ------------------ 表单模板实例 数据 ------------------
+message JfkFormInstancePB {
+    int64 id = 1;  // 实例ID
+    int64 pid = 2;  // 患者ID
+    string dept_id = 3;  // 科室ID
+    int32 template_id = 4;  // 对应的模板ID
+    string created_at_iso8601 = 5;  // 创建时间
+    repeated JfkFieldDataPB field_data = 6;  // 字段数据列表
+    // 数据源/用户 输入对应的表单实例页数
+    // - 用户输入：比如只有一个text（允许跨页延伸）, output_data只有一个数据
+    //            用户自行添加了3页，这时output_data并不能了解有几页
+    int32 num_pages = 7;
+}
+
+message JfkFormDebugPB {
+    JfkTemplatePB template = 1;
+    JfkFormInstancePB instance = 2;
+}
+
+message JfkConfigPB {
+    JfkEnumsPB enums = 1;
+    repeated JfkFieldMetaPB inputs = 2;
+    repeated JfkDataSourceMetaPB data_sources = 3;
+}

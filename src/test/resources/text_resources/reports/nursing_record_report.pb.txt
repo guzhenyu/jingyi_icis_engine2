@@ -1,0 +1,159 @@
+left_bottom_x: 58.0
+left_bottom_y: 10.0
+width: 725.0
+height: 575.0
+
+header {
+  height: 62.0
+}
+
+chart {
+  height: 120.0
+  padding_horizontal: 3.0
+  padding_vertical: 4.0
+  rulers {
+    ruler_major_scales: 5
+    ruler_major_scale_length: 6.0
+    ruler_minor_scales: 5
+    ruler_minor_scale_length: 3.0
+    ruler_font_size: 6
+    elem_right_padding: 3.0
+    str_format: "%.0f"
+    ruler {
+      name {
+        name: "body_temperature"
+        name_text: "体温"
+        graph_sign: "■"
+      }
+      unit {
+        unit: "celsius"
+        unit_text: "°C"
+        value_type: FLOAT
+        upper_bound {
+          float_val: 42.0
+        }
+        lower_bound {
+          float_val: 32.0
+        }
+      }
+    }
+    ruler {
+      name {
+        name: "heartbeat_per_minute"
+        name_text: "心率"
+        graph_sign: "●"
+      }
+      unit {
+        unit: "heartbeat_per_minute"
+        unit_text: "bpm"
+        value_type: FLOAT
+        upper_bound {
+          float_val: 250.0
+        }
+        lower_bound {
+          float_val: 0.0
+        }
+      }
+    }
+    ruler {
+      name {
+        name: "breaths_per_minute"
+        name_text: "呼吸"
+        graph_sign: "◆"
+      }
+      unit {
+        unit: "breaths_per_minute"
+        unit_text: "bpm"
+        value_type: INT
+        upper_bound {
+          int_val: 75
+        }
+        lower_bound {
+          int_val: 0
+        }
+      }
+    }
+    ruler {
+      name {
+        name: "oxygen_saturation"
+        name_text: "血氧饱和度"
+        graph_sign: "□"
+      }
+      unit {
+        unit: "percent"
+        unit_text: "%"
+        value_type: FLOAT
+        upper_bound {
+          float_val: 110.0
+        }
+        lower_bound {
+          float_val: 60.0
+        }
+      }
+    }
+    ruler {
+      name {
+        name: "invasive_systolic_mmhg"
+        name_text: "有创收缩压"
+        graph_sign: "▲"
+      }
+      name {
+        name: "invasive_diastolic_mmhg"
+        name_text: "有创舒张压"
+        graph_sign: "▼"
+      }
+      unit {
+        unit: "mmHg"
+        unit_text: "mmHg"
+        value_type: FLOAT
+        upper_bound {
+          float_val: 270.0
+        }
+        lower_bound {
+          float_val: 20.0
+        }
+      }
+    }
+  }
+  grids_left_bottom_x: 205.0
+  graph_sign_font_size: 5
+}
+
+metric_grids {
+  metrics {
+    num_values_per_metric: 24
+  }
+  grid_height: 12.0
+  grid_padding_horizontal: 2.0
+  font_size: 7
+  group_width: 58.0
+  name_width: 58.0
+  metric_formats {
+    key: "body_temperature"
+    value: "%.1f"
+  }
+  metric_formats {
+    key: "blood_glucose"
+    value: "%.1f"
+  }
+  str_format: "%.0f"
+}
+
+footer {
+  height: 12.0
+}
+
+line_style1 {
+  width: 0.5
+  gray_value: 0.0
+}
+line_style2 {
+  width: 0.2
+  gray_value: 0.3
+  dash_pattern: 1.0
+  dash_pattern: 0.5
+}
+line_style3 {
+  width: 0.3
+  gray_value: 0.3
+}

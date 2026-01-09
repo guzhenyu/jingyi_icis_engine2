@@ -1,0 +1,87 @@
+syntax = "proto3";
+
+import "shared/shared.proto";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+message NursingRecordSpecialTermPB {
+    repeated shared.StrKeyValPB superscript = 1;  // 上标
+    repeated shared.StrKeyValPB subscript = 2;  // 下标
+    repeated shared.StrKeyValPB other = 3;  // 其他
+}
+
+message NursingRecordQuickWordsPB {
+    repeated string word = 1;
+}
+
+message NursingRecordTemplatePB {
+    int32 id = 1;
+    string name = 2;
+    string content = 3;
+    int32 display_order = 4;
+    int32 is_common = 5;  // 是否常用，0：否，1：是
+    int32 group_id = 6;   // 分组ID, nursing_record_template_groups.id
+}
+
+message NursingRecordTemplateGroupPB {
+    int32 id = 1;
+    string name = 2;
+    int32 display_order = 3;
+    repeated NursingRecordTemplatePB nursing_record_template = 4;
+}
+
+message PatientCriticalLisResultPB {
+    int32 id = 1;
+    int64 pid = 2;
+    string dept_id = 3;
+    
+    // 检验大项信息
+    string report_id = 4;
+    string auth_time_iso8601 = 5;  // ISO 8601 format
+    string order_doctor = 6;
+    string order_doctor_id = 7;
+    string lis_item_name = 8;
+    string lis_item_short_name = 9;
+    string lis_item_code = 10;
+    
+    // 检验小项信息
+    string external_param_code = 11;
+    string external_param_name = 12;
+    
+    string unit = 13;
+    string result_str = 14;
+    string normal_min_str = 15;
+    string normal_max_str = 16;
+    
+    string alarm_flag = 17;
+    string danger_flag = 18;
+    string notes = 19;
+    
+    // 处理结果，<=0表示未处理，>0表示已处理
+    int32 handling_id = 20;
+}
+
+message PatientCriticalLisHandlingPB {
+    int32 id = 1;
+    int64 pid = 2;
+    string dept_id = 3;
+    string actions = 4;
+    string effective_time_iso8601 = 5;  // ISO 8601 format
+}
+
+message PatientCriticalLisHandlingRecordPB {
+    PatientCriticalLisHandlingPB handling = 1;  // 危急值处理记录
+    PatientCriticalLisResultPB result = 2;  // 本次处理关联的所有危急值结果
+    string nursing_record_content = 3;  // 对应的护理记录内容
+}
+
+message NursingRecordSettingsPB {
+    string dept_id = 1;
+    bool enable_updating_created_by = 2;  // 如果为true，当更改护理记录时，自动更新创建人信息
+}
+
+message NursingRecordConfigPB {
+    NursingRecordSpecialTermPB special_term = 1;
+    NursingRecordQuickWordsPB quick_words = 2;
+    repeated NursingRecordTemplateGroupPB default_dept_group = 3;
+}

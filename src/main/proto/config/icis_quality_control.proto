@@ -1,0 +1,136 @@
+syntax = "proto3";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+message QcHeaderPB {
+    string title = 1;  // 表头标题
+    string key = 2;    // 对应的键值
+}
+
+// 对应于typescript的索引签名
+// export interface QcRowPB {
+//     data: { [key: string]: string }; // 行数据，键值对形式
+// }
+message QcRowPB {
+    map<string, string> data = 1;  // 行数据，键值对形式
+}
+
+message QcTablePB {
+    string title = 1;  // 表格标题
+    repeated QcHeaderPB header = 2;  // 表头
+    repeated QcRowPB row = 3;        // 行数据
+}
+
+message QcMonthDataPB {
+    string month_iso8601 = 1;  // 月份，ISO 8601 格式
+    float numerator = 2;  // 分子
+    float denominator = 3;  // 分母
+    string unit = 4;  // 质控单位
+    QcTablePB numerator_tbl = 5;  // 分子表格
+    QcTablePB denominator_tbl = 6;  // 分母表格
+}
+
+/*****************************************************************************
+ * ICU 床位使用率
+ **/
+message QcICUBedUsagePB {
+    string display_bed_number = 1;  // 显示床位号
+    string patient_icu_name = 2;  // 患者姓名
+    string start_date_iso8601 = 3;  // 本月入住开始日期，ISO 8601 格式
+    string end_date_iso8601 = 4;    // 本月出院结束日期，ISO 8601 格式
+    // 同一天一张床可能有x个病人使用时，这一天有两种算法
+    // 1. 这一天，这个病人用了 1/x 个床位
+    // 2. 这一天，这个病人用了 1 个床位
+    // 默认用第一个算法
+    float bed_days = 5;  // 总床位天数
+    string exception = 6;  // 异常信息
+}
+
+message QcICUBedAvailablePB {
+    string start_date_iso8601 = 1;  // 本月开始日期，ISO 8601 格式
+    string end_date_iso8601 = 2;   // 本月结束日期，ISO 8601 格式
+    float bed_days = 3;  // 总床位天数
+}
+
+message QcICUBedUtilizationRatioPB {
+    string month_iso8601 = 1;  // 月份，ISO 8601 格式
+    float total_bed_days = 2;
+    float used_bed_days = 3;
+    repeated QcICUBedUsagePB usage = 4;  // 床位使用情况
+    repeated QcICUBedAvailablePB available = 5;  // 床位可用情况
+}
+
+/*****************************************************************************
+ * ICU 医生床位比、护士床位比
+ **/
+message QcICUAccountPB {
+    int64 employee_id = 1;
+    string account_id = 2;
+    string account_name = 3;
+    string primary_role_name = 4;
+    string start_date_iso8601 = 5;
+    string end_date_iso8601 = 6;
+}
+
+message QcICUAccountBedRatioPB {
+    string month_iso8601 = 1;  // 月份，ISO 8601 格式
+    int32 bed_cnt = 2;
+    int32 acct_cnt = 3;
+    repeated QcICUAccountPB account = 4;
+}
+
+/*****************************************************************************
+ * 病人统计
+ **/
+message QcPatientInfoPB {
+    // 病人基本信息
+    int64 patient_id = 1;
+    string his_mrn = 2;
+    string patient_name = 3;  // 病人姓名
+    string admission_time_iso8601 = 4;
+    string discharge_time_iso8601 = 5;
+
+    // 统计信息
+
+    // 如果一个月内，同一个病人多次48h内出入科，那么这些出入科记录中:
+    // - 第一次的is_in_numerator为true，其他is_in_numerator为false
+    // - 所有的shown_in_numerator为true
+    bool is_in_numerator = 6;
+    bool shown_in_numerator = 7;  
+
+    string numerator_notes = 8;
+    string numerator_time_iso8601 = 9;
+    float numerator_value = 10;  // 计算标化病死率时，该项为该病人的病死率
+    int32 apache2_score = 11;
+    bool is_dead = 12;  // 是否死亡
+
+    bool is_in_denominator = 13;
+    string denominator_time_iso8601 = 14;
+    float predicted_mortality_rate = 15;
+}
+
+message QcPatientStatsPB {
+    string month_iso8601 = 1;  // 月份，ISO 8601 格式
+    float numerator = 2;
+    float denominator = 3;
+    repeated QcPatientInfoPB info = 4;
+}
+
+/*****************************************************************************
+ * 质控项汇总描述
+ **/
+
+message QcItemPB {
+    string code = 1;  // 质控项代码
+    string name = 2;  // 质控项名称
+    string description = 3;  // 质控项描述
+    string calc_formula = 4;  // 计算公式
+}
+
+message QcConfigPB {
+    repeated QcItemPB item = 1;  // 质控项配置
+    repeated int32 doctor_role_id = 2;  // 属于医生的角色ID
+    repeated int32 nurse_role_id = 3;  // 属于护士的角色ID
+    repeated string pain_score_group_code = 4;  // 镇痛评分分组代码
+    repeated string sedation_score_group_code = 5;  // 镇静评分分组代码
+}

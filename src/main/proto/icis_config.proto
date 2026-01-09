@@ -1,0 +1,54 @@
+syntax = "proto3";
+
+import "config/icis_bga.proto";
+import "config/icis_checklist.proto";
+import "config/icis_common.proto";
+import "config/icis_diagnosis.proto";
+import "config/icis_doctor_score.proto";
+import "config/icis_device.proto";
+import "config/icis_jfk.proto";
+import "config/icis_lis.proto";
+import "config/icis_medication.proto";
+import "config/icis_monitoring.proto";
+import "config/icis_monitoring_report.proto";
+import "config/icis_nursing_order.proto";
+import "config/icis_nursing_record.proto";
+import "config/icis_nursing_score.proto";
+import "config/icis_overview.proto";
+import "config/icis_patient.proto";
+import "config/icis_quality_control.proto";
+import "config/icis_shift.proto";
+import "config/icis_text.proto";
+import "config/icis_tube.proto";
+import "config/icis_user.proto";
+import "config/icis_url.proto";
+import "shared/shared.proto";
+
+package com.jingyicare.jingyi_icis_engine.proto;
+
+message Config {
+    string zone_id = 1;  // 时区
+    config.Text text = 2;
+    config.IcisCommonPB common = 3;
+    config.UserConfigPB user = 4;
+    config.ShiftConfigPB shift = 5;
+    config.Patient patient = 6;
+    config.MedicationConfigPB medication = 7;
+    config.TubePB tube = 8;
+    config.MonitoringPB monitoring = 9;
+    config.ScorePB score = 10;
+    config.NursingRecordConfigPB nursing_record = 11;
+    config.NursingOrderConfigPB nursing_order = 12;
+    config.JfkConfigPB jfk = 13;
+    config.MonitoringReportPB monitoring_report = 14;
+    config.DeviceConfigPB device = 15;
+    config.DiagnosisPB diagnosis = 16;
+    config.DoctorScorePB doctor_score = 17;
+    config.BgaConfigPB bga = 18;
+    config.LisConfigPB lis = 19;
+    config.OverviewConfigPB overview = 20;
+    config.ChecklistConfigPB checklist = 21;
+    config.QcConfigPB quality_control = 22; // 质控配置
+    config.UrlConfigPB url = 23;
+    repeated shared.StrKeyValPB ui_modal = 24;  // UI 模态对话: key - ui_modal_code, val - ui_modal_name
+}

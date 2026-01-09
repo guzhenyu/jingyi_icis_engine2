@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+message NursingOrderTemplatePB {
+    int32 id = 1;  // 可为空，比如新增时
+    int32 group_id = 2;
+    string name = 3;
+    int32 duration_type = 4;  // 0: 临时，1：长期
+    string medication_freq_code = 5;  // 频次编码, medication_frequencies.code
+    int32 display_order = 6;
+}
+
+message NursingExeRecordPB {
+    int64 id = 1;  // 自增id
+    int64 nursing_order_id = 2;  // 护理计划id, 外键nursing_orders.id
+    string plan_time_iso8601 = 3;  // 计划执行时间
+    string completed_by = 4;  // 执行人
+    string completed_time_iso8601 = 5;  // 执行完成时间
+}
+
+message NursingOrderPB {
+    int64 id = 1;  // 可为空，新增护理计划时为空
+    int32 order_template_id = 2;  // 模板id, 外键nursing_order_templates.id
+    string name = 3;  // 护理计划名称
+    int32 duration_type = 4;  // 0: 临时护嘱 1: 长期护嘱
+    string medication_freq_code = 5;  // 频次编码，外键：medication_frequencies.code
+    string order_by = 6;  // 开立人
+    string order_time_iso8601 = 7;  // 开立时间
+    string stop_by = 8;  // 停止人
+    string stop_time_iso8601 = 9;  // 停止时间
+    string note = 10;  // 备注
+    repeated NursingExeRecordPB exe_record = 11;  // 执行记录；可为空，当查询全量时为空
+}
+
+message NursingOrderTemplateGroupPB {
+    int32 id = 1;  // 可为空，新增模板组时为空
+    string name = 2;
+    int32 display_order = 3;
+    repeated NursingOrderTemplatePB nursing_order_template = 4;  // 可为空，查询护理计划（护嘱）时为空
+    repeated NursingOrderPB nursing_order = 5;  // 可为空，查询模板时为空
+}
+
+message NursingOrderConfigPB {
+    repeated NursingOrderTemplateGroupPB default_dept_group = 2;
+}

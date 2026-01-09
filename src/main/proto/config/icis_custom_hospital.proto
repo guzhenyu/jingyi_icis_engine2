@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+import "config/icis_monitoring.proto";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+message CustomHospitalPB {
+    string hospital_name = 1;
+    repeated MonitoringGroupPB balance_group = 2;
+    repeated MonitoringGroupPB monitoring_group = 3;
+}

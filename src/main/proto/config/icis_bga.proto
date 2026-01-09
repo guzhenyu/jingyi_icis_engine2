@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+import "shared/shared.proto";
+import "shared/value_meta.proto";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+message BgaEnums {
+    repeated shared.EnumValue bga_category = 1;  // 血气分析分类：动脉血，静脉血，脑脊液
+}
+
+message BgaResultPB {
+    int64 id = 1;  // patient_bga_record_details.id
+    string param_code = 2;
+    shared.GenericValuePB value = 3;
+    string value_str = 4;
+}
+
+message PatientBgaRecordPB {
+    int64 id = 1;  // patient_bga_records.id
+
+    int64 pid = 2; // 病人ID
+    int32 bga_category_id = 3; // 血气分析分类ID
+    string bga_category_name = 4; // 血气分析分类名称
+    string effective_time_iso8601 = 5; // 血气分析结果有效时间
+
+    string recorded_by = 6; // 首次录入人
+    string recorded_at_iso8601 = 7; // 首次录入时间
+    string modified_by = 8; // 修改人
+    string reviewed_by = 9; // 审核人
+    string reviewed_at_iso8601 = 10; // 审核时间
+
+    repeated BgaResultPB bga_result = 11; // 血气分析结果
+}
+
+message RawBgaRecordDetailsPB {
+    string monitoring_param_code = 1; // 监测参数代码
+    string param_value_str = 2; // 监测参数值字符串
+}
+
+message RawBgaRecordPB {
+    string mrn_or_bednum = 1; // 病人住院号或床号
+    int32 bga_category_id = 2; // 血气分析分类ID, BgaEnums.bga_category.id
+    string effective_time_iso8601 = 3; // 血气分析出结果的时间
+    repeated RawBgaRecordDetailsPB details = 4; // 血气分析原始数据
+}
+
+message BgaConfigPB {
+    BgaEnums enums = 1;
+    repeated string bga_param_code = 2;
+}

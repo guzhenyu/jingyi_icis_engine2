@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+import "shared/shared.proto";
+import "shared/value_meta.proto";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+message DiagnosisEnums {
+    repeated shared.EnumValue vital_sign_type = 1;  // 生命体征类型
+}
+
+message VitalSignTypeMapPB {
+    int32 vital_sign_type_id = 1;  // 生命体征类型，DiagnosisEnums.vital_sign_type.id
+    string monitoring_code = 2;  // 监测项编码，monitoring_params.code
+}
+
+message DiseaseItemMetaPB {
+    string code = 1;
+    string name = 2;
+    string description = 3;
+    shared.ValueMetaPB value_meta = 4;
+    bool auto_calculated = 5;
+}
+
+message DiseasePhaseMetaPB {
+    string code = 1;
+    string name = 2;
+    string description = 3;
+    repeated DiseaseItemMetaPB item = 4;
+}
+
+message DiseaseMetaPB {
+    string code = 1;
+    string name = 2;
+    string description = 3;
+    repeated DiseasePhaseMetaPB phase = 4;
+}
+
+message DiseaseItemPB {
+    string code = 1;
+    shared.GenericValuePB value = 2;
+    string source = 3;
+    string orig_value_str = 4;
+    string effective_time_iso8601 = 5;
+}
+
+message DiseasePhasePB {
+    string code = 1;
+    repeated DiseaseItemPB item = 2;
+}
+
+message DiseasePB {
+    string code = 1;
+    repeated DiseasePhasePB phase = 2;
+}
+
+message DiagnosisPB {
+    DiagnosisEnums enums = 1;
+    repeated VitalSignTypeMapPB vital_sign_type_map = 2;  // 生命体征类型映射
+    repeated DiseaseMetaPB disease_meta = 3;
+    string ibp_s_monitoring_code = 4;  // 有创收缩压观察项编码
+    string nibp_s_monitoring_code = 5;  // 无创收缩压观察项编码
+    string respiratory_rate_monitoring_code = 6;  // 呼吸频率观察项编码
+    string temperature_monitoring_code = 7;  // 体温观察项编码
+    string gcs_score_code = 8;  // GCS评分项编码
+    string picc_tube_type = 9;  // PICC管类型
+    string catheter_tube_type = 10;  // 导尿管类型
+}

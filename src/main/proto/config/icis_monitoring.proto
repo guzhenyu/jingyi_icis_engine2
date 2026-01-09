@@ -1,0 +1,153 @@
+syntax = "proto3";
+
+import "shared/shared.proto";
+import "shared/value_meta.proto";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+message MonitoringEnums {
+    shared.EnumValue balance_nan = 1;       // 无效值
+    shared.EnumValue balance_in = 2;        // 入量
+    shared.EnumValue balance_out = 3;       // 出量
+    shared.EnumValue balance_net = 4;       // 平衡量（入量 - 出量）
+
+    shared.EnumValue group_type_balance = 5;     // 出入量分组类型
+    shared.EnumValue group_type_monitoring = 6;  // 观察项分组类型
+
+    shared.EnumValue param_category_patient = 7;  // 观察项类型病人
+    shared.EnumValue param_category_monitor = 8;  // 观察项类型监护仪
+    shared.EnumValue param_category_vent = 9;  // 呼吸机
+    shared.EnumValue param_category_crrt = 10;  // 血滤机
+    shared.EnumValue param_category_bga = 11;  // 血气机
+    shared.EnumValue param_category_ecmo = 12;  // 体外膜肺氧合机
+
+    shared.EnumValue param_ui_modal_nan = 13;  // 参数无需联动编辑对话框
+}
+
+message MonitoringModalOptionPB {
+    string score_group_code = 1;  // 护理评分code
+    string score_group_name = 2;  // 护理评分名称
+    string ui_modal_code = 3;  // UI模态对话框code
+    string ui_modal_name = 4;  // UI模态对话框名称
+}
+
+message MonitoringParamModalOptionsPB {
+    string param_code = 1;
+    repeated MonitoringModalOptionPB option = 2;  // 观察项对应的UI模态对话框选项
+}
+
+message MonitoringParamPB {
+    int32 id = 1;  // dept_monitoring_group_params.id / patient_monitoring_group_params.id
+    string code = 2;
+    string name = 3;
+    string name_en = 4; // 英文名
+    shared.ValueMetaPB value_meta = 5;
+    int32 balance_type = 6;  // 对应于MonitoringEnums.balance_xx.id
+    int32 category = 7;
+    int32 ui_modal_id = 8;
+    string ui_modal_code = 12;
+    string chart_sign = 9;  // 图标标记
+    int32 display_order = 10;  // 组内显示次序
+    string src = 11;  // 数据来源
+}
+
+message MonitoringGroupParamPB {
+    int32 id = 1;  // dept_monitoring_group_params.id / patient_monitoring_group_params.id
+    string code = 2;  // monitoring_params.code
+    int32 display_order = 3;  // 组内显示次序
+}
+
+message MonitoringGroupPB {
+    int32 id = 1;
+    string name = 2;
+    int32 group_type = 3;  // 对应于MonitoringEnums.group_type_xx.id
+    int32 display_order = 4;  // 分组间的次序
+    shared.ValueMetaPB sum_value_meta = 5;
+    repeated MonitoringGroupParamPB monitoring_param = 6;
+}
+
+message MonitoringGroupBetaPB {
+    int32 id = 1;  // dept_monitoring_groups.id
+    string name = 2;
+    int32 group_type = 3;  // 对应于MonitoringEnums.group_type_xx.id
+    int32 display_order = 4;  // 分组间的次序
+    shared.ValueMetaPB sum_value_meta = 5;
+    repeated MonitoringParamPB param = 6;
+}
+
+message MonitoringValuePB {
+    shared.GenericValuePB value = 1;  // 监测值，如果对应的ValueMetaPB标记为单选
+    repeated shared.GenericValuePB values = 2;  // 监测值，如果对应的ValueMetaPB标记为多选
+}
+
+message MonitoringPB {
+    string param_code_summary = 1;
+    string param_code_summary_txt = 2;
+    string balance_in_group_name = 3;
+    string balance_out_group_name = 4;
+    string balance_net_group_name = 5;
+    string net_hourly_in_code = 6;              // 平衡组，“每小时入量”的观察项编码(存库)
+    string net_hourly_out_code = 7;             // 平衡组，“每小时出量”的观察项编码(存库)
+    string net_hourly_net_code = 8;             // 平衡组，“每小时平衡量”的观察项编码
+    string net_accumulated_in_code = 9;         // 平衡组，“累计入量”的观察项编码
+    string net_accumulated_out_code = 10;        // 平衡组，“累计出量”的观察项编码
+    string net_accumulated_net_code = 11;       // 平衡组，“累计平衡量”的观察项编码
+    string daily_total_intake_code = 12;   // “每日总入量”的观察项编码
+    string daily_total_output_code = 13;   // “每日总出量”的观察项编码
+    string daily_total_balance_code = 14;  // “每日总平衡量”的观察项编码
+
+    MonitoringEnums enums = 15;
+    repeated MonitoringParamPB monitoring_param = 16;
+    MonitoringParamPB default_drainage_param = 17;  // 引流管参数默认配置（类型，平衡类型，类别，UI类型）
+    repeated MonitoringGroupPB balance_group = 18;
+    repeated MonitoringGroupPB monitoring_group = 19;
+    bool format_user_input = 20;  // 是否格式化用户的输入，比如根据观察项配置截断小数点后2位
+
+    repeated shared.TypeEnumPB balance_param_type = 21;
+
+    repeated MonitoringParamModalOptionsPB param_modal_option = 22;  // 观察项对应的UI模态对话框选项
+}
+
+message MonitoringRecordValPB {
+    int64 id = 1;  // patient_monitoring_records.id
+    shared.GenericValuePB value = 2;  // 监测值，如果对应的ValueMetaPB标记为单选
+    repeated shared.GenericValuePB values = 3;  // 监测值，如果对应的ValueMetaPB标记为多选
+    string value_str = 4;
+    string recorded_at_iso8601 = 5;
+}
+
+message MonitoringCodeRecordsPB {
+    string param_code = 1;
+    repeated MonitoringRecordValPB record_value = 2;
+}
+
+message MonitoringGroupRecordsPB {
+    int32 dept_monitoring_group_id = 1;
+    repeated MonitoringCodeRecordsPB code_records = 2;
+}
+
+message BalanceParamRecordPB {
+    string param_code = 1;
+    string param_name = 2;
+    double sum_ml = 3;  // 累计入量/出量/平衡量，单位ml
+    string sum_str = 4;  // 累计入量/出量/平衡量，字符串表示
+}
+
+message BalanceGroupSummaryPB {
+    int32 dept_monitoring_group_id = 1;
+    string dept_monitoring_group_name = 2;
+    double sum_ml = 3;  // 累计入量/出量/平衡量，单位ml
+    string sum_str = 4;  // 累计入量/出量/平衡量，字符串表示
+    repeated BalanceParamRecordPB param_record = 5;
+}
+
+message PatientMonitoringTimePointPB {
+    int64 id = 1;  // patient_monitoring_time_points.id
+    string time_point_iso8601 = 2;
+}
+
+message DeptMonitoringSettingsPB {
+    string dept_id = 1;
+    int32 head_custom_time_point_grace_minutes = 2;
+    int32 tail_custom_time_point_grace_minutes = 3;
+}

@@ -1,0 +1,79 @@
+syntax = "proto3";
+
+import "shared/value_meta.proto";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+message LisParamPB {
+    string param_code = 1;  // 检验参数编码
+    string param_name = 2;  // 检验参数名称
+    string description = 3;  // 检验参数描述
+    repeated string external_param_code = 4;  // 外部检验参数编码
+    int32 display_order = 5;  // 显示顺序
+}
+
+message LisParamWithTypePB {
+    LisParamPB param = 1;
+    shared.ValueMetaPB value_meta = 2;  // 检验参数类型
+}
+
+message ExternalLisParamPB {
+    string param_code = 1;  // 外部检验参数编码
+    string param_name = 2;  // 外部检验参数名称
+    shared.ValueMetaPB value_meta = 3;     // 外部检验参数类型
+    shared.GenericValuePB danger_max = 4;  // 危险上限
+    shared.GenericValuePB danger_min = 5;  // 危险下限
+    int32 display_order = 6;  // 显示顺序
+}
+
+message PatientLisItemPB {
+    string report_id = 1;  // 检验项流水号
+    string his_pid = 2;  // 病人ID
+    string lis_item_name = 3;  // 检验项目名称
+    string lis_item_short_name = 4;  // 检验项目简称
+    string lis_item_code = 5;  // 检验项目编码
+    string order_id = 6;  // 申请单号
+    string order_dept = 7;  // 申请科室
+    string order_dept_id = 8;  // 申请科室编码
+    string order_doctor = 9;  // 申请医生
+    string order_doctor_id = 10;  // 申请医生编码
+    string sample_id = 11;  // 标本号
+    string sample_name = 12;  // 标本名称
+    string collect_time_iso8601 = 13;  // 标本采集时间
+    string receive_time_iso8601 = 14;  // 标本接收时间
+    string auth_time_iso8601 = 15;  // 结果批准时间
+    string auth_doctor = 16;  // 结果批准者
+    string status = 17;  // 检验状态
+
+    repeated PatientLisResultPB results = 18;  // 检验结果
+}
+
+message PatientLisResultPB {
+    int64 id = 1;  // 主键
+    string report_id = 2;  // 检验项流水号
+    string external_param_code = 3;  // 外部检验参数编码
+    string external_param_name = 4;  // 外部检验参数名称
+    string unit = 5;  // 单位
+    string result_str = 6;  // 结果对应的字符串
+    string auth_time_iso8601 = 7;  // 批准时间
+    string auth_doctor = 8;  // 批准医生
+    string notes = 9;  // 备注
+
+    string alarm_flag = 10;  // 报警标志
+    string danger_flag = 11;  // 危险标志
+
+    string normal_min_str = 12;  // 下限
+    string normal_max_str = 13;  // 上限
+    string danger_min_str = 14;  // 下限字符串
+    string danger_max_str = 15;  // 上限字符串
+}
+
+
+message PatientLisItemWithResultsPB {
+    PatientLisItemPB item = 1;  // 检验项
+    repeated PatientLisResultPB results = 2;  // 检验结果
+}
+
+message LisConfigPB {
+    repeated LisParamWithTypePB param = 1;  // 系统预定义的检验参数
+}

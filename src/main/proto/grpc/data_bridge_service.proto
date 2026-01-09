@@ -1,0 +1,246 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.jingyicare.jingyi_icis_databridge.grpc";
+
+import "shared/shared.proto";
+import "config/icis_bga.proto";
+import "config/icis_device.proto";
+import "config/icis_lis.proto";
+
+service DataBridgeService {
+    // his（三方）相关接口
+    rpc GetInIcuPatients (com.jingyicare.jingyi_icis_engine.proto.shared.EmptyReq) returns (GetInIcuPatientsResp);
+    rpc GetAllDevices (com.jingyicare.jingyi_icis_engine.proto.shared.EmptyReq) returns (GetAllDevicesResp);
+
+    rpc UpdateHisPatient (UpdateHisPatientReq) returns (com.jingyicare.jingyi_icis_engine.proto.shared.GenericResp);
+    rpc UpdateMedicalOrder (UpdateMedicalOrderReq) returns (com.jingyicare.jingyi_icis_engine.proto.shared.GenericResp);
+    rpc UpdateAccount (UpdateAccountReq) returns (com.jingyicare.jingyi_icis_engine.proto.shared.GenericResp);
+    rpc UpdateDept (UpdateDeptReq) returns (com.jingyicare.jingyi_icis_engine.proto.shared.GenericResp);
+    rpc UpdateAccountDept (UpdateAccountDeptReq) returns (com.jingyicare.jingyi_icis_engine.proto.shared.GenericResp);
+    rpc AddPatientLisItem (AddPatientLisItemReq) returns (com.jingyicare.jingyi_icis_engine.proto.shared.GenericResp);
+    rpc AddPatientLisResult (AddPatientLisResultReq) returns (com.jingyicare.jingyi_icis_engine.proto.shared.GenericResp);
+
+    // 设备相关接口
+    rpc AddRawBgaRecord (AddRawBgaRecordReq) returns (com.jingyicare.jingyi_icis_engine.proto.shared.GenericResp);
+    rpc AddDeviceData (AddDeviceDataReq) returns (com.jingyicare.jingyi_icis_engine.proto.shared.GenericResp);
+}
+
+enum BridgeStatusCode {
+    BRIDGE_OK = 0;
+    BRIDGE_PATIENT_RECORD_NOT_FOUND = 1;  // 病人记录不存在
+    BRIDGE_PATIENT_ID_MRN_NOT_MATCH = 2;  // 病人ID和住院号不匹配
+    BRIDGE_LIS_ITEM_NULL_FIELD = 3;  // 检验项字段为空
+    BRIDGE_LIS_ITEM_REPORT_ID_EXISTS = 4;  // 检验项流水号已存在
+    BRIDGE_LIS_RESULT_NULL_FIELD = 5;  // 检验结果字段为空
+    BRIDGE_INVALID_TIME_FORMAT = 6;  // 时间格式不正确
+    BRIDGE_INVALID_ADMISSION_TIME_FORMAT = 7;  // 入院时间格式不正确
+    BRIDGE_MEDICAL_ORDER_ID_IS_EMPTY = 8;  // 医嘱ID为空
+    BRIDGE_HIS_PATIENT_ID_IS_EMPTY = 9;  // 病人ID为空
+    BRIDGE_ACCOUNT_ID_IS_EMPTY = 10;  // 账号ID为空
+    BRIDGE_ACCOUNT_NAME_IS_EMPTY = 11;  // 账号名字为空
+    BRIDGE_DEPT_ID_IS_EMPTY = 12;  // 科室ID为空
+    BRIDGE_DEPT_NAME_IS_EMPTY = 13;  // 科室名称为空
+    BRIDGE_DEPT_ID_OR_ACCOUNT_ID_IS_EMPTY = 14;  // 科室ID或账号ID为空
+    BRIDGE_INVALID_HIS_PATIENT_ID = 15;  // 无效的病人ID
+    BRIDGE_LAST_CODE = 16;
+}
+
+message DataBridgeConfigPB {
+    repeated string status_code_msg = 1;
+}
+
+// his（三方）相关接口
+message DeptPatientsPB {
+    string dept_code = 1;
+    repeated string his_patient_id = 2;
+}
+
+message GetInIcuPatientsResp {
+    com.jingyicare.jingyi_icis_engine.proto.shared.ReturnCode rt = 1; // 返回码
+    repeated DeptPatientsPB dept_patients = 2; // 科室病人列表
+}
+
+message GetAllDevicesResp {
+    com.jingyicare.jingyi_icis_engine.proto.shared.ReturnCode rt = 1; // 返回码
+    repeated com.jingyicare.jingyi_icis_engine.proto.config.DeviceInfoPB device = 2; // 设备列表
+}
+
+message HisPatientPB {
+    string pid = 1; // 本次病历全局ID，对应his_patient_id
+    string mrn = 2; // 住院号，对应his_mrn
+    string index_id = 3; // 病案首页ID，对应his_index_id
+    string patient_serial_number = 4; // 病人流水号，对应his_patient_serial_number
+    int32 admission_count = 5; // 住院次数，对应his_admission_count
+    string admission_time_iso8601 = 6; // 住院时间，对应his_admission_time
+    string admission_diagnosis = 7; // 入院诊断，对应his_admission_diagnosis
+    string admission_diagnosis_code = 8; // 入院诊断编码，对应his_admission_diagnosis_code
+    string bed_number = 9; // 床号，对应his_bed_number
+
+    string name = 10; // 姓名，对应icu_name
+    int32 gender = 11; // 性别，对应icu_gender
+    string date_of_birth_iso8601 = 12; // 出生年月，对应icu_date_of_birth
+    float height = 13; // 身高，单位：厘米，对应height
+    float weight = 14; // 体重，单位：千克，对应weight
+    string blood_type = 15; // 血型类型，对应blood_type
+    string blood_rh = 16; // 血型Rh，对应blood_rh
+
+    string past_medical_history = 17; // 既往史，对应past_medical_history
+    string allergies = 18; // 过敏史，对应allergies
+
+    string phone = 19; // 联系电话，对应phone
+    string home_address = 20; // 家庭地址，对应home_address
+    string document_type = 21; // 证件类型，对应document_type
+    string id_card_number = 22; // 身份证，对应id_card_number
+    string nation = 23; // 民族，对应nation
+    string native_place = 24; // 籍贯，对应native_place
+    string occupation = 25; // 职业，对应occupation
+    string emergency_contact_name = 26; // 联系人姓名，对应emergency_contact_name
+    string emergency_contact_relation = 27; // 联系人关系，对应emergency_contact_relation
+    string emergency_contact_phone = 28; // 联系人电话，对应emergency_contact_phone
+    string payment_method = 29; // 结算方式，对应payment_method
+    string insurance_type = 30; // 医保类型，对应insurance_type
+    string insurance_number = 31; // 医保卡号，对应insurance_number
+    string medical_card_number = 32; // 就诊卡号，对应medical_card_number
+
+    bool is_vip_patient = 33; // 绿色通道，对应is_vip_patient
+    string illness_severity_level = 34; // 病情分级，对应illness_severity_level
+    string chief_complaint = 35; // 主诉，对应chief_complaint
+
+    string dept_code = 36; // 科室编码，对应dept_id
+    string dept_name = 37; // 科室名称，对应dept_name
+    string ward_code = 38; // 病区编码，对应ward_code
+    string ward_name = 39; // 病区名称，对应ward_name
+    string attending_doctor_name = 40; // 主治医生姓名，需要转化为为attending_doctor_id
+
+    string admission_source_dept_name = 41; // 入科来源，对应admission_source_dept_name
+    int32 admission_status = 42; // 在科状态，对应admission_status
+    string icu_admission_time_iso8601 = 43; // 入ICU时间，对应admission_time
+
+    string diagnosis_time_iso8601 = 44; // 诊断时间，原始表中未明确对应，新增字段
+    string diagnosis_code = 45; // 入科诊断编码，原始表中未明确对应，参考diagnosis
+    string diagnosis = 46; // 入科诊断，对应diagnosis
+    string diagnosis_tcm_time_iso8601 = 47; // 中医诊断时间，对应diagnosis_tcm_time
+    string diagnosis_tcm_code = 48; // 中医临床诊断编码，对应diagnosis_tcm_code
+    string diagnosis_tcm = 49; // 中医临床诊断，对应diagnosis_tcm
+
+    int32 discharged_type = 50; // 出科类型，对应discharged_type
+    string discharged_dept_id = 51; // 转出科室编码，对应discharged_dept_id
+    string discharged_dept_name = 52; // 转出科室名称，对应discharged_dept_name
+    string discharge_time_iso8601 = 53; // 转出ICU时间，对应discharge_time
+
+    string operation = 54; // 最近的手术名称，新增字段
+    string operation_time_iso8601 = 55; // 最近的手术时间，新增字段
+
+    string created_at_iso8601 = 56; // 创建时间，ISO8601格式，对应created_at_iso8601
+}
+
+message UpdateHisPatientReq {
+    repeated HisPatientPB patient = 1; // 病人信息列表
+}
+
+message UpdateMedicalOrderReq {
+    string order_id = 1; // 医嘱ID
+    string his_patient_id = 2; // 病人ID
+    string group_id = 3; // 医嘱组ID
+    string his_mrn = 4; // 住院号
+    string patient_name = 5; // 病人姓名
+    string ordering_doctor = 6; // 开嘱医生姓名
+    string ordering_doctor_id = 7; // 开嘱医生ID
+    string dept_id = 8; // 科室ID
+
+    string order_type = 9; // 医嘱类型
+    string status = 10; // 医嘱状态
+    string order_time_iso8601 = 11; // 开嘱时间
+    string stop_time_iso8601 = 12; // 停止时间
+    string cancel_time_iso8601 = 13; // 取消时间
+
+    string order_code = 14; // 医嘱编码
+    string order_name = 15; // 医嘱名称
+    string spec = 16; // 规格
+    double dose = 17; // 剂量
+    string dose_unit = 18; // 剂量单位
+    string recommend_speed = 19; // 推荐速度
+    string medication_note = 20; // 用药备注
+    string medication_type = 21; // 用药类型
+    string payment_type = 22; // 支付类型
+
+    int32 order_duration_type = 23; // 医嘱时长类型
+    string plan_time_iso8601 = 24; // 计划执行时间
+    string freq_code = 25; // 频次编码
+    int32 first_day_exe_count = 26; // 首日执行次数
+    string administration_route_code = 27; // 给药途径编码
+    string administration_route_name = 28; // 给药途径名称
+
+    string reviewer = 29; // 审核人姓名
+    string reviewer_id = 30; // 审核人ID
+    string review_time_iso8601 = 31; // 审核时间
+    string created_at_iso8601 = 32; // 创建时间
+}
+
+message UpdateAccountReq {
+    string account_id = 1; // 账号ID，对应account_id
+    string name = 2; // 姓名，对应name
+    int32 gender = 3; // 性别，对应gender
+    string date_of_birth_iso8601 = 4; // 出生日期（ISO8601），对应date_of_birth
+    string position = 5; // 职位，对应position
+    string title = 6; // 职称，对应title
+    string education_level = 7; // 学历，对应education_level
+    int32 marital_status = 8; // 婚姻状况，对应marital_status
+    string phone = 9; // 联系电话，对应phone
+    string start_date_iso8601 = 10; // 入职日期（ISO8601），对应start_date
+    string id_card_number = 11; // 身份证号，对应id_card_number
+    string ca_id = 12; // CA账号ID，对应ca_id
+    string ca_sign_pic = 13; // CA签名图片，对应ca_sign_pic
+    string ca_cert = 14; // CA证书，对应ca_cert
+}
+
+message UpdateDeptReq {
+    string dept_id = 1; // 科室ID，对应dept_id
+    string name = 2; // 科室名称，对应name
+    string abbreviation = 3; // 科室简称，对应abbreviation
+    string ward_code = 4; // 病区编码，对应ward_code
+    string ward_name = 5; // 病区名称，对应ward_name
+    string hospital_name = 6; // 医院名称，对应hospital_name
+}
+
+message UpdateAccountDeptReq {
+    string account_id = 1; // 账号ID，对应account_id
+    string dept_id = 2; // 科室ID，对应dept_id
+    // 参见 icis_config.pb.txt : role.id
+    // - 1: admin
+    // - 2: 主任
+    // - 3: 护士长
+    // - 4: 护理组长
+    // - 5: 护士
+    // - 6: 实习护士
+    // - 7: 医生
+    int32 primary_role_id = 3; // 主要角色ID，对应primary_role_id
+}
+
+message AddPatientLisItemReq {
+    com.jingyicare.jingyi_icis_engine.proto.config.PatientLisItemPB patient_lis_item = 1; // 检验项
+}
+
+message AddPatientLisResultReq {
+    com.jingyicare.jingyi_icis_engine.proto.config.PatientLisResultPB patient_lis_result = 1; // 检验结果
+}
+
+// 设备相关接口
+message AddRawBgaRecordReq {
+    com.jingyicare.jingyi_icis_engine.proto.config.RawBgaRecordPB record = 1; // 血气分析原始数据
+}
+
+message AddDeviceDataPB {
+    string param_code = 1; // 参数编码
+    string recorded_at_iso8601 = 2; // 记录时间（ISO8601格式）
+    string recorded_str = 3; // 记录字符串
+}
+
+message AddDeviceDataReq {
+    string department_id = 1; // 科室ID
+    int32 device_id = 2; // 设备ID
+    int32 device_type = 3; // 设备类型
+    string device_bed_number = 4; // 设备床号
+    repeated AddDeviceDataPB device_data = 5; // 设备数据列表
+}

@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package com.jingyicare.jingyi_icis_engine.proto.shared;
+
+enum TypeEnumPB {
+    NOT_USED = 0;
+    BOOL = 1;
+    INT32 = 2;
+    INT64 = 3;
+    FLOAT = 4;
+    DOUBLE = 5;
+    STRING = 6;
+}
+
+message GenericValuePB {
+    bool bool_val = 1;
+    int32 int32_val = 2;
+    int64 int64_val = 3;
+    float float_val = 4;
+    double double_val = 5;
+    string str_val = 6;
+}
+
+message ValueMetaPB {
+    TypeEnumPB value_type = 1;             // 基础数据类型
+    bool is_multiple_selection = 2;      // 是否支持多选
+    bool required = 3;                   // 是否为必填字段
+    string tooltip = 4;                  // 提示信息，解释该字段的含义
+
+    repeated GenericValuePB default_values = 5;  // 默认值列表
+    repeated GenericValuePB opt_values = 6;      // 可选值列表，需与 value_type 匹配
+    bool restrict_to_opt_values = 7;            // 是否仅限选可选值中的值
+    GenericValuePB upper_limit = 8;             // 上限，需与 value_type 匹配
+    GenericValuePB lower_limit = 9;             // 下限，需与 value_type 匹配
+
+    // 显示设置
+    int32 decimal_places = 10;            // 仅对 FLOAT 和 DOUBLE 有效
+    bool pad_zero_decimal = 11;              // 是否用0补全小数位
+    string unit = 12;                     // 单位，如 "points"、"kg" 等
+}
+
+message TimedGenericValuePB {
+    GenericValuePB value = 1;               // 通用值
+    string value_str = 2;                   // 对应的字符串值
+    string recorded_at_iso8601 = 3;         // ISO 8601 格式的记录时间
+}

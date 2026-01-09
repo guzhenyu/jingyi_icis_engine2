@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package com.jingyicare.jingyi_icis_engine.proto.shared;
+
+message EnumValue {
+    int32 id = 1;
+    string name = 2;
+    string label = 3;
+}
+
+message StrKeyValPB {
+    string key = 1;
+    string val = 2;
+}
+
+message IntStrKvPB {
+    int32 key = 1;
+    string val = 2;
+}
+
+message ReturnCode {
+    int32 code = 1;
+    string msg = 2;
+}
+
+message EmptyReq {
+}
+
+message GenericResp {
+    ReturnCode rt = 1;
+}

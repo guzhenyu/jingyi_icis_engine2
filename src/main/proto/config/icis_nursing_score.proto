@@ -1,0 +1,125 @@
+syntax = "proto3";
+
+import "shared/shared.proto";
+import "shared/value_meta.proto";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+message ScoreEnums {
+    shared.EnumValue score_item_type_single_selection = 1;
+    shared.EnumValue score_item_type_multi_selection = 2;
+
+    shared.EnumValue score_item_aggregator_sum = 3;
+    shared.EnumValue score_item_aggregator_max = 4;
+    shared.EnumValue score_item_aggregator_first = 5;
+    shared.EnumValue score_item_aggregator_catheter_slippage = 6;
+    shared.EnumValue score_item_aggregator_custom = 7;
+
+    shared.EnumValue score_group_aggregator_sum = 8;
+    shared.EnumValue score_group_aggregator_first = 9;
+    shared.EnumValue score_group_aggregator_delirium = 10;  // 谵妄评估
+    shared.EnumValue score_group_aggregator_custom = 11;  // 自定义计算公式，custom1,custom2...
+
+    shared.EnumValue score_group_printer_default = 12;
+    shared.EnumValue score_group_printer_custom = 13;  // 目前未使用，自定义显示规则，custom1,custom2...
+
+    string delirium_code = 14;  // 谵妄评估的代码
+    string positive_str = 15;  // 正向评分的字符串表示，如 "Positive" 或 "是" 或 "阳性"
+    string negative_str = 16;  // 负向评分的字符串表示，如 "Negative" 或 "否" 或 "阴性"
+    string unknown_str = 17;  // 未知评分的字符串表示，如 "Unknown" 或 "不明" 或 "无法评估"
+
+    shared.EnumValue measure_type_boolean = 18;
+    shared.EnumValue measure_type_input = 19;
+}
+
+message ScoreOptionPB {
+    string code = 1;
+    string orig_name = 2;
+    string name = 3;  // 评分选项别名
+    shared.GenericValuePB score = 4;
+    string description = 5;
+}
+
+message ScoreItemMetaPB {
+    string code = 1;
+    string orig_name = 2;
+    string name = 3;  // 评分项别名
+    string description = 4;
+    repeated ScoreOptionPB option = 5;
+
+    // 对应于ScoreEnums.score_item_type_xx.id
+    int32 score_item_type = 6;
+
+    // 对应于ScoreEnums.score_item_aggregator_xx.id
+    // 仅在 score_item_type 为 multi_selection 时有效
+    int32 score_item_aggregator = 7;
+
+    repeated string code_with_note = 8;  // 允许有备注的选项的编码
+}
+
+message ScoreGroupMeasureMetaPB {
+    int32 id = 1;
+    string name = 2;  // 措施名称
+    int32 measure_type = 3;  // 对应于ScoreEnums.measure_type_xx.id
+}
+
+message ScoreGroupMetaPB {
+    int32 id = 1;  // 如果有效，则为dept_score_groups.id
+    string code = 2;
+    string orig_name = 3;
+    string name = 4;  // 评分组别名
+    string description = 5;
+    int32 display_order = 6;
+
+    // 评分组的分数类型
+    shared.ValueMetaPB value_meta = 7;
+
+    repeated ScoreItemMetaPB item = 8;
+
+    // 评分组的分数计算公式
+    int32 score_group_aggregator = 9;  // 对应于ScoreEnums.score_group_aggregator_xx.id
+
+    // 评分组的显示规则
+    int32 score_group_printer = 10;  // 对应于ScoreEnums.score_group_printer_xx.id
+
+    // 对应得观察项参数编码，如果为空，不体现在观察项得逻辑中
+    string monitoring_param_code = 11;  // 监测参数代码, 对应于monitoring_params.code
+
+    // 护理评分措施
+    bool measure_multi_selection = 12;  // 是否支持多选
+    repeated ScoreGroupMeasureMetaPB measure = 13;  // 护理评分措施
+
+    string notes = 14;  // 备注
+}
+
+message ScoreItemPB {
+    string code = 1;  // 对应于 ScoreItemMetaPB.code
+    repeated string score_option_code = 2;
+    repeated shared.StrKeyValPB code_note = 3;  // 评分选项和对应的备注的键值对
+}
+
+message ScoreGroupMeasurePB {
+    string name = 1;  // ScoreGroupMetaPB.name
+    bool apply = 2;
+    string notes = 3;
+}
+
+message ScoreGroupPB {
+    string code = 1;  // 对应于 ScoreGroupMetaPB.code
+    repeated ScoreItemPB item = 2;
+    shared.GenericValuePB group_score = 3;
+    string group_score_text = 4;  // 对应评分的字符串表示
+    repeated ScoreGroupMeasurePB measure = 5;  // 护理评分措施
+}
+
+message ScoreSettingsPB {
+    string dept_id = 1;
+    bool allow_edit_recorded_by = 2;  // 评分允许修改记录创建人
+}
+
+message ScorePB {
+    ScoreEnums enums = 1;
+    repeated ScoreGroupMetaPB group = 2;
+    repeated string default_score_group_code = 3;
+    repeated shared.StrKeyValPB param_score_kv = 4;  // 观察项参数编码和对应的评分组编码键值对
+}

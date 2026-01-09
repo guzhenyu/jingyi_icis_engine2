@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+import "shared/shared.proto";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+message UrlParamPB {
+    string param_name = 1;     // 参数名称
+    int32 param_value_id = 2;  // UrlConfigPB.predefined_param_value.id
+    int32 param_encoder_id = 3;  // UrlConfigPB.predefined_param_encoder.id
+    string custom_value = 4;  // 当 param_value_id=0 时, 使用 custom_value 作为参数值
+}
+
+message ExtUrlPB {
+    int32 id = 1;  // ext_urls.id
+    string dept_id = 2;
+    string display_name = 3;
+
+    string schema_to_port = 4;  // "http://192.168.0.49:8080"
+    repeated UrlParamPB path = 5;
+    repeated UrlParamPB param = 6;
+}
+
+message UrlConfigPB {
+    repeated shared.EnumValue predefined_param_value = 1;
+    repeated shared.EnumValue predefined_param_encoder = 2;
+}

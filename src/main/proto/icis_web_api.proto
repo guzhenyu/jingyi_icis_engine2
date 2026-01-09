@@ -1,0 +1,4872 @@
+syntax = "proto3";
+
+import "config/icis_bga.proto";
+import "config/icis_checklist.proto";
+import "config/icis_common.proto";
+import "config/icis_device.proto";
+import "config/icis_diagnosis.proto";
+import "config/icis_doctor_score.proto";
+import "config/icis_jfk.proto";
+import "config/icis_lis.proto";
+import "config/icis_medication.proto";
+import "config/icis_monitoring.proto";
+import "config/icis_nursing_record.proto";
+import "config/icis_nursing_order.proto";
+import "config/icis_nursing_score.proto";
+import "config/icis_overview.proto";
+import "config/icis_patient.proto";
+import "config/icis_quality_control.proto";
+import "config/icis_settings.proto";
+import "config/icis_shift.proto";
+import "config/icis_text.proto";
+import "config/icis_tube.proto";
+import "config/icis_url.proto";
+import "config/icis_user.proto";
+import "shared/shared.proto";
+import "shared/value_meta.proto";
+
+package com.jingyicare.jingyi_icis_engine.proto;
+
+////// icis_web_api.proto defines communication protols between the frontend and the backend.
+////// MUST BE KEPT IN SYNC WITH:
+////// - ${current_project_root}/src/main/java/com/jingyicare/jingyi_icis_engine/service/SystemInitializer.java
+////// - ${current_project_root}/src/main/resources/text_resources/icis_config.pb.txt
+////// - jingyi_icis_frontent/src/ts/data/IcisWebApi.ts
+enum StatusCode {
+    OK = 0;
+    DEPT_IS_EMPTY = 1;                      // 部门为空
+    NOT_LOGGED_IN = 2;                      // 用户未登录
+    ACCOUNT_NOT_FOUND = 3;                  // 用户不存在
+    WRONG_PASSWORD = 4;                     // 密码错误
+    NEWPASSWD_CONFIRMPASSWD_NOT_MATCH = 5;  // 新密码和确认密码不一致
+    NEWPASSWD_OLDPASSWD_SAME = 6;           // 新密码和旧密码不能相同
+    NEWPASSWD_EMPTY = 7;                    // 新密码不能为空
+    INTERNAL_EXCEPTION = 8;                 // 内部异常
+    NETWORK_ERROR = 9;                      // 网络错误
+    PATIENT_ALREADY_EXISTS = 10;            // 患者已存在
+    PATIENT_NOT_FOUND = 11;                 // 患者不存在
+    PARSE_JSON_FAILED = 12;                 // 解析JSON失败
+    ORDER_GROUP_NOT_FOUND = 13;             // 医嘱不存在
+    EXECUTION_RECORD_NOT_FOUND = 14;        // 执行记录不存在
+    ACTION_TYPE_NOT_QUALIFIED = 15;         // 动作类型不合格
+    EXECUTION_ACTION_NOT_FOUND = 16;        // 执行动作不存在
+    ACTION_ID_NOT_LAST = 17;                // 动作ID不是最后一个
+    EXECUTION_RECORD_HAS_ACTIONS = 18;      // 执行记录已有动作
+    TUBE_NAME_EXIST = 19;                   // 管道名称已存在
+    NON_DRAINAGE_TUBE_SINGLE_INSTANCE = 20; // 非引流管只能有一个实例
+    TUBE_TYPE_NOT_EXIST = 21;               // 管道类型不存在
+    TUBE_TYPE_ID_NOT_MATCH = 22;            // (管道类型ID)与(部门+管道类型名称)不匹配
+    TUBE_TYPE_ATTRIBUTE_EXIST = 23;         // 管道类型属性已存在
+    TUBE_TYPE_ATTRIBUTE_NOT_EXIST = 24;     // 管道类型属性不存在
+    TUBE_TYPE_ATTRIBUTE_ID_NOT_MATCH = 25;  // (管道类型属性ID)与(管道类型ID+属性编码)不匹配
+    TUBE_TYPE_STATUS_EXIST = 26;            // 管道类型状态已存在
+    TUBE_TYPE_STATUS_NOT_EXIST = 27;        // 管道类型状态不存在
+    TUBE_TYPE_STATUS_ID_NOT_MATCH = 28;     // (管道类型状态ID)与(管道类型ID+状态编码)不匹配
+    PATIENT_TUBE_EXIST = 29;                // 病人管道(名称)已存在
+    PATIENT_TUBE_NOT_FOUND = 30;            // 病人插管记录不存在
+    PATIENT_TUBE_STATUS_EXIST = 31;         // 病人插管状态已存在
+    MONITORING_PARAM_CODE_EMPTY = 32;       // 监测参数编码为空
+    MONITORING_PARAM_CODE_EXIST = 33;       // 监测参数编码已存在
+    MONITORING_PARAM_CODE_NOT_EXIST = 34;   // 监测参数编码不存在
+    MONITORING_PARAM_BALANCE_TYPE_VALUE_TYPE_NOT_MATCH = 35;  // 监测参数平衡类型与值类型不匹配
+    MONITORING_PARAM_MULTI_SELECTION_NOT_ALLOWED = 36;  // '出量/入量'的监测参数不允许多选
+    MONITORING_PARAM_HAS_DEPT_CONFIG = 37;  // 监测参数已有部门配置
+    GROUP_TYPE_BALANCE_NOT_EDITABLE = 38;   // 出入量分组不可编辑
+    MONITORING_GROUP_EXIST = 39;            // 观察组已存在
+    MONITORING_GROUP_NOT_EXIST = 40;        // 观察组不存在
+    MONITORING_GROUP_REDIFINED = 41;        // 观察组已被患者重新定义
+    MONITORING_GROUP_LIST_EMPTY = 42;       // 观察组列表为空
+    MONITORING_GROUP_INVALID_DEPARTMENT = 43;  // 无效的观察组部门
+    MONITORING_GROUP_PARAM_EXIST = 44;      // 观察组参数已存在
+    GROUP_PARAM_BALANCE_NOT_MATCH = 45;     // 分组参数与平衡类型不匹配
+    MONITORING_GROUP_PARAM_NOT_EXIST = 46;  // 观察组参数不存在
+    MONITORING_TIME_POINTS_EMPTY = 47;      // 观察时间点为空
+    PATIENT_MONITORING_RECORD_ALREADY_EXISTS = 48;  // 患者监测记录已存在
+    PATIENT_MONITORING_RECORD_NOT_EXIST = 49;  // 患者监测记录不存在
+    VALUE_META_NOT_FOUND = 50;              // 值元数据不存在
+    INVALID_PARAM_VALUE = 51;               // 无效的参数值
+    NO_SHIFT_SETTING = 52;                  // 无班次设置
+    SCORE_GROUP_NOT_FOUND = 53;             // 评分组不存在
+    SCORE_ITEM_NOT_FOUND = 54;              // 评分项不存在
+    SCORE_ITEM_SINGLE_SELECTION_COUNT_ERROR = 55;  // 评分项单选数量错误
+    SCORE_OPTION_NOT_FOUND = 56;            // 评分项选项不存在
+    SCORE_ITEM_AGGREGATOR_NOT_SUPPORTED = 57;  // 评分项聚合器不支持
+    SCORE_GROUP_AGGREGATOR_NOT_SUPPORTED = 58;  // 评分组聚合器不支持
+    SCORE_GROUP_PRINTER_NOT_SUPPORTED = 59;    // 评分组打印器不支持
+    DEPT_SCORE_GROUP_ALREADY_EXISTS = 60;      // 部门评分已存在
+    DEPT_SCORE_GROUP_NOT_FOUND = 61;           // 部门评分不存在
+    PATIENT_SCORE_ALREADY_EXISTS = 62;         // 患者评分已存在
+    PATIENT_SCORE_NOT_FOUND = 63;              // 患者评分不存在
+    PATIENT_IS_NOT_DISCHARGED = 64;            // 患者未出科
+    ACTION_TIME_BEFORE_LAST_ACTION_TIME = 65;  // 新增执行动作时间早于最后一个执行动作时间
+    ADMINISTRATION_RATE_OR_INTAKE_VOL_NEGATIVE = 66;  // 给药速度或摄入量为负
+    PATIENT_IN_ICU_NOT_FOUND = 67;             // 在科患者中未找到这名患者
+    PATIENT_DEPT_ID_NOT_FOUND = 68;            // 患者科室ID未找到
+    DEPT_SETTING_NOT_FOUND = 69;               // 未找到医嘱科室设置
+    EXECUTION_RECORD_DOSAGE_GROUP_EMPTY = 70;  // 执行记录药品剂量组为空
+    NURSING_RECORD_TEMPLATE_GROUP_ALREADY_EXISTS = 71;   // 护理记录模板组已存在
+    NURSING_RECORD_TEMPLATE_GROUP_NOT_EXISTS = 72;       // 护理记录模板组不存在
+    NURSING_RECORD_TEMPLATE_GROUP_HAS_TEMPLATES = 73;    // 护理记录模板组已有模板
+    NURSING_RECORD_TEMPLATE_ALREADY_EXISTS = 74;         // 护理记录模板已存在
+    NURSING_RECORD_TEMPLATE_NOT_EXISTS = 75;             // 护理记录模板不存在
+    NURSING_RECORD_ALREADY_EXISTS = 76;                  // 护理记录已存在
+    NURSING_RECORD_NOT_EXISTS = 77;                      // 护理记录不存在
+    NURSING_ORDER_DEPT_TEMPLATE_GROUP_ALREADY_EXISTS = 78;    // 护理计划部门模板组已存在
+    NURSING_ORDER_DEPT_TEMPLATE_GROUP_NOT_EXISTS = 79;        // 护理计划部门模板组不存在
+    NURSING_ORDER_DEPT_TEMPLATE_GROUP_HAS_TEMPLATES = 80;     // 护理计划部门模板组已有模板
+    NURSING_ORDER_FREQUENCY_NOT_EXISTS = 81;                 // 护理计划频次编码不存在
+    NURSING_ORDER_DEPT_TEMPLATE_ALREADY_EXISTS = 82;         // 护理计划部门模板已存在
+    NURSING_ORDER_DEPT_TEMPLATE_NOT_EXISTS = 83;             // 护理计划部门模板不存在
+    INVALID_NURSING_ORDER_TIME = 84;                         // 无效的护理计划时间
+    NURSING_ORDER_ALREADY_EXISTS = 85;                       // 护理计划已存在
+    NURSING_ORDER_NOT_EXISTS = 86;                           // 护理计划不存在
+    INVALID_NURSING_ORDER_STOP_TIME = 87;                    // 无效的护理计划停止时间
+    NURSING_EXE_RECORD_NOT_EXISTS = 88;                      // 护理执行记录不存在
+    ACCOUNT_ALREADY_EXISTS = 89;                             // 账号已存在
+    DEPARTMENT_ALREADY_EXISTS = 90;                          // 部门已存在
+    DEPARTMENT_NAME_ALREADY_EXISTS = 91;                     // 部门名称已存在
+    DEPARTMENT_NOT_FOUND = 92;                               // 部门不存在
+    ROLE_NOT_FOUND = 93;                                     // 角色不存在
+    ROLE_ALREADY_EXISTS = 94;                                // 角色已存在
+    ROLE_NOT_PRIMARY = 95;                                   // 角色不是主要角色
+    DEPARTMENT_ACCOUNT_ALREADY_EXISTS = 96;                  // 部门账号已存在
+    DEPARTMENT_ACCOUNT_NOT_FOUND = 97;                       // 部门账号不存在
+    DEPARTMENT_ACCOUNT_ROLE_ALREADY_EXISTS = 98;             // 部门账号角色已存在
+    DEPARTMENT_ACCOUNT_ROLE_NOT_FOUND = 99;                  // 部门账号角色不存在
+    DEPARTMENT_HAS_ACCOUNTS = 100;                           // 部门已有账号
+    ACCOUNT_ROLE_ALREADY_EXISTS = 101;                       // 账号角色已存在
+    ACCOUNT_ROLE_NOT_FOUND = 102;                            // 账号角色不存在
+    NO_PERMISSION_TO_OPERATE = 103;                          // 无权限
+    PERMISSION_NOT_FOUND = 104;                              // 权限不存在
+    INTAKE_LIQUID_MORE_THAN_REMAINING = 105;                 // 新增摄入液体超过剩余量
+    INVALID_SCORE_RECORD_TIME = 106;                         // 无效的评分记录时间
+    SCORE_RECORD_TIME_IS_BEFORE_ADMISSION_TIME = 107;        // 评分记录时间在入科时间之前
+    SCORE_RECORD_TIME_IS_AFTER_DISCHARGE_TIME = 108;         // 评分记录时间在出科时间之后
+    DEPARTMENT_AT_LEAST_ONE = 109;                           // 至少保留一个部门
+    LAST_TUBE_TYPE_CANNOT_BE_DISABLED = 110;                 // 最后一个管道类型不能被禁用
+    PATIENT_NOT_IN_ICU = 111;                                // 患者不在ICU
+    INVALID_SHIFT_TIME = 112;                                // 无效的班次时间
+    PATIENT_SHIFT_RECORD_EXISTS = 113;                       // 患者班次记录已存在
+    PATIENT_SHIFT_RECORD_NOT_FOUND = 114;                    // 患者班次记录不存在
+    SHIFT_START_BEFORE_ADMISSION = 115;                      // 班次开始时间早于入科时间
+    SHIFT_END_AFTER_DISCHARGE = 116;                         // 班次结束时间晚于出科时间
+    INVALID_DEPARTMENT_ID = 117;                             // 无效的部门ID
+    INVALID_TIME_FORMAT = 118;                               // 无效的时间格式
+    INVALID_TIME_RANGE = 119;                                // 无效的时间范围
+    DIRECTORY_CREATION_FAILED = 120;                         // 目录创建失败
+    DRAGABLE_FORM_TEMPLATE_ALREADY_EXISTS = 121;             // 可拖拽表单模板已存在
+    DRAGABLE_FORM_TEMPLATE_NOT_EXISTS = 122;                 // 可拖拽表单模板不存在
+    DRAGABLE_FORM_ALREADY_EXISTS = 123;                     // 可拖拽表单已存在
+    DRAGABLE_FORM_NOT_EXISTS = 124;                         // 可拖拽表单不存在
+    FAILED_TO_GENERATE_PDF_REPORT = 125;                    // 生成PDF报告失败
+    DRAGABLE_FORM_ATTRIBUTE_ALREADY_EXISTS = 126;           // 可拖拽表单属性已存在
+    DRAGABLE_FORM_ATTRIBUTE_NOT_EXISTS = 127;               // 可拖拽表单属性不存在
+    DRAGABLE_FORM_INVALID_PAGE_ID = 128;                    // 无效的页面ID
+    DRAGABLE_FORM_INVALID_COMPONENT_ID = 129;               // 无效的组件ID
+    DRAGABLE_FORM_INVALID_COMPONENT_TYPE = 130;             // 无效的组件类型
+    DRAGABLE_FORM_DUP_COMPONENT_NAME = 131;                 // 重复的组件名称
+    BED_CONFIG_ALREADY_EXISTS = 132;                        // 床位配置已存在
+    BED_CONFIG_NOT_EXISTS = 133;                            // 床位配置不存在
+    BED_ALREADY_OCCUPIED = 134;                             // 床位已被占用
+    BED_SWITCH_TIME_OUTDATED = 135;                         // 床位切换时间已过期
+    DEVICE_INFO_ALREADY_EXISTS = 136;                       // 设备信息已存在
+    DEVICE_INFO_NOT_EXISTS = 137;                           // 设备信息不存在
+    DEVICE_INFO_NAME_ALREADY_EXISTS = 138;                  // 设备信息名称已存在
+    DEVICE_ALREADY_BINDED = 139;                            // 设备已绑定
+    DEVICE_HAS_MULTIPLE_BINDINGS = 140;                     // 设备有多个绑定
+    PATIENT_ALREADY_BINDED_TO_SAME_TYPE_DEVICE = 141;       // 患者已绑定相同类型设备
+    BED_CONFIG_DISPLAY_NAME_ALREADY_EXISTS = 142;           // 床位配置显示名称已存在
+    BED_CONFIG_DEVICE_NAME_ALREADY_EXISTS = 143;            // 床位配置设备名称已存在
+    UNBINDING_TIME_OUTDATED = 144;                          // 解绑时间已过期
+    BINDING_TIME_CONFLICT = 145;                            // 绑定时间冲突，如：其他病人已在绑定时间后绑定
+    DISEASE_CODE_NOT_FOUND = 146;                           // 疾病不存在
+    DISEASE_PHASE_NOT_CONFIRMED = 147;                      // 疾病某阶段未确认
+    PATIENT_DISEASE_ALREADY_CONFIRMED = 148;                // 患者疾病已确认
+    PATIENT_DISEASE_NOT_CONFIRMED = 149;                    // 患者疾病未确认
+    PATIENT_DISEASE_ALREADY_EXCLUDED = 150;                 // 患者疾病确诊已排除
+    DISEASE_DECODE_FAILED = 151;                            // 疾病详细数据受损，编码解析失败
+    DISEASE_ITEM_NOT_FOUND = 152;                           // 疾病项目不存在
+    BED_CONFIG_BED_NUMBER_LIMIT_EXCEEDED = 153;             // 床位配置床号限制超过
+    APACHE_II_SCORE_MISSING_FACTOR = 154;                   // Apache II评分缺少要素
+    UNEXPECTED_APACHE_II_SCORE_FACTOR = 155;                // 非预期Apache II评分要素
+    APACHE_II_SCORE_TYPE_MISMATCH = 156;                    // Apache II评分类型不匹配
+    APACHE_II_SCORE_MISSING_FACTOR_META = 157;              // Apache II评分缺少要素元数据
+    APACHE_II_SCORE_CHC_INCONSISTENCY = 158;                // Apache II评分CHC标识和慢性病标识不一致
+    APACHE_SCORE_ALREADY_EXISTS = 159;                      // Apache评分已存在
+    APACHE_SCORE_NOT_FOUND = 160;                           // Apache评分不存在
+    UNEXPECTED_SOFA_SCORE_FACTOR = 161;                     // 非预期SOFA评分要素
+    SOFA_SCORE_ALREADY_EXISTS = 162;                        // SOFA评分已存在
+    SOFA_SCORE_NOT_FOUND = 163;                             // SOFA评分不存在
+    UNEXPECTED_VTE_CAPRINI_FACTOR = 164;                    // 非预期VTE Caprini评分要素
+    UNEXPECTED_VTE_PADUA_FACTOR = 165;                      // 非预期VTE Padua评分要素
+    VTE_CAPRINI_SCORE_ALREADY_EXISTS = 166;                // VTE Caprini评分已存在
+    VTE_CAPRINI_SCORE_NOT_FOUND = 167;                     // VTE Caprini评分不存在
+    VTE_PADUA_SCORE_ALREADY_EXISTS = 168;                // VTE Padua评分已存在
+    VTE_PADUA_SCORE_NOT_FOUND = 169;                     // VTE Padua评分不存在
+    UNEXPECTED_BGA_PARAM_CODE = 170;                     // 非预期BGA参数编码
+    BGA_PARAM_CODE_NOT_FOUND = 171;                      // BGA参数编码不存在
+    PATIENT_BGA_RECORD_ALREADY_EXISTS = 172;             // 患者血气记录已存在
+    PATIENT_BGA_RECORD_NOT_FOUND = 173;                  // 患者血气记录不存在
+    EXTERNAL_LIS_PARAM_NOT_FOUND = 174;                  // 外部检验参数不存在
+    LIS_PARAM_NOT_FOUND = 175;                           // 检验参数不存在
+    DIAGNOSIS_HISTORY_ALREADY_EXISTS = 176;         // 疾病记录已存在
+    DIAGNOSIS_HISTORY_NOT_FOUND = 177;              // 疾病记录不存在
+    OVERVIEW_TEMPLATE_DEPT_ID_AND_ACCOUNT_ID_BOTH_NOT_NULL = 178; // 模板科室ID和账号ID都不为空
+    OVERVIEW_TEMPLATE_DEPT_ID_AND_ACCOUNT_ID_BOTH_NULL = 179; // 模板科室ID和账号ID都为空
+    OVERVIEW_TEMPLATE_EXISTS = 180; // 模板已存在
+    OVERVIEW_TEMPLATE_NOT_FOUND = 181; // 模板不存在
+    OVERVIEW_TEMPLATE_GROUP_ALREADY_EXISTS = 182; // 模板组已存在
+    OVERVIEW_TEMPLATE_GROUP_NOT_FOUND = 183; // 模板组不存在
+    OVERVIEW_TEMPLATE_PARAM_ALREADY_EXISTS = 184; // 模板参数已存在
+    OVERVIEW_TEMPLATE_PARAM_NOT_FOUND = 185; // 模板参数不存在
+    OVERVIEW_TEMPLATE_PARAM_CODE_META_NOT_FOUND = 186; // 模板参数编码元数据不存在
+    OVERVIEW_TEMPLATE_PARAM_CODE_NOT_NUMBER = 187; // 模板参数编码不是数字
+    BALANCE_STATS_SHIFT_EXISTS = 188; // 出入量统计班次已存在
+    BALANCE_STATS_SHIFT_NOT_FOUND = 189; // 出入量统计班次不存在
+    TIME_IS_BEFORE_ADMISSION_TIME = 190;        // 时间在入科时间之前
+    TIME_IS_AFTER_DISCHARGE_TIME = 191;         // 时间在出科时间之后
+    NURSING_ORDER_STOP_TIME_IS_NOT_AFTER_ORDER_TIME = 192;        // 停止时间不在计划时间之后
+    ONLY_ADMIN_IS_AUTHORIZED = 193; // 只有管理员有权限
+    BINDING_TIME_BEFORE_UNBINDING_TIME_FOR_SAME_TYPE_DEVICE = 194; // 同类型设备绑定时间早于解绑时间
+    DEVICE_IP_ALREADY_USED = 195; // 设备IP已被使用
+    EFFECTIVE_TIME_BEFORE_ADMISSION = 196;                      // 不允许添加入科时间以前的时间
+    EFFECTIVE_TIME_AFTER_DISCHARGE = 197;                       // 不允许添加出科时间以后的时间
+    DISCHARGED_PATIENT_EXE_RECORD_NOT_TO_REFRESH = 198;         // 患者已出科，无需刷新医嘱
+    MONITORING_TIME_POINTS_DUPLICATE = 199;                     // 监测时间点重复
+    DISCHARGE_TYPE_TRANSFER_NEEDS_TARGET_DEPT_NAME = 200;       // 转出时需要目标科室名称
+    DISCHARGE_TYPE_DEATH_NEEDS_DEATH_TIME = 201;                // 死亡时需要死亡时间
+    DISCHARGE_TYPE_EXIT_HOSPITAL_NEEDS_EXIT_TIME = 202;         // 出院时需要出院时间
+    INVALID_DISCHARGED_TYPE = 203;                              // 无效的出科类型
+    NURSING_ORDER_TIME_BEFORE_ADMISSION = 204;                  // 护嘱开立时间不允许早于入科时间
+    MEDICATION_CODE_AND_NAME_ARE_BLANK = 205; // 药品编码和名称都为空
+    MEDICATION_ALREADY_EXISTS = 206; // 药品已存在
+    MEDICATION_NOT_FOUND = 207; // 药品不存在
+    ROUTE_CODE_OR_NAME_ARE_BLANK = 208; // 给药途径编码和名称不能为空
+    ROUTE_ALREADY_EXISTS = 209; // 给药途径已存在
+    ROUTE_NOT_FOUND = 210; // 给药途径不存在
+    FREQUENCY_ALREADY_EXISTS = 211; // 频次已存在
+    FREQUENCY_NOT_FOUND = 212; // 频次不存在
+    INVALID_MENU_GROUP_ID = 213; // 无效的菜单组ID
+    MENU_ITEM_NAME_EXISTS = 214; // 菜单项名称已存在
+    MENU_ITEM_NOT_FOUND = 215; // 菜单项不存在
+    INVALID_FORM_TEMPLATE_ID = 216; // 无效的表单模板ID
+    INVALID_MENU_ITEM_TYPE = 217; // 无效的菜单项类型
+    CANNOT_RENAME_UNASSIGNED_MENU_ITEM = 218; // 无法重命名未分配的菜单项
+    FORM_TEMPLATE_NOT_FOUND = 219; // 表单模板不存在
+    FORM_TEMPLATE_NOT_BELONG_TO_DEPT = 220; // 表单模板不属于该科室
+    FORM_TEMPLATE_NOT_AVAILABLE_FOR_ASSIGNMENT = 221; // 表单模板已分给其他科室
+    NOT_AN_AGGREGATED_FORM_MENU_ITEM = 222; // 不是聚合表单菜单项
+    FORM_TEMPLATE_NOT_FOUND_IN_MENU_ITEM = 223; // 菜单项中未找到表单模板
+    FORM_TEMPLATE_NOT_IN_REORDER_LIST = 224; // 有表单模板不在重新排序列表中
+    INVALID_ADMINISTRATION_RATE_OR_START_TIME = 225; // 给药速度和开始时间都需要设置，或者都为空
+    INVALID_INTAKE_VOL_OR_FINISH_TIME = 226; // 摄入量或完成时间都需要设置，或者都为空
+    EXECUTION_RECORD_COUNT_NOT_ONE = 227;    // 补录医嘱的执行记录数量不为1
+    INTAKE_VOLUME_NEGATIVE = 228; // 摄入量不能为负数
+    TOTAL_INTAKE_VOLUME_ZERO_OR_NEGATIVE = 229; // 总摄入量不能为零或负数
+    DEPT_MONITORING_GROUP_NOT_EXIST = 230;        // 部门观察项分组不存在
+    DEPT_MONITORING_GROUP_NAME_EMPTY = 231;       // 部门观察项分组名字为空
+    DEPT_MONITORING_GROUP_NAME_DUPLICATE = 232;   // 部门观察项分组名字已经被使用
+    DEPT_NOT_FOUND = 233;  // 部门编码不存在
+    DEPT_CHECKLIST_GROUP_NAME_DUPLICATE = 234;  // 部门组长质控分组名称已存在
+    DEPT_CHECKLIST_GROUP_COUNT_MISMATCH = 235;  // 部门组长质控分组数量不一致
+    DEPT_CHECKLIST_GROUP_NOT_EXIST = 236;  // 部门组长质控分组不存在
+    DEPT_CHECKLIST_ITEM_NAME_DUPLICATE = 237;  // 部门组长质控项名称已存在
+    DEPT_CHECKLIST_ITEM_COUNT_MISMATCH = 238;  // 部门组长质控项数量不一致
+    DEPT_CHECKLIST_ITEM_NOT_EXIST = 239;  // 部门组长质控项不存在
+    PATIENT_CHECKLIST_RECORD_EXISTS = 240;  // 病人组长质控记录已存在
+    PATIENT_CHECKLIST_ITEM_NOT_EXIST = 241;  // 病人组长质控项不存在
+    PATIENT_MONITORING_GROUP_NOT_FOUND = 242;  // 未找到病人的观察项分组
+    PATIENT_DEPT_MISMATCH = 243;  // 病人id与部门id不匹配
+    PERMISSION_DENIED = 244; // 权限被拒绝
+    CANNOT_DELETE_SELF_ACCOUNT = 245; // 不能删除自己的账号
+    PATIENT_CRITICAL_LIS_HANDLING_NOT_FOUND = 246; // 病人危急值处理记录不存在
+    PATIENT_CRITICAL_LIS_RESULT_NOT_FOUND = 247; // 病人危急值记录不存在
+    BED_COUNT_ALREADY_EXISTS = 248; // 床位数量记录已存在
+    INVALID_QC_ITEM_CODE = 249; // 无效的质控项代码
+    SCORE_GROUP_DELIRIUM_NOT_ENOUGH_ITEMS = 250; // 谵妄评估需要四个特征的评分
+    SCORE_GROUP_DELIRIUM_GROUP_SCORE_NOT_MATCH = 251; // 谵妄评估组评分结果和评分明细不匹配
+    SCORE_GROUP_MEASURE_ALREADY_EXISTS = 252; // 评分组措施已存在
+    SCORE_GROUP_MEASURE_NOT_FOUND = 253;  // 评分组措施不存在
+    BED_HISTORY_NOT_FOUND = 254;  // 未找到床位历史
+    INVALID_BED_NAME = 255;  // 无效的床位名称
+    BED_HISTORY_MISMATCH = 256;  // 床位历史与病人当前床号不匹配
+    INVALID_ADMISSION_STATUS_FOR_BED_SWITCH = 257;  // 床位调度时，病人状态为出科；或 重返时，病人状态不是出科
+    BED_USAGE_END_TIME_NOT_NULL = 258;  // 在科病人床位使用结束时间不能为空
+    BED_SWITCH_READMISSION_MRN_MISMATCH = 259;  // 重返床位调度时，病人MRN不匹配
+    BED_SWITCH_READMISSION_END_TIME_INVALID = 260;  // 重返床位调度时，病人床位使用结束时间无效
+    READMISSION_PATIENT_INCONSISTENT = 261;  // 重返病人信息不一致
+    READMISSION_PATIENT_NOT_FOUND = 262;  // 重返His病人未找到
+    DISCHARGE_TIME_IS_AFTER_NOW = 263;  // 出院时间晚于当前时间
+    CANNOT_UNBIND_FIXED_DEVICE = 264;  // 该床位旁已有同类型固定设备，无需手动绑定
+    EXT_URL_ALREADY_EXISTS = 265; // 外部URL配置已存在
+    EXT_URL_NOT_FOUND = 266; // 外部URL配置不存在
+    CALC_MED_RATE_FAILED = 267; // 计算药品给药速度失败
+    AH2_NURSING_REPORT_IS_IN_PROGRESS = 268; // 该病人的护理报告正在生成中
+    JFK_MISSING_REQUIRED_FIELD = 269; // JFK数据源缺少必填输入字段
+    LAST_CODE = 270;
+}
+
+/*****************************************************************************
+ * /api/config/                                                              *
+ *****************************************************************************/
+
+/*
+ * /api/config/getconfig
+ * input: {}
+ * output: GetConfigResp
+ */
+message GetConfigResp {
+    shared.ReturnCode rt = 1;
+
+    // 通用
+    config.CommonEnums common_enums = 2;
+
+    // 病人
+    config.PatientEnumsV2 patient_enums = 3;
+
+    // 管道
+    config.TubeEnums tube_enums = 4;
+    config.TubeTypeListPB tube_type_list = 5;
+    config.TubeAttributeListPB tube_attr_list = 6;
+    config.TubeStatusListPB tube_status_list = 7;
+
+    // 监测
+    string param_code_summary = 8;
+    string balance_in_group_name = 9;
+    string balance_out_group_name = 10;
+    string balance_net_group_name = 11;
+    config.MonitoringEnums monitoring_enums = 12;
+
+    // 医嘱
+    config.MEnums medication_enums = 13;
+    repeated config.UnitPB dosage_unit = 14;
+    repeated config.IntakeTypePB intake_type = 15;
+    repeated string dosage_rate_unit = 16;
+    repeated string solid_unit = 17;
+
+    // 评分
+    config.ScoreEnums score_enums = 18;
+
+    // 护理记录
+    config.NursingRecordSpecialTermPB nursing_record_special_term = 19;
+    config.NursingRecordQuickWordsPB nursing_record_quick_words = 20;
+    // 可拖拽表单
+    config.JfkEnumsPB jfk_enums = 21;
+    repeated config.JfkFieldMetaPB jfk_inputs = 22;
+    repeated config.JfkDataSourceMetaPB jfk_data_sources = 23;
+
+    // 设备
+    config.DeviceEnums device_enums = 24;
+    config.DeviceCascadePB device_cascade = 25;
+    // 病情概览
+    config.DiagnosisEnums diagnosis_enums = 26;
+    // bga血气
+    config.BgaEnums bga_enums = 27;
+    // 数据概览
+    config.OverviewEnums overview_enums = 28;
+
+    // 医生评分
+    repeated shared.StrKeyValPB doctor_score_type = 29;
+
+    // 外部URL列表
+    repeated shared.EnumValue predefined_param_value = 30;
+    repeated shared.EnumValue predefined_param_encoder = 31;
+}
+
+/*
+ * /api/config/getdeptshift
+ *  input: GetDeptShiftReq
+ *  output: GetDeptShiftResp
+ */
+message GetDeptShiftReq {
+    string dept_id = 1;
+}
+
+message GetDeptShiftResp {
+    shared.ReturnCode rt = 1;
+    config.ShiftSettingsPB shift = 2;
+}
+
+/*
+ * /api/config/updatedeptshift
+ *  input: UpdateDeptShiftReq
+ *  output: GenericResp
+ */
+message UpdateDeptShiftReq {
+    string dept_id = 1;
+    config.ShiftSettingsPB shift = 2;
+}
+
+/*
+ * /api/config/getdeptbalancestatsshifts
+ * input: GetDeptBalanceStatsShiftsReq
+ * output: GetDeptBalanceStatsShiftsResp
+ */
+message GetDeptBalanceStatsShiftsReq {
+    string dept_id = 1; // 科室ID
+}
+
+message BalanceStatsShiftPB {
+    int64 id = 1;
+    string dept_id = 2;
+    int32 start_hour = 3;
+    string effective_time_iso8601 = 4;
+}
+
+message GetDeptBalanceStatsShiftsResp {
+    shared.ReturnCode rt = 1; // 返回码
+    repeated BalanceStatsShiftPB shift = 2;
+}
+
+/*
+ * /api/config/adddeptbalancestatsshift
+ * input: AddDeptBalanceStatsShiftReq
+ * output: AddDeptBalanceStatsShiftResp
+ */
+message AddDeptBalanceStatsShiftReq {
+    BalanceStatsShiftPB shift = 1;
+}
+
+message AddDeptBalanceStatsShiftResp {
+    shared.ReturnCode rt = 1; // 返回码
+    int64 id = 2; // 新增班次的ID
+}
+
+/*
+ * /api/config/updatedeptbalancestatsshift
+ * input: AddDeptBalanceStatsShiftReq
+ * output: GenericResp
+ */
+
+/*
+ * /api/config/deletedeptbalancestatsshift
+ * input: DeleteDeptBalanceStatsShiftReq
+ * output: GenericResp
+ */
+message DeleteDeptBalanceStatsShiftReq {
+    int64 id = 1;
+}
+
+/******************************************************************************
+ * /api/user/getusername
+ */
+message GetUsernameResp {
+    shared.ReturnCode rt = 1;
+    string username = 2;
+}
+
+/*
+ * /api/user/getuserinfo
+ */
+message StringIdEntityPB {
+    string id = 1;
+    string name = 2;
+}
+
+message DeptInfoPB {
+    StringIdEntityPB dept = 1;
+    config.Menu menu = 2;
+    repeated int32 permission_id = 3; // 权限ID列表
+    string primary_role_name = 4;
+}
+
+message GetUserInfoResp {
+    shared.ReturnCode rt = 1;
+    StringIdEntityPB user = 2;
+    repeated DeptInfoPB dept_info = 3;
+}
+
+/*
+ * /api/user/getalldeptnames
+ * input: GetAllDeptNamesReq
+ * output: GetAllDeptNamesResp
+ */
+message GetAllDeptNamesReq {}
+
+message GetAllDeptNamesResp {
+    shared.ReturnCode rt = 1;
+    repeated StringIdEntityPB dept = 2;
+}
+
+/*
+ * /api/user/getalldepts
+ * input: GetAllDeptsReq
+ * output: GetAllDeptsResp
+ */
+message GetAllDeptsReq {}
+
+message IcisDepartmentPB {
+    int32 id = 1;  // 科室id
+    string dept_id = 2;  // 科室编码
+    string dept_name = 3;  // 科室名称
+    string abbreviation = 4;  // 科室简称
+    string ward_code = 5;  // 病区编码
+    string ward_name = 6;  // 病区名称
+    string hospital_name = 7;  // 医院名称
+}
+
+message GetAllDeptsResp {
+    shared.ReturnCode rt = 1;
+    repeated IcisDepartmentPB department = 2;
+}
+
+/*
+ * /api/user/adddept
+ * /api/user/updatedept
+ * input: AddDeptReq
+ * output: GenericResp
+ */
+message AddDeptReq {
+    IcisDepartmentPB department = 1;
+}
+
+message AddDeptResp {
+    shared.ReturnCode rt = 1;
+    int32 deptId = 2;
+}
+
+/*
+ * /api/user/deletedept
+ * input: DeleteDeptReq
+ * output: GenericResp
+ */
+message DeleteDeptReq {
+    string dept_id = 1;  // 科室编码
+}
+
+/*
+ * /api/user/getallaccounts
+ * input: GetAllAccountsReq
+ * output: GetAllAccountsResp
+ */
+message GetAllAccountsReq {
+    string dept_id = 1;
+    string account_id = 2;
+    string account_name = 3;  // 可以是用户名字的一部分
+}
+
+message IcisAccountDepartmentPB {
+    string dept_id = 1;
+    string dept_name = 2;
+    int32 role_id = 3;
+    string role_name = 4;
+}
+
+message IcisAccountPB {
+    string account_id = 1;
+    string password = 2;
+    string account_name = 3;
+    int32 gender = 4;  // 性别
+    string date_of_birth_iso8601 = 5;  // 出生日期
+    string title = 6;  // 职称
+    string education_level = 7;  // 学历
+    string phone = 8;  // 电话
+    string id_card_number = 9;  // 身份证号
+    string sign_pic = 10;  // 签名图片的base64编码
+    repeated IcisAccountDepartmentPB department = 11;
+
+    int64 id = 12;  // 账号数据库ID
+}
+
+message GetAllAccountsResp {
+    shared.ReturnCode rt = 1;
+    repeated IcisAccountPB account = 2;
+}
+
+/*
+ * /api/user/addaccount
+ * /api/user/updateaccount
+ * input: AddAccountReq
+ * output: GenericResp
+ */
+message AddAccountReq {
+    string op_dept_id = 1;  // 操作科室ID
+    IcisAccountPB account = 2;
+}
+
+/*
+ * /api/user/deleteaccount
+ * input: DeleteAccountReq
+ * output: GenericResp
+ */
+message DeleteAccountReq {
+    string op_dept_id = 1;  // 操作科室ID
+    string account_id = 2;
+    string dept_id = 3;  // 若科室编码为空，删除所有科室下的账号
+}
+
+/*
+ * /api/user/changepassword
+ * input: ChangePasswordReq
+ * output: GenericResp
+ */
+message ChangePasswordReq {
+    string old_password = 1;
+    string new_password = 2;
+}
+
+/*
+ * /api/user/resetpassword
+ * input: ResetPasswordReq
+ * output: GenericResp
+ */
+message ResetPasswordReq {
+    string op_dept_id = 1;  // 操作科室ID
+    string account_id = 2;  // 要重置密码的账号ID
+}
+
+/*
+ * /api/user/getroles
+ * input: GetRolesReq
+ * output: GetRolesResp
+ */
+message GetRolesReq {}
+
+message IcisRolePB {
+    int32 id = 1;
+    string name = 2;
+}
+
+message GetRolesResp {
+    shared.ReturnCode rt = 1;
+    repeated IcisRolePB role = 2;
+}
+
+/*
+ * /api/user/getpermissions
+ * input: GetPermissionsReq
+ * output: GetPermissionsResp
+ */
+message GetPermissionsReq {
+    string dept_id = 1;
+}
+
+message IcisPermissionPB {
+    int32 id = 1;
+    string name = 2;
+    repeated IcisRolePB role = 3;
+    repeated StringIdEntityPB account_id = 4;
+}
+
+message IcisPermissionGroupPB {
+    int32 id = 1;
+    string name = 2;
+    repeated IcisPermissionPB permission = 3;
+}
+
+message GetPermissionsResp {
+    shared.ReturnCode rt = 1;
+    repeated IcisPermissionGroupPB permission_group = 2;
+}
+
+/*
+ * /api/user/addrolepermission
+ * /api/user/revokerolepermission
+ * input: AddRolePermissionReq
+ * output: GenericResp
+ */
+message AddRolePermissionReq {
+    int32 role_id = 1;
+    int32 permission_id = 2;
+}
+
+/*
+ * /api/user/addaccountpermission
+ * /api/user/revokeaccountpermission
+ * input: AddAccountPermissionReq
+ * output: GenericResp
+ */
+message AddAccountPermissionReq {
+    string account_id = 1;
+    string dept_id = 2;
+    int32 permission_id = 3;
+}
+
+
+/*
+ * /api/user/getdeptmenuconfig
+ * input: GetDeptMenuConfigReq
+ * output: GetDeptMenuConfigResp
+ */
+message GetDeptMenuConfigReq {
+    string dept_id = 1;  // 科室ID
+}
+
+message GetDeptMenuConfigResp {
+    shared.ReturnCode rt = 1;
+    repeated config.MenuGroup menu_group = 2;  // 科室菜单配置
+    repeated config.MenuItem unassigned_menu_item = 3;  // 未分配的菜单项(常规)
+    repeated shared.IntStrKvPB unassigned_form_template = 4;  // 未分配的表单模板(可拖拽表单)
+}
+
+/*
+ * /api/user/getmenuitem
+ * input: GetMenuItemReq
+ * output: GetMenuItemResp
+ */
+message GetMenuItemReq {
+    string dept_id = 1;  // 科室ID
+    int32 function_id = 2;  // 菜单项ID
+}
+message GetMenuItemResp {
+    shared.ReturnCode rt = 1;  // 返回码
+    config.MenuItem menu_item = 2;  // 菜单项
+    repeated config.JfkTemplatePB template = 3;  // 可拖拽表单模板
+}
+
+/*
+ * /api/user/addmenuitem
+ * input: AddMenuItemReq
+ * output: GenericResp
+ */
+message AddMenuItemReq {
+    string dept_id = 1;  // 科室ID
+    // menu_item.type = 0（默认） 表示常规菜单项, menu_item.function_id & menu_item.group_id 必填
+    // menu_item.type = 1 表示独立可拖拽表单菜单项，menu_item.name & menu_item.separated_form_template 必填
+    // menu_item.type = 2 表示可拖拽表单组菜单项，menu_item.name & menu_item.aggregated_form_template 必填
+    config.MenuItem menu_item = 2;  // 菜单项
+}
+
+/*
+ * /api/user/updatemenuitemname
+ * input: UpdateMenuItemNameReq
+ * output: GenericResp
+ */
+message UpdateMenuItemNameReq {
+    string dept_id = 1;  // 科室ID
+    int32 function_id = 2;  // 菜单项ID
+    string new_name = 3;  // 新名称
+}
+
+/*
+ * /api/user/updatemenuitemwithoneform
+ * input: UpdateMenuItemWithOneFormReq
+ * output: GenericResp
+ */
+message UpdateMenuItemWithOneFormReq {
+    string dept_id = 1;  // 科室ID
+    int32 function_id = 2;  // 菜单项ID
+    int32 form_template_id = 3;  // 表单模板ID列表，按新顺序排列
+}
+
+/*
+ * /api/user/deletemenuitem
+ * input: DeleteMenuItemReq
+ * output: GenericResp
+ */
+message DeleteMenuItemReq {
+    string dept_id = 1;  // 科室ID
+    int32 function_id = 2;  // 菜单项ID
+}
+
+/*
+ * /api/user/reordermenuitems
+ * input: ReorderMenuItemsReq
+ * output: GenericResp
+ */
+message ReorderMenuItemsReq {
+    string dept_id = 1;  // 科室ID
+    repeated int32 function_id = 2;  // 菜单项ID列表，按新顺序排列
+}
+
+/*
+ * /api/user/addmenuitemformtemplate
+ * input: AddMenuItemFormTemplateReq
+ * output: GenericResp
+ */
+message AddMenuItemFormTemplateReq {
+    string dept_id = 1;  // 科室ID
+    int32 function_id = 2;  // 菜单项ID
+    repeated int32 form_template_id = 3;  // 表单模板ID
+}
+
+/*
+ * /api/user/deletemenuitemformtemplate
+ * input: DeleteMenuItemFormTemplateReq
+ * output: GenericResp
+ */
+message DeleteMenuItemFormTemplateReq {
+    string dept_id = 1;  // 科室ID
+    int32 form_template_id = 3;  // 表单模板ID
+}
+
+/*
+ * /api/user/reordermenuitemformtemplates
+ * input: ReorderMenuItemFormTemplatesReq
+ * output: GenericResp
+ */
+message ReorderMenuItemFormTemplatesReq {
+    string dept_id = 1;  // 科室ID
+    int32 function_id = 2;  // 菜单项ID
+    repeated int32 form_template_id = 3;  // 表单模板ID列表，按新顺序排列
+}
+
+/******************************************************************************
+ * /api/patient/getinlinepatients: => GetInlinePatientsResp
+ * /api/patient/getdischargedpatients: => GetPatientListResp
+ */
+message PatientBasicsPB {
+    int64 id = 1;
+    string icu_name = 2;
+    int32 gender = 3;  // CommonEnums.gender.id, 
+    string his_mrn = 4;
+    string bed_number_str = 5;
+
+    int32 admission_status = 6;
+    // admissison_time is meaningful when
+    // admission_status == icis_config.pb.txt:admission_status_pending_admission.id
+    string admission_time = 7;
+    // discharge_time is meaningful when
+    // admission_status == icis_config.pb.txt:admission_status_pending_discharged.id
+    string discharge_time = 8;
+
+    string date_of_birth_iso8601 = 9;
+    int32 age = 10;
+
+    // 上一次出科信息
+    string last_discharge_time = 11;      // 上一次出科时间，如果为空则表示没有出科记录
+    int64 last_pid = 12;                  // 上一次出科的pid
+}
+
+message PatientTableHeaderColumnPB {
+    string col_id = 1;
+    string name = 2;
+}
+
+message PatientTableDataCellPB {
+    string col_id = 1;
+    string value = 2;
+}
+
+message PatientTableDataRowPB {
+    repeated PatientTableDataCellPB cell = 1;
+}
+
+message PatientTablePB {
+    repeated PatientTableHeaderColumnPB col = 1;
+    repeated PatientTableDataRowPB row = 2;
+    repeated PatientBasicsPB basics = 3;
+}
+
+/*
+ * /api/patient/getinlinepatientsv2
+ *  input: GetInlinePatientsV2Req
+ *  output: GetInlinePatientsV2Resp
+ */
+message GetInlinePatientsV2Req {
+    string dept_id = 1;
+}
+
+message GetInlinePatientsV2Resp {
+    shared.ReturnCode rt = 1;
+    PatientTablePB in_icu = 3;
+    PatientTablePB pending_admission = 4;
+    PatientTablePB pending_discharged = 5;
+}
+
+/*
+ * /api/patient/getdischargedpatientsv2
+ *  input: GetDischargedPatientsV2Req
+ *  output: GetDischargedPatientsV2Resp
+ */
+message GetDischargedPatientsV2Req {
+    string dept_id = 1;
+    string query_start_iso8601 = 2;
+    string query_end_iso8601 = 3;
+    string his_mrn = 4;
+    string patient_name = 5;
+}
+
+message GetDischargedPatientsV2Resp {
+    shared.ReturnCode rt = 1;
+    PatientTablePB patient = 2;
+}
+
+/*
+ * /api/patient/new
+ *  input: NewPatientReq
+ *  output: GenericResp
+ */
+message NewPatientReq {
+    string icu_name = 1;                      // 姓名
+    string his_mrn = 2;                       // 住院号
+    int32 icu_gender = 3;                     // 性别(枚举)
+    string icu_date_of_birth = 4;             // 出生时间
+    string bed_number_str = 5;                // 床号
+    string admission_time = 6;                // 入科时间
+    int32 admission_type = 7;                 // 入科类型(枚举)
+    string admission_source_dept_name = 8;    // 入科来源
+    string primary_care_doctor_id = 9;        // 管床医生
+    int32 is_planned_admission = 10;          // 是否计划入科(布尔)
+    string unplanned_admission_reason = 11;   // 非计划入科原因
+    string diagnosis = 12;                    // 诊断
+    string his_pid = 13;                      // His患者id
+    string dept_id = 14;                      // 科室id
+}
+
+/*
+ * /api/patient/admit
+ *  input: AdmitPatientReq
+ *  output: GenericResp
+ */
+message AdmitPatientReq {
+    string his_mrn = 1;                       // 住院号
+    string admission_time = 2;                // 入科时间
+    int32 admission_type = 3;                 // 入科类型(枚举)
+    string admission_source_dept_name = 4;    // 入科来源
+    string primary_care_doctor_id = 5;        // 管床医生
+    int32 is_planned_admission = 6;           // 是否计划入科(布尔)
+    string unplanned_admission_reason = 7;    // 非计划入科原因
+    string dept_id = 8;                       // 科室id
+
+    // 上一次出科信息
+    bool to_merge = 9;            // 是否与上次的出科记录合并
+    int64 last_pid = 10;          // 上一次出科的pid
+}
+
+/*
+ * /api/patient/discharge
+ *  input: DischargePatientReq
+ *  output: GenericResp
+ */
+message DischargePatientReq {
+    int64 id = 1;  // patient_records.id
+    string his_mrn = 2;                       // 住院号
+    string discharge_time = 3;                // 出科时间
+    int32 discharged_type = 4;                // 出科类型(枚举)
+    string discharged_dept_name = 5;          // 转出科室
+    string discharged_death_time = 6;         // 死亡时间
+    string dept_id = 7;                       // 科室id
+    string discharged_hospital_exit_time_iso8601 = 8; // 出院时间
+}
+
+/*
+ * /api/patient/getpatientinfo
+ *  input: GetPatientInfoReq
+ *  output: GetPatientInfoResp
+ */
+message GetPatientInfoReq {
+    int64 id = 1;
+}
+
+message GetPatientInfoResp {
+    shared.ReturnCode rt = 1;
+    int64 id = 2;
+
+    // 病人基本信息
+    string icu_name = 3;
+    int32 icu_gender = 4;
+    string icu_date_of_birth = 5;
+    string his_mrn = 6;
+    string bed_number_str = 7;
+    int32 age = 8;
+
+    // 入科信息
+    string his_admission_time = 9;
+    string primary_care_doctor = 10;
+    string allergies = 11;
+    int32 admission_status = 12;
+    string admission_status_str = 13;
+    string admission_time = 14;
+    int32 admission_type = 15;
+    int32 is_planned_admission = 16;
+    string unplanned_admission_reason = 17;
+    string diagnosis = 18;
+
+    // 出科信息
+    string discharge_time = 19;
+    int32 discharged_type = 20;
+    string discharged_dept_name = 21;
+    string discharged_death_time = 22;
+}
+
+/*
+ * /api/patient/getpatientinfov2
+ *  input: GetPatientInfoV2Req
+ *  output: GetPatientInfoV2Resp
+ */
+message GetPatientInfoV2Req {
+    int64 id = 1;
+}
+
+message GetPatientInfoV2Resp {
+    shared.ReturnCode rt = 1;
+    config.PatientInfoPB patient_info = 2;
+}
+
+/*
+ * /api/patient/updatepatientinfo
+ *  input: UpdatePatientInfoReq
+ *  output: GenericResp
+ */
+message UpdatePatientInfoReq {
+    int64 id = 1;  // patient_records.id
+
+    // 入科信息
+    string admission_time = 2;
+    int32 admission_type = 3;
+    int32 is_planned_admission = 4;
+    string unplanned_admission_reason = 5;
+
+    // 出科信息
+    string discharge_time = 6;
+    int32 discharged_type = 7;
+    string discharged_dept_name = 8;
+    string discharged_death_time = 9;
+}
+
+/*
+ * /api/patient/updatepatientinfov2
+ *  input: UpdatePatientInfoV2Req
+ *  output: GenericResp
+ */
+message UpdatePatientInfoV2Req {
+    config.PatientInfoPB patient_info = 1;
+}
+
+/*
+ * /api/patient/getdiagnosishistory
+ *  input: GetDiagnosisHistoryReq
+ *  output: GetDiagnosisHistoryResp
+ */
+message GetDiagnosisHistoryReq {
+    int64 pid = 1;
+}
+
+message DiagnosisHistoryPB {
+    int32 id = 1;  // diagnosis_history.id
+    string diagnosis_time_iso8601 = 2;
+    string diagnosis_doctor_id = 3;
+    string diagnosis = 4;
+    string diagnosis_code = 5;
+    string diagnosis_tcm = 6;
+    string diagnosis_tcm_code = 7;
+}
+
+message GetDiagnosisHistoryResp {
+    shared.ReturnCode rt = 1;
+    repeated DiagnosisHistoryPB diagnosis_history = 2;
+}
+
+/*
+ * /api/patient/adddiagnosishistory
+ *  input: AddDiagnosisHistoryReq
+ *  output: AddDiagnosisHistoryResp
+ */
+message AddDiagnosisHistoryReq {
+    int64 pid = 1;
+    DiagnosisHistoryPB diagnosis_history = 2;
+}
+
+message AddDiagnosisHistoryResp {
+    shared.ReturnCode rt = 1;
+    int32 id = 2;  // diagnosis_history.id
+}
+
+/*
+ * /api/patient/updatediagnosishistory
+ *  input: UpdateDiagnosisHistoryReq
+ *  output: GenericResp
+ */
+message UpdateDiagnosisHistoryReq {
+    int32 id = 1;  // diagnosis_history.id
+    DiagnosisHistoryPB diagnosis_history = 2;
+}
+
+/*
+ * /api/patient/deletediagnosishistory
+ *  input: DeleteDiagnosisHistoryReq
+ *  output: GenericResp
+ */
+message DeleteDiagnosisHistoryReq {
+    int32 id = 1;  // diagnosis_history.id
+}
+
+/*
+ * /api/patient/synchispatient
+ *  input: SyncHisPatientReq
+ *  output: SyncHisPatientResp
+ */
+message SyncHisPatientReq {
+    bool force_sync = 1;  // 是否强制同步
+}
+
+message SyncHisPatientResp {
+    shared.ReturnCode rt = 1;
+    int32 admitted_his_patient_count = 2;
+}
+
+/*
+ * rpc SwitchPatientBed (SwitchPatientBedReq) returns (GenericResp)
+ */
+message SwitchPatientBedReq {
+    int64 pid = 1;
+    string to_his_bed_number = 2;
+    string switch_time_iso8601 = 3;
+}
+
+/******************************************************************************
+ * /api/medication/xxx                                                        *
+ ******************************************************************************/
+
+message MedicationEnums {
+    string route_group_str = 1;  // AdministrationRouteGroup
+    repeated shared.EnumValue route_group_val = 2;
+
+    string order_validity_str = 3;  // MedicationOrderValidityType
+    repeated shared.EnumValue order_validity_val = 4;
+
+    string order_duration_str = 5;  // OrderDurationType
+    repeated shared.EnumValue order_duration_val = 6;
+
+    string medication_channel_str = 7;  // MedicationChannel
+    repeated shared.EnumValue medication_channel_val = 8;
+
+    string medication_execution_action_str = 9;  // MedicationExecutionActionType
+    repeated shared.EnumValue medication_execution_action_val = 10;
+}
+
+message MedicationOrderGroupPB {
+    // 标识符
+    int64 id = 1;  // MedicationOrderGroup.id
+    string his_patient_id = 2;
+    int64 patient_id = 3;
+    string group_id = 4;
+    
+    // 重复字段：多个医嘱ID
+    config.MedicalOrderIdsPB medical_order_ids = 5;
+
+    // 患者相关信息
+    string his_mrn = 6;
+    
+    // 医生信息
+    string ordering_doctor = 7;
+    string ordering_doctor_id = 8;
+
+    // 部门信息
+    string department_id = 9;
+
+    // 医嘱类型与状态
+    string order_type = 10;
+    string status = 11;
+
+    // 时间字段，ISO 8601 字符串表示
+    string order_time_iso8601 = 12;
+    string stop_time_iso8601 = 13;
+    string cancel_time_iso8601 = 14;
+
+    // 有效性标志（int 或 enum）
+    int32 order_validity = 15;
+
+    // 不一致性解释
+    string inconsistency_explanation = 16;
+
+    // 药品剂量信息
+    config.MedicationDosageGroupPB dosage_group = 17;
+
+    // 医嘱持续时间类型
+    int32 order_duration_type = 18;  // 
+
+    // 频率编码
+    string freq_code = 19;
+
+    // 频率名称
+    string freq_name = 20;
+
+    // 计划时间
+    string plan_time_iso8601 = 21;
+
+    // 首日执行次数
+    int32 first_day_exe_count = 22;
+
+    // 给药途径信息
+    string administration_route_code = 23;
+    string administration_route_name = 24;
+
+    // 其他
+    string note = 25;
+
+    // 审核人信息
+    string reviewer = 26;
+    string reviewer_id = 27;
+    string review_time_iso8601 = 28;
+
+    // 创建时间
+    string created_at_iso8601 = 29;
+}
+
+message MedicationExecutionRecordPB {
+    // 标识符
+    int64 id = 1;
+    int64 medication_order_group_id = 2;  // MedicationOrderGroup.id
+    string his_order_group_id = 3;  // MedicationOrderGroup.groupId
+
+    // 时间字段，ISO 8601 字符串表示
+    string plan_time_iso8601 = 4;
+    string start_time_iso8601 = 5;
+    string end_time_iso8601 = 6;
+
+    // 删除相关字段
+    int32 is_deleted = 7;
+    string delete_account_id = 8;
+    string delete_time_iso8601 = 9;
+    string delete_reason = 10;
+
+    // 用户操作相关字段
+    int32 user_touched = 11;
+    string bar_code = 12;
+    string his_execute_id = 13;
+
+    // 药品剂量组信息
+    config.MedicationDosageGroupPB dosage_group = 14;
+    int32 is_personal_medications = 15;
+
+    // 给药途径信息
+    string administration_route_code = 16;
+    string administration_route_name = 17;
+    bool is_continuous = 18;  // 是否连续给药
+    bool should_calculate_rate = 19;
+
+    // 给药通道
+    int32 medication_channel = 20;
+    string medication_channel_name = 21;
+
+    // 备注和创建信息
+    string comments = 22;
+    string create_account_id = 23;
+    string created_at_iso8601 = 24;
+}
+
+message MedicationExecutionActionPB {
+    // 标识符
+    int64 id = 1;
+    int64 medication_execution_record_id = 2;
+
+    // 创建信息
+    string create_account_id = 3;
+    string create_account_name = 4;
+    string created_at_iso8601 = 5;
+
+    // 执行动作类型，MedicationExecutionActionType.id
+    int32 action_type = 6;
+
+    // 用药速度与摄入量
+    double administration_rate = 7;
+    config.DosageGroupExtPB dosage_group_ext = 8;  // 开启药速功能(ug/kg/min...)时启用该字段
+    double intake_vol_ml = 9;
+
+    // 删除信息
+    int32 is_deleted = 10;
+    string delete_account_id = 11;
+    string delete_time_iso8601 = 12;
+}
+
+message FluidIntakePB {
+    double total_ml = 1;
+
+    message IntakeRecord {
+        double ml = 1;
+        string ml_str = 2;
+        string time_iso8601 = 3;
+    }
+    repeated IntakeRecord intake_record = 2;
+
+    IntakeRecord remaining_intake = 3;
+
+    string estimated_completion_time_iso8601 = 4;
+}
+
+message ExecutionRecordPB {
+    MedicationExecutionRecordPB med_exe_rec = 1;
+    repeated MedicationExecutionActionPB med_exe_action = 2;
+
+    // 下一步合适的操作类型, icis_medication.proto:MEnums.medication_execution_action_type_*.id
+    repeated int32 next_action_type = 3;
+
+    FluidIntakePB intake = 4;
+}
+
+message OrderGroupPB {
+    // MedicationOrderGroup.administrationRouteCode
+    // => AdministrationRoute.groupId
+    // => AdministrationRouteGroup.id
+    int32 route_group_id = 1;  // 前端展示为 用药途径分组
+
+    MedicationOrderGroupPB med_order_group = 2;
+    repeated ExecutionRecordPB exe_record = 3;
+    string status = 4;  // 未开始、进行中、已完成
+}
+
+/*
+ * /api/medication/getordergroups
+ *  input: GetOrderGroupsReq
+ *  output: GetOrderGroupsResp
+ */
+message GetOrderGroupsReq {
+    int64 patient_id = 1;
+    string query_start_iso8601 = 2;
+    string query_end_iso8601 = 3;
+    bool expand_exe_record = 4;  // 是否分解执行记录：进入执行医嘱页面时置为false，执行医嘱页面点击“刷新”时置为true
+}
+
+message GetOrderGroupsResp {
+    shared.ReturnCode rt = 1;
+    repeated OrderGroupPB order_group = 2;
+}
+
+/*
+ * /api/medication/getordergroup
+ *  input: GetOrderGroupReq
+ *  output: GetOrderGroupResp
+ */
+message GetOrderGroupReq {
+    int64 med_order_group_id = 1;
+    string query_start_iso8601 = 2;
+    string query_end_iso8601 = 3;
+}
+
+message GetOrderGroupResp {
+    shared.ReturnCode rt = 1;
+    OrderGroupPB order_group = 2;
+}
+
+/*
+ * /api/medication/newordergroup
+ *  input: NewOrderGroupReq
+ *  output: NewOrderGroupResp
+ */
+message NewOrderGroupReq {
+    string department_id = 1;
+    int64 patient_id = 2;
+    config.MedicationDosageGroupPB dosage_group = 3;
+    string administration_route_code = 4;
+    string administration_route_name = 5;
+    string plan_time_iso8601 = 6;
+    string order_time_iso8601 = 7;
+    int32 is_personal_medications = 8;
+    string note = 9;
+
+    // 如果 administration_route_code 为持续用药，正确的组合有三种：
+    // - administration_rate 为空， start_time_iso8601 为空， finish_time_iso8601 为空，不创建执行动作
+    // - administration_rate 不为空， start_time_iso8601 不为空， finish_time_iso8601 为空，创建开始执行动作
+    // - administration_rate 不为空， start_time_iso8601 不为空， finish_time_iso8601 不为空，创建开始执行动作和结束执行动作
+    // 如果 administration_route_code 为单次用药，正确的组合有两种：
+    // - administration_rate 为空， finish_time_iso8601 为空，不创建执行动作
+    // - administration_rate 不为空， finish_time_iso8601 不为空，创建结束执行动作
+    double intake_vol_ml = 10;
+    double administration_rate = 11;
+    string start_time_iso8601 = 12;  // 执行开始时间
+    string finish_time_iso8601 = 13;  // 执行结束时间
+    int32 medication_channel = 14;
+    string medication_channel_name = 15;  // 给药通道
+    config.DosageGroupExtPB dosage_group_ext = 16;  // 开启药速功能(ug/kg/min...)时启用该字段
+}
+
+message NewOrderGroupResp {
+    shared.ReturnCode rt = 1;
+    OrderGroupPB order_group = 2;
+}
+
+/*
+ * /api/medication/addorderexeaction
+ *  input: AddOrderExeActionReq
+ *  output: AddOrderExeActionResp
+ */
+message AddOrderExeActionReq {
+    int64 med_exe_rec_id = 1;
+    int32 action_type = 2;
+    double administration_rate = 3;
+    config.DosageGroupExtPB dosage_group_ext = 4;  // 开启药速功能(ug/kg/min...)时启用该字段
+    double intake_vol_ml = 5;
+    string created_at_iso8601 = 6;
+}
+
+message AddOrderExeActionResp {
+    shared.ReturnCode rt = 1;
+    ExecutionRecordPB exe_record = 2;
+}
+
+/*
+ * /api/medication/delorderexeaction
+ *  input: DelOrderExeActionReq
+ *  output: DelOrderExeActionResp
+ */
+message DelOrderExeActionReq {
+    int64 med_exe_action_id = 1;
+    string delete_time_iso8601 = 2;
+}
+
+message DelOrderExeActionResp {
+    shared.ReturnCode rt = 1;
+    ExecutionRecordPB exe_record = 2;
+}
+
+/*
+ * /api/medication/updateexerecord
+ *  input: UpdateExeRecordReq
+ *  output: GenericResp
+ */
+message UpdateExeRecordReq {
+    int64 med_exe_rec_id = 1;
+    config.MedicationDosageGroupPB dosage_group = 2;
+    string administration_route_code = 3;
+    string administration_route_name = 4;
+    int32 medication_channel = 5;
+    string medication_channel_name = 6;
+    int32 is_personal_medications = 7;
+    string update_time_iso8601 = 8;
+}
+
+/*
+ * /api/medication/delexerecord
+ *  input: DelExeRecordReq
+ *  output: GenericResp
+ */
+message DelExeRecordReq {
+    int64 med_exe_rec_id = 1;
+    string delete_time_iso8601 = 2;
+    string delete_reason = 3;
+}
+
+/*
+ * /api/medication/getdeletedexerecords
+ *  input: GetDeletedExeRecordsReq
+ *  output: GetDeletedExeRecordsResp
+ */
+message GetDeletedExeRecordsReq {
+    int64 patient_id = 1;
+    string retrieve_time_iso8601 = 2;
+}
+
+message GetDeletedExeRecordsResp {
+    shared.ReturnCode rt = 1;
+
+    message DeletedRecord {
+        int64 med_exe_rec_id = 1;
+        string dosage_group_display_name = 2;
+        string plan_time_iso8601 = 3;
+        string delete_time_iso8601 = 4;
+        string delete_account_id = 5;
+        string delete_reason = 6;
+        // todo(guzhenyu): 补充下嘱医生
+    }
+    repeated DeletedRecord deleted_record = 2;
+}
+
+/*
+ * /api/medication/revertdeletedexerecord
+ *  input: RevertDeletedExeRecordReq
+ *  output: GenericResp
+ */
+message RevertDeletedExeRecordReq {
+    int64 med_exe_rec_id = 1;
+}
+
+/*
+ * /api/medication/lookupmedication
+ *  input: LookupMedicationReq
+ *  output: LookupMedicationResp
+ */
+message LookupMedicationReq {
+    string query = 1;  // 药品编码，药品名称，或药品首字母的子串
+}
+
+message LookupMedicationResp {
+    shared.ReturnCode rt = 1;
+    repeated config.MedicationDosagePB medication = 2;
+}
+
+/*
+ * /api/medication/lookupmedicationv2
+ *  input: LookupMedicationReq
+ *  output: LookupMedicationV2Resp
+ */
+message LookupMedicationV2Resp {
+    shared.ReturnCode rt = 1;
+    repeated config.MedicationPB medication = 2;
+}
+
+/*
+ * /api/medication/addmedication
+ *  input: AddMedicationReq
+ *  output: GenericResp
+ */
+message AddMedicationReq {
+    config.MedicationPB medication = 1;  // 药品信息
+}
+
+/*
+ * /api/medication/updatemedication
+ *  input: UpdateMedicationReq
+ *  output: GenericResp
+ */
+message UpdateMedicationReq {
+    string orig_code = 1;  // 原药品编码
+    config.MedicationPB medication = 2;  // 药品信息
+}
+
+/*
+ * /api/medication/deletemedication
+ *  input: DeleteMedicationReq
+ *  output: GenericResp
+ */
+message DeleteMedicationReq {
+    string code = 1;  // 药品编码
+}
+
+
+/*
+ * /api/medication/lookuproute
+ *  input: LookupRouteReq
+ *  output: LookupRouteResp
+ */
+message LookupRouteReq {
+    string dept_id = 1;  // 科室ID
+    string query = 2;  // 用药途径编码，用药途径名称，或用药途径首字母的子串
+}
+
+message LookupRouteResp {
+    shared.ReturnCode rt = 1;
+    repeated config.AdministrationRoutePB route = 2;
+}
+
+/*
+ * /api/medication/addroute
+ *  input: AddRouteReq
+ *  output: AddRouteResp
+ */
+message AddRouteReq {
+    string dept_id = 1;  // 科室ID
+    config.AdministrationRoutePB route = 2;  // 用药途径
+}
+
+message AddRouteResp {
+    shared.ReturnCode rt = 1;
+    int32 id = 2;  // 新增的用药途径ID
+}
+
+/*
+ * /api/medication/updateroute
+ *  input: UpdateRouteReq
+ *  output: GenericResp
+ */
+message UpdateRouteReq {
+    int32 id = 1;  // 用药途径ID
+    config.AdministrationRoutePB route = 2;  // 用药途径
+}
+
+/*
+ * /api/medication/deleteroute
+ *  input: DeleteRouteReq
+ *  output: GenericResp
+ */
+message DeleteRouteReq {
+    int32 id = 1;  // 用药途径ID
+}
+
+/*
+ * /api/medication/lookupfreq
+ *  input: LookupFreqReq
+ *  output: LookupFreqResp
+ */
+message LookupFreqReq {
+    int32 only_nursing_order_freq = 1;  // 0: 不限制，1: 只查护理计划频次
+}
+
+message LookupFreqResp {
+    shared.ReturnCode rt = 1;
+    repeated StringIdEntityPB freq = 2;
+    // repeated config.MedicationFrequencySpec freq = 2;
+}
+
+/*
+ * /api/medication/lookupfreqV2
+ *  input: LookupFreqReq
+ *  output: LookupFreqV2Resp
+ */
+message LookupFreqV2Resp {
+    shared.ReturnCode rt = 1;
+    repeated config.MedicationFrequencySpec freq = 2;
+}
+
+/*
+ * /api/medication/addfreq
+ *  input: AddFreqReq
+ *  output: AddFreqResp
+ */
+message AddFreqReq {
+    config.MedicationFrequencySpec freq = 1;  // 药品频次
+}
+message AddFreqResp {
+    shared.ReturnCode rt = 1;
+    int32 id = 2;  // 新增的药品频次ID
+}
+
+/*
+ * /api/medication/updatefreq
+ *  input: UpdateFreqReq
+ *  output: GenericResp
+ */
+message UpdateFreqReq {
+    config.MedicationFrequencySpec freq = 1;  // 药品频次
+}
+
+/*
+ * /api/medication/deletefreq
+ *  input: DeleteFreqReq
+ *  output: GenericResp
+ */
+message DeleteFreqReq {
+    int32 id = 1;  // 药品频次ID
+}
+
+/*
+ * /api/medication/getdosagegroupext
+ *  input: GetDosageGroupExtReq
+ *  output: GetDosageGroupExtResp
+ */
+message GetDosageGroupExtReq {
+    int64 pid = 1;
+    config.MedicationDosageGroupPB dosage_group = 2;
+}
+
+message GetDosageGroupExtResp {
+    shared.ReturnCode rt = 1;
+    config.MedicationDosageGroupPB dosage_group = 2;
+    // 仅获取 dosage_group_ext.total_ml&solid_amount&solid_unit&solid_changable&weight_kg
+    config.DosageGroupExtPB dosage_group_ext = 3;
+}
+
+/*
+ * /api/medication/calcmedrate
+ *  input: CalcMedRateReq
+ *  output: CalcMedRateResp
+ */
+message CalcMedRateReq {
+    // true, 根据administration_rate计算dosage_rate; false, 根据dosage_rate计算administration_rate
+    bool use_infusion_rate_as_input = 1;
+    config.DosageGroupExtPB dosage_group_ext = 2;
+}
+
+message CalcMedRateResp {
+    shared.ReturnCode rt = 1;
+    config.DosageGroupExtPB dosage_group_ext = 2;
+}
+
+/******************************************************************************
+ * /api/tube/gettubetypes                                                     *
+ ******************************************************************************/
+
+/*
+ * /api/tube/gettubetypes
+ *  input: GetTubeTypesReq
+ *  output: GetTubeTypesResp
+ */
+message GetTubeTypesReq {
+    string department_id = 1;
+}
+
+message GetTubeTypesResp {
+    shared.ReturnCode rt = 1;
+    config.TubeTypeListPB dept_tube_type_list = 2;
+}
+
+/*
+ * /api/tube/addtubetype
+ *  input: AddTubeTypeReq
+ *  output: AddTubeTypeResp
+ *
+ * /api/tube/updatetubetype
+ *  input: AddTubeTypeReq
+ *  output: GenericResp
+ */
+message AddTubeTypeReq {
+    string department_id = 1;
+    // tubeType.id:
+    // - /api/tube/addtubetype中不填；
+    // - /api/tube/updatetubetype中，tube_type.id需要和(department_id, tube_type.name)对应到同一条记录
+    config.TubeTypePB tube_type = 2;
+}
+
+message AddTubeTypeResp {
+    shared.ReturnCode rt = 1;
+    int32 added_tube_type_id = 2;
+}
+
+/*
+ * /api/tube/disabletubetype
+ *  input: DisableTubeTypeReq
+ *  output: GenericResp
+ */
+message DisableTubeTypeReq {
+    int32 tube_type_id = 1;
+    int32 is_disabled = 2;  // 0: 启用，1: 禁用
+}
+
+/*
+ * /api/tube/deletetubetype
+ *  input: DeleteTubeTypeReq
+ *  output: GenericResp
+ */
+message DeleteTubeTypeReq {
+    int32 tube_type_id = 1;
+}
+
+
+/*
+ * /api/tube/addtubetypeattr
+ *  input: AddTubeTypeAttrReq
+ *  output: AddTubeTypeAttrResp
+ *
+ * /api/tube/updatetubetypeattr
+ *  input: AddTubeTypeAttrReq
+ *  output: GenericResp
+ */
+message AddTubeTypeAttrReq {
+    int32 tube_type_id = 1;
+    // attr.id:
+    // - 在 /api/tube/addtubetypeattr 中不填；
+    // - 在 /api/tube/updatetubetypeattr 中，attr.id 需要和 (tube_type_id, attr.code) 对应到同一条记录
+    config.TubeValueSpecPB attr = 2;
+}
+
+message AddTubeTypeAttrResp {
+    shared.ReturnCode rt = 1;
+    int32 added_tube_type_attr_id = 2;
+}
+
+/*
+ * /api/tube/deletetubetypeattr
+ *  input: DeleteTubeTypeAttrReq
+ *  output: GenericResp
+ */
+message DeleteTubeTypeAttrReq {
+    int32 tube_type_attr_id = 1;
+}
+
+/*
+ * /api/tube/addtubetypestatus
+ *  input: AddTubeTypeStatusReq
+ *  output: AddTubeTypeStatusResp
+ *
+ * /api/tube/updatetubetypestatus
+ *  input: AddTubeTypeStatusReq
+ *  output: GenericResp
+ */
+message AddTubeTypeStatusReq {
+    int32 tube_type_id = 1;
+    // status.id:
+    // - 在 /api/tube/addtubetypestatus 中不填；
+    // - 在 /api/tube/updatetubetypestatus 中，status.id 需要和 (tube_type_id, status.code) 对应到同一条记录
+    config.TubeValueSpecPB status = 2;
+}
+
+message AddTubeTypeStatusResp {
+    shared.ReturnCode rt = 1;
+    int32 added_tube_type_status_id = 2;
+}
+
+/*
+ * /api/tube/deletetubetypeattr
+ *  input: DeleteTubeTypeStatusReq
+ *  output: GenericResp
+ */
+message DeleteTubeTypeStatusReq {
+    int32 tube_type_status_id = 1;
+}
+
+/*
+ * /api/tube/adjustorder
+ *  input: AdjustTubeOrderReq
+ *  output: GenericResp
+ */
+enum TubeOrderType {
+    TUBE_TYPE = 0;
+    TUBE_ATTR = 1;
+    TUBE_STATUS = 2;
+}
+
+message TubeOrder {
+    int32 id = 1;
+    int32 display_order = 2;
+}
+
+message AdjustTubeOrderReq {
+    int32 tube_order_type = 1;
+    repeated TubeOrder tube_order = 2;
+}
+
+/*
+ * /api/tube/getpatienttuberecords
+ *  input: GetPatientTubeRecordsReq
+ *  output: GetPatientTubeRecordsResp
+ */
+
+message TubeAttributePB {
+    int32 tube_attr_id = 1; // 管道属性ID
+    string value = 2;       // 属性值
+}
+
+message PatientTubeRecordPB {
+    int64 patient_tube_record_id = 1; // 根管道记录ID，patient_tube_records.patient_tube_record_id
+    string tube_name = 2;           // 管道名称
+    int32 tube_type_id = 3;         // 管道类型ID
+    int32 status = 4;               // 状态，对应 EnumValue.id
+    string inserted_by = 5;         // 插管人
+    string inserted_by_account_name = 6; // 插管人姓名
+    string inserted_at_iso8601 = 7; // 插入时间（ISO 8601 格式）
+    string planned_removal_at_iso8601 = 8; // 计划拔管时间（ISO 8601 格式）
+    int32 duration_days = 9;        // 持续时间（天数）
+    int32 is_retained_on_discharge = 10;          // 是否带管出科, 1是，0不是
+    string removed_by = 11;          // 拔管人
+    string removed_by_account_name = 12; // 拔管人姓名
+    string removed_at_iso8601 = 13;  // 拔管时间
+    string removal_reason = 14;      // 拔管原因
+    string note = 15;                // 备注, 非必填
+    int32 shift_data_filled = 16;    // 是否已填当班数据, 1是，0不是
+    repeated TubeAttributePB attributes = 17; // 属性列表
+}
+
+message GetPatientTubeRecordsReq {
+    int64 pid = 1;          // 病人ID
+    int32 is_deleted = 2;   // 是否已删除（0或1）
+    // todo: 新增"当班数据(已填/未填)"数据
+}
+
+message GetPatientTubeRecordsResp {
+    shared.ReturnCode rt = 1;                          // 返回代码
+    repeated PatientTubeRecordPB record = 2;   // 病人插管记录列表
+}
+
+/*
+ * /api/tube/newpatienttube
+ *  input: NewPatientTubeReq
+ *  output: NewPatientTubeResp
+ */
+message NewPatientTubeReq {
+    int64 pid = 1;                             // 病人ID
+    int32 tube_type_id = 2;                    // 管道类型ID
+    string tube_name = 3;                      // 管道名称
+    string inserted_by = 4;                    // 插管人
+    string inserted_at_iso8601 = 5;            // 插管时间
+    string planned_removal_at_iso8601 = 6;     // 计划拔管时间，非必填
+    string note = 7;                           // 备注，非必填
+    repeated TubeAttributePB attributes = 8;   // 属性列表
+}
+
+message NewPatientTubeResp {
+    shared.ReturnCode rt = 1;                         // 返回代码
+    int64 id = 2;                              // 新插管记录ID, patient_tube_records.id
+}
+
+/*
+ * /api/tube/removepatienttube
+ *  input: RemovePatientTubeReq
+ *  output: GenericResp
+ */
+message RemovePatientTubeReq {
+    int64 patient_tube_record_id = 1;  // 病人插管记录ID
+    int32 is_unplanned_removal = 2;      // 是否非计划拔管, 0/1
+    string removal_reason = 3;          // 拔管原因，非必填
+    string removed_by = 4;              // 拔管人
+    string removed_at_iso8601 = 5;      // 拔管时间
+}
+
+/*
+ * /api/tube/replacepatienttube
+ *  input: ReplacePatientTubeReq
+ *  output: NewPatientTubeResp
+ *  被替换的管道的is_unplanned_removal置为false
+ */
+message ReplacePatientTubeReq {
+    int64 replaced_tube_record_id = 1;         // 被替换的管道ID
+    string removal_reason = 3;                 // 拔管原因，非必填
+    string removed_by = 4;                     // 换管人
+    string removed_at_iso8601 = 5;             // 换管时间
+    int32 new_tube_type_id = 6;                // 新管道类型ID，前端不展示，自动回填
+    string new_tube_name = 7;                  // 新管道名称，前端不展示，自动回填
+    string planned_removal_at_iso8601 = 8;     // 新管计划拔管时间（ISO 8601 格式），非必填
+    string note = 9;                           // 备注，非必填
+    repeated TubeAttributePB attributes = 10; // 属性列表
+}
+
+/*
+ * /api/tube/retaintubeondischarge
+ *  input: RetainTubeOnDischargeReq
+ *  output: GenericResp
+ */
+message RetainTubeOnDischargeReq {
+    int64 patient_tube_record_id = 1;  // 病人插管记录ID
+    int32 is_retain = 2;               // 带管出科标记，0/1
+}
+
+/*
+ * /api/tube/deletepatienttube
+ *  input: DeletePatientTubeReq
+ *  output: GenericResp
+ */
+message DeletePatientTubeReq {
+    int64 patient_tube_record_id = 1; // 病人插管记录ID
+    string delete_reason = 2;          // 删除原因
+}
+
+/*
+ * /api/tube/updatepatienttubeattr
+ *  input: UpdatePatientTubeAttrReq
+ *  output: GenericResp
+ */
+message UpdatePatientTubeAttrReq {
+    int64 patient_tube_record_id = 1;          // 病人插管记录ID
+    string inserted_by = 2;                    // 插管人
+    string inserted_at_iso8601 = 3;            // 插管时间
+    string planned_removal_at_iso8601 = 4;     // 计划拔管时间，非必填
+    string note = 5;                           // 备注，非必填
+    repeated TubeAttributePB attrs = 6;  // 更新的管道属性记录
+}
+
+/*
+ * /api/tube/getpatienttubestatus
+ *  input: GetPatientTubeStatusReq
+ *  output: GetPatientTubeStatusResp
+ */
+message GetPatientTubeStatusReq {
+    int64 patient_tube_record_id = 1;     // 根管道记录ID
+    string query_start_iso8601 = 2;       // 查询开始日期（ISO 8601 格式）
+    string query_end_iso8601 = 3;         // 查询结束日期（ISO 8601 格式）
+    int32 page_size = 4;                  // 每页大小，<= 0代表不分页
+    int32 page_index = 5;                   // 页码，从1开始
+}
+
+message TubeStatusValPB {
+    int32 tube_status_id = 1;             // 管道状态ID tube_type_statuses.id
+    string value = 2;                     // 状态值
+}
+
+message TubeTimeStatusValListPB {
+    string recorded_by = 1;               // 记录人
+    string recorded_by_account_name = 2;  // 记录人姓名, NewPatientTubeStatusReq中不填
+    string recorded_at_iso8601 = 3;       // 状态记录时间（ISO 8601 格式）
+    // 状态值列表
+    // - 新增时，status不能为空
+    repeated TubeStatusValPB status = 4;  // 状态值列表
+}
+
+message GetPatientTubeStatusResp {
+    shared.ReturnCode rt = 1;  // 返回代码
+    int32 num_rows = 2;  // 总记录数
+    int32 num_pages = 3;  // 总页数
+    repeated TubeTimeStatusValListPB time_status = 4;  // 时间状态列表
+}
+
+/*
+ * /api/tube/newpatienttubestatus
+ *  input: NewPatientTubeStatusReq
+ *  output: GenericResp
+ */
+message NewPatientTubeStatusReq {
+    int64 patient_tube_record_id = 1;  // 病人插管记录ID
+    TubeTimeStatusValListPB time_status = 2; // 时间状态列表
+}
+
+/*
+ * /api/tube/deletepatienttubestatus
+ *  input: DeletePatientTubeStatusReq
+ *  output: GenericResp
+ */
+message DeletePatientTubeStatusReq {
+    int64 patient_tube_record_id = 1;  // 病人插管记录ID
+    string recorded_at_iso8601 = 2;    // 记录时间
+}
+
+/******************************************************************************
+ * /api/monitoring/                                                           *
+ ******************************************************************************/
+
+/*
+ * /api/monitoring/getmonitoringparams
+ *  input: GetMonitoringParamsReq
+ *  output: GetMonitoringParamsResp
+ */
+message GetMonitoringParamsReq {
+    string department_id = 1;
+}
+
+message GetMonitoringParamsResp {
+    shared.ReturnCode rt = 1;
+    repeated config.MonitoringParamPB params = 2;
+}
+
+/*
+ * /api/monitoring/getmonitoringparam
+ *  input: GetMonitoringParamReq
+ *  output: GetMonitoringParamResp
+ */
+message GetMonitoringParamReq {
+    string param_code = 1;
+}
+
+message DeptMonitoringParamPB {
+    string dept_id = 1;
+    config.MonitoringParamPB param = 2;
+}
+
+message GetMonitoringParamResp {
+    shared.ReturnCode rt = 1;
+    config.MonitoringParamPB param = 2;
+    repeated DeptMonitoringParamPB dept_param = 3;
+    repeated config.MonitoringModalOptionPB modal_option = 4;  // 模态选项
+}
+
+/*
+ * /api/monitoring/addmonitoringparam
+ * /api/monitoring/updatemonitoringparam
+ *  input: AddMonitoringParamReq
+ *  output: GenericResp
+ */
+message AddMonitoringParamReq {
+    config.MonitoringParamPB param = 2;
+}
+
+/*
+ * /api/monitoring/deletemonitoringparam
+ *  input: DeleteMonitoringParamReq
+ *  output: GenericResp
+ */
+message DeleteMonitoringParamReq {
+    string department_id = 1;
+    string code = 2;
+}
+
+/*
+ * /api/monitoring/updatedeptmonitoringparam
+ *  input: UpdateDeptMonitoringParamReq
+ *  output: GenericResp
+ */
+message UpdateDeptMonitoringParamReq {
+    string department_id = 1;
+    string code = 2;
+    shared.ValueMetaPB value_meta = 3;
+}
+
+/*
+ * /api/monitoring/getdeptmonitoringgroups
+ *  input: GetDeptMonitoringGroupsReq
+ *  output: GetDeptMonitoringGroupsResp
+ */
+message GetDeptMonitoringGroupsReq {
+    string department_id = 1;
+    int32 group_type = 2;
+}
+
+message GetDeptMonitoringGroupsResp {
+    shared.ReturnCode rt = 1;
+    repeated config.MonitoringGroupBetaPB monitoring_group = 2;
+}
+
+/*
+ * /api/monitoring/adddeptmonitoringgroup
+ *  input: AddDeptMonitoringGroupReq
+ *  output: AddDeptMonitoringGroupResp
+ */
+message AddDeptMonitoringGroupReq {
+    string department_id = 1;
+    string name = 2;
+    int32 group_type = 3;
+    int32 display_order = 4;
+    shared.ValueMetaPB sum_value_meta = 5;
+}
+
+message AddDeptMonitoringGroupResp {
+    shared.ReturnCode rt = 1;
+    int32 id = 2;  // dept_monitoring_groups.id
+}
+
+/*
+ * /api/monitoring/updatedeptmongroupname
+ *  input: UpdateDeptMonGroupNameReq
+ *  output: GenericResp
+ */
+message UpdateDeptMonGroupNameReq {
+    int32 id = 1;  // dept_monitoring_groups.id
+    string name = 2;
+}
+
+/*
+ * /api/monitoring/deletedeptmonitoringgroup
+ *  input: DeleteDeptMonitoringGroupReq
+ *  output: GenericResp
+ */
+message DeleteDeptMonitoringGroupReq {
+    int32 id = 1;  // dept_monitoring_groups.id
+}
+
+/*
+ * /api/monitoring/reorderdeptmonitoringgroup
+ *  input: ReorderDeptMonitoringGroupReq
+ *  output: GenericResp
+ */
+message MonitoringGroupOrder {
+    int32 monitoring_group_id = 1;
+    int32 display_order = 2;
+}
+
+message ReorderDeptMonitoringGroupReq {
+    string department_id = 1;
+    repeated MonitoringGroupOrder group_order = 2;
+}
+
+/*
+ * /api/monitoring/adddeptmonitoringgroupparam
+ *  input: AddDeptMonitoringGroupParamReq
+ *  output: AddDeptMonitoringGroupParamResp
+ */
+message AddDeptMonitoringGroupParamReq {
+    string dept_id = 1;
+    int32 dept_monitoring_group_id = 2;  // dept_monitoring_groups.id
+    string code = 3;  // monitoring_params.code
+    int32 display_order = 4;
+}
+
+message AddDeptMonitoringGroupParamResp {
+    shared.ReturnCode rt = 1;
+    int32 id = 2;  // dept_monitoring_group_params.id
+}
+
+/*
+ * /api/monitoring/deletedeptmonitoringgroupparam
+ *  input: DeleteDeptMonitoringGroupParamReq
+ *  output: GenericResp
+ */
+message DeleteDeptMonitoringGroupParamReq {
+    int32 id = 1;  // dept_monitoring_group_params.id
+}
+
+/*
+ * /api/monitoring/reorderdeptmonitoringgroupparam
+ *  input: ReorderDeptMonitoringGroupParamReq
+ *  output: GenericResp
+ */
+message MonitoringGroupParamOrder {
+    int32 id = 1;  // dept_monitoring_group_params.id
+    int32 display_order = 2;
+}
+
+message ReorderDeptMonitoringGroupParamReq {
+    string dept_id = 1;
+    repeated MonitoringGroupParamOrder param_order = 2;
+}
+
+/*
+ * /api/monitoring/getpatientmonitoringgroups
+ *  input: GetPatientMonitoringGroupsReq
+ *  output: GetPatientMonitoringGroupsResp
+ */
+message GetPatientMonitoringGroupsReq {
+    int64 pid = 1;
+    string dept_id = 2;
+    int32 group_type = 3;
+    string query_start_iso8601 = 4;
+    string query_end_iso8601 = 5;
+    bool sync_device_data = 6;  // 是否同步设备数据
+}
+
+message GetPatientMonitoringGroupsResp {
+    shared.ReturnCode rt = 1;
+    repeated config.MonitoringGroupBetaPB monitoring_group = 2;
+}
+
+/*
+ * /api/monitoring/updatepatientmonitoringgroup
+ *  input: UpdatePatientMonitoringGroupReq
+ *  output: GenericResp
+ */
+message UpdatePatientMonitoringGroupReq {
+    int64 pid = 1;
+    int32 monitoring_group_id = 2;  // dept_monitoring_groups.id
+    repeated config.MonitoringGroupParamPB params = 3;
+}
+
+/*
+ * /api/monitoring/syncpatientmonitoringgroupsfromdept
+ * 将部门的观察项分组强制同步到所有在线病人
+ *  input: SyncPatientMonitoringGroupsFromDeptReq
+ *  output: GenericResp
+ */
+message SyncPatientMonitoringGroupsFromDeptReq {
+    string dept_id = 1;
+}
+
+/*
+ * /api/monitoring/getpatientmonitoringrecords
+ *  input: GetPatientMonitoringGroupsReq
+ *  output: GetPatientMonitoringRecordsResp
+ */
+message GetPatientMonitoringRecordsResp {
+    shared.ReturnCode rt = 1;
+    repeated config.MonitoringGroupRecordsPB group_records = 2;
+    repeated config.PatientMonitoringTimePointPB custom_time_point = 3;
+}
+
+/*
+ * /api/monitoring/addpatientmonitoringrecord
+ *  input: AddPatientMonitoringRecordReq
+ *  output: AddPatientMonitoringRecordResp
+ */
+message AddPatientMonitoringRecordReq {
+    int64 pid = 1;
+    string dept_id = 2;
+    string param_code = 3;
+    shared.GenericValuePB value = 5;  // 监测值，如果对应的ValueMetaPB标记为单选
+    repeated shared.GenericValuePB values = 6;  // 监测值，如果对应的ValueMetaPB标记为多选
+    string source = 7;
+    string recorded_at_iso8601 = 8;
+    string recorded_by = 9;
+}
+
+message AddPatientMonitoringRecordResp {
+    shared.ReturnCode rt = 1;
+    int64 id = 2;  // patient_monitoring_records.id
+}
+
+/*
+ * /api/monitoring/updatepatientmonitoringrecord
+ *  input: UpdatePatientMonitoringRecordReq
+ *  output: GenericResp
+ */
+message UpdatePatientMonitoringRecordReq {
+    int64 id = 1;  // patient_monitoring_records.id
+    shared.GenericValuePB value = 2;  // 监测值，如果对应的ValueMetaPB标记为单选
+    repeated shared.GenericValuePB values = 3;  // 监测值，如果对应的ValueMetaPB标记为多选
+    string modified_by = 4;
+}
+
+/*
+ * /api/monitoring/deletepatientmonitoringrecord
+ *  input: DeletePatientMonitoringRecordReq
+ *  output: GenericResp
+ */
+message DeletePatientMonitoringRecordReq {
+    int64 id = 1;  // patient_monitoring_records.id
+}
+
+/*
+ * /api/monitoring/addpatientmonitoringtimepoints
+ *  input: AddPatientMonitoringTimePointsReq
+ *  output: AddPatientMonitoringTimePointsResp
+ */
+message AddPatientMonitoringTimePointsReq {
+    int64 pid = 1;
+    string dept_id = 2;
+    repeated string time_point_iso8601 = 3;
+}
+
+message AddPatientMonitoringTimePointsResp {
+    shared.ReturnCode rt = 1;
+    repeated int64 id = 2;  // patient_monitoring_time_points.id
+}
+
+/*
+ * /api/monitoring/deletepatientmonitoringtimepoints
+ *  input: DeletePatientMonitoringTimePointsReq
+ *  output: GenericResp
+ */
+message DeletePatientMonitoringTimePointsReq {
+    int64 id = 1;  // patient_monitoring_time_points.id
+}
+
+/******************************************************************************
+ * /api/score/xxx                                                             *
+ ******************************************************************************/
+
+/*
+ * /api/score/getscoregroupmeta
+ *  input: GetScoreGroupMetaReq
+ *  output: GetScoreGroupMetaResp
+ */
+message GetScoreGroupMetaReq {
+    string dept_id = 1;  // 如果dept_id为空，返回所有的score_group_meta
+}
+
+message GetScoreGroupMetaResp {
+    shared.ReturnCode rt = 1;
+    repeated config.ScoreGroupMetaPB score_group_meta = 2;
+}
+
+/*
+ * /api/score/adddeptscoregroup
+ *  input: AddDeptScoreGroupReq
+ *  output: AddDeptScoreGroupResp
+ */
+message AddDeptScoreGroupReq {
+    string dept_id = 1;
+    string score_group_code = 2;
+    int32 display_order = 3;
+}
+
+message AddDeptScoreGroupResp {
+    shared.ReturnCode rt = 1;
+    int32 id = 2;  // dept_score_groups.id
+}
+
+/*
+ * /api/score/adddeptscoregroups
+ *  input: AddDeptScoreGroupsReq
+ *  output: AddDeptScoreGroupsResp
+ */
+message DeptScoreGroupPB {
+    string score_group_code = 1;
+    int32 display_order = 2;
+}
+
+message AddDeptScoreGroupsReq {
+    string dept_id = 1;
+    repeated DeptScoreGroupPB group = 2;
+}
+
+message AddDeptScoreGroupsResp {
+    shared.ReturnCode rt = 1;
+    repeated int32 id = 2;  // dept_score_groups.id
+}
+
+/*
+ * /api/score/deletedeptscoregroup
+ *  input: DeleteDeptScoreGroupReq
+ *  output: GenericResp
+ */
+message DeleteDeptScoreGroupReq {
+    int32 id = 1;  // dept_score_groups.id
+}
+
+/*
+ * /api/score/reorderdeptscoregroups
+ *  input: ReorderDeptScoreGroupsReq
+ *  output: GenericResp
+ */
+message ScoreGroupOrder {
+    int32 id = 1;  // dept_score_groups.id
+    int32 display_order = 2;
+}
+
+message ReorderDeptScoreGroupsReq {
+    string dept_id = 1;
+    repeated ScoreGroupOrder group_order = 2;
+}
+
+/*
+ * /api/score/getpatientscores
+ *  input: GetPatientScoresReq
+ *  output: GetPatientScoresResp
+ */
+message GetPatientScoresReq {
+    int64 pid = 1;
+    string score_group_code = 2;
+    string query_start_iso8601 = 3;
+    string query_end_iso8601 = 4;
+}
+
+message ScoreRecordPB {
+    int64 id = 1;
+    config.ScoreGroupPB group = 2;
+    string recorded_by = 3;
+    string recorded_by_account_name = 4;
+    string recorded_at_iso8601 = 5;
+    string note = 6;
+}
+
+message GetPatientScoresResp {
+    shared.ReturnCode rt = 1;
+    repeated ScoreRecordPB record = 2;
+}
+
+/*
+ * /api/score/getpatientscore
+ *  input: GetPatientScoreReq
+ *  output: GetPatientScoreResp
+ */
+message GetPatientScoreReq {
+    int64 pid = 1;
+    string monitoring_param_code = 2;
+    string effective_time_iso8601 = 3;  // 查询时间，ISO 8601 格式
+}
+
+message GetPatientScoreResp {
+    shared.ReturnCode rt = 1;
+    bool found = 2;  // 是否找到记录
+    config.ScoreGroupMetaPB score_group_meta = 3;
+    ScoreRecordPB record = 4;
+}
+
+/*
+ * /api/score/addpatientscore
+ *  input: AddPatientScoreReq
+ *  output: AddPatientScoreResp
+ */
+message AddPatientScoreReq {
+    int64 pid = 1;
+    string score_group_code = 2;
+    ScoreRecordPB record = 3;
+}
+
+message AddPatientScoreResp {
+    shared.ReturnCode rt = 1;
+    int64 id = 2;  // patient_scores.id
+}
+
+/*
+ * /api/score/updatepatientscore
+ *  input: UpdatePatientScoreReq
+ *  output: GenericResp
+ */
+message UpdatePatientScoreReq {
+    int64 id = 1;  // patient_scores.id
+    config.ScoreGroupPB group = 2;
+    string recorded_by = 3;
+    string recorded_at_iso8601 = 4;
+    string note = 5;
+}
+
+/*
+ * /api/score/savepatientscore
+ *  input: SavePatientScoreReq
+ *  output: SavePatientScoreResp
+ */
+message SavePatientScoreReq {
+    int64 pid = 1;
+    string score_group_code = 2;  // 评分类型编码
+    ScoreRecordPB record = 3;  // ScoreRecordPB.group, ScoreRecordPB.recorded_at_iso8601 必填
+}
+
+message SavePatientScoreResp {
+    shared.ReturnCode rt = 1;
+    string group_score_text = 2;  // 对应评分的字符串表示
+}
+
+/*
+ * /api/score/deletepatientscore
+ *  input: DeletePatientScoreReq
+ *  output: GenericResp
+ */
+message DeletePatientScoreReq {
+    int64 id = 1;  // patient_scores.id
+}
+
+/*
+ * /api/score/calcpatientscore
+ *  input: CalcPatientScoreReq
+ *  output: CalcPatientScoreResp
+ */
+message CalcPatientScoreReq {
+    string score_group_code = 1;
+    repeated config.ScoreItemPB item = 2;
+}
+
+message CalcPatientScoreResp {
+    shared.ReturnCode rt = 1;
+    shared.GenericValuePB group_score = 2;
+    string group_score_text = 3;  // 对应评分的字符串表示
+}
+
+/*
+ * /api/score/getOneScoreGroupMeta
+ *  input: GetOneScoreGroupMetaReq
+ *  output: GetOneScoreGroupMetaResp
+ */
+message GetOneScoreGroupMetaReq {
+    string dept_id = 1;
+    string code = 2;
+}
+
+message GetOneScoreGroupMetaResp {
+    shared.ReturnCode rt = 1;
+    config.ScoreGroupMetaPB score_group_meta = 2;
+}
+
+/*
+ * /api/score/updatescoregroupmeta
+ *  input: UpdateScoreGroupMetaReq
+ *  output: GenericResp
+ */
+message UpdateScoreGroupMetaReq {
+    string dept_id = 1;
+    string score_group_code = 2;  // 对应于 ScoreGroupMetaPB.code
+
+    bool update_name = 3;
+    string name = 4;  // 别名，对应于 ScoreGroupMetaPB.name
+    bool update_measure_multi_selection = 5;
+    bool measure_multi_selection = 6;  // 是否支持多选，对应于 ScoreGroupMetaPB.measure_multi_selection
+    bool update_notes = 7;
+    string notes = 8;  // 备注，对应于 ScoreGroupMetaPB.notes
+}
+
+/*
+ * /api/score/updatescoreitemname
+ *  input: UpdateScoreItemNameReq
+ *  output: GenericResp
+ */
+message UpdateScoreItemNameReq {
+    string dept_id = 1;
+    string score_group_code = 2;  // 对应于 ScoreGroupMetaPB.code
+    string score_item_code = 3;  // 对应于 ScoreItemMetaPB.code
+    string name = 4;  // 别名， 对应于 ScoreItemMetaPB.name
+}
+
+/*
+ * /api/score/updatescoreoptionname
+ *  input: UpdateScoreOptionNameReq
+ *  output: GenericResp
+ */
+message UpdateScoreOptionNameReq {
+    string dept_id = 1;
+    string score_group_code = 2;  // 对应于 ScoreGroupMetaPB.code
+    string score_item_code = 3;  // 对应于 ScoreItemMetaPB.code
+    string score_option_code = 4;  // 对应于 ScoreOptionPB.code
+    string name = 5;  // 别名， 对应于 ScoreOptionPB.name
+}
+
+/*
+ * /api/score/addscoregroupmeasuremeta
+ *  input: AddScoreGroupMeasureMetaReq
+ *  output: GenericResp
+ */
+message AddScoreGroupMeasureMetaReq {
+    string dept_id = 1;
+    string score_group_code = 2;  // 对应于 ScoreGroupMetaPB.code
+    config.ScoreGroupMeasureMetaPB measure = 3;
+}
+
+/*
+ * /api/score/updatescoregroupmeasuremeta
+ *  input: UpdateScoreGroupMeasureMetaReq
+ *  output: GenericResp
+ */
+message UpdateScoreGroupMeasureMetaReq {
+    string dept_id = 1;
+    string score_group_code = 2;  // 对应于 ScoreGroupMetaPB.code
+    config.ScoreGroupMeasureMetaPB measure = 3;
+}
+
+/*
+ * /api/score/deletescoregroupmeasuremeta
+ *  input: DeleteScoreGroupMeasureMetaReq
+ *  output: GenericResp
+ */
+message DeleteScoreGroupMeasureMetaReq {
+    string dept_id = 1;
+    string score_group_code = 2;  // 对应于 ScoreGroupMetaPB.code
+    string measure_name = 3;  // 对应于 ScoreGroupMeasureMetaPB.name
+}
+
+/******************************************************************************
+ * /api/nursingrecord/                                                        *
+ ******************************************************************************/
+
+/*
+ * /api/nursingrecord/getnursingrecordtemplates
+ *  input: GetNursingRecordTemplatesReq
+ *  output: GetNursingRecordTemplatesResp
+ */
+message GetNursingRecordTemplatesReq {
+    string dept_id = 1;  // 如果dept_id不为空，返回部门模板
+    string account_id = 2;  // 如果account_id不为空，返回个人模板
+}
+
+message GetNursingRecordTemplatesResp {
+    shared.ReturnCode rt = 1;
+    repeated config.NursingRecordTemplateGroupPB account_template = 2;
+    repeated config.NursingRecordTemplateGroupPB dept_template = 3;
+}
+
+/*
+ * /api/nursingrecord/addnursingrecordtemplategroup
+ *  input: AddNursingRecordTemplateGroupReq
+ *  output: AddNursingRecordTemplateGroupResp
+ */
+message AddNursingRecordTemplateGroupReq {
+    string dept_id = 1;  // dept_id为空，新增个人模板
+    config.NursingRecordTemplateGroupPB group = 2;
+}
+
+message AddNursingRecordTemplateGroupResp {
+    shared.ReturnCode rt = 1;
+    int32 id = 2;
+}
+
+/*
+ * /api/nursingrecord/updatenursingrecordtemplategroups
+ *  input: UpdateNursingRecordTemplateGroupsReq
+ *  output: GenericResp
+ */
+message UpdateNursingRecordTemplateGroupsReq {
+    string dept_id = 1;  // dept_id为空，新增个人模板
+    repeated config.NursingRecordTemplateGroupPB group = 2;
+}
+
+/*
+ * /api/nursingrecord/deletenursingrecordtemplategroup
+ *  input: DeleteNursingRecordTemplateGroupReq
+ *  output: GenericResp
+ */
+message DeleteNursingRecordTemplateGroupReq {
+    int32 id = 1;
+}
+
+/*
+ * /api/nursingrecord/addnursingrecordtemplate
+ *  input: AddNursingRecordTemplateReq
+ *  output: AddNursingRecordTemplateResp
+ */
+message AddNursingRecordTemplateReq {
+    string dept_id = 1;  // dept_id为空，新增个人模板
+    config.NursingRecordTemplatePB template = 3;
+}
+
+message AddNursingRecordTemplateResp {
+    shared.ReturnCode rt = 1;
+    int32 id = 2;
+}
+
+/*
+ * /api/nursingrecord/updatenursingrecordtemplate
+ *  input: UpdateNursingRecordTemplateReq
+ *  output: GenericResp
+ */
+message UpdateNursingRecordTemplateReq {
+    config.NursingRecordTemplatePB template = 2;
+}
+
+/*
+ * /api/nursingrecord/deletenursingrecordtemplate
+ *  input: DeleteNursingRecordTemplateReq
+ *  output: GenericResp
+ */
+message DeleteNursingRecordTemplateReq {
+    int32 id = 1;
+}
+
+/*
+ * /api/nursingrecord/getnursingrecord
+ *  input: GetNursingRecordReq
+ *  output: GetNursingRecordResp
+ */
+message GetNursingRecordReq {
+    int64 pid = 1;
+    string query_start_iso8601 = 2;
+    string query_end_iso8601 = 3;
+}
+
+message PatientNursingRecordValPB {
+    int64 id = 1;
+    string content = 2;
+    string recorded_by = 3;
+    string recorded_by_account_name = 4;
+    string recorded_at_iso8601 = 5;
+    string reviewed_by = 6;
+    string reviewed_by_account_name = 7;
+    string reviewed_at_iso8601 = 8;
+}
+
+message GetNursingRecordResp {
+    shared.ReturnCode rt = 1;
+    repeated PatientNursingRecordValPB record = 2;
+}
+
+/*
+ * /api/nursingrecord/addnursingrecord
+ *  input: AddNursingRecordReq
+ *  output: AddNursingRecordResp
+ */
+message AddNursingRecordReq {
+    int64 pid = 1;
+    PatientNursingRecordValPB record = 2;
+}
+
+message AddNursingRecordResp {
+    shared.ReturnCode rt = 1;
+    int64 id = 2;
+}
+
+/*
+ * /api/nursingrecord/updatenursingrecord
+ *  input: UpdateNursingRecordReq
+ *  output: GenericResp
+ */
+message UpdateNursingRecordReq {
+    PatientNursingRecordValPB record = 1;
+}
+
+/*
+ * /api/nursingrecord/deletenursingrecord
+ *  input: DeleteNursingRecordReq
+ *  output: GenericResp
+ */
+message DeleteNursingRecordReq {
+    int64 id = 1;
+}
+
+/*
+ * /api/nursingrecord/getpatientcriticallishandlings
+ *  input: GetPatientCriticalLisHandlingsReq
+ *  output: GetPatientCriticalLisHandlingsResp
+ */
+message GetPatientCriticalLisHandlingsReq {
+    int64 pid = 1;
+    string query_start_iso8601 = 2;  // 查询开始日期（ISO 8601 格式）
+    string query_end_iso8601 = 3;    // 查询结束日期（ISO 8601 格式）
+}
+
+message GetPatientCriticalLisHandlingsResp {
+    shared.ReturnCode rt = 1;
+    repeated config.PatientCriticalLisHandlingRecordPB record = 2;
+}
+
+/*
+ * /api/nursingrecord/savepatientcriticallishandling
+ *  input: SavePatientCriticalLisHandlingReq
+ *  output: SavePatientCriticalLisHandlingResp
+ */
+message SavePatientCriticalLisHandlingReq {
+    int32 patient_critical_lis_result_id = 1;  // patient_critical_lis_results.id
+    config.PatientCriticalLisHandlingPB handling = 2;
+
+    bool sync_to_nursing_record = 3; // 是否同步到护理记录
+}
+
+message SavePatientCriticalLisHandlingResp {
+    shared.ReturnCode rt = 1;
+    int32 id = 2;  // patient_critical_lis_handlings.id
+}
+
+/*
+ * /api/nursingrecord/deletepatientcriticallishandling
+ *  input: DeletePatientCriticalLisHandlingReq
+ *  output: GenericResp
+ */
+message DeletePatientCriticalLisHandlingReq {
+    int32 id = 1;  // patient_critical_lis_handlings.id
+}
+
+/*
+ * /api/nursingrecord/getnursingrecordshortcuts
+ *  input: GetNursingRecordShortcutsReq
+ *  output: GetNursingRecordShortcutsResp
+ */
+message GetNursingRecordShortcutsReq {
+    int64 pid = 1;
+    string query_start_iso8601 = 2;
+    string query_end_iso8601 = 3;
+}
+
+message NrShortcutMedExecPB {
+    int32 intake_group_id = 1;  // 用药途径分组id
+    string intake_group_name = 2;  // 用药途径分组名称
+    repeated config.MedExeRecordSummaryPB med_exec = 3;  // 用药执行记录
+}
+
+message GetNursingRecordShortcutsResp {
+    shared.ReturnCode rt = 1;
+    repeated NrShortcutMedExecPB med_exec = 2;  // 用药执行记录
+    repeated config.BalanceGroupSummaryPB balance = 3;  // 出入量记录
+    repeated OverviewLisItemPB lis_item = 4;  // 检验结果
+}
+
+/*
+ * /api/nursingrecord/getnursingrecordshortcuts2  （省二院）
+ *  input: GetNursingRecordShortcuts2Req
+ *  output: GetNursingRecordShortcuts2Resp
+ */
+message GetNursingRecordShortcuts2Req {
+    int64 pid = 1;
+    string shift_start_iso8601 = 2;
+}
+
+message NrShortcutBasicMonitoringsPB {
+    string effective_time_iso8601 = 1;
+    string respiratory_rate = 2;  // 呼吸率
+    string hr = 3;  // 心率
+    string cvp = 4;  // 中心静脉压
+    string ibp_s = 5;  // 有创收缩压
+    string ibp_d = 6;  // 有创舒张压
+    string spo2 = 7;  // 血氧饱和度
+}
+
+message NrShortcutBalancesPB {
+    string effective_time_iso8601 = 1;
+    string in_ml = 2;  // 入量总量
+    repeated shared.StrKeyValPB in_details = 3;  // 入量明细
+    string out_ml = 4;  // 出量总量
+    repeated shared.StrKeyValPB out_details = 5;  // 出量明细
+    string net_ml = 6;  // 平衡量总量
+    repeated shared.StrKeyValPB net_details = 7;  // 平衡量明细
+}
+
+message GetNursingRecordShortcuts2Resp {
+    shared.ReturnCode rt = 1;
+    repeated NrShortcutBasicMonitoringsPB mon = 2;
+    repeated NrShortcutBalancesPB balance = 3;
+}
+
+/******************************************************************************
+ * /api/nursingorder/                                                         *
+ ******************************************************************************/
+
+/*
+ * /api/nursingorder/getnursingordertemplates
+ *  input: GetNursingOrderTemplatesReq
+ *  output: GetNursingOrderTemplatesResp
+ */
+message GetNursingOrderTemplatesReq {
+    string dept_id = 1;
+}
+
+message GetNursingOrderTemplatesResp {
+    shared.ReturnCode rt = 1;
+    repeated config.NursingOrderTemplateGroupPB group = 2;
+}
+
+/*
+ * /api/nursingorder/addnursingordertemplategroup 
+ *  input: AddNursingOrderTemplateGroupReq
+ *  output: AddNursingOrderTemplateGroupResp
+ */
+message AddNursingOrderTemplateGroupReq {
+    string dept_id = 1;
+    config.NursingOrderTemplateGroupPB group = 2;
+}
+
+message AddNursingOrderTemplateGroupResp {
+    shared.ReturnCode rt = 1;
+    int32 id = 2;
+}
+
+/*
+ * /api/nursingorder/updatenursingordertemplategroup
+ *  input: UpdateNursingOrderTemplateGroupReq
+ *  output: GenericResp
+ */
+message UpdateNursingOrderTemplateGroupReq {
+    int32 id = 1;
+    string name = 2;
+}
+
+/*
+ * /api/nursingorder/deletenursingordertemplategroup
+ *  input: DeleteNursingOrderTemplateGroupReq
+ *  output: GenericResp
+ */
+message DeleteNursingOrderTemplateGroupReq {
+    int32 id = 1;
+}
+
+/*
+ * /api/nursingorder/addnursingordertemplate
+ *  input: AddNursingOrderTemplateReq
+ *  output: AddNursingOrderTemplateResp
+ */
+message AddNursingOrderTemplateReq {
+    string dept_id = 1;
+    config.NursingOrderTemplatePB template = 2;
+}
+
+message AddNursingOrderTemplateResp {
+    shared.ReturnCode rt = 1;
+    int32 id = 2;
+}
+
+/*
+ * /api/nursingorder/updatenursingordertemplate
+ *  input: UpdateNursingOrderTemplateReq
+ *  output: GenericResp
+ */
+message UpdateNursingOrderTemplateReq {
+    config.NursingOrderTemplatePB template = 1;
+}
+
+/*
+ * /api/nursingorder/deletenursingordertemplate
+ *  input: DeleteNursingOrderTemplateReq
+ *  output: GenericResp
+ */
+message DeleteNursingOrderTemplateReq {
+    int32 id = 1;
+}
+
+/*
+ * /api/nursingorder/getnursingorderdetails
+ *  input: GetNursingOrderDetailsReq
+ *  output: GetNursingOrderDetailsResp
+ */
+message GetNursingOrderDetailsReq {
+    int64 pid = 1;
+    string query_start_iso8601 = 2;
+    string query_end_iso8601 = 3;
+}
+
+message GetNursingOrderDetailsResp {
+    shared.ReturnCode rt = 1;
+    repeated config.NursingOrderTemplateGroupPB group = 2;
+}
+
+/*
+ * /api/nursingorder/getnursingorders
+ *  input: GetNursingOrdersReq
+ *  output: GetNursingOrdersResp
+ */
+message GetNursingOrdersReq {
+    int64 pid = 1;
+}
+
+message GetNursingOrdersResp {
+    shared.ReturnCode rt = 1;
+    repeated config.NursingOrderPB order = 2;
+}
+
+/*
+ * /api/nursingorder/getnursingorder
+ *  input: GetNursingOrderReq
+ *  output: GetNursingOrderResp
+ */
+message GetNursingOrderReq {
+    int64 id = 1;
+    string query_start_iso8601 = 2;
+    string query_end_iso8601 = 3;
+}
+
+message GetNursingOrderResp {
+    shared.ReturnCode rt = 1;
+    config.NursingOrderPB order = 2;
+}
+
+/*
+ * /api/nursingorder/addnursingorders
+ *  input: AddNursingOrdersReq
+ *  output: AddNursingOrdersResp
+ */
+message AddNursingOrdersReq {
+    int64 pid = 1;
+    repeated config.NursingOrderPB order = 2;
+}
+
+message AddNursingOrdersResp {
+    shared.ReturnCode rt = 1;
+    repeated int64 id = 2;
+}
+
+/*
+ * /api/nursingorder/stopnursingorder
+ *  input: StopNursingOrderReq
+ *  output: GenericResp
+ */
+message StopNursingOrderReq {
+    repeated int64 id = 1;  // nursing_orders.id
+    string stop_time_iso8601 = 2; // 停止时间
+    string note = 3;  // 停止原因，可以为空
+}
+
+/*
+ * /api/nursingorder/deletenursingorder
+ *  input: DeleteNursingOrderReq
+ *  output: GenericResp
+ */
+message DeleteNursingOrderReq {
+    repeated int64 id = 1;  // nursing_orders.id
+}
+
+/*
+ * /api/nursingorder/updatenursingexerecord
+ *  input: UpdateNursingExeRecordReq
+ *  output: GenericResp
+ */
+message UpdateNursingExeRecordReq {
+    int64 id = 1;  // nursing_execution_records.id
+    string completed_time_iso8601 = 2;  // 完成时间；可以为空，空时代表撤回完成时间
+}
+
+/*
+ * /api/nursingorder/deletenursingexerecord
+ *  input: DeleteNursingExeRecordReq
+ *  output: GenericResp
+ */
+message DeleteNursingExeRecordReq {
+    int64 id = 1;  // nursing_execution_records.id
+}
+
+/******************************************************************************
+ * 交班                                                                       *
+ * /api/patientshift/                                                      *
+ ******************************************************************************/
+
+/*
+ * /api/patientshift/getpatientshiftrecords
+ *  input: GetPatientShiftRecordsReq
+ *  output: GetPatientShiftRecordsResp
+ */
+message GetPatientShiftRecordsReq {
+    int64 pid = 1;
+    string query_start_iso8601 = 2;
+    string query_end_iso8601 = 3;
+}
+
+message PatientShiftRecordPB {
+    int64 id = 1;                       // patient_shift_records.id
+    string content = 2;                 // 交班内容
+    string shift_nurse_id = 3;          // 交班护士ID
+    string shift_nurse_name = 4;        // 交班护士姓名
+    string shift_name = 6;              // 班次名称
+    string shift_start_iso8601 = 7;     // 班次开始时间
+    string shift_end_iso8601 = 8;       // 班次结束时间
+}
+
+message GetPatientShiftRecordsResp {
+    shared.ReturnCode rt = 1;
+    repeated PatientShiftRecordPB record = 2;
+}
+
+/*
+ * /api/patientshift/patientshiftrecordexists
+ *  input: PatientShiftRecordExistsReq
+ *  output: PatientShiftRecordExistsResp
+ */
+message PatientShiftRecordExistsReq {
+    int64 pid = 1;
+    string shift_name = 2;
+    string shift_start_iso8601 = 3;
+}
+
+message PatientShiftRecordExistsResp {
+    shared.ReturnCode rt = 1;
+    bool exists = 2;
+    int64 patient_shift_record_id = 3;
+    string shift_nurse_name = 4;
+}
+
+/*
+ * /api/patientshift/addpatientshtiftrecord
+ *  input: AddPatientShiftRecordReq
+ *  output: AddPatientShiftRecordResp
+ */
+message AddPatientShiftRecordReq {
+    int64 id = 1;  // updatepatientshtiftrecord时需要填写
+    int64 pid = 2;
+    string content = 3;
+    string shift_name = 4;
+    string shift_start_iso8601 = 5;
+    string shift_end_iso8601 = 6;
+}
+
+message AddPatientShiftRecordResp {
+    shared.ReturnCode rt = 1;
+    int64 id = 2;
+}
+
+/*
+ * /api/patientshift/updatepatientshtiftrecord
+ *  input: AddPatientShiftRecordReq
+ *  output: GenericResp
+ */
+
+/*
+ * /api/patientshift/deletepatientshtiftrecord
+ *  input: DeletePatientShiftRecordReq
+ *  output: GenericResp
+ */
+message DeletePatientShiftRecordReq {
+    int64 id = 1;
+}
+
+/******************************************************************************
+ * 报表                                                                       *
+ * /api/report/                                                               *
+ ******************************************************************************/
+
+/*
+ * /api/report/getformtemplates
+ *  input: GetFormTemplatesReq
+ *  output: GetFormTemplatesResp
+ */
+message GetFormTemplatesReq {
+    string dept_id = 1;
+}
+
+message GetFormTemplatesResp {
+    shared.ReturnCode rt = 1;
+    repeated config.JfkTemplatePB jfk_template = 2;
+}
+
+/*
+ * /api/report/saveformtemplate
+ *  input: SaveFormTemplateReq
+ *  output: SaveFormTemplateResp
+ */
+message SaveFormTemplateReq {
+    config.JfkTemplatePB jfk_template = 1;
+}
+
+message SaveFormTemplateResp {
+    shared.ReturnCode rt = 1;
+    int32 id = 2;
+}
+
+/*
+ * /api/report/deleteformtemplate
+ *  input: DeleteFormTemplateReq
+ *  output: GenericResp
+ */
+message DeleteFormTemplateReq {
+    int32 id = 1;
+}
+
+/*
+ * /api/report/getjfkdata
+ *  input: GetJfkDataReq
+ *  output: GetJfkDataResp
+ */
+message GetJfkDataReq {
+    repeated config.JfkDataSourcePB input = 1;
+}
+
+message GetJfkDataResp {
+    shared.ReturnCode rt = 1;
+    repeated config.JfkDataSourcePB output = 2;
+}
+
+/*
+ * /api/report/getpatientforms
+ *  input: GetPatientFormsReq
+ *  output: GetPatientFormsResp
+ */
+message GetPatientFormsReq {
+    int64 pid = 1;
+    string dept_id = 2;
+    int32 template_id = 3;
+    string query_start_iso8601 = 4;
+    string query_end_iso8601 = 5;
+}
+
+message GetPatientFormsResp {
+    shared.ReturnCode rt = 1;
+    repeated config.JfkFormInstancePB form = 2;
+}
+
+/*
+ * /api/report/saveform
+ *  input: SaveFormReq
+ *  output: SaveFormResp
+ */
+message SaveFormReq {
+    config.JfkFormInstancePB form = 1;
+    bool print_pdf = 2;  // 是否打印PDF
+}
+
+message SaveFormResp {
+    shared.ReturnCode rt = 1;
+    int64 id = 2;
+    string pdf_url = 3;
+}
+
+/*
+ * /api/report/deleteform
+ *  input: DeleteFormReq
+ *  output: GenericResp
+ */
+message DeleteFormReq {
+    int64 id = 1;
+}
+
+/*
+ * /api/report/getmonitoringreport
+ *  input: GetPatientMonitoringGroupsReq
+ *  output: GetMonitoringReportResp
+ */
+message GetMonitoringReportResp {
+    shared.ReturnCode rt = 1;
+    string pdf_url = 2;
+    int32 rotation_degree = 3;  // PDF的旋转角度，0, 90, 180, 270
+}
+
+/*
+ * /api/monitoring/getwardreport
+ *  input: GetWardReportReq
+ *  output: GetWardReportResp
+ */
+message GetWardReportReq {
+    int64 dept_id = 1;
+    string shift_start_iso8601 = 2;
+}
+
+message WardPatientCountPB {
+    int32 total_patient_count = 1;      // 总人数
+    int32 admission_count = 2;          // 入院
+    int32 transfer_in_count = 3;         // 转入
+    int32 discharge_count = 4;           // 出院
+    int32 transfer_out_count = 5;        // 转出
+    int32 surgery_count = 6;             // 手术
+    int32 delivery_count = 7;            // 生产
+    int32 critical_patient_count = 8;    // 病危
+    int32 severe_patient_count = 9;      // 病重
+    int32 death_count = 10;              // 死亡
+
+    int64 outgoing_handover_account_id = 11;  // 交班人
+    int64 incoming_handover_account_id = 12;  // 接班人
+}
+
+message WardPatientStatsPB {
+    int64 pid = 1;
+    string diagnosis = 2;  // 诊断 
+    string day_shift_handover_note = 3;  // 交班记录
+    string evening_shift_handover_note = 4;  // 交班记录
+    string night_shift_handover_note = 5;  // 交班记录
+}
+
+message WardReportPB {
+    // 交班人数统计
+    WardPatientCountPB day_shift_count = 1;
+    WardPatientCountPB evening_shift_count = 2;
+    WardPatientCountPB night_shift_count = 3;
+
+    // 病人交班明细
+    repeated WardPatientStatsPB patient_stats = 4;
+}
+
+message GetWardReportResp {
+    shared.ReturnCode rt = 1;
+
+    // 报告URL
+    string pdf_url = 2;
+    bool exists = 3;  // 报告是否存在
+
+    // 交班人数统计
+    WardPatientCountPB day_shift_count = 4;
+    WardPatientCountPB evening_shift_count = 5;
+    WardPatientCountPB night_shift_count = 6;
+
+    // 病人交班明细
+    repeated WardPatientStatsPB patient_stats = 7;
+}
+
+/*
+ * /api/monitoring/setwardreport
+ *  input: SetWardReportReq
+ *  output: GenericResp
+ */
+message SetWardReportReq {
+    int64 dept_id = 1;
+    string shift_start_iso8601 = 2;
+
+    // 交班人数统计
+    bool set_day_shift_count = 3;
+    WardPatientCountPB day_shift_count = 4;
+    bool set_evening_shift_count = 5;
+    WardPatientCountPB evening_shift_count = 6;
+    bool set_night_shift_count = 7;
+    WardPatientCountPB night_shift_count = 8;
+
+    // 病人交班明细
+    bool set_patient_stats = 9;
+    repeated WardPatientStatsPB patient_stats = 10;
+}
+
+/******************************************************************************
+ * 床位 & 设备                                                                 *
+ * /api/device/                                                               *
+ ******************************************************************************/
+/*
+ * /api/device/getbedconfig
+ *  input: GetBedConfigReq
+ *  output: GetBedConfigResp
+ */
+message GetBedConfigReq {
+    string dept_id = 1;
+}
+
+message GetBedConfigResp {
+    shared.ReturnCode rt = 1;
+    repeated config.BedConfigPB bed_config = 2;
+}
+
+/*
+ * /api/device/addbedconfig
+ *  input: AddBedConfigReq
+ *  output: AddBedConfigResp
+ */
+message AddBedConfigReq {
+    config.BedConfigPB bed_config = 1;
+}
+
+message AddBedConfigResp {
+    shared.ReturnCode rt = 1;
+    int64 id = 2;
+}
+
+/*
+ * /api/device/updatebedconfig
+ *  input: AddBedConfigReq
+ *  output: GenericResp
+ */
+
+/*
+ * /api/device/deletebedconfig
+ *  input: DeleteBedConfigReq
+ *  output: GenericResp
+ */
+message DeleteBedConfigReq {
+    int64 id = 1;
+}
+
+/*
+ * /api/device/getbedcounts
+ *  input: GetBedCountsReq
+ *  output: GetBedCountsResp
+ */
+message GetBedCountsReq {
+    string dept_id = 1;
+}
+
+message GetBedCountsResp {
+    shared.ReturnCode rt = 1;
+    repeated config.BedCountPB bed_count = 2;
+}
+
+/*
+ * /api/device/addbedCount
+ *  input: AddBedCountReq
+ *  output: GenericResp
+ */
+message AddBedCountReq {
+    string dept_id = 1;
+    config.BedCountPB bed_count = 2;  // 包含date_iso8601和count
+}
+
+/*
+ * /api/device/deletebedcount
+ *  input: DeleteBedCountReq
+ *  output: GenericResp
+ */
+message DeleteBedCountReq {
+    int32 id = 1;
+}
+
+/*
+ * /api/device/getdeviceinfo
+ *  input: GetDeviceInfoReq
+ *  output: GetDeviceInfoResp
+ */
+message GetDeviceInfoReq {
+    string dept_id = 1;
+    int32 device_id = 2;
+    string device_bed_num = 3;
+    int32 device_type = 4;
+    string device_name = 5;
+}
+
+message DeviceInfoWithBindingPB {
+    config.DeviceInfoPB device = 1;
+    bool is_binding = 2;  // 是否绑定
+    repeated config.DeviceBindingPB binding = 3;  // 当前绑定信息
+}
+
+message GetDeviceInfoResp {
+    shared.ReturnCode rt = 1;
+    repeated DeviceInfoWithBindingPB inline_dev = 2;
+}
+
+/*
+ * /api/device/getdevicebindinghistory
+ *  input: GetDeviceBindingHistoryReq
+ *  output: GetDeviceBindingHistoryResp
+ */
+message GetDeviceBindingHistoryReq {
+    int32 device_id = 1;  // 必填
+    string query_start_iso8601 = 2;  // 可选
+    string query_end_iso8601 = 3;    // 可选
+}
+
+message GetDeviceBindingHistoryResp {
+    shared.ReturnCode rt = 1;
+    bool is_binding = 2;  // 是否绑定
+    repeated config.DeviceBindingPB binding = 3;
+}
+
+/*
+ * /api/device/getpatientdevicebindinghistory
+ *  input: GetPatientDeviceBindingHistoryReq
+ *  output: GetPatientDeviceBindingHistoryResp
+ */
+message GetPatientDeviceBindingHistoryReq {
+    int64 pid = 1;  // 必填
+    int32 device_type = 2;  // 可选
+    string query_start_iso8601 = 3;  // 可选
+    string query_end_iso8601 = 4;    // 可选
+}
+
+message GetPatientDeviceBindingHistoryResp {
+    shared.ReturnCode rt = 1;
+    repeated DeviceInfoWithBindingPB binding = 2;
+}
+
+/*
+ * /api/device/adddeviceinfo
+ *  input: AddDeviceInfoReq
+ *  output: AddDeviceInfoResp
+ */
+message AddDeviceInfoReq {
+    config.DeviceInfoPB device_info = 1;
+}
+
+message AddDeviceInfoResp {
+    shared.ReturnCode rt = 1;
+    int32 id = 2;
+}
+
+/*
+ * /api/device/updatedeviceinfo
+ *  input: AddDeviceInfoReq
+ *  output: GenericResp
+ */
+
+/*
+ * /api/device/deletedeviceinfo
+ *  input: DeleteDeviceInfoReq
+ *  output: GenericResp
+ */
+message DeleteDeviceInfoReq {
+    int32 id = 1;
+}
+
+/*
+ * /api/device/bindpatientdevice
+ *  input: BindPatientDeviceReq
+ *  output: BindPatientDeviceResp
+ */
+message BindPatientDeviceReq {
+    int64 id = 1;  // 新增绑定时，可以为空
+    int64 pid = 2;
+    int32 device_id = 3;
+
+    // binding_time_iso8601和unbinding_time_iso8601不能同时为空，也不能同时不为空
+    // 绑定时，binding_time_iso8601不能为空
+    // 解绑时，unbinding_time_iso8601不能为空
+    string binding_time_iso8601 = 4;
+    string unbinding_time_iso8601 = 5;
+}
+
+message BindPatientDeviceResp {
+    shared.ReturnCode rt = 1;
+    int64 id = 2;
+}
+
+/******************************************************************************
+ * 临床诊断                                                                    *
+ * /api/diagnosis/                                                            *
+ ******************************************************************************/
+
+/*
+ * /api/diagnosis/getdiseasemeta
+ *  input: GetDiseaseMetaReq
+ *  output: GetDiseaseMetaResp
+ */
+message GetDiseaseMetaReq {
+    string dept_id = 1;  // 如果dept_id不为空，返回部门诊断
+}
+
+message GetDiseaseMetaResp {
+    shared.ReturnCode rt = 1;
+    repeated config.DiseaseMetaPB disease_meta = 2;
+}
+
+/*
+ * /api/diagnosis/calcdiseasemetric
+ *  input: CalcDiseaseMetricReq
+ *  output: CalcDiseaseMetricResp
+ */
+message CalcDiseaseMetricReq {
+    int64 pid = 1;
+    string dept_id = 2;
+    string start_time_iso8601 = 3;
+    string end_time_iso8601 = 4;
+    string disease_code = 5;
+}
+
+message CalcDiseaseMetricResp {
+    shared.ReturnCode rt = 1;
+    repeated config.DiseasePhasePB disease_phase = 2;
+}
+
+/*
+ * /api/diagnosis/confirmdisease
+ *  input: ConfirmDiseaseReq
+ *  output: ConfirmDiseaseResp
+ */
+message ConfirmDiseaseReq {
+    int64 pid = 1;  // 病人ID
+    string start_time_iso8601 = 2;
+    string end_time_iso8601 = 3;
+    config.DiseasePB disease = 4;  // 确诊疾病列表
+    string confirmed_at_iso8601 = 5;  // 确诊时间
+}
+
+message ConfirmDiseaseResp {
+    shared.ReturnCode rt = 1;
+    int64 id = 2;  // 确诊记录ID
+}
+
+/*
+ * /api/diagnosis/excludedisease
+ *  input: ExcludeDiseaseReq
+ *  output: GenericResp
+ */
+message ExcludeDiseaseReq {
+    int64 id = 1;  // patient_diagnoses.id
+    string excluded_at_iso8601 = 2;  // 排除时间
+}
+
+/*
+ * /api/diagnosis/getconfirmeddiseases
+ *  input: GetConfirmedDiseasesReq
+ *  output: GetConfirmedDiseasesResp
+ */
+message GetConfirmedDiseasesReq {
+    string mrn_or_name = 1;
+    string dept_id = 2;
+    string query_start_iso8601 = 3;
+    string query_end_iso8601 = 4;
+}
+
+message ConfirmedDiseasePB {
+    int64 id = 1;  // 序号
+    string patient_mrn = 2;  // 病人ID
+    string patient_name = 3;  // 病人姓名
+    string disease_name = 4;  // 疾病名称
+    string confirmed_at_iso8601 = 5;  // 确诊时间
+    string confirmed_by_account_name = 6;  // 确诊医生
+}
+
+message GetConfirmedDiseasesResp {
+    shared.ReturnCode rt = 1;
+    repeated ConfirmedDiseasePB confirmed_disease = 2;
+}
+
+/*
+ * /api/diagnosis/getexcludeddiseases
+ *  input: GetExcludedDiseasesReq
+ *  output: GetExcludedDiseasesResp
+ */
+message GetExcludedDiseasesReq {
+    string mrn_or_name = 1;
+    string dept_id = 2;
+    string query_start_iso8601 = 3;
+    string query_end_iso8601 = 4;
+}
+
+message ExcludedDiseasePB {
+    int64 id = 1;  // 序号
+    string patient_mrn = 2;  // 病人ID
+    string patient_name = 3;  // 病人姓名
+    string disease_name = 4;  // 疾病名称
+    string confirmed_at_iso8601 = 5;  // 确诊时间
+    string confirmed_by_account_name = 6;  // 确诊医生
+    string excluded_at_iso8601 = 7;  // 排除时间
+    string excluded_by_account_name = 8;  // 排除医生
+}
+
+message GetExcludedDiseasesResp {
+    shared.ReturnCode rt = 1;
+    repeated ExcludedDiseasePB excluded_disease = 2;
+}
+
+/*
+ * /api/diagnosis/getdiagnosisdetails
+ *  input: GetDiagnosisDetailsReq
+ *  output: GetDiagnosisDetailsResp
+ */
+message GetDiagnosisDetailsReq {
+    int64 id = 1;  // patient_diagnoses.id
+}
+
+message GetDiagnosisDetailsResp {
+    shared.ReturnCode rt = 1;
+    config.DiseasePB disease_details = 2;
+}
+
+/*
+ * /api/diagnosis/getdiseaseitemdetails
+ *  input: GetDiseaseItemDetailsReq
+ *  output: GetDiseaseItemDetailsResp
+ */
+message GetDiseaseItemDetailsReq {
+    int64 pid = 1;
+    string dept_id = 2;
+    string disease_item_code = 3;
+    string query_start_iso8601 = 4;
+    string query_end_iso8601 = 5;
+}
+
+message DiseaseItemDetailsPB {
+    config.DiseaseItemPB item = 1;
+    shared.ValueMetaPB orig_value_meta = 2;
+    repeated shared.TimedGenericValuePB orig_value = 3;
+}
+
+message GetDiseaseItemDetailsResp {
+    shared.ReturnCode rt = 1;
+    DiseaseItemDetailsPB disease_item_details = 2;
+}
+
+/*
+ * /api/doctor/getvitaldetails
+ *  input: GetVitalDetailsReq
+ *  output: GetVitalDetailsResp
+ */
+message GetVitalDetailsReq {
+    int64 pid = 1; // 病人ID
+    repeated int32 vital_sign_type_id = 2; // 体征类型id列表，DiagnosisPB.enums.vital_sign_type.id
+    string query_start_iso8601 = 3; // 查询起始时间（ISO 8601格式）
+    string query_end_iso8601 = 4; // 查询结束时间（ISO 8601格式）
+}
+
+message VitalSignDetailsPB {
+    int32 vital_sign_type_id = 1; // 体征类型
+    shared.ValueMetaPB value_meta = 2; // 体征值的元数据
+    repeated shared.TimedGenericValuePB timed_value = 3; // 时间序列的体征值列表
+}
+
+message GetVitalDetailsResp {
+    shared.ReturnCode rt = 1;
+    repeated VitalSignDetailsPB vital_sign_details = 2; // 体征详细信息列表
+}
+
+/*
+ * /api/doctor/getdailybalance
+ * 获取病人每天的累计出入量
+ *  input: GetDailyBalanceReq
+ *  output: GetDailyBalanceResp
+ */
+message GetDailyBalanceReq {
+    int64 pid = 1; // 病人ID
+    string query_start_iso8601 = 2; // 查询起始日期 (YYYY-MM-DD格式)
+    string query_end_iso8601 = 3; // 查询结束日期 (YYYY-MM-DD格式)
+}
+
+message DailyBalancePB {
+    string date_iso8601 = 1;
+    float intake_ml = 2;              // 入量(ml)
+    string intake_str = 3;            // 入量字符串表达
+    float output_ml = 4;              // 出量(ml)
+    string output_str = 5;            // 出量字符串表达
+    float balance_ml = 6;             // 平衡量(ml)
+    string balance_str = 7;           // 平衡量字符串表达
+    float target_balance_ml = 8;      // 目标平衡量
+    string target_balance_str = 9;    //  目标平衡量字符串表达
+}
+
+message GetDailyBalanceResp {
+    shared.ReturnCode rt = 1; // 返回码
+    repeated DailyBalancePB daily_balance = 2; // 入出量信息列表
+}
+
+/*
+ * /api/doctor/settargetbalance
+ *  input: SetTargetBalanceReq
+ *  output: GenericResp
+ */
+message SetTargetBalanceReq {
+    int64 pid = 1;                   // 病人ID
+    string target_date_iso8601 = 2; // 目标日期 (应为 YYYY-MM-DD 格式)
+    float target_balance_ml = 3;   // 目标平衡量 (单位: ml)
+}
+
+/*
+ * /api/doctor/gettargetbalances
+ *  input: GetTargetBalancesReq
+ *  output: GetTargetBalancesResp
+ */
+message GetTargetBalancesReq {
+    int64 pid = 1;
+    string query_start_iso8601 = 2;
+    string query_end_iso8601 = 3;
+}
+
+message TargetBalanceInfoPB {
+    int64 id = 1;
+    float target_balance_ml = 2;
+    string target_balance_str = 3;
+    string recorded_by = 4;
+    string shift_start_iso8601 = 5;
+}
+
+message GetTargetBalancesResp {
+    shared.ReturnCode rt = 1;
+    repeated TargetBalanceInfoPB balance = 2;
+}
+
+/*
+ * /api/doctor/getmedicationorderviews
+ *  input: GetMedicationOrderViewsReq
+ *  output: GetMedicationOrderViewsResp
+ */
+message GetMedicationOrderViewsReq {
+    int64 pid = 1;
+    string query_start_iso8601 = 2;
+    string query_end_iso8601 = 3;
+}
+
+message MedicationOrderViewPB {
+    int64 id = 1;
+    string medication_name = 2;
+    bool is_long_term_order = 3;
+    int32 lasting_days = 4;
+    string frequency_code = 5;
+    string administration_route = 6;
+    string administration_route_group = 7;
+    bool is_finished = 8;
+    string action_start_iso8601 = 9;
+}
+
+message GetMedicationOrderViewsResp {
+    shared.ReturnCode rt = 1;
+    repeated MedicationOrderViewPB order = 2;
+}
+
+/*
+ * /api/doctor/gettubeviews
+ * 
+ *  input: GetTubeViewsReq
+ *  output: GetTubeViewsResp
+ */
+message GetTubeViewsReq {
+    int64 pid = 1;
+    bool contains_active_tube = 2;             // true: 包含活跃的管道（插管中）; false: 不包含活跃的管道
+    bool contains_removed_tube = 3;            // true: 包含非活跃的管道（已拔管）; false: 不包含非活跃的管道
+    string removal_time_start_iso8601 = 4;     // 拔管时间需要在这个时间之后
+    string removal_time_end_iso8601 = 5;       // 拔管时间需要在这个时间之前
+}
+
+message TubeViewPB {
+    int64 id = 1; // tube.id
+    int64 patient_tube_id = 2;
+    int32 tube_type_id = 3;
+    string tube_name = 4;
+    string inserted_at_iso8601 = 5;
+    string removed_at_iso8601 = 6;
+    int32 inserted_days = 7;
+    string inserted_by = 8;
+    bool is_removed = 9; // true: 已拔管; false: 插管中;
+    repeated TubeAttributePB attribute = 10;
+}
+
+message GetTubeViewsResp {
+    shared.ReturnCode rt = 1;
+    repeated TubeViewPB tube = 2;
+}
+
+/******************************************************************************
+ * 医生评分                                                                    *
+ * /api/doctor/                                                               *
+ ******************************************************************************/
+
+/**
+ * /api/doctor/getdeptdoctorscoretypes
+ * input: GetDeptDoctorScoreTypesReq
+ * output: GetDeptDoctorScoreTypesResp
+ */
+message GetDeptDoctorScoreTypesReq {
+    string dept_id = 1;  // 部门ID
+}
+
+message GetDeptDoctorScoreTypesResp {
+    shared.ReturnCode rt = 1;
+    repeated config.DoctorScoreTypePB score_type = 2;  // 部门医生评分类型列表
+}
+
+/**
+ * /api/doctor/adddeptdoctorscoretypes
+ * input: AddDeptDoctorScoreTypesReq
+ * output: GenericResp
+ */
+message AddDeptDoctorScoreTypesReq {
+    string dept_id = 1;  // 部门ID
+    repeated string score_type_code = 2;  // 医生评分类型代码列表
+}
+
+/**
+ * /api/doctor/deletedeptdoctorscoretype
+ * input: DeleteDeptDoctorScoreTypeReq
+ * output: GenericResp
+ */
+message DeleteDeptDoctorScoreTypeReq {
+    string dept_id = 1;  // 部门ID
+    string score_type_code = 2;  // 医生评分类型代码列表
+}
+
+/**
+ * /api/doctor/reorderdeptdoctorscoretypes
+ * input: ReorderDeptDoctorScoreTypesReq
+ * output: GenericResp
+ */
+message ReorderDeptDoctorScoreTypesReq {
+    string dept_id = 1;  // 部门ID
+    repeated string score_type_code = 2;  // 医生评分类型代码列表，
+    // 按照这个顺序重新排序
+}
+
+/**
+ * Apache II评分
+ */
+
+/*
+ * /api/doctor/getapachescores
+ *  input: GetApacheScoresReq
+ *  output: GetApacheScoresResp
+ */
+message GetApacheScoresReq {
+    int64 pid = 1;
+    string query_start_iso8601 = 2;
+    string query_end_iso8601 = 3;
+    int32 limit = 4;  // 返回的记录数限制
+}
+
+message ApacheScoreRecordPB {
+    int64 id = 1;
+    int64 pid = 2;
+
+    string scored_at_iso8601 = 3;
+    string scored_by = 4;
+    string scored_by_account_name = 5;
+    string eval_start_at_iso8601 = 6;
+    string eval_end_at_iso8601 = 7;
+    string created_at_iso8601 = 8;
+    string modified_at_iso8601 = 9;
+
+    config.ApacheIIScorePB score = 10;
+}
+
+message GetApacheScoresResp {
+    shared.ReturnCode rt = 1;
+    repeated ApacheScoreRecordPB record = 2;
+    config.ApacheIIScoreMetaPB score_meta = 3;
+}
+
+/*
+ * /api/doctor/getapachescorefactors
+ *  input: GetApacheScoreFactorsReq
+ *  output: GetApacheScoreFactorsResp
+ */
+message GetApacheScoreFactorsReq {
+    int64 pid = 1;
+    string eval_start_iso8601 = 2;
+    string eval_end_iso8601 = 3;
+    config.ApacheIIScorePB score = 4;
+}
+
+message GetApacheScoreFactorsResp {
+    shared.ReturnCode rt = 1;
+    config.ApacheIIScorePB score = 2;
+}
+
+/*
+ * /api/doctor/addapachescore
+ *  input: AddApacheScoreReq
+ *  output: AddApacheScoreResp
+ */
+message AddApacheScoreReq {
+    int64 pid = 1;
+    string scored_at_iso8601 = 2;
+    string eval_start_at_iso8601 = 3;
+    string eval_end_at_iso8601 = 4;
+    config.ApacheIIScorePB score = 5;
+}
+
+message AddApacheScoreResp {
+    shared.ReturnCode rt = 1;
+    int64 id = 2;  // apache_ii_scores.id
+}
+
+/*
+ * /api/doctor/updateapachescore
+ *  input: UpdateApacheScoreReq
+ *  output: GenericResp
+ */
+message UpdateApacheScoreReq {
+    int64 id = 1;  // apache_ii_scores.id
+    string scored_at_iso8601 = 2;
+    string eval_start_at_iso8601 = 3;
+    string eval_end_at_iso8601 = 4;
+    config.ApacheIIScorePB score = 5;
+}
+
+/*
+ * /api/doctor/deleteapachescore
+ *  input: DeleteApacheScoreReq
+ *  output: GenericResp
+ */
+message DeleteApacheScoreReq {
+    int64 id = 1;  // apache_ii_scores.id
+}
+
+/*
+ * /api/doctor/getapachefactordetails
+ *  input: GetApacheFactorDetailsReq
+ *  output: GetApacheFactorDetailsResp
+ */
+message GetApacheFactorDetailsReq {
+    int64 pid = 1;
+    string dept_id = 2;
+    string factor_code = 3;
+    string eval_start_iso8601 = 4;
+    string eval_end_iso8601 = 5;
+}
+
+message GetApacheFactorDetailsResp {
+    shared.ReturnCode rt = 1;
+    DiseaseItemDetailsPB factor_details = 2;
+}
+
+/**
+ * SOFA评分
+ */
+
+/*
+ * /api/doctor/getsofascores
+ *  input: GetSofaScoresReq
+ *  output: GetSofaScoresResp
+ */
+message GetSofaScoresReq {
+    int64 pid = 1;
+    string query_start_iso8601 = 2;
+    string query_end_iso8601 = 3;
+    int32 limit = 4;  // 返回的记录数限制
+}
+
+message SofaScoreRecordPB {
+    int64 id = 1;
+    int64 pid = 2;
+
+    string scored_at_iso8601 = 3;
+    string scored_by = 4;
+    string scored_by_account_name = 5;
+    string eval_start_at_iso8601 = 6;
+    string eval_end_at_iso8601 = 7;
+    string created_at_iso8601 = 8;
+    string modified_at_iso8601 = 9;
+
+    config.SOFAScorePB score = 10;
+}
+
+message GetSofaScoresResp {
+    shared.ReturnCode rt = 1;
+    repeated SofaScoreRecordPB record = 2;
+    config.SofaScoreMetaPB score_meta = 3;
+}
+
+/*
+ * /api/doctor/getsofascorefactors
+ *  input: GetSofaScoreFactorsReq
+ *  output: GetSofaScoreFactorsResp
+ */
+message GetSofaScoreFactorsReq {
+    int64 pid = 1;
+    string eval_start_iso8601 = 2;
+    string eval_end_iso8601 = 3;
+    config.SOFAScorePB score = 4;
+}
+
+message GetSofaScoreFactorsResp {
+    shared.ReturnCode rt = 1;
+    config.SOFAScorePB score = 2;
+}
+
+/*
+ * /api/doctor/addsofascore
+ *  input: AddSofaScoreReq
+ *  output: AddSofaScoreResp
+ */
+message AddSofaScoreReq {
+    int64 pid = 1;
+    string scored_at_iso8601 = 2;
+    string eval_start_at_iso8601 = 3;
+    string eval_end_at_iso8601 = 4;
+    config.SOFAScorePB score = 5;
+}
+
+message AddSofaScoreResp {
+    shared.ReturnCode rt = 1;
+    int64 id = 2;  // sofa_scores.id
+}
+
+/*
+ * /api/doctor/updatesofascore
+ *  input: UpdateSofaScoreReq
+ *  output: GenericResp
+ */
+message UpdateSofaScoreReq {
+    int64 id = 1;  // sofa_scores.id
+    string scored_at_iso8601 = 2;
+    string eval_start_at_iso8601 = 3;
+    string eval_end_at_iso8601 = 4;
+    config.SOFAScorePB score = 5;
+}
+
+/*
+ * /api/doctor/deletesofascore
+ *  input: DeleteSofaScoreReq
+ *  output: GenericResp
+ */
+message DeleteSofaScoreReq {
+    int64 id = 1;  // sofa_scores.id
+}
+
+/*
+ * /api/doctor/getsofafactordetails
+ *  input: GetSofaFactorDetailsReq
+ *  output: GetSofaFactorDetailsResp
+ */
+message GetSofaFactorDetailsReq {
+    int64 pid = 1;
+    string dept_id = 2;
+    string factor_code = 3;
+    string eval_start_iso8601 = 4;
+    string eval_end_iso8601 = 5;
+}
+
+message GetSofaFactorDetailsResp {
+    shared.ReturnCode rt = 1;
+    DiseaseItemDetailsPB factor_details = 2;
+}
+
+/**
+ * VTE-Caprini 评分
+ */
+
+/*
+ * /api/doctor/getvtecapriniscores
+ * input: GetVteCapriniScoresReq
+ * output: GetVteCapriniScoresResp
+ */
+message GetVteCapriniScoresReq {
+    int64 pid = 1;                      // 病人ID
+    string query_start_iso8601 = 2;     // 查询开始时间 (ISO 8601 UTC)
+    string query_end_iso8601 = 3;       // 查询结束时间 (ISO 8601 UTC)
+    int32 limit = 4;                    // 返回的记录数限制
+}
+
+message VteCapriniScoreRecordPB {
+    int64 id = 1;                       // vte_caprini_scores.id
+    int64 pid = 2;                      // 病人ID
+
+    string scored_at_iso8601 = 3;       // 评分时间 (ISO 8601 UTC)
+    string scored_by = 4;               // 评分人账号
+    string scored_by_account_name = 5;  // 评分人姓名
+    string eval_start_at_iso8601 = 6;   // 评估开始时间 (ISO 8601 UTC)
+    string eval_end_at_iso8601 = 7;     // 评估结束时间 (ISO 8601 UTC)
+
+    config.VTECapriniScorePB score = 8; // 具体的评分内容
+}
+
+message GetVteCapriniScoresResp {
+    shared.ReturnCode rt = 1;
+    repeated VteCapriniScoreRecordPB record = 2; // 评分记录列表
+    config.VTECapriniScoreMetaPB score_meta = 3; // 评分项元数据
+}
+
+/*
+ * /api/doctor/addvtecapriniscore
+ * input: AddVteCapriniScoreReq
+ * output: AddVteCapriniScoreResp
+ */
+message AddVteCapriniScoreReq {
+    int64 pid = 1;                      // 病人ID
+    string scored_at_iso8601 = 2;       // 评分时间 (ISO 8601 UTC)
+    string eval_start_at_iso8601 = 3;   // 评估开始时间 (ISO 8601 UTC)
+    string eval_end_at_iso8601 = 4;     // 评估结束时间 (ISO 8601 UTC)
+    config.VTECapriniScorePB score = 5; // 评分内容 (包含各项因子)
+}
+
+message AddVteCapriniScoreResp {
+    shared.ReturnCode rt = 1;
+    int64 id = 2;  // 新增记录的 vte_caprini_scores.id
+}
+
+/*
+ * /api/doctor/updatevtecapriniscore
+ * input: UpdateVteCapriniScoreReq
+ * output: shared.GenericResp
+ */
+message UpdateVteCapriniScoreReq {
+    int64 id = 1;                       // 要更新的 vte_caprini_scores.id
+    string scored_at_iso8601 = 2;       // 更新后的评分时间 (ISO 8601 UTC)
+    string eval_start_at_iso8601 = 3;   // 更新后的评估开始时间 (ISO 8601 UTC)
+    string eval_end_at_iso8601 = 4;     // 更新后的评估结束时间 (ISO 8601 UTC)
+    config.VTECapriniScorePB score = 5; // 更新后的评分内容
+}
+
+/*
+ * /api/doctor/deletevtecapriniscore
+ * input: DeleteVteCapriniScoreReq
+ * output: shared.GenericResp
+ */
+message DeleteVteCapriniScoreReq {
+    int64 id = 1;  // 要删除的 vte_caprini_scores.id
+}
+
+/**
+ * VTE-Padua 评分（内科）
+ */
+
+/*
+ * /api/doctor/getvtepaduascores
+ * input: GetVtePaduaScoresReq
+ * output: GetVtePaduaScoresResp
+ */
+message GetVtePaduaScoresReq {
+    int64 pid = 1;                      // 病人ID
+    string query_start_iso8601 = 2;     // 查询开始时间 (ISO 8601 UTC)
+    string query_end_iso8601 = 3;       // 查询结束时间 (ISO 8601 UTC)
+    int32 limit = 4;                    // 返回的记录数限制
+}
+
+message VtePaduaScoreRecordPB {
+    int64 id = 1;                       // vte_padua_scores.id
+    int64 pid = 2;                      // 病人ID
+
+    string scored_at_iso8601 = 3;       // 评分时间 (ISO 8601 UTC)
+    string scored_by = 4;               // 评分人账号
+    string scored_by_account_name = 5;  // 评分人姓名
+    string eval_start_at_iso8601 = 6;   // 评估开始时间 (ISO 8601 UTC)
+    string eval_end_at_iso8601 = 7;     // 评估结束时间 (ISO 8601 UTC)
+
+    config.VTEPaduaScorePB score = 8;   // 具体的评分内容
+}
+
+message GetVtePaduaScoresResp {
+    shared.ReturnCode rt = 1;
+    repeated VtePaduaScoreRecordPB record = 2;   // 评分记录列表
+    config.VTEPaduaScoreMetaPB score_meta = 3;   // 评分项元数据
+}
+
+/*
+ * /api/doctor/addvtepaduascore
+ * input: AddVtePaduaScoreReq
+ * output: AddVtePaduaScoreResp
+ */
+message AddVtePaduaScoreReq {
+    int64 pid = 1;                      // 病人ID
+    string scored_at_iso8601 = 2;       // 评分时间 (ISO 8601 UTC)
+    string eval_start_at_iso8601 = 3;   // 评估开始时间 (ISO 8601 UTC)
+    string eval_end_at_iso8601 = 4;     // 评估结束时间 (ISO 8601 UTC)
+    config.VTEPaduaScorePB score = 5;   // 评分内容 (包含各项因子)
+}
+
+message AddVtePaduaScoreResp {
+    shared.ReturnCode rt = 1;
+    int64 id = 2;  // 新增记录的 vte_padua_scores.id
+}
+
+/*
+ * /api/doctor/updatevtepaduascore
+ * input: UpdateVtePaduaScoreReq
+ * output: shared.GenericResp
+ */
+message UpdateVtePaduaScoreReq {
+    int64 id = 1;                       // 要更新的 vte_padua_scores.id
+    string scored_at_iso8601 = 2;       // 更新后的评分时间 (ISO 8601 UTC)
+    string eval_start_at_iso8601 = 3;   // 更新后的评估开始时间 (ISO 8601 UTC)
+    string eval_end_at_iso8601 = 4;     // 更新后的评估结束时间 (ISO 8601 UTC)
+    config.VTEPaduaScorePB score = 5;   // 更新后的评分内容
+}
+
+/*
+ * /api/doctor/deletevtepaduascore
+ * input: DeleteVtePaduaScoreReq
+ * output: shared.GenericResp
+ */
+message DeleteVtePaduaScoreReq {
+    int64 id = 1;  // 要删除的 vte_padua_scores.id
+}
+
+/**
+ * BGA 血气
+ */
+
+/*
+ * /api/bga/getbgaparams
+ * input: GetBgaParamsReq
+ * output: GetBgaParamsResp
+ */
+message GetBgaParamsReq {
+    string dept_id = 1; // 科室ID
+}
+
+message BgaParamPB {
+    string param_code = 1; // 监测参数代码
+    int32 display_order = 2;
+    bool enabled = 3; // 是否启用
+    config.MonitoringParamPB param = 4; // 监测参数
+}
+
+message GetBgaParamsResp {
+    shared.ReturnCode rt = 1;
+    repeated BgaParamPB param = 2; // 监测参数列表
+}
+
+/*
+ * /api/bga/enableparam
+ * input: EnableBgaParamReq
+ * output: GenericResp
+ */
+message EnableBgaParamReq {
+    string dept_id = 1; // 科室ID
+    string param_code = 2; // 监测参数代码
+    bool enabled = 3; // 是否启用
+}
+
+/*
+ * /api/bga/reorderbgaparams
+ * input: ReorderBgaParamsReq
+ * output: GenericResp
+ */
+message ReorderBgaParamsReq {
+    string dept_id = 1; // 科室ID
+    repeated BgaParamPB param = 2; // 监测参数列表, 只需设置param_code和display_order
+}
+
+/*
+ * /api/bga/getpatientbgarecords
+ * input: GetPatientBgaRecordsReq
+ * output: GetPatientBgaRecordsResp
+ */
+message GetPatientBgaRecordsReq {
+    int64 pid = 1; // 病人ID
+    string query_start_iso8601 = 2; // 查询开始时间 (ISO 8601 UTC)
+    string query_end_iso8601 = 3; // 查询结束时间 (ISO 8601 UTC)
+    bool force_sync = 4;  // 是否强制同步
+}
+
+message GetPatientBgaRecordsResp {
+    shared.ReturnCode rt = 1;
+    repeated config.PatientBgaRecordPB record = 2; // 病人血气记录列表
+}
+
+/*
+ * /api/bga/addpatientbgarecord
+ * input: AddPatientBgaRecordReq
+ * output: AddPatientBgaRecordResp
+ */
+message AddPatientBgaRecordReq {
+    config.PatientBgaRecordPB record = 2; // 血气记录
+}
+
+message AddPatientBgaRecordResp {
+    shared.ReturnCode rt = 1;
+    int64 id = 2; // 新增记录的ID
+}
+
+/*
+ * /api/bga/updatepatientbgarecord
+ * input: AddPatientBgaRecordReq
+ * output: GenericResp
+ */
+
+/*
+ * /api/bga/deletepatientbgarecord
+ * input: DeletePatientBgaRecordReq
+ * output: GenericResp
+ */
+message DeletePatientBgaRecordReq {
+    int64 id = 1; // 病人血气记录ID
+}
+
+/*
+ * /api/bga/reviewpatientbgarecords
+ * input: ReviewPatientBgaRecordsReq
+ * output: GenericResp
+ */
+message ReviewPatientBgaRecordsReq {
+    repeated int64 id = 1; // 病人血气记录ID列表
+    string review_time_iso8601 = 2; // 审核时间 (ISO 8601 UTC)
+}
+
+/******************************************************************************
+ * 检验                                                                       *
+ * /api/lis/                                                                  *
+ ******************************************************************************/
+/*
+ * /api/lis/getexternallisparams
+ * input: GetExternalLisParamsReq
+ * output: GetExternalLisParamsResp
+ */
+message GetExternalLisParamsReq {
+}
+
+message GetExternalLisParamsResp {
+    shared.ReturnCode rt = 1;
+    repeated config.ExternalLisParamPB param = 2; // 外部检验参数列表
+}
+
+/*
+ * /api/lis/reorderexternallisparams
+ * input: ReorderExternalLisParamsReq
+ * output: GenericResp
+ */
+message ReorderExternalLisParamsReq {
+    repeated config.ExternalLisParamPB param = 1; // 外部检验参数列表, 只需设置param_code和display_order
+}
+
+/*
+ * /api/lis/updateexternallisparam
+ * input: UpdateExternalLisParamReq
+ * output: GenericResp
+ */
+message UpdateExternalLisParamReq {
+    config.ExternalLisParamPB param = 1; // 外部检验参数
+}
+
+/*
+ * /api/lis/deleteexternallisparam
+ * input: DeleteExternalLisParamReq
+ * output: GenericResp
+ */
+message DeleteExternalLisParamReq {
+    string param_code = 1; // 外部检验参数代码
+}
+
+/*
+ * /api/lis/getlisparams
+ * input: GetLisParamsReq
+ * output: GetLisParamsResp
+ */
+message GetLisParamsReq {
+}
+
+message GetLisParamsResp {
+    shared.ReturnCode rt = 1;
+    repeated config.LisParamPB param = 2; // 检验参数列表
+}
+
+/*
+ * /api/lis/reorderlisparams
+ * input: ReorderLisParamsReq
+ * output: GenericResp
+ */
+message ReorderLisParamsReq {
+    repeated config.LisParamPB param = 1; // 检验参数列表, 只需设置param_code和display_order
+}
+
+/*
+ * /api/lis/updatelisparam
+ * input: UpdateLisParamReq
+ * output: GenericResp
+ */
+message UpdateLisParamReq {
+    config.LisParamPB param = 1; // 检验参数
+}
+
+/*
+ * /api/lis/getpatientlisresults
+ * input: GetPatientLisResultsReq
+ * output: GetPatientLisResultsResp
+ */
+message GetPatientLisResultsReq {
+    int64 pid = 1; // 病人ID
+    string query_start_iso8601 = 2; // 查询开始时间 (ISO 8601 UTC)
+    string query_end_iso8601 = 3; // 查询结束时间 (ISO 8601 UTC)
+}
+
+message LisTimeValuePB {
+    shared.GenericValuePB value = 1;               // 通用值
+    string value_str = 2;                   // 对应的字符串值
+    string recorded_at_iso8601 = 3;         // ISO 8601 格式的记录时间
+    string alarm_flag = 4;                  // 报警标志，比如"高"、"低"、""
+    string danger_flag = 5;                 // 危急标志，比如"危"、""
+}
+
+message OverviewLisResultPB {
+    string lis_result_code = 1; // 检验结果代码
+    string lis_result_name = 2;  // 检验结果名称，比如"直接胆红素"
+    string alarm_flag = 3; // 报警标志，比如"高"、"低"、""
+    string danger_flag = 4; // 危急标志，比如"危"、""
+    shared.GenericValuePB normal_max = 5; // 正常值上限
+    string normal_max_str = 6; // 正常值上限字符串表达
+    shared.GenericValuePB normal_min = 7; // 正常值下限
+    string normal_min_str = 8; // 正常值下限字符串表达
+    shared.GenericValuePB danger_max = 9; // 危险值上限
+    string danger_max_str = 10; // 危险值上限字符串表达
+    shared.GenericValuePB danger_min = 11; // 危险值下限
+    string danger_min_str = 12; // 危险值下限字符串表达
+    shared.GenericValuePB result_value = 13; // 检验结果值
+    string result_value_str = 14; // 检验结果值字符串表达
+    string result_unit = 15; // 检验结果单位，比如"umol/L"
+    repeated LisTimeValuePB his_result = 16; // 历史检验结果
+}
+
+message OverviewLisItemPB {
+    string lis_item_name = 1; // 检验项目名称，比如"肝功能"
+    string auth_time_iso8601 = 2; // 结果批准时间
+    repeated OverviewLisResultPB result = 3; // 检验结果列表
+}
+
+message GetPatientLisResultsResp {
+    shared.ReturnCode rt = 1;
+    repeated OverviewLisItemPB item = 2; // 检验项目列表
+}
+
+/*
+ * /api/lis/deletepatientlisrecord
+ * input: DeletePatientLisRecordReq
+ * output: GenericResp
+ */
+message DeletePatientLisRecordReq {
+    string report_id = 1; // 检验项流水号
+}
+
+/******************************************************************************
+ * 医生模块/数据概览                                                           *
+ * /api/overview/                                                             *
+ ******************************************************************************/
+
+/*
+ * /api/overview/getoverviewtemplates
+ * input: GetOverviewTemplatesReq
+ * output: GetOverviewTemplatesResp
+ */
+message GetOverviewTemplatesReq {
+    string dept_id = 1; // 科室ID
+}
+
+message GetOverviewTemplatesResp {
+    shared.ReturnCode rt = 1; // 返回码
+    repeated config.OverviewTemplatePB account_template = 2; // 模板列表，包含分组和参数
+    repeated config.OverviewTemplatePB dept_template = 3; // 模板列表，包含分组和参数
+}
+
+/*
+ * /api/overview/getoverviewtemplate
+ * input: GetOverviewTemplateReq
+ * output: GetOverviewTemplateResp
+ */
+message GetOverviewTemplateReq {
+    int64 template_id = 1; // 模板ID
+}
+
+message GetOverviewTemplateResp {
+    shared.ReturnCode rt = 1; // 返回码
+    config.OverviewTemplatePB template = 2; // 模板，包含分组和参数
+}
+
+/*
+ * /api/overview/addoverviewtemplate
+ * input: AddOverviewTemplateReq
+ * output: AddOverviewTemplateResp
+ */
+message AddOverviewTemplateReq {
+    // 模板（不包含分组和参数）
+    // - 如果是科室模板，设置dept_id
+    // - 如果是个人模板，不设置dept_id, account_id系统提取
+    config.OverviewTemplatePB template = 1; 
+}
+
+message AddOverviewTemplateResp {
+    shared.ReturnCode rt = 1; // 返回码
+    int64 id = 2; // 模板ID
+}
+
+/*
+ * /api/overview/updateoverviewtemplate
+ * input: UpdateOverviewTemplateReq
+ * output: GenericResp
+ */
+message UpdateOverviewTemplateReq {
+    config.OverviewTemplatePB template = 1; // 模板（不包含分组和参数）
+}
+
+/*
+ * /api/overview/deleteoverviewtemplate
+ * input: DeleteOverviewTemplateReq
+ * output: GenericResp
+ */
+message DeleteOverviewTemplateReq {
+    int64 template_id = 1; // 模板ID
+}
+
+/*
+ * /api/overview/addoverviewgroup
+ * input: AddOverviewGroupReq
+ * output: AddOverviewGroupResp
+ */
+message AddOverviewGroupReq {
+    config.OverviewGroupPB group = 1; // 分组（不包含参数）
+}
+
+message AddOverviewGroupResp {
+    shared.ReturnCode rt = 1; // 返回码
+    int64 id = 2; // 分组ID
+}
+
+/*
+ * /api/overview/updateoverviewgroup
+ * input: UpdateOverviewGroupReq
+ * output: GenericResp
+ */
+message UpdateOverviewGroupReq {
+    config.OverviewGroupPB group = 1; // 分组（不包含参数，只改名字）
+}
+
+/*
+ * /api/overview/deleteoverviewgroup
+ * input: DeleteOverviewGroupReq
+ * output: GenericResp
+ */
+message DeleteOverviewGroupReq {
+    int64 group_id = 1; // 分组ID
+}
+
+/*
+ * /api/overview/getoverviewparamcodes
+ * input: GetOverviewParamCodesReq
+ * output: GetOverviewParamCodesResp
+ */
+message GetOverviewParamCodesReq {
+    string dept_id = 1; // 科室ID
+}
+
+message OverviewParamTypePB {
+    int32 param_type_id = 1; // 参数类型ID
+    string param_type_name = 2; // 参数类型名称
+    bool is_balance = 3; // 是否是平衡量参数类型
+    repeated StringIdEntityPB param = 4; // 参数列表, StringIdEntityPB.id(param_code), StringIdEntityPB.name(param_name)
+}
+
+message GetOverviewParamCodesResp {
+    shared.ReturnCode rt = 1; // 返回码
+    repeated OverviewParamTypePB param_type = 2; // 参数类型列表
+}
+
+/*
+ * /api/overview/addoverviewparam
+ * input: AddOverviewParamReq
+ * output: AddOverviewParamResp
+ */
+message AddOverviewParamReq {
+    string dept_id = 1; // 科室ID
+    config.OverviewParamPB param = 2; // 参数
+}
+
+message AddOverviewParamResp {
+    shared.ReturnCode rt = 1; // 返回码
+    int64 id = 2; // 参数ID
+}
+
+/*
+ * /api/overview/updateoverviewparam
+ * input: UpdateOverviewParamReq
+ * output: GenericResp
+ */
+message UpdateOverviewParamReq {
+    string dept_id = 1; // 科室ID
+    config.OverviewParamPB param = 2; // 参数, param_code和value_meta不做更新
+}
+
+/*
+ * /api/overview/deleteoverviewparam
+ * input: DeleteOverviewParamReq
+ * output: GenericResp
+ */
+message DeleteOverviewParamReq {
+    int64 param_id = 1; // 参数ID
+}
+
+/*
+ * /api/overview/getoverviewdata
+ * input: GetOverviewDataReq
+ * output: GetOverviewDataResp
+ */
+message GetOverviewDataReq {
+    int64 pid = 1; // 病人ID
+    int64 template_id = 2; // 模板ID
+    string query_start_iso8601 = 3; // 查询开始时间 (ISO 8601 UTC)
+    string query_end_iso8601 = 4; // 查询结束时间 (ISO 8601 UTC)
+}
+
+message GetOverviewDataResp {
+    shared.ReturnCode rt = 1; // 返回码
+    config.OverviewDataPB data = 2; // 概览数据，包含分组和参数的时间序列值
+}
+
+/******************************************************************************
+ * 护士模块/组长质控                                                            *
+ * /api/checklist/                                                            *
+ ******************************************************************************/
+
+/*
+ * /api/checklist/getdeptchecklistgroups
+ * input: GetDeptChecklistGroupsReq
+ * output: GetDeptChecklistGroupsResp
+ */
+message GetDeptChecklistGroupsReq {
+    string dept_id = 1; // 科室ID
+}
+
+message GetDeptChecklistGroupsResp {
+    shared.ReturnCode rt = 1; // 返回码
+    repeated config.DeptChecklistGroupPB group = 2; // 部门检查表分组列表
+}
+
+/*
+ * /api/checklist/adddeptchecklistgroup
+ * input: AddDeptChecklistGroupReq
+ * output: AddDeptChecklistGroupResp
+ */
+message AddDeptChecklistGroupReq {
+    // 部门检查表分组:
+    // - 不需要填写 DeptChecklistGroupPB.id
+    // - 选填 DeptChecklistGroupPB.comments
+    // - 不需要填写 DeptChecklistGroupPB.display_order
+    // - 不需要填写 DeptChecklistGroupPB.items
+    config.DeptChecklistGroupPB group = 1;
+}
+
+message AddDeptChecklistGroupResp {
+    shared.ReturnCode rt = 1; // 返回码
+    int32 id = 2; // 新增分组的ID
+}
+
+/*
+ * /api/checklist/deletedeptchecklistgroup
+ * input: DeleteDeptChecklistGroupReq
+ * output: GenericResp
+ */
+message DeleteDeptChecklistGroupReq {
+    int32 group_id = 1; // 部门检查表分组ID
+}
+
+/*
+ * /api/checklist/reorderdeptchecklistgroups
+ * input: ReorderDeptChecklistGroupsReq
+ * output: GenericResp
+ */
+message ReorderDeptChecklistGroupsReq {
+    string dept_id = 1; // 科室ID
+    repeated int32 group_id = 2; // groupId列表，按照新的顺序排列
+}
+
+/*
+ * /api/checklist/adddeptchecklistitem
+ * input: AddDeptChecklistItemReq
+ * output: AddDeptChecklistItemResp
+ */
+message AddDeptChecklistItemReq {
+    int32 group_id = 1;  // 部门组长质控分组id, dept_checklist_groups.id
+    // 部门检查表分组:
+    // - 不需要填写 DeptChecklistItemPB.id
+    // - 选填 DeptChecklistItemPB.comments
+    // - 选填 DeptChecklistItemPB.default_note
+    // - 不需要填写 DeptChecklistItemPB.display_order
+    config.DeptChecklistItemPB item = 2; // 部门检查表项
+}
+
+message AddDeptChecklistItemResp {
+    shared.ReturnCode rt = 1; // 返回码
+    int32 id = 2; // 新增检查表项的ID
+}
+
+/*
+ * /api/checklist/deletedeptchecklistitem
+ * input: DeleteDeptChecklistItemReq
+ * output: GenericResp
+ */
+message DeleteDeptChecklistItemReq {
+    int32 item_id = 1; // 部门检查表项ID
+}
+
+/*
+ * /api/checklist/reorderdeptchecklistitems
+ * input: ReorderDeptChecklistItemsReq
+ * output: GenericResp
+ */
+message ReorderDeptChecklistItemsReq {
+    string dept_id = 1; // 科室ID
+    int32 group_id = 2; // 分组ID
+    repeated int32 item_id = 3; // itemId列表，按照新的顺序排列
+}
+
+/*
+ * /api/checklist/getpatientchecklistrecords
+ * input: GetPatientChecklistRecordsReq
+ * output: GetPatientChecklistRecordsResp
+ */
+message GetPatientChecklistRecordsReq {
+    int64 pid = 1; // 病人ID
+    string query_start_iso8601 = 2; // 查询开始时间 (ISO 8601 UTC)
+    string query_end_iso8601 = 3; // 查询结束时间 (ISO 8601 UTC)
+}
+
+message GetPatientChecklistRecordsResp {
+    shared.ReturnCode rt = 1; // 返回码
+    repeated config.PatientChecklistRecordPB record = 2; // 病人检查表记录列表，按照时间升序排序
+}
+
+/*
+ * /api/checklist/addpatientchecklistrecord
+ * input: AddPatientChecklistRecordReq
+ * output: AddPatientChecklistRecordResp
+ */
+message AddPatientChecklistRecordReq {
+    // 病人检查表记录:
+    // - 不需要填写 PatientChecklistRecordPB.id
+    // - 不需要填写 PatientChecklistRecordPB.created_by
+    // - 不需要填写 PatientChecklistRecordPB.created_at_iso8601
+    // - 不需要填写 PatientChecklistRecordPB.modified_by
+    // - 不需要填写 PatientChecklistRecordPB.modified_at_iso8601
+    // - 不需要填写 PatientChecklistRecordPB.reviewed_by
+    // - 不需要填写 PatientChecklistRecordPB.reviewed_at_iso8601
+    // - 不需要填写 PatientChecklistRecordPB.groups
+    config.PatientChecklistRecordPB record = 1; // 病人检查表记录
+}
+
+message AddPatientChecklistRecordResp {
+    shared.ReturnCode rt = 1; // 返回码
+    int32 id = 2; // 新增记录的ID
+}
+
+/*
+ * /api/checklist/deletepatientchecklistrecord
+ * input: DeletePatientChecklistRecordReq
+ * output: GenericResp
+ */
+message DeletePatientChecklistRecordReq {
+    int32 id = 1; // 病人检查表记录ID
+}
+
+/*
+ * /api/checklist/updatepatientchecklistitem
+ * input: UpdatePatientChecklistItemReq
+ * output: GenericResp
+ */
+message UpdatePatientChecklistItemReq {
+    // 病人检查表项:
+    // - 必填 PatientChecklistItemPB.id
+    // - 不填 PatientChecklistItemPB.item_name （填了不起作用）
+    // - 不填 PatientChecklistItemPB.is_critical （填了不起作用）
+    // - 不填 PatientChecklistItemPB.comments （填了不起作用）
+    // - 必填 PatientChecklistItemPB.is_checked
+    // - 不填 PatientChecklistItemPB.has_note （填了不起作用）
+    // - 选填 PatientChecklistItemPB.note
+    config.PatientChecklistItemPB item = 1; // 病人检查表记录
+}
+
+/******************************************************************************
+ * /api/urls/                                                                 *
+ ******************************************************************************/
+
+/*
+ * /api/urls/getallexturls
+ * input: GetAllExtUrlsReq
+ * output: GetAllExtUrlsResp
+ */
+message GetAllExtUrlsReq {
+    string dept_id = 1; // 科室ID
+}
+
+message GetAllExtUrlsResp {
+    shared.ReturnCode rt = 1; // 返回码
+    repeated config.ExtUrlPB url = 2; // 外部URL列表
+}
+
+/*
+ * /api/urls/saveexturl
+ * input: SaveExtUrlReq
+ * output: GenericResp
+ */
+message SaveExtUrlReq {
+    config.ExtUrlPB url = 1; // url.id为空，表示新增；url.id不为空，表示删除
+}
+
+/*
+ * /api/urls/deleteexturl
+ * input: DeleteExtUrlReq
+ * output: GenericResp
+ */
+message DeleteExtUrlReq {
+    int32 id = 1; // 外部URL ID
+}
+
+/*
+ * /api/urls/composeexturl
+ * input: ComposeExtUrlReq
+ * output: ComposeExtUrlResp
+ */
+message ComposeExtUrlReq {
+    int32 ext_url_id = 1; // 外部URL ID
+    repeated shared.IntStrKvPB param_val = 2; // 参数值列表
+}
+
+message ComposeExtUrlResp {
+    shared.ReturnCode rt = 1; // 返回码
+    string composed_url = 2; // 组合后的URL
+}
+
+/******************************************************************************
+ * NHCQC = (national health commission quality control)
+ * 国家卫生健康委员会质控模块
+ * /api/nhcqc/
+ ******************************************************************************/
+
+/*
+ * /api/nhcqc/getqcitems
+ * input: GetNHCQCItemsReq
+ * output: GetNHCQCItemsResp
+ */
+message GetNHCQCItemsReq {
+}
+
+message GetNHCQCItemsResp {
+    shared.ReturnCode rt = 1; // 返回码
+    repeated shared.StrKeyValPB item = 2; // NHC质控项列表, item.key: 质控项代码, item.val: 质控项名称
+}
+
+/*
+ * /api/nhcqc/getqcdata
+ * input: GetNHCQCDataReq
+ * output: GetNHCQCDataResp
+ */
+message GetNHCQCDataReq {
+    string dept_id = 1; // 科室ID
+    string item_code = 2; // 质控项代码
+    string query_start_iso8601 = 3; // 查询开始时间 (ISO 8601 UTC)
+    string query_end_iso8601 = 4; // 查询结束时间 (ISO 8601 UTC)
+}
+
+message GetNHCQCDataResp {
+    shared.ReturnCode rt = 1; // 返回码
+    repeated config.QcMonthDataPB month_data = 2; // 月度质控数据
+    string item_description = 3; // 质控项描述, 比如："apacheII评分10-14"
+    string calc_formula = 4; // 计算公式，比如: "ICU 床位使用率 = ICU 实际占用总床日数 / 同期 ICU 实际开放总床日数 * 100%"
+}
+
+/******************************************************************************
+ * /api/settings/
+ **/
+
+/*
+ * /api/settings/getappsettings
+ * input: GetAppSettingsReq
+ * output: GetAppSettingsResp
+ */
+message GetAppSettingsReq {
+    string dept_id = 1; // 科室ID
+}
+
+message GetAppSettingsResp {
+    shared.ReturnCode rt = 1; // 返回码
+    config.AppSettingsPB settings = 2; // 应用设置(AST_GENERAL包含jfk_use_native_print/print_agent_ip_port)
+}
+
+/*
+ * /api/settings/updateappsettings
+ * input: UpdateAppSettingsReq
+ * output: GenericResp
+ */
+message UpdateAppSettingsReq {
+    string dept_id = 1; // 科室ID
+
+    repeated config.AppSettingTypeEnum changed_type = 2; // 变更的设置类型列表(AST_GENERAL对应通用打印配置)
+    config.AppSettingsPB settings = 3; // 应用设置
+}

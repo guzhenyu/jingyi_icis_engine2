@@ -1,0 +1,292 @@
+syntax = "proto3";
+
+import "config/icis_settings.proto";
+import "shared/shared.proto";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+////// 业务消息 icis_medication.proto
+message MedicalOrderIdsPB {
+    repeated string id = 1;
+}
+
+enum DosageFormTypeEnum {
+    DFT_UNSPECIFIED = 0;
+    DFT_LIQUID = 1;   // 液体
+    DFT_SOLID = 2;    // 固体
+    DFT_UNKNOWN = 3;  // 不确定
+}
+
+message MedicationPB {
+    string code = 1;  // 药品编码
+    string name = 2; // 药品名称
+    string spec = 3;  // 药品规格
+    double dose = 4;  // 剂量
+    string dose_unit = 5;  // 剂量单位
+    int32 package_count = 6;  // 包装数量
+    string package_unit = 7;  // 包装单位
+    bool should_calculate_rate = 8;  // 是否需要计算药速
+    int32 medication_type = 9;  // 药品类型: medication_type_xxx
+    string company = 10;  // 药品生产厂家
+    double price = 11;  // 药品价格(元)
+
+    MedicationDosagePB dosage = 12;  // 药品使用量
+}
+
+message MedicationDosagePB {
+    string code = 1;  // 药品编码
+    string name = 2; // 药品名称
+    string spec = 3;  // 药品规格
+    double dose = 4;  // 剂量
+    string dose_unit = 5;  // 剂量单位
+    double intake_vol_ml = 6;  // 液体量, 单位ml
+    string recommend_speed = 7;  // 推荐速度，特殊备注字段
+    bool should_calculate_rate = 8;  // 是否需要计算药速
+    string note = 9;  // 用药备注
+    string type = 10;  // 药品分类：毒麻药，抗生素 (special_flag)
+    string payment_type = 11;  // 支付方式
+    string source = 12;  // 药物来源: 其他部门, 自带
+    // 衍生字段
+    string name_initials = 13;  // name对应的中文首字母
+
+    // 辅助信息
+    DosageFormTypeEnum form_type = 14;  // 药物剂型
+    double solid_mg = 15;  // 固体药量，单位mg
+}
+
+message MedicationDosageGroupPB {
+    repeated MedicationDosagePB md = 1;
+    string display_name = 2;
+}
+
+////// 配置消息
+message MEnums {
+    shared.EnumValue medication_type_pending_confirmation = 1;  // 未确定
+    shared.EnumValue medication_type_antibiotics = 2;  // 抗生素
+    shared.EnumValue medication_type_anti_inflammatory = 3;  // 抗炎药
+    shared.EnumValue medication_type_analgesics = 4;  // 镇痛药
+
+    shared.EnumValue administration_route_group_infusion_pump = 5;  // 微泵
+    shared.EnumValue administration_route_group_intravenous_drip = 6;  // 点滴
+    shared.EnumValue administration_route_group_intravenous_push = 7;  // 静推
+    shared.EnumValue administration_route_group_enteral = 8;  // 肠胃 (口服，鼻饲等都属于这一组)
+    shared.EnumValue administration_route_group_others = 9;  // 其他
+    repeated shared.EnumValue administration_route_group = 10;  // 给药途径分组
+
+    shared.EnumValue order_duration_type_long_term = 11;  // 长期医嘱
+    shared.EnumValue order_duration_type_one_time = 12;  // 临时医嘱
+    shared.EnumValue order_duration_type_manual_entry = 13;  // 补录医嘱
+
+    shared.EnumValue medication_channel_pending_confirmation = 14;
+    shared.EnumValue medication_channel_intravenous = 15;  // 静脉
+    shared.EnumValue medication_channel_nasointestinal = 16;  // 鼻肠管
+
+    shared.EnumValue medication_execution_action_type_start = 17;  // 开始
+    shared.EnumValue medication_execution_action_type_pause = 18;  // 暂停
+    shared.EnumValue medication_execution_action_type_resume = 19;  // 恢复
+    shared.EnumValue medication_execution_action_type_adjust_speed = 20;  // 调速
+    shared.EnumValue medication_execution_action_type_fast_push = 21;  // 快推
+    shared.EnumValue medication_execution_action_type_complete = 22;  // 完成
+
+    shared.EnumValue medication_order_validity_type_valid = 23;  // 正常，可以继续产生医嘱执行记录
+    shared.EnumValue medication_order_validity_type_stopped = 24;  // 已停止，不能继续产生医嘱执行记录
+    shared.EnumValue medication_order_validity_type_canceled = 25;  // 已取消，不能继续产生医嘱执行记录
+    shared.EnumValue medication_order_validity_type_overwritten = 26;  // 被新医嘱覆盖，不能继续产生医嘱执行记录
+    shared.EnumValue medication_order_validity_type_duration_one_time = 27;  // 临时医嘱，不能继续产生医嘱执行记录
+    shared.EnumValue medication_order_validity_type_manual_entry = 28;  // 补录医嘱，不能继续产生医嘱执行记录
+
+    // 内部枚举变量，不可更改，不进数据库
+    shared.EnumValue one_time_execution_stop_strategy_ignore = 29;  // 忽略停止时间
+    shared.EnumValue one_time_execution_stop_strategy_delete_all = 30;  // 删除所有停止的执行记录
+    shared.EnumValue one_time_execution_stop_strategy_delete_after = 31;  // 删除停止时间之后的执行记录
+
+    repeated string dose_rate_unit = 32;  // 药速单位
+    repeated string solid_unit = 33;  // 固体药量单位
+}
+
+message MedicationFrequencySpec {
+    string code = 1;
+    string name = 2;
+
+    message ByWeek {
+        repeated int32 day_of_week = 1;  // 1-7, 一周内需要服药的日子；1是周一
+    }
+    message ByInterval {
+        int32 interval_days = 1;  // 每隔几天，如果是0，则每天都需要用药
+    }
+    oneof spec_type {
+        ByWeek by_week = 3;
+        ByInterval by_interval = 4;
+    }
+
+    message Time {
+        int32 hour = 1;
+        int32 minute = 2;
+    }
+    repeated Time time= 5;
+
+    int32 support_nursing_order = 6;  // 是否支持护理计划，0: 不支持，1: 支持
+
+    int32 id = 7;  // 数据库主键id
+}
+
+message MedicationFrequencySpecs {
+    repeated MedicationFrequencySpec spec = 1;
+    string once_code = 2;
+}
+
+message AdministrationRoutePB {
+    string code = 1;
+    string name = 2;
+    int32 is_continuous = 3;
+    int32 group_id = 4;  // MEnums.administration_route_group_*
+    int32 intake_type_id = 5;  // MEnums.intake_type_*
+
+    // 衍生字段
+    string name_initials = 6;  // name对应的中文首字母
+    string group = 7;  // group_id对应的名字
+    string intake_type = 8;  // intake_type_id对应的名字
+
+    int32 id = 9;  // 数据库主键id
+}
+
+message DosageGroupExtPB {
+    double total_ml = 1;  // 总液体量，不可改动
+    double solid_amount = 2;  // 固体药量
+    string solid_unit = 3;  // 固体药量单位
+    bool solid_changable = 4;  // 固体药量与单位是否可改动
+    double weight_kg = 5;  // 病人体重，kg
+
+    // 速度：每小时输入病人的液体量
+    // 药速：根据病人的体重，单位时间(min/h/...)内，输入病人的药量(mg/ml/...)
+    double administration_rate = 6;  // 速度，ml/h
+    double dose_rate_amount = 7;  // 药速
+    string dose_rate_unit = 8;  // 药速单位，如 mg/kg/min
+}
+
+message MedOrderGroupSettingsPB {
+    // GET_MEDICAL_ORDER_SETTINGS
+    SystemSettingFunctionId function_id = 1;
+    string function_name = 2;
+
+    /*
+     * 医嘱生成规则
+     */
+    //  医嘱分解类型：按频次，全流程等
+    enum Type {
+        BY_FREQUENCY = 0;
+        OTHERS = 1;
+    }
+    Type type = 3;
+
+    // 适合分解的医嘱类型
+    // 对应于medical_orders.order_type
+    repeated string allow_order_type = 4;  // 白名单
+
+    // 适合分解的医嘱状态
+    // 对应于medical_orders.status
+    repeated string deny_status = 5;  // 黑名单
+
+    // 适合分解的用药途径编码集合
+    // 对应于medical_orders.administration_route_code 
+    repeated string deny_administration_route_code = 6;  // 黑名单
+
+    // 如果是长期医嘱，首日是否执行
+    bool omit_first_day_order_execution = 7;
+
+    // 如果是长期医嘱，且首日执行，是否在根据下嘱时间执行
+    bool check_order_time_for_long_term_execution = 8;
+
+    // 首日是否强制生成医嘱执行记录，至少生成一条执行记录
+    bool force_generate_execution_order_day1 = 9;
+
+    // 如果是临时医嘱，且首日执行，是否在根据下嘱时间执行
+    bool check_order_time_for_one_time_execution = 10;
+
+    // 临时医嘱的stop_time的执行策略
+    //  one_time_execution_stop_strategy_ignore
+    //  one_time_execution_stop_strategy_delete_all
+    //  one_time_execution_stop_strategy_delete_after
+    int32 one_time_execution_stop_strategy = 11;
+
+    // 给定[start_time, end_time], 查询未开始的执行记录时，提前查询的小时数:
+    // [start_time - not_started_exe_rec_advance_hours, end_time]
+    int32 not_started_exe_rec_advance_hours = 12;
+
+    // 如果medical_orders.status == status_canceled_txt，或者medical_orders.cancel_time不为空：
+    // 则对应的medical_order的状态视为"取消"
+    string status_canceled_txt = 13;
+
+    /*
+     * 医嘱排序规则
+     */
+    repeated string prioritized_med_name = 14;
+
+    /*
+     * 特殊药物类型
+     */
+    message SpecialOrderTypePB {
+        string name = 1;
+        repeated string keyword = 2;  // 关键字
+    }
+    repeated SpecialOrderTypePB special_order_type = 15;
+
+    bool enable_medication_speed = 16;  // 是否启用'药速'
+
+    // todo(guzhenyu): 待实现
+    message MedOrderExpansionPB {
+        string code = 1;  // 医嘱分解方法编码：by_frequency, by_full_process, by_his
+        string name = 2;  // 医嘱分解方法名称: 按频次, 全流程, HIS（同步action start/end）
+        repeated string administration_route_code = 3;  // 医嘱分解方法适用的给药途径编码，["defaults"]表示其他所有的给药途径
+    }
+    repeated MedOrderExpansionPB med_order_expansion = 17;
+}
+
+// 医嘱入量类型
+message IntakeTypePB {
+    int32 id = 1;
+    string name = 2;
+    string monitoring_param_code = 3;
+}
+
+message IntakeTypesPB {
+    repeated IntakeTypePB intake_type = 1;
+}
+
+// 执行用药摘要
+message MedExeRecordSummaryPB {
+    string dosage_group_display_name = 1;  // 药品分组显示名称
+    string start_time_iso8601 = 2;  // 执行开始时间，ISO8601格式
+    double intake_ml = 3;  // 入量，ml
+
+    int32 intake_group_id = 4;  // 用药途径分组id，MEnums.administration_route_group_*
+    string intake_group_name = 5;  // 用药途径分组名称
+    string admin_code = 6;  // 用药途径code
+    string admin_name = 7;  // 用药途径名称
+}
+
+message MedicationConfigPB {
+    MEnums enums = 1;
+
+    // 未预设用药途径：administration_route
+    IntakeTypesPB intake_types = 2;
+    MedicationFrequencySpecs freq_spec = 3;
+    MedOrderGroupSettingsPB order_group_settings = 4;
+
+    // 删除理由
+    string delete_reason_canceled = 5;
+    string delete_reason_stopped = 6;
+    string delete_reason_manually = 7;
+
+    // 医嘱分组状态
+    string order_group_not_started_txt = 8;
+    string order_group_in_progress_txt = 9;
+    string order_group_completed_txt = 10;
+
+    // 药品使用量/剩余量显示小数位数
+    int32 dosage_decimal_places = 11;
+
+    // 安徽省二院特殊配制
+    repeated string med_exe_admin_code = 12;
+    repeated string diet_admin_code = 13;
+}

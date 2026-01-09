@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+message DepartmentLicencePB {
+    string department_name = 1;         // 科室名称
+    repeated int32 menu_group_id = 2;   // 菜单组ID列表
+    int32 max_bed_count = 3;            // 最大床位数
+    int32 max_temp_bed_count = 4;       // 最大临时床位数
+}
+
+message HospitalLicensePB {
+    string hospital_name = 1;               // 医院名称
+    repeated int32 menu_group_id = 2;       // 菜单组ID列表 (医院级别，对所有科室有效)
+    int32 max_bed_count = 3;                // 最大床位数（医院级别，对所有科室有效）
+    repeated DepartmentLicencePB department_licences = 4; // 科室许可证列表
+    string issue_time_iso8601 = 5;          // 签发时间戳
+    string expiration_time_iso8601 = 6;     // 失效时间戳，试用版有这个时间戳
+}
+
+message CertificatePB {
+    HospitalLicensePB hospital_license = 1; // 医院许可证，仅作展示
+    string certificate_data = 2;            // 证书数据
+}

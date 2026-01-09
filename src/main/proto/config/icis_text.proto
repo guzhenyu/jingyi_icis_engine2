@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+message WebApiMessage {
+    string undefined_username = 1;
+    string yes_str = 2;                 // 是
+    string no_str = 3;                  // 否
+    string admission_status_str = 4;    // 入科状态
+    string admission_type_str = 5;      // 入科类型
+    string discharged_type_str = 6;      // 出科类型
+    string gender_str = 7;              // 性别
+    string marital_status_str = 8;      // 婚姻状况
+    string is_planned_admission_str = 9;// 是否计划入科
+    string medication_type_str = 10;  // 药品类型
+    string administration_route_group_str = 11;  // 给药途径分组
+    string intake_type_str = 12;  // 入量类型
+}
+
+message UnitPB {
+    int32 id = 1;
+    string name = 2;
+    string name_en = 3;
+}
+
+message UnitsPB {
+    repeated UnitPB unit = 1;
+
+    // 医嘱
+    repeated int32 dosage_unit = 2;  // 剂量单位
+    repeated int32 speed_unit = 3;    // 药速单位
+
+    // 未分类
+    repeated int32 other_unit = 4;    // 其他单位
+}
+
+message Text {
+    repeated string status_code_msg = 1;
+    UnitsPB units = 2;
+    WebApiMessage web_api_message = 3;
+}

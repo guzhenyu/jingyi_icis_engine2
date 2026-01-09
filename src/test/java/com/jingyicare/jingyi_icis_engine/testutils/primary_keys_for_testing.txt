@@ -1,0 +1,230 @@
+已被测试使用的主键
+
+accounts.account_id
+    "test-account-001" - "test-account-005"  // UserServiceTests
+
+// next_dept_id: 10044
+departments.dept_id
+    "10001"
+    "10002"
+    "10003"
+    "10004"  // OrderExecutorTests
+    "10005"..// MedicationServiceTests
+    "10006", "10025"  // TubeServiceTests
+    "10007"  // PatientTubeServiceTests
+    "10008-10011"  // MonitoringServiceTests
+    "10012"  // PatientMonitoringServiceTests
+    "10013"  // PatientServiceTests
+    "10014-10015"  // ScoreServiceTests
+    "10016-10017"  // NursingRecordServiceTests
+    "10018"        // NursingOrderServiceTests
+    "10019-10024", "10026"  // UserServiceTests
+    "10027"  // PatientDeviceServiceTests
+    "10028"  // DeviceDataRetrieverTests
+    "10029-10031"  // PatientDeviceServiceTests
+    "10032"  // PatientDeviceServiceTests
+    "10033"  // DoctorDataFetcherTests
+    "10034"  // MedicationDictionaryTests
+    "10035"  // ChecklistServiceTests
+    "10036"  // ChecklistServiceTests
+    "10037"  // BedUtilizationCalcTests
+    "10038"  // PatientSyncServiceTests
+    "10039"  // BalanceCalculatorTests
+    "10040"  // DeviceDataFetcherTests
+    "10041"  // PatientDeviceServiceTests
+    "10042"  // ReportServiceTests
+    "10043"  // MedicationPageDataTests
+
+bed_configs.his_bed_number
+    {deptid: 10027, "hisBedNumber1201 - hisBedNumber1204", "hisBedNumber1211 - hisBedNumber1213"}  // PatientDeviceServiceTests
+    {deptid: 10028, "hisBedNumber1301 - hisBedNumber1305"}  // PatientDeviceServiceTests
+    {deptid: 10029, "hisBedNumber1401/devBedNumber1401"}  // PatientDeviceServiceTests
+    {deptid: 10037, "hisBedNumber1901 - hisBedNumber1904"}  // BedUtilizationCalcTests
+    {deptid: 10038, "hisBedNumber2001", "hisBedNumber2099"}  // PatientSyncServiceTests
+    {deptid: 10041, "hisBedNumber2301-2310"}  // PatientDeviceServiceTests
+
+device_infos.device_sn
+    {"sn-dev-1 - sn-dev-6"}  // DeviceDataRetrieverTests
+    {"device-name-101 - device-name-104"}  // PatientDeviceServiceTests
+    {"device-name-201 - device-name-202"}  // PatientDeviceServiceTests
+
+patient_records.id
+    {dept_id: 10001-10002, id: 1-14}  // PatientRecordRepositoryTests
+    {dept_id: 10003, his_patient_id: "hisPatientId101" - "hisPatientId114"}  // OrderGroupGeneratorTests
+    {dept_id: 10004, id: 201 }  // OrderExecutorTests
+    {dept_id: 10004, his_patient_id: "hisPatientId201" - "hisPatientId230"}  // OrderExecutorTests
+    {dept_id: 10005, his_patient_id: "hisPatientId301" - "hisPatientId318"}  // MedicationServiceTests
+    {dept_id: 10007, his_patient_id: "hisPatientId401" - "hisPatientId405"}  // PatientTubeServiceTests
+    {dept_id: 10011, his_patient_id: "hisPatientId501", id:501}  // MonitoringServiceTests
+    {dept_id: 10012, his_patient_id: "hisPatientId601-604", id:601-604}  // PatientMonitoringServiceTests
+    {dept_id: 10013, his_patient_id: "hisPatientId701-704", id:701-704}  // PatientServiceTests
+    {dept_id: 10015, his_patient_id: "hisPatientId801", id:801}  // ScoreServiceTests
+    {dept_id: 10016}  // ConfigShiftServiceTests
+    {dept_id: 10017, his_patient_id: "hisPatientId901"}  // NursingRecordServiceTests
+    {dept_id: 10018, his_patient_id: "hisPatientId1001"}  // NursingRecordServiceTests
+    {dept_id: 10019, his_patient_id: "hisPatientId1101"}  // PatientShiftServiceTests
+    {dept_id: 10027, his_patient_id: "hisPatientId1201-1202"}  // PatientDeviceServiceTests
+    {dept_id: 10028, his_patient_id: "hisPatient1301-1306"}  // DeviceDataRetrieverTests
+    {dept_id: 10029, his_patient_id: "hisPatient1401"}  // PatientDeviceServiceTests
+    {dept_id: 10031, his_patient_id: "hisPatient1501-1502"}  // PatientDeviceServiceTests
+    {dept_id: 10032, his_patient_id: "hisPatient1701-hisPatient1702"}  // PatientDeviceServiceTests
+    {dept_id: 10033, his_patient_id: "hisPatient1601-hisPatient1603"}  // DoctorDataFetcherTests
+    {dept_id: 10036, his_patient_id: "hisPatient1801"}  // ChecklistServiceTests
+    {dept_id: 10037, his_patient_id: "hisPatient1901-1904"}  // BedUtilizationCalcTests
+    {dept_id: 10038, his_patient_id: "hisPatient2001"}  // PatientSyncServiceTests
+    {dept_id: 10039, his_patient_id: "hisPatient2101"}  // BalanceCalculatorTests
+    {dept_id: 10040, his_patient_id: "hisPatient2201-2206"}  // DeviceDataFetcherTests
+    {dept_id: 10041, his_patient_id: "hisPatient2301", "hisPatient2305", "hisPatient2306"}  // PatientDeviceServiceTests
+    {dept_id: 10043, his_patient_id: "hisPatientId9001-hisPatientId9006", id:9001-9006}  // MedicationPageDataTests
+
+medications.code:
+    "med_mdtcode_1" - "med_mdtcode_2"  // MedicationDictionaryTests
+    "med_code_3" - "med_code_4"  // OrderGroupGeneratorTests
+    "med_code_101" - "med_code_102" // MedicationDictionaryTests
+    "med_ah2_manual_1"
+    "med_ah2_manual_2"
+    "med_ah2_his_once_pump"
+    "med_ah2_his_once_other"
+    "med_ah2_his_tid_pump"
+    "med_ah2_his_tid_other"  // MedicationPageDataTests
+
+medication_frequencies:
+    "test_freq_10_16_22"  // MedicationTestUtils
+    "test_freq_bw135_10_16_22"  // MedicationTestUtils
+    "test_freq_bw135_10_16_22"  // MedicationTestUtils
+
+medical_orders.order_id:
+    "order_id_1" - "order_id_26"  // OrderGroupGeneratorTests
+    "order_id_201" - "order_id_230"  // OrderExecutorTests
+    "order_id_301" - "order_id_325"  // MedicationServiceTests
+    "order_id_901" - "order_id_904"  // MedicationPageDataTests
+
+medication_order_groups(his_patient_id, group_id, medical_order_ids)
+    ("hisPatientId101", "group_id_1", {"order_id_1"})  // OrderGroupGeneratorTests
+    ("hisPatientId102", "group_id_2", {})  // OrderGroupGeneratorTests
+    ("hisPatientId103", "group_id_3", {...})  // OrderGroupGeneratorTests
+    ("hisPatientId104", "group_id_4", {"order_id_20", "order_id_21"})  // OrderGroupGeneratorTests
+    ("hisPatientId105", "group_id_5", {"order_id_22"})  // OrderGroupGeneratorTests
+    ("hisPatientId106", "group_id_6", {"order_id_23"})  // OrderGroupGeneratorTests
+    ("hisPatientId107", "group_id_7", {"order_id_24", "order_id_25"})  // OrderGroupGeneratorTests
+    ("hisPatientId108", "group_id_8", {"order_id_26"})  // OrderGroupGeneratorTests
+    ("hisPatientId109", "", {})  // OrderGroupGeneratorTests
+    ("hisPatientId110", "group_id_9", {"order_id_27"})  // OrderGroupGeneratorTests
+    ("hisPatientId111", "group_id_10", {"order_id_28"})  // OrderGroupGeneratorTests
+    ("hisPatientId112", "group_id_11", {"order_id_29", "order_id_30"})  // OrderGroupGeneratorTests
+    ("hisPatientId113", "group_id_12", {"order_id_31", "order_id_32", "order_id_33"})  // OrderGroupGeneratorTests
+    ("hisPatientId114", "group_id_13", {"order_id_34"})  // OrderGroupGeneratorTests
+    ("hisPatientId201" - "hisPatientId230", "group_id_201" - "group_id_229", {"order_id_201" - "order_id_230"})  // OrderGroupGeneratorTests
+    ("hisPatientId301", "group_id_301" - "group_id_304", {"order_id_301" - "order_id_305"})  // MedicationServiceTests
+    ("hisPatientId302", "group_id_305" - "group_id_310", {"order_id_306" - "order_id_311"})  // MedicationServiceTests
+    ("hisPatientId303", "group_id_311" - "group_id_313", {"order_id_312" - "order_id_314"})  // MedicationServiceTests
+    ("hisPatientId304", "group_id_314", {"order_id_315" - "order_id_316"})  // MedicationServiceTests
+    ("hisPatientId305", "group_id_315", {"order_id_317"})  // MedicationServiceTests
+    ("hisPatientId306", "group_id_316" - "group_id_317", {"order_id_318" - "order_id_319"})  // MedicationServiceTests
+    ("hisPatientId308", "group_id_318", {"order_id_320"})  // MedicationServiceTests
+    ("hisPatientId309", "group_id_319", {"order_id_321"})  // MedicationServiceTests
+    ("hisPatientId310", "group_id_320", {"order_id_322"})  // MedicationServiceTests
+    ("hisPatientId311", "group_id_321", {"order_id_323"})  // MedicationServiceTests
+    ("hisPatientId312", "group_id_322"-"group_id_323", {"order_id_324" - "order_id_325"})  // MedicationServiceTests
+    ("hisPatientId313", "group_id_324", {"order_id_326"})  // MedicationServiceTests
+    ("hisPatientId314", "group_id_325", {"order_id_327"})  // MedicationServiceTests
+    ("hisPatientId315", "group_id_326", {"order_id_328"})  // MedicationServiceTests
+    ("hisPatientId316", "group_id_327", {"order_id_329"})  // MedicationServiceTests
+    ("hisPatientId317", "group_id_328", {"order_id_330"})  // MedicationServiceTests
+    ("hisPatientId604", "group_id_329-"group_id_331", {"order_id_331"-"order_id_333"})  // PatientMonitoringServiceTests
+    ("hisPatientId318", "group_id_330", {"order_id_334"})  // MedicationServiceTests
+    ("hisPatientId9003", "ah2_group_901", {"order_id_901"})  // MedicationPageDataTests
+    ("hisPatientId9004", "ah2_group_902", {"order_id_902"})  // MedicationPageDataTests
+    ("hisPatientId9005", "ah2_group_903", {"order_id_903"})  // MedicationPageDataTests
+    ("hisPatientId9006", "ah2_group_904", {"order_id_904"})  // MedicationPageDataTests
+
+
+administration_routes:
+    "test_route_1" /*code*/, "administration_route_group_infusion_pump"  // MedicationServiceTests
+    "test_route_2" /*code*/, "administration_route_group_others"  // MedicationServiceTests
+    "test_route_3" /*code*/, "administration_route_group_infusion_pump"  // MedicationServiceTests
+    "test_route_4" /*code*/, "administration_route_group_others", is_continuous = true  // MedicationServiceTests
+    "test_route_5" /*code*/, "administration_route_group_infusion_pump", is_continuous = false  // MedicationServiceTests
+    "test_route_6" /*code*/, "group_infusion_pump", "intravenous_intake", is_continuous = true  // PatientMonitoringServiceTests
+    "test_route_7" /*code*/, "group_enteral", "gastric_intake", is_continuous = true  // PatientMonitoringServiceTests
+    "test_route_8" /*code*/, "group_enteral", "gastric_intake", is_continuous = true  // PatientMonitoringServiceTests
+    "admin_Code_101-admin_Code_102" /*code*/  // MedicationDictionaryTests
+    "ah2_route_pump" /*code*/, "administration_route_group_infusion_pump", is_continuous = true  // MedicationPageDataTests
+    "ah2_route_other" /*code*/, "administration_route_group_others", is_continuous = false  // MedicationPageDataTests
+
+monitoring_params:
+    deptId: "10008"  // monitoring params
+        code: "test_param1_in"
+        code: "test_param2_in"
+        code: "test_param3_out"
+        code: "test_param4_out"
+        code: "test_param5_in"
+        code: "test_param6_in"
+        code: "test_param10001_in"
+        code: "test_param10002_in"
+        code: "test_param10003_in"
+    deptId: "10009"  // balance group
+        code: "test_param1_in"
+        code: "test_param2_in"
+        code: "test_param3_out"
+        code: "test_param4_out"
+        code: "test_param5_in"
+        code: "test_param6_in"
+        code: "test_param10004_in"
+        code: "test_param10005_in"  // 不存在
+        code: "test_param10006_out"
+        dept_monitoring_group:
+            id: "10001"  // 不存在
+    deptId: "10010"  // monitoring group
+        code: "test_param1_in"
+        code: "test_param2_in"
+        code: "test_param3_out"
+        code: "test_param4_out"
+        code: "test_param5_in"
+        code: "test_param6_in"
+    deptId: "10011"  // patient monitoring group
+        code: "test_param1_in"
+        code: "test_param2_in"
+        code: "test_param3_out"
+        code: "test_param4_out"
+        code: "test_param5_in"
+        code: "test_param6_in"
+    deptId: "10012"
+        code: "test_param10007"  // value supports the multiple selection
+    deptId: "10033"
+        code: "test_param10008"  // float value
+
+nursing_score:
+    "test_score_1 - test_score_3"  // ScoreServiceTests
+    "test_score_4"  // DoctorDataFetcherTests
+
+
+scp .\target\jingyi_icis_engine-0.0.1-SNAPSHOT.jar jingyi@192.168.0.49:/jydata/bin/
+scp ./src/main/resources/config/db/schema.postgresql.sql jingyi@192.168.0.49:/jydata/bin/
+
+scp D:\git_code\重症\icis_bridge\target\icis_bridge-0.0.1-SNAPSHOT.jar jingyi@192.168.0.49:/jydata/bin/
+scp D:\git_code\重症\icis_bridge\src\main\resources\config\data_bridge_config.pb.txt jingyi@192.168.0.49:/jydata/bin/
+
+scp D:\git_code\重症\icis_j3\target\icis_j3-0.0.1-SNAPSHOT.jar jingyi@192.168.0.49:/jydata/bin/
+scp D:\git_code\重症\icis_jd\target\icis_jd-0.0.1-SNAPSHOT.jar jingyi@192.168.0.49:/jydata/bin/
+scp D:\git_code\重症\icis_jd\src\main\resources\config\device_driver.txt jingyi@192.168.0.49:/jydata/bin/
+
+# lsof -i :8080
+nohup java -jar ./jingyi_icis_engine-0.0.1-SNAPSHOT.jar --cert_pb_txt=./安徽省第二人民医院数字证书.txt --public_key_file_path=./jingyi_pub.key 1>>/jydata/log/output/nohup_engine.txt 2>>/jydata/log/output/nohup_engine.txt &
+java -jar ./target/jingyi_icis_engine-0.0.1-SNAPSHOT.jar --cert_pb_txt="C:\Users\gzyrm\Desktop\晶医\重症项目\安徽省二院\证书\安徽省第二人民医院数字证书.txt" --public_key_file_path="C:\Users\gzyrm\Desktop\晶医\重症项目\安徽省二院\证书\jingyi_pub.key" --spring.datasource.url=jdbc:postgresql://192.168.0.186:5432/jingyi_icis_db
+
+# lsof -i :8082
+nohup java -jar ./icis_bridge-0.0.1-SNAPSHOT.jar 1>>/jydata/log/output/nohup_bridge.txt 2>>/jydata/log/output/nohup_bridge.txt &
+nohup java -jar ./icis_bridge-0.0.1-SNAPSHOT.jar --spring.datasource.url=jdbc:postgresql://192.168.0.49:5432/jingyi_icis_db 1>>/jydata/log/output/nohup_bridge.txt 2>>/jydata/log/output/nohup_bridge.txt --server.port=8082 --rpc.port=50003 &
+
+# lsof -i :8083
+# 50004
+nohup java -jar ./icis_j3-0.0.1-SNAPSHOT.jar --txtdumper.path=/jydata/log/output/j3_msg.txt 1>>/jydata/log/output/nohup_j3.txt 2>>/jydata/log/output/nohup_j3.txt &
+nohup java -jar ./icis_j3-0.0.1-SNAPSHOT.jar  --server.port=8083 --rpc.port=50003 --tcp.server.port=50004 --txtdumper.path=/jydata/log/output/j3_msg.txt 1>>/jydata/log/output/nohup_j3.txt 2>>/jydata/log/output/nohup_j3.txt &
+
+# lsof -i :8084
+#50005
+nohup java -jar ./icis_jd-0.0.1-SNAPSHOT.jar --txtdumper.path=/jydata/log/output/jd_msg.txt 1>>/jydata/log/output/nohup_jd.txt 2>>/jydata/log/output/nohup_jd.txt &
+nohup java -jar ./icis_jd-0.0.1-SNAPSHOT.jar --server.port=8084 --rpc.port=50003 --tcp.server.port=50005 --txtdumper.path=/jydata/log/output/jd_msg.txt 1>>/jydata/log/output/nohup_jd.txt 2>>/jydata/log/output/nohup_jd.txt &
+
+$ psql -h localhost -p 5432 -d jingyi_dev -U jingyi_dev

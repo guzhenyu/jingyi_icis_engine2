@@ -1,0 +1,1075 @@
+spec {
+    code: "bid"
+    name: "二次/日(8-16)"
+    by_interval {
+        interval_days: 0
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+    time {
+        hour: 16
+        minute: 0
+    }
+    support_nursing_order: 1
+}
+
+spec {
+    code: "bid1"
+    name: "二次/日(8-20)"
+    by_interval {
+        interval_days: 0
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+    time {
+        hour: 20
+        minute: 0
+    }
+}
+
+spec {
+    code: "qm"
+    name: "一次/日(8)"
+    by_interval {
+        interval_days: 0
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+}
+spec {
+    code: "q24h"
+    name: "一次/日(8)"
+    by_interval {
+        interval_days: 0
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+}
+spec {
+    code: "q12h"
+    name: "二次/日(8-8)"
+    by_interval {
+        interval_days: 0
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+    time {
+        hour: 20
+        minute: 0
+    }
+}
+spec {
+    code: "q12h1"
+    name: "二次/日(12-12)"
+    by_interval {
+        interval_days: 0
+    }
+    time {
+        hour: 12
+        minute: 0
+    }
+    time {
+        hour: 0
+        minute: 0
+    }
+}
+spec {
+    code: "q0.5h"
+    name: "一次/0.5小时"
+    by_interval {
+        interval_days: 0
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+    time {
+        hour: 8
+        minute: 30
+    }
+    time {
+        hour: 9
+        minute: 0
+    }
+    time {
+        hour: 9
+        minute: 30
+    }
+    time {
+        hour: 10
+        minute: 0
+    }
+    time {
+        hour: 10
+        minute: 30
+    }
+    time {
+        hour: 11
+        minute: 0
+    }
+    time {
+        hour: 11
+        minute: 30
+    }
+    time {
+        hour: 12
+        minute: 0
+    }
+    time {
+        hour: 12
+        minute: 30
+    }
+    time {
+        hour: 13
+        minute: 0
+    }
+    time {
+        hour: 13
+        minute: 30
+    }
+    time {
+        hour: 14
+        minute: 0
+    }
+    time {
+        hour: 14
+        minute: 30
+    }
+    time {
+        hour: 15
+        minute: 0
+    }
+    time {
+        hour: 15
+        minute: 30
+    }
+    time {
+        hour: 16
+        minute: 0
+    }
+    time {
+        hour: 16
+        minute: 30
+    }
+    time {
+        hour: 17
+        minute: 0
+    }
+    time {
+        hour: 17
+        minute: 30
+    }
+    time {
+        hour: 18
+        minute: 0
+    }
+    time {
+        hour: 18
+        minute: 30
+    }
+    time {
+        hour: 19
+        minute: 0
+    }
+    time {
+        hour: 19
+        minute: 30
+    }
+    time {
+        hour: 20
+        minute: 0
+    }
+    time {
+        hour: 20
+        minute: 30
+    }
+    time {
+        hour: 21
+        minute: 0
+    }
+    time {
+        hour: 21
+        minute: 30
+    }
+    time {
+        hour: 22
+        minute: 0
+    }
+    time {
+        hour: 22
+        minute: 30
+    }
+    time {
+        hour: 23
+        minute: 0
+    }
+    time {
+        hour: 23
+        minute: 30
+    }
+    time {
+        hour: 0
+        minute: 0
+    }
+    time {
+        hour: 0
+        minute: 30
+    }
+    time {
+        hour: 1
+        minute: 0
+    }
+    time {
+        hour: 1
+        minute: 30
+    }
+    time {
+        hour: 2
+        minute: 0
+    }
+    time {
+        hour: 2
+        minute: 30
+    }
+    time {
+        hour: 3
+        minute: 0
+    }
+    time {
+        hour: 3
+        minute: 30
+    }
+    time {
+        hour: 4
+        minute: 0
+    }
+    time {
+        hour: 4
+        minute: 30
+    }
+    time {
+        hour: 5
+        minute: 0
+    }
+    time {
+        hour: 5
+        minute: 30
+    }
+    time {
+        hour: 6
+        minute: 0
+    }
+    time {
+        hour: 6
+        minute: 30
+    }
+    time {
+        hour: 7
+        minute: 0
+    }
+    time {
+        hour: 7
+        minute: 30
+    }
+}
+spec {
+    code: "q1h"
+    name: "一次/1小时"
+    by_interval {
+        interval_days: 0
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+    time {
+        hour: 9
+        minute: 0
+    }
+    time {
+        hour: 10
+        minute: 0
+    }
+    time {
+        hour: 11
+        minute: 0
+    }
+    time {
+        hour: 12
+        minute: 0
+    }
+    time {
+        hour: 13
+        minute: 0
+    }
+    time {
+        hour: 14
+        minute: 0
+    }
+    time {
+        hour: 15
+        minute: 0
+    }
+    time {
+        hour: 16
+        minute: 0
+    }
+    time {
+        hour: 17
+        minute: 0
+    }
+    time {
+        hour: 18
+        minute: 0
+    }
+    time {
+        hour: 19
+        minute: 0
+    }
+    time {
+        hour: 20
+        minute: 0
+    }
+    time {
+        hour: 21
+        minute: 0
+    }
+    time {
+        hour: 22
+        minute: 0
+    }
+    time {
+        hour: 23
+        minute: 0
+    }
+    time {
+        hour: 0
+        minute: 0
+    }
+    time {
+        hour: 1
+        minute: 0
+    }
+    time {
+        hour: 2
+        minute: 0
+    }
+    time {
+        hour: 3
+        minute: 0
+    }
+    time {
+        hour: 4
+        minute: 0
+    }
+    time {
+        hour: 5
+        minute: 0
+    }
+    time {
+        hour: 6
+        minute: 0
+    }
+    time {
+        hour: 7
+        minute: 0
+    }
+}
+spec {
+    code: "q2d"
+    name: "一次/隔两天"
+    by_interval {
+        interval_days: 2
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+}
+spec {
+    code: "qw"
+    name: "一次/隔一周"
+    by_interval {
+        interval_days: 7
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+}
+spec {
+    code: "q3d"
+    name: "一次/隔三天"
+    by_interval {
+        interval_days: 3
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+}
+spec {
+    code: "q3h"
+    name: "一次/3h(9-12-3-..)"
+    by_interval {
+        interval_days: 0
+    }
+    time {
+        hour: 9
+        minute: 0
+    }
+    time {
+        hour: 12
+        minute: 0
+    }
+    time {
+        hour: 15
+        minute: 0
+    }
+    time {
+        hour: 18
+        minute: 0
+    }
+    time {
+        hour: 21
+        minute: 0
+    }
+    time {
+        hour: 0
+        minute: 0
+    }
+    time {
+        hour: 3
+        minute: 0
+    }
+    time {
+        hour: 6
+        minute: 0
+    }
+}
+spec {
+    code: "q4d"
+    name: "一次/隔四天"
+    by_interval {
+        interval_days: 4
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+}
+spec {
+    code: "q4h"
+    name: "一次/4h(8-12-4..)"
+    by_interval {
+        interval_days: 0
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+    time {
+        hour: 12
+        minute: 0
+    }
+    time {
+        hour: 16
+        minute: 0
+    }
+    time {
+        hour: 20
+        minute: 0
+    }
+    time {
+        hour: 0
+        minute: 0
+    }
+    time {
+        hour: 4
+        minute: 0
+    }
+}
+spec {
+    code: "q5d"
+    name: "一次/隔五天"
+    by_interval {
+        interval_days: 5
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+}
+spec {
+    code: "q6d"
+    name: "一次/隔六天"
+    by_interval {
+        interval_days: 6
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+}
+spec {
+    code: "q6h"
+    name: "一次/6h(6-12-18-24)"
+    by_interval {
+        interval_days: 0
+    }
+    time {
+        hour: 6
+        minute: 0
+    }
+    time {
+        hour: 12
+        minute: 0
+    }
+    time {
+        hour: 18
+        minute: 0
+    }
+    time {
+        hour: 0
+        minute: 0
+    }
+}
+spec {
+    code: "q8h"
+    name: "一次/8h(8-4-0)"
+    by_interval {
+        interval_days: 0
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+    time {
+        hour: 16
+        minute: 0
+    }
+    time {
+        hour: 0
+        minute: 0
+    }
+}
+spec {
+    code: "qd"
+    name: "一次/日 (8)"
+    by_interval {
+        interval_days: 0
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+    support_nursing_order: 1
+}
+spec {
+    code: "qd12"
+    name: "一次/日 (12)"
+    by_interval {
+        interval_days: 0
+    }
+    time {
+        hour: 12
+        minute: 0
+    }
+}
+spec {
+    code: "qid"
+    name: "四次/日(8-12-4-8)"
+    by_interval {
+        interval_days: 0
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+    time {
+        hour: 12
+        minute: 0
+    }
+    time {
+        hour: 16
+        minute: 0
+    }
+    time {
+        hour: 20
+        minute: 0
+    }
+}
+spec {
+    code: "qn"
+    name: "一次/每晚 (8pm)"
+    by_interval {
+        interval_days: 0
+    }
+    time {
+        hour: 20
+        minute: 0
+    }
+}
+spec {
+    code: "hs"
+    name: "一次/每晚 (10pm)"
+    by_interval {
+        interval_days: 0
+    }
+    time {
+        hour: 22
+        minute: 0
+    }
+}
+spec {
+    code: "qod"
+    name: "一次/隔日"
+    by_interval {
+        interval_days: 1
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+}
+spec {
+    code: "qod/bid"
+    name: "两次/隔日"
+    by_interval {
+        interval_days: 1
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+    time {
+        hour: 16
+        minute: 0
+    }
+}
+spec {
+    code: "qod/tid"
+    name: "三次/隔日"
+    by_interval {
+        interval_days: 1
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+    time {
+        hour: 12
+        minute: 0
+    }
+    time {
+        hour: 16
+        minute: 0
+    }
+}
+spec {
+    code: "tid"
+    name: "每日三次"
+    by_interval {
+        interval_days: 0
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+    time {
+        hour: 12
+        minute: 0
+    }
+    time {
+        hour: 16
+        minute: 0
+    }
+    support_nursing_order: 1
+}
+spec {
+    code: "tid1"
+    name: "每日三次"
+    by_interval {
+        interval_days: 0
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+    time {
+        hour: 12
+        minute: 0
+    }
+    time {
+        hour: 0
+        minute: 0
+    }
+}
+spec {
+    code: "w1d"
+    name: "每周一次"
+    by_interval {
+        interval_days: 7
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+}
+spec {
+    code: "w1d1"
+    name: "每周一一次"
+    by_week {
+        day_of_week: 1
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+}
+spec {
+    code: "w1d2"
+    name: "每周二一次"
+    by_week {
+        day_of_week: 2
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+}
+spec {
+    code: "w1d/tid"
+    name: "每周一天，一天三次"
+    by_interval {
+        interval_days: 7
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+    time {
+        hour: 12
+        minute: 0
+    }
+    time {
+        hour: 16
+        minute: 0
+    }
+}
+
+spec {
+    code: "w1d2/tid"
+    name: "每周二，三次"
+    by_week {
+        day_of_week: 2
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+    time {
+        hour: 12
+        minute: 0
+    }
+    time {
+        hour: 16
+        minute: 0
+    }
+}
+
+spec {
+    code: "biw"
+    name: "每周二次（周二，周四）"
+    by_week {
+        day_of_week: 2
+    }
+    by_week {
+        day_of_week: 4
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+}
+
+spec {
+    code: "biw15"
+    name: "每周二次（周二，周五）"
+    by_week {
+        day_of_week: 2
+    }
+    by_week {
+        day_of_week: 5
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+}
+
+spec {
+    code: "w2d"
+    name: "每周2次"
+    by_week {
+        day_of_week: 1
+    }
+    by_week {
+        day_of_week: 4
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+}
+
+spec {
+    code: "w2d/bid"
+    name: "每周2天，每天2次"
+    by_week {
+        day_of_week: 1
+    }
+    by_week {
+        day_of_week: 4
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+    time {
+        hour: 16
+        minute: 0
+    }
+}
+
+spec {
+    code: "w2d/tid"
+    name: "每周2天，每天3次"
+    by_week {
+        day_of_week: 1
+    }
+    by_week {
+        day_of_week: 4
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+    time {
+        hour: 16
+        minute: 0
+    }
+    time {
+        hour: 0
+        minute: 0
+    }
+}
+spec {
+    code: "tiw"
+    name: "每周3次(周一，周三，周五)"
+    by_week {
+        day_of_week: 1
+    }
+    by_week {
+        day_of_week: 3
+    }
+    by_week {
+        day_of_week: 5
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+}
+
+spec {
+    code: "tiw246"
+    name: "每周3次（周二，周四，周六）"
+    by_week {
+        day_of_week: 2
+    }
+    by_week {
+        day_of_week: 4
+    }
+    by_week {
+        day_of_week: 6
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+}
+
+spec {
+    code: "w3d"
+    name: "每周三次"
+    by_week {
+        day_of_week: 2
+    }
+    by_week {
+        day_of_week: 5
+    }
+    by_week {
+        day_of_week: 7
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+}
+
+spec {
+    code: "w3d/bid"
+    name: "每周三天，bid"
+    by_week {
+        day_of_week: 2
+    }
+    by_week {
+        day_of_week: 5
+    }
+    by_week {
+        day_of_week: 7
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+    time {
+        hour: 16
+        minute: 0
+    }
+}
+
+spec {
+    code: "w3d/q12h"
+    name: "每周三天，q12h"
+    by_week {
+        day_of_week: 2
+    }
+    by_week {
+        day_of_week: 5
+    }
+    by_week {
+        day_of_week: 7
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+    time {
+        hour: 20
+        minute: 0
+    }
+}
+
+spec {
+    code: "w3d2"
+    name: "每周三天"
+    by_week {
+        day_of_week: 1
+    }
+    by_week {
+        day_of_week: 2
+    }
+    by_week {
+        day_of_week: 3
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+}
+
+spec {
+    code: "w3d3"
+    name: "每周三天"
+    by_week {
+        day_of_week: 1
+    }
+    by_week {
+        day_of_week: 2
+    }
+    by_week {
+        day_of_week: 5
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+}
+
+spec {
+    code: "w5d"
+    name: "每周五天"
+    by_week {
+        day_of_week: 1
+    }
+    by_week {
+        day_of_week: 2
+    }
+    by_week {
+        day_of_week: 3
+    }
+    by_week {
+        day_of_week: 4
+    }
+    by_week {
+        day_of_week: 5
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+}
+
+spec {
+    code: "w5d/bid"
+    name: "每周五天bid"
+    by_week {
+        day_of_week: 1
+    }
+    by_week {
+        day_of_week: 2
+    }
+    by_week {
+        day_of_week: 3
+    }
+    by_week {
+        day_of_week: 4
+    }
+    by_week {
+        day_of_week: 5
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+    time {
+        hour: 16
+        minute: 0
+    }
+}
+
+spec {
+    code: "w7d8"
+    name: "每周日8am"
+    by_week {
+        day_of_week: 7
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+}
+
+once_code: "once"

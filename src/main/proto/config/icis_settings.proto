@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+// system_settings.function_id每个枚举都需要被标注在
+// shared.SystemSettingFunctionId function_id
+// 后面的注释部分
+enum SystemSettingFunctionId {
+    SYSTEM_SETTING_FUNCTION_ID_UNUSED = 0;
+    GET_PATIENTS_IN_ICU = 1;                // DisplayFieldSettingsPB
+    GET_PATIENTS_PENDING_ADMISSION = 2;     // DisplayFieldSettingsPB
+    GET_PATIENTS_PENDING_DISCHARGED = 3;    // DisplayFieldSettingsPB
+    GET_PATIENTS_DISCHARGED = 4;            // DisplayFieldSettingsPB
+    GET_SHIFT = 5;                          // ShiftSettingsPB 班次信息
+    GET_MEDICAL_ORDER_SETTINGS = 6;         // MedOrderGroupSettingsPB 医嘱设置
+    GET_DEPT_MENU_SETTINGS = 7;             // icis_user.proto: MenuConfigPB 科室菜单设置
+    GET_DEPT_MONITORING_SETTINGS = 8;         // DeptMonitoringSettingsPB 科室观察项配置
+    GET_DEPT_NURSING_RECORD_SETTINGS = 9;   // NursingRecordSettingsPB 科室护理记录设置
+    GET_DEPT_NURSING_SCORE_SETTINGS = 10;   // ScoreSettingsPB 科室评分配置
+    GET_DEPT_APP_SETTINGS = 11;             // 科室级别的全局设置设置，包含打印配置
+}
+
+// next id: 6
+enum AppSettingTypeEnum {
+    AST_UNUSED = 0;
+
+    // 执行用药
+    AST_ENABLE_MEDICATION_SPEED = 1;  // 是否启用'药速'
+
+    // 观察项
+    AST_HEAD_CUSTOM_TIME_GRACE_MINUTES = 2;  // 给定观察项时间范围，新增自定义时间，相对于时间范围起始时间的宽限分钟数
+    AST_TAIL_CUSTOM_TIME_GRACE_MINUTES = 3;  // 给定观察项时间范围，新增自定义时间，相对于时间范围结束时间的宽限分钟数
+
+    // 护理记录
+    AST_NURSING_RECORD_OVERWRITE_CREATED_BY = 4; // 护理记录的最后修改人是否覆盖护理记录的创建人
+
+    // 评分（医生和护士）
+    AST_SCORE_ALLOW_EDIT_RECORDED_BY = 5; // 评分允许修改记录创建人
+
+    // 通用配置
+    AST_GENERAL = 6;  // 打印配置
+}
+
+message AppGeneralSettingsPB {
+    bool jfk_use_native_print = 1; // 是否使用浏览器原生打印
+    string print_agent_ip_port = 2; // 打印代理的IP和端口，例如：192.168.0.49:9123
+}
+
+message AppSettingsPB {
+    // 执行用药
+    bool enable_medication_speed = 1;  // 是否启用'药速'
+
+    // 观察项
+    int32 head_custom_time_grace_minutes = 2;  // 给定观察项时间范围，新增自定义时间，相对于时间范围起始时间的宽限分钟数
+    int32 tail_custom_time_grace_minutes = 3;  // 给定观察项时间范围，新增自定义时间，相对于时间范围结束时间的宽限分钟数
+
+    // 护理记录
+    bool nursing_record_overwrite_created_by = 4; // 护理记录的最后修改人是否覆盖护理记录的创建人
+
+    // 评分（医生和护士）
+    bool score_allow_edit_recorded_by = 5; // 评分允许修改记录创建人
+
+    // logo展示
+    int32 logo_type = 6;
+    string custom_logo_b64 = 7;
+
+    // 打印配置
+    bool jfk_use_native_print = 8; // 是否使用浏览器原生打印
+    string print_agent_ip_port = 9; // 打印代理的IP和端口，例如：192.168.0.49:9123
+}

@@ -1,0 +1,127 @@
+syntax = "proto3";
+
+import "shared/shared.proto";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+////// 配置消息
+message DeviceEnums {
+    repeated shared.EnumValue network_protocol = 1;
+    repeated shared.EnumValue serial_protocol = 2;
+
+    repeated shared.EnumValue bed_type = 3;
+
+    // 床位切换状态
+    shared.EnumValue switch_type_normal = 4;  // 普通换床
+    shared.EnumValue switch_type_readmission_discharge = 5;  // 24h重返-出科 (重返： 先出后入)
+    shared.EnumValue switch_type_readmission_admit = 6;  // 24h重返-入科 (重返： 先出后入)
+}
+
+message BedConfigPB {
+    int64 id = 1;  // 可选，新增床位时为空
+    string department_id = 2;
+    string his_bed_number = 3;
+    string device_bed_number = 4;
+    string display_bed_number = 5;
+    int32 bed_type = 6;
+    string note = 7;
+
+    // 绑定的病人信息
+    int64 pid = 8;
+    string patient_name = 9;
+    string his_mrn = 10;
+}
+
+// 用于卫健委质控19项统计
+message BedCountPB {
+    int32 id = 1;  // 床位计数ID
+    string dept_id = 2;  // 科室ID
+    string date_iso8601 = 3;  // 日期，ISO 8601 格式
+    int32 count = 4;     // 床位数量
+}
+
+message DeviceInfoPB {
+    int32 id = 1;
+    string department_id = 2;
+    string device_sn = 3;
+    // 固定设备：deviceType：中央站 或者 deviceBedNumber不为空
+    string device_bed_number = 4;
+    int32 device_type = 5;
+    string device_name = 6;
+    string device_ip = 7;
+    string device_port = 8;
+    string data_collector_port = 9;
+    string device_driver_code = 10;
+    int32 network_protocol = 11;
+    int32 serial_protocol = 12;
+    string model = 13;
+    string manufacturer = 14;
+}
+
+message DeviceBindingPB {
+    int64 id = 1;
+    int64 patient_id = 2;
+    string patient_name = 3;
+    string display_bed_number = 4;
+    int32 device_id = 5;
+    string binding_time_iso8601 = 6;
+    string unbinding_time_iso8601 = 7;
+}
+
+message AltParamCodePairPB {
+    string replacing_code = 1;
+    string replaced_code = 2;
+}
+
+// 设备型号及其驱动编码
+message DeviceModelPB {
+    int32 id = 1;
+    string model = 2;           // 设备型号（如 N12）
+    string driver_code = 3;     // 驱动编码（如 JY_monitor_mindray_n）
+}
+
+// 设备厂家及其型号列表
+message ManufacturerPB {
+  int32 id = 1;
+  string name = 2;                      // 设备厂家（如迈瑞）
+  repeated DeviceModelPB model = 3;    // 该厂家的所有型号
+}
+
+// 设备类型及其厂家列表
+message DeviceTypeEntryPB {
+  int32 device_type_id = 1;  // 设备类型
+  string device_type_name = 2;  // 设备类型名称
+  repeated ManufacturerPB manufacturer = 3; // 该类型下的所有厂家
+}
+
+// 整个设备级联结构
+message DeviceCascadePB {
+  repeated DeviceTypeEntryPB entry = 1; // 所有设备类型及其层级信息
+}
+
+message DeviceConfigPB {
+    DeviceEnums enums = 1;
+    repeated AltParamCodePairPB alternative_code_pair = 2;
+    repeated string param_code_to_approx = 3;
+    int32 approx_seconds = 4;  // 近似时间内的数据合并时间间隔，单位秒
+    DeviceCascadePB device_cascade = 5;
+}
+
+message DevObservationItemPB {
+    string ob_code = 1;
+    string monitoring_param_code = 2;
+}
+
+message DevObservationConfigPB {
+    string driver_code = 1;
+    string hl7_bed_number_path = 2;  // "PV1-3-3"
+    string hl7_ob_path_prefix = 3;  // "OBX"， OBX 段前缀
+    string hl7_ob_code_path = 4;  // "3-2"， 等效于 OBX(i)-3-2
+    string hl7_ob_value_path = 5;  // "5"， 等效于 OBX(i)-5
+    string hl7_ob_value_at_path = 6;  // "OBR-7"
+    repeated DevObservationItemPB item = 7;
+}
+
+message DevObservationConfigsPB {
+    repeated DevObservationConfigPB config = 1;
+}

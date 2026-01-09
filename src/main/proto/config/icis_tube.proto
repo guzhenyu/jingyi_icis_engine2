@@ -1,0 +1,94 @@
+syntax = "proto3";
+
+import "config/icis_monitoring.proto";
+import "shared/shared.proto";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+message TubeEnums {
+    shared.EnumValue tube_ui_type_text = 1;  // 文本输入框(单选)
+    shared.EnumValue tube_ui_type_single_selector = 2;  // 单选下拉框
+    shared.EnumValue tube_ui_type_multi_selector = 3;  // 多选下拉框
+
+    shared.EnumValue patient_tube_status_deleted = 4; // 已删除状态
+    shared.EnumValue patient_tube_status_inserted = 5; // 插管中状态
+    shared.EnumValue patient_tube_status_removed = 6;  // 已拔管状态
+}
+
+message TubeValueSpecPB {
+    int32 id = 1;  // tube_type_attributes.id 或 tube_type_statuses.id
+    string code = 2;
+    string name = 3;
+    int32 ui_type = 4;  // TubeEnums.tube_ui_type_*
+    repeated string opt_value = 5;  // 可选值
+    repeated string default_value = 6;  // 默认值
+    string unit = 7;  // 单位
+    int32 display_order = 8;  // 展示顺序
+}
+
+message TubeTypePB {
+    int32 id = 1;  // tube_types.id
+    string type = 2;  // 管道类型名称
+
+    // 管道名称:
+    // - type不是"引流管"时，一个type只能有一个管道名称;
+    // - type是"引流管"时，可以有多个管道名称，表示不同类型的引流管，比如"胸腔引流管", "腹腔引流管"。
+    // 管道名称是TubeTypePB的唯一标识。
+    string name = 3;
+
+    string category = 4;  // 管道分类, I类、II类、III类
+    int32 is_common = 5;  // 是否为常用管道
+    int32 is_disabled = 6;    // 是否禁用, 0: 启用, 1: 禁用
+    int32 display_order = 7;  // 管道展示顺序
+    repeated TubeValueSpecPB attribute = 8;
+    repeated TubeValueSpecPB status = 9;
+}
+
+message TubeTypeListPB {
+    repeated TubeTypePB tube_type = 1;
+}
+
+message TubeAttributeListPB {
+    repeated TubeValueSpecPB attribute = 1;
+}
+
+message TubeStatusListPB {
+    repeated TubeValueSpecPB status = 1;
+}
+
+message TubeDataPB {
+    int64 patient_id = 1;
+
+    string tube_type_code = 2;
+
+    message TubeAttrValue {
+        string attribute_code = 1;
+        repeated string value = 2;
+    }
+    repeated TubeAttrValue attribute = 3;
+
+    message TubeValue {
+        string value_code = 1;
+
+        message TimeValue {
+            string time_iso8601 = 1;
+            repeated string value = 2;
+        }
+        repeated TimeValue time_value = 2;
+    }
+    repeated TubeValue value = 4;
+}
+
+message DeptTubeSettingPB {
+    string dept_id = 1;
+    repeated MonitoringParamPB param = 2;  // 引流管参数列表
+}
+
+message TubePB {
+    string drainage_tube_type = 1;
+    TubeEnums enums = 2;
+    TubeTypeListPB type_list = 3;
+    TubeAttributeListPB attribute_list = 4;
+    TubeStatusListPB status_list = 5;
+    DeptTubeSettingPB tube_setting = 6;
+}

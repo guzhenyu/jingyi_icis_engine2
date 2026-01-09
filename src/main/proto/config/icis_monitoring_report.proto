@@ -1,0 +1,147 @@
+syntax = "proto3";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+message LineStylePB {
+    float width = 1;
+    float gray_value = 2;  // 0-1, 0 is black, 1 is white
+    repeated float dash_pattern = 3;  // two element array, e.g., [2, 1]
+}
+
+// The unit of font_size, ...left_bottom_x, ...left_bottom_y, ...width,
+// ...height, etc., is PDF unit.
+// 1 PDF unit = 1/72 inch = 0.35277777777777775 mm
+
+message HeaderPB {
+    float height = 1;
+
+    string monitoring_report_title = 2;
+    string balance_report_title = 3;
+    float title_font_size = 4;
+    float title_y = 5;
+
+
+    float attr_font_size = 6;
+    // float attr_x = 6;  // MonitoringReportTemplatePB.left_bottom_x
+    float attr_y_line1 = 7;
+    float attr_y_line2 = 8;
+
+    repeated string line1_attr = 9;
+    repeated string line2_attr = 10;
+
+}
+
+message FooterPB {
+    float height = 1;
+}
+
+message RulerPB {
+    repeated string code = 1;  // icis_monitoring.proto:MonitoringParamPB.code
+}
+
+message RulersPB {
+    int32 ruler_major_scales = 1;
+    float ruler_major_scale_length = 2;
+    int32 ruler_minor_scales = 3;
+    float ruler_minor_scale_length = 4;
+    int32 ruler_font_size = 5;
+    float elem_right_padding = 6;
+    repeated RulerPB ruler = 7;  
+}
+
+message GridsPB {
+    float left_bottom_x = 1;
+
+    // float grids_left_bottom_y = Chart.left_bottom_y + Chart.padding_bottom
+
+    // float num_grids = Page.metric_grids.metrics.num_values_per_metric
+    // float grid_width_calc = (Chart.width -
+    //     (left_bottom_x - Chart.left_bottom_x) -
+    //     Chart.padding_right) / Page.metrics.num_values_per_metric
+
+    float grid_width_min = 2;
+
+    // float grid_width = max(grid_width_min, grid_width_calc)
+
+    // float grid_height = (Chart.height - Chart.padding_vertical * 2) /
+    //     Chart.rulers.ruler_major_scales
+}
+
+message ChartPB {
+    // float width = Page.width
+
+    float height = 1;
+
+    // float left_bottom_x = Page.left_bottom_x
+    // float left_bottom_y = Page.left_bottom_y + Page.height
+    //     - Page.header.height
+    //     - height
+
+    float padding_horizontal = 2;
+    float padding_vertical = 3;
+    RulersPB rulers = 4;
+    float grids_left_bottom_x = 5;
+    int32 graph_sign_font_size = 6;
+}
+
+message MetricGridsPB {
+    // float width = Page.width;
+    // float height_max = Page.height -
+    //     Page.header.height -
+    //     Page.footer.height -
+    //     Page.chart.height;
+    // float height = (int) (height_max / grid_height) * grid_height;
+    // float left_bottom_x = Page.left_bottom_x;
+    // float left_bottom_y = Page.left_bottom_y + Page.height -
+    //     Page.header.height -
+    //     Page.chart.height -
+    //     height;
+
+    float grid_height = 1;
+    float grid_padding_horizontal = 2;
+    // vertical center alignment.
+
+    int32 font_size = 3;
+
+    float group_width = 4;
+    float name_width = 5;
+    // float unit_width = Page.width -
+    //     (Page.chart.grids.left_bottom_x - Page.left_bottom_x) -
+    //     group_width - name_width
+}
+
+// 通用观察项表单：A4，横向
+message MonitoringReportTemplatePB {
+    string name = 1;
+    float left_bottom_x = 2;
+    float left_bottom_y = 3;
+    float width = 4;
+    float height = 5;
+
+    // header.left_bottom_y = left_bottom_y + height - header.height
+    HeaderPB header = 6;
+
+    // chart.bottom_left_x = header.left_bottom_y - chart.height
+    ChartPB chart = 7;
+
+    // metric_grids.left_bottom_y = left_bottom_y + footer.height
+    MetricGridsPB metric_grids = 8;
+
+    FooterPB footer = 9;
+
+    LineStylePB line_style_thick = 10;
+    LineStylePB line_style_thin = 11;
+    LineStylePB line_style_dotted = 12;
+
+    string signature_code = 13;
+}
+
+message MonitoringReportSettingsPB {
+    bool enable_balance_stats_hour_shift = 1;  // false: 按照时段开始时间统计; true: 按照时段结束时间统计
+}
+
+message MonitoringReportPB {
+    string template_name = 1;
+    MonitoringReportTemplatePB monitoring_template = 2;
+    MonitoringReportSettingsPB settings = 3;
+}

@@ -1,0 +1,745 @@
+page {
+    tbl_common {
+        left: 29.76
+        bottom: 36.28
+        width: 1131
+        row_height: 18.14
+        header_rows: 6
+        body_rows: 34
+        text_style {
+            font_size: 8
+            char_spacing: 0.5
+            padding: 0.5
+            color_r: 0
+            color_g: 0
+            color_b: 0
+        }
+        line_style {
+            width: 0.1
+            gray_value: 0.3
+        }
+        summary_row_hotizontal_padding: 3.0
+    }
+    sub_page {
+        table {
+            header {
+                top_level_cell {
+                    content_code: YEAR
+                    children {
+                        content: "日期"
+                        param_code: "AH2P_MMDD"
+                        width: 32.1
+                    }
+                    children {
+                        content: "时间"
+                        param_code: "AH2P_HHMM"
+                    }
+                    width: 64.2
+                    height_rows: 1
+                }
+                top_level_cell {
+                    content: "生命体征"
+                    children {
+                        content: "意识"
+                        param_code: "AH2P_CONSCIOUSNESS"
+                        width: 14.83
+                    }
+                    children {
+                        content: "瞳孔"
+                        children {
+                            content: "大小"
+                            children {
+                                content: "左"
+                                content: "mm"
+                                param_code: "AH2P_LEFT_PUPIL_SIZE"
+                                width: 18.04
+                            }
+                            children {
+                                content: "右"
+                                content: "mm"
+                                param_code: "AH2P_RIGHT_PUPIL_SIZE"
+                            }
+                            width: 36.08
+                            height_rows: 1
+                        }
+                        children {
+                            content: "反射"
+                            children {
+                                content: "左"
+                                param_code: "AH2P_LEFT_PUPIL_REFLEX"
+                                width: 24.05
+                            }
+                            children {
+                                content: "右"
+                                param_code: "AH2P_RIGHT_PUPIL_REFLEX"
+                            }
+                            width: 48.1
+                            height_rows: 1
+                        }
+                        width: 84.18
+                        height_rows: 1
+                    }
+                    children {
+                        content: "体温℃"
+                        param_code: "AH2P_TEMPERATURE"
+                        width: 26.056
+                    }
+                    children {
+                        content: "末梢皮温"
+                        param_code: "AH2P_SKIN_TEMPERATURE"
+                        width: 16.03
+                    }
+                    children {
+                        content: "心率"
+                        content: "次/分"
+                        param_code: "AH2P_HEART_RATE"
+                        width: 20.04
+                    }
+                    children {
+                        content: "心律"
+                        param_code: "AH2P_HEART_RHYTHM"
+                        width: 28.86
+                    }
+                    children {
+                        content: "呼吸"
+                        content: "次/分"
+                        param_code: "AH2P_RESPIRATORY_RATE"
+                        width: 16.03
+                    }
+                    children {
+                        content: "无创血压"
+                        content: "mmHg"
+                        param_code: "AH2P_NIBP"
+                        width: 36.08
+                    }
+                    children {
+                        content: "有创血压"
+                        content: "mmHg"
+                        param_code: "AH2P_IBP"
+                        width: 36.08
+                    }
+                    children {
+                        content: "SpO2"
+                        content: "%"
+                        param_code: "AH2P_SPO2"
+                        width: 20.84
+                    }
+                    children {
+                        content: "CVP"
+                        content: "mmHg"
+                        param_code: "AH2P_CVP"
+                        width: 23.25
+                    }
+                    children {
+                        content: "ICP"
+                        content: "mmHg"
+                        param_code: "AH2P_ICP"
+                    }
+                    width: 340.73
+                    height_rows: 1
+                }
+                top_level_cell {
+                    content: "血糖"
+                    content: "mmol/L"
+                    param_code: "AH2P_BLOOD_GLUCOSE"
+                    width: 32.07
+                }
+                top_level_cell {
+                    content: "入量"
+                    children {
+                        content: "执行用药"
+                        param_code: "AH2P_MED_EXEC"
+                        width: 137.9
+                    }
+                    children {
+                        content: "液体量"
+                        content: "ml"
+                        param_code: "AH2P_MEDICATION_ML"
+                        width: 24.85
+                    }
+                    children {
+                        content: "饮食/鼻饲"
+                        param_code: "AH2P_NASOGASTRIC"
+                        width: 61.73
+                    }
+                    children {
+                        content: "饮食/鼻饲量"
+                        content: "ml"
+                        param_code: "AH2P_NASOGASTRIC_ML"
+                        width: 24.85
+                    }
+                    children {
+                        content: "每小时入量"
+                        content: "ml"
+                        param_code: "AH2P_HOURLY_INTAKE"
+                        width: 24.85
+                    }
+                    children {
+                        content: "总量"
+                        content: "ml"
+                        param_code: "AH2P_TOTAL_INTAKE"
+                    }
+                    width: 301.85
+                    height_rows: 1
+                }
+                top_level_cell {
+                    content: "出量"
+                    children {
+                        content: "每小时尿量"
+                        content: "ml"
+                        param_code: "AH2P_URINE_OUTPUT"
+                        width: 18.44
+                    }
+                    children {
+                        content: "累计尿量"
+                        content: "ml"
+                        param_code: "AH2P_ACCUMULATED_URINE_OUTPUT"
+                        width: 25.66
+                    }
+                    children {
+                        content: "胃液"
+                        content: "ml"
+                        param_code: "AH2P_GASTRIC_FLUID_VOLUME"
+                        width: 18.44
+                    }
+                    children {
+                        content: "大便量"
+                        content: "ml"
+                        param_code: "AH2P_STOOL_VOLUME"
+                        width: 18.44
+                    }
+                    children {
+                        content: "其他"
+                        children {
+                            content: "名称"
+                            param_code: "AH2P_OTHER_OUTPUT_NAME"
+                            width: 52.51
+                        }
+                        children {
+                            content: "量ml"
+                            param_code: "AH2P_OTHER_OUTPUT_VOLUME"
+                            width: 25.65
+                        }
+                        children {
+                            content: "引流液颜色"
+                            param_code: "AH2P_DRAINAGE_FLUID_COLOR"
+                        }
+                        width: 92.2
+                        height_rows: 1
+                    }
+                    children {
+                        content: "超滤量"
+                        content: "ml"
+                        param_code: "AH2P_CRRT_UF"
+                        width: 24.85
+                    }
+                    children {
+                        content: "总量"
+                        content: "ml"
+                        param_code: "AH2P_ACCUMULATED_OUTPUT"
+                    }
+                    width: 224.48
+                    height_rows: 1
+                }
+                top_level_cell {
+                    content: "病情观察及处理"
+                    param_code: "AH2P_NURSING_RECORD"
+                    width: 128.27
+                }
+                top_level_cell {
+                    content: "签名"
+                    param_code: "AH2P_SIGNATURE"
+                }
+            }
+        }
+        text_elem {
+            id: "title"
+            type: "text"
+            x: 0
+            y: 798  # A3.short_edge_pt - 1cm - 16pt = 842 - 28.35 - 16 ~= 798
+            width: 1191 # A3.long_edge_pt = 1191
+            height: 16
+            v_align_id: 2  # jfk.v_align_middle.id
+            h_align_id: 5  # jfk.h_align_center.id
+            font: "Microsoft YaHei"  # 微软雅黑
+            font_size: 16
+            font_color: "#000000"
+            char_spacing: 0.5
+            content: "安徽省第二人民医院 ICU护理记录单"
+        }
+        text_elem {
+            id: "bed_no"
+            type: "text"
+            x: 32
+            y: 774  # A3.short_edge_pt - 1cm - 16pt = 842 - 28.35 - 16 - 23 ~= 779
+            width: 1191 # A3.long_edge_pt = 1191
+            height: 10
+            v_align_id: 2  # jfk.v_align_middle.id
+            h_align_id: 4  # jfk.h_align_left.id
+            font: "Microsoft YaHei"  # 微软雅黑
+            font_size: 10
+            font_color: "#000000"
+            char_spacing: 0.5
+            content: "床号："
+        }
+        text_elem {
+            id: "patient_info:bed_no"
+            type: "text"
+            x: 68  # 32 + 36
+            y: 774  # A3.short_edge_pt - 1cm - 16pt = 842 - 28.35 - 16 - 23 ~= 779
+            width: 1191 # A3.long_edge_pt = 1191
+            height: 10
+            v_align_id: 2  # jfk.v_align_middle.id
+            h_align_id: 4  # jfk.h_align_left.id
+            font: "Microsoft YaHei"  # 微软雅黑
+            font_size: 10
+            font_color: "#000000"
+            char_spacing: 0.5
+            content: "xx"
+        }
+        text_elem {
+            id: "patient_name"
+            type: "text"
+            x: 104  # 32 + 36 + 36
+            y: 774  # A3.short_edge_pt - 1cm - 16pt = 842 - 28.35 - 16 - 23 ~= 779
+            width: 1191 # A3.long_edge_pt = 1191
+            height: 10
+            v_align_id: 2  # jfk.v_align_middle.id
+            h_align_id: 4  # jfk.h_align_left.id
+            font: "Microsoft YaHei"  # 微软雅黑
+            font_size: 10
+            font_color: "#000000"
+            char_spacing: 0.5
+            content: "姓名："
+        }
+        text_elem {
+            id: "patient_info:patient_name"
+            type: "text"
+            x: 140  # 32 + 36 + 36 + 36
+            y: 774  # A3.short_edge_pt - 1cm - 16pt = 842 - 28.35 - 16 - 23 ~= 779
+            width: 1191 # A3.long_edge_pt = 1191
+            height: 10
+            v_align_id: 2  # jfk.v_align_middle.id
+            h_align_id: 4  # jfk.h_align_left.id
+            font: "Microsoft YaHei"  # 微软雅黑
+            font_size: 10
+            font_color: "#000000"
+            char_spacing: 0.5
+            content: "xx"
+        }
+        text_elem {
+            id: "mrn"
+            type: "text"
+            x: 188  # 32 + 36 + 36 + 36 + 48
+            y: 774  # A3.short_edge_pt - 1cm - 16pt = 842 - 28.35 - 16 - 23 ~= 779
+            width: 1191 # A3.long_edge_pt = 1191
+            height: 10
+            v_align_id: 2  # jfk.v_align_middle.id
+            h_align_id: 4  # jfk.h_align_left.id
+            font: "Microsoft YaHei"  # 微软雅黑
+            font_size: 10
+            font_color: "#000000"
+            char_spacing: 0.5
+            content: "住院号："
+        }
+        text_elem {
+            id: "patient_info:mrn"
+            type: "text"
+            x: 236  # 32 + 36 + 36 + 36 + 48 + 48
+            y: 774  # A3.short_edge_pt - 1cm - 16pt = 842 - 28.35 - 16 - 23 ~= 779
+            width: 1191 # A3.long_edge_pt = 1191
+            height: 10
+            v_align_id: 2  # jfk.v_align_middle.id
+            h_align_id: 4  # jfk.h_align_left.id
+            font: "Microsoft YaHei"  # 微软雅黑
+            font_size: 10
+            font_color: "#000000"
+            char_spacing: 0.5
+            content: "xx"
+        }
+        text_elem {
+            id: "age"
+            type: "text"
+            x: 300  # 32 + 36 + 36 + 36 + 48 + 48 + 64
+            y: 774  # A3.short_edge_pt - 1cm - 16pt = 842 - 28.35 - 16 - 23 ~= 779
+            width: 1191 # A3.long_edge_pt = 1191
+            height: 10
+            v_align_id: 2  # jfk.v_align_middle.id
+            h_align_id: 4  # jfk.h_align_left.id
+            font: "Microsoft YaHei"  # 微软雅黑
+            font_size: 10
+            font_color: "#000000"
+            char_spacing: 0.5
+            content: "年龄："
+        }
+        text_elem {
+            id: "patient_info:age"
+            type: "text"
+            x: 336  # 32 + 36 + 36 + 36 + 48 + 48 + 64 + 36
+            y: 774  # A3.short_edge_pt - 1cm - 16pt = 842 - 28.35 - 16 - 23 ~= 779
+            width: 1191 # A3.long_edge_pt = 1191
+            height: 10
+            v_align_id: 2  # jfk.v_align_middle.id
+            h_align_id: 4  # jfk.h_align_left.id
+            font: "Microsoft YaHei"  # 微软雅黑
+            font_size: 10
+            font_color: "#000000"
+            char_spacing: 0.5
+            content: "xx"
+        }
+        text_elem {
+            id: "diagnosis"
+            type: "text"
+            x: 372  # 32 + 36 + 36 + 36 + 48 + 48 + 64 + 36 + 36
+            y: 774  # A3.short_edge_pt - 1cm - 16pt = 842 - 28.35 - 16 - 23 ~= 779
+            width: 1191 # A3.long_edge_pt = 1191
+            height: 10
+            v_align_id: 2  # jfk.v_align_middle.id
+            h_align_id: 4  # jfk.h_align_left.id
+            font: "Microsoft YaHei"  # 微软雅黑
+            font_size: 10
+            font_color: "#000000"
+            char_spacing: 0.5
+            content: "诊断："
+        }
+        text_elem {
+            id: "patient_info:diagnosis"
+            type: "text"
+            x: 408  # 32 + 36 + 36 + 36 + 48 + 48 + 64 + 36 + 36 + 36
+            y: 774  # A3.short_edge_pt - 1cm - 16pt = 842 - 28.35 - 16 - 23 ~= 779
+            width: 1191 # A3.long_edge_pt = 1191
+            height: 10
+            v_align_id: 2  # jfk.v_align_middle.id
+            h_align_id: 4  # jfk.h_align_left.id
+            font: "Microsoft YaHei"  # 微软雅黑
+            font_size: 10
+            font_color: "#000000"
+            char_spacing: 0.5
+            content: "xx"
+        }
+        text_elem {
+            id: "ah2:page_number"
+            type: "text"
+            x: 1098  # 1191 - 30 - 64
+            y: 774  # A3.short_edge_pt - 1cm - 16pt = 842 - 28.35 - 16 - 23 ~= 779
+            width: 1191 # A3.long_edge_pt = 1191
+            height: 10
+            v_align_id: 2  # jfk.v_align_middle.id
+            h_align_id: 4  # jfk.h_align_left.id
+            font: "Microsoft YaHei"  # 微软雅黑
+            font_size: 10
+            font_color: "#000000"
+            char_spacing: 0.5
+            content: "第 x 页"
+        }
+    }
+    sub_page {
+        table {
+            header {
+                top_level_cell {
+                    content: "吸氧方式"
+                    param_code: "AH2P_OXYGEN_DELIVERY_METHOD"
+                    width: 46.1
+                }
+                top_level_cell {
+                    content: "插管深度cm"
+                    param_code: "AH2P_RESPIRATORY_TUBE_DEPTH"
+                    width: 16.03
+                }
+                top_level_cell {
+                    content: "氧浓度(%)/氧流量(L/min)"
+                    param_code: "AH2P_OXYGEN_CONCENTRATION_FLOW"
+                    width: 20.04
+                }
+                top_level_cell {
+                    content: "机械通气"
+                    children {
+                        content: "模式"
+                        param_code: "AH2P_RESPIRATORY_MODE"
+                        width: 24.05
+                    }
+                    children {
+                        content: "呼吸频率f"
+                        param_code: "AH2P_RESPIRATORY_RATE_VENT"
+                        width: 16.03
+                    }
+                    children {
+                        content: "VT(set)"
+                        param_code: "AH2P_SET_TIDAL_VOLUME"
+                        width: 20.04
+                    }
+                    children {
+                        content: "FiO2%"
+                        param_code: "AH2P_FIO2"
+                        width: 20.04
+                    }
+                    children {
+                        content: "PS"
+                        param_code: "AH2P_PS"
+                        width: 20.04
+                    }
+                    children {
+                        content: "PEEP"
+                        content: "cmH2O"
+                        param_code: "AH2P_PEEP"
+                        width: 20.04
+                    }
+                    children {
+                        content: "呼吸音"
+                        children {
+                            content: "左"
+                            param_code: "AH2P_LEFT_BREATH_SOUNDS"
+                            width: 26.26
+                        }
+                        children {
+                            content: "右"
+                            param_code: "AH2P_RIGHT_BREATH_SOUNDS"
+                        }
+                        height_rows: 1
+                    }
+                    width: 172.77
+                    height_rows: 1
+                }
+                top_level_cell {
+                    content: "气道湿化"
+                    param_code: "AH2P_AIRWAY_HUMIDIFICATION"
+                    width: 16.03
+                }
+                top_level_cell {
+                    content: "雾化"
+                    param_code: "AH2P_ATOMIZATION"
+                    width: 16.03
+                }
+                top_level_cell {
+                    content: "吸痰"
+                    children {
+                        content: "痰量"
+                        param_code: "AH2P_SPUTUM_AMOUNT"
+                        width: 24.05
+                    }
+                    children {
+                        content: "颜色"
+                        param_code: "AH2P_SPUTUM_COLOR"
+                        width: 24.05
+                    }
+                    children {
+                        content: "吸痰次数"
+                        param_code: "AH2P_SUCTION_COUNT"
+                    }
+                    width: 66.14
+                    height_rows: 1
+                }
+                top_level_cell {
+                    content: "评分"
+                    children {
+                        content: "Braden评分"
+                        param_code: "AH2P_BRADEN"
+                        width: 28.06
+                    }
+                    children {
+                        content: "Morse跌倒评估"
+                        param_code: "AH2P_MORSE"
+                        width: 32.07
+                    }
+                    children {
+                        content: "自理评估"
+                        param_code: "AH2P_AODLS"
+                        width: 28.06
+                    }
+                    children {
+                        content: "VTE"
+                        param_code: "AH2P_VTE_CAPRINI"
+                        width: 32.07
+                    }
+                    children {
+                        content: "导管风险评估"
+                        param_code: "AH2P_CATHETER_SLIPPAGE"
+                        width: 32.07
+                    }
+                    children {
+                        content: "RASS镇静评估"
+                        param_code: "AH2P_RASS"
+                        width: 20.04
+                    }
+                    children {
+                        content: "CPOT/NRS"
+                        param_code: "AH2P_CPOT_NRS"
+                    }
+                    width: 204.44
+                    height_rows: 1
+                }
+                top_level_cell {
+                    content: "管道"
+                    children {
+                        content: "名称"
+                        param_code: "AH2P_TUBE_NAME"
+                        width: 84.18
+                    }
+                    children {
+                        content: "置管深度"
+                        content: "cm"
+                        param_code: "AH2P_TUBE_DEPTH"
+                        width: 20.04
+                    }
+                    children {
+                        content: "管道维护"
+                        children {
+                            content: "换药"
+                            param_code: "AH2P_TUBE_DRESSING_CHANGE"
+                            width: 16.03
+                        }
+                        children {
+                            content: "正常"
+                            param_code: "AH2P_TUBE_NORMAL"
+                            width: 16.03
+                        }
+                        children {
+                            content: "异常"
+                            param_code: "AH2P_TUBE_ABNORMAL"
+                        }
+                        height_rows: 2
+                    }
+                    width: 152.33
+                    height_rows: 1
+                }
+                top_level_cell {
+                    content: "护理"
+                    children {
+                        content: "床上擦浴"
+                        param_code: "AH2P_BED_BATHING"
+                        width: 16.03
+                    }
+                    children {
+                        content: "会阴护理"
+                        param_code: "AH2P_PERINEAL_CARE"
+                        width: 16.03
+                    }
+                    children {
+                        content: "口腔护理"
+                        param_code: "AH2P_ORAL_CARE"
+                        width: 16.03
+                    }
+                    children {
+                        content: "气切护理"
+                        param_code: "AH2P_TRACHEOSTOMY_CARE"
+                        width: 16.03
+                    }
+                    children {
+                        content: "皮肤护理"
+                        param_code: "AH2P_SKIN_CARE"
+                        width: 16.03
+                    }
+                    children {
+                        content: "洗头"
+                        param_code: "AH2P_WASH_HAIR"
+                        width: 16.03
+                    }
+                    children {
+                        content: "肺部理疗"
+                        param_code: "AH2P_PULMONARY_PHYSIOTHERAPY"
+                        width: 16.03
+                    }
+                    children {
+                        content: "肢体气压理疗"
+                        param_code: "AH2P_LIMB_PNEUMATIC_THERAPY"
+                        width: 16.03
+                    }
+                    children {
+                        content: "约束"
+                        param_code: "AH2P_RESTRAINT"
+                        width: 26.06
+                    }
+                    children {
+                        content: "体位"
+                        param_code: "AH2P_BODY_POSITION"
+                    }
+                    width: 180.39
+                    height_rows: 1
+                }
+                top_level_cell {
+                    content: "血气"
+                    children {
+                        content: "PH"
+                        param_code: "AH2P_BGA_PH"
+                        width: 21.14
+                    }
+                    children {
+                        content: "PCO2"
+                        content: "mmHg"
+                        param_code: "AH2P_BGA_PCO2"
+                        width: 21.14
+                    }
+                    children {
+                        content: "PO2"
+                        content: "mmHg"
+                        param_code: "AH2P_BGA_PO2"
+                        width: 21.14
+                    }
+                    children {
+                        content: "Po2/FiO2"
+                        content: "mmHg/%"
+                        param_code: "AH2P_BGA_PO2_FIO2"
+                        width: 21.14
+                    }
+                    children {
+                        content: "BE"
+                        content: "mmol/L"
+                        param_code: "AH2P_BGA_BE"
+                        width: 21.14
+                    }
+                    children {
+                        content: "HCO3-"
+                        content: "mmol/L"
+                        param_code: "AH2P_BGA_HCO3"
+                        width: 21.14
+                    }
+                    children {
+                        content: "SpO2%"
+                        param_code: "AH2P_BGA_SPO2"
+                        width: 21.14
+                    }
+                    children {
+                        content: "K+"
+                        content: "mmol/L"
+                        param_code: "AH2P_BGA_K"
+                        width: 21.14
+                    }
+                    children {
+                        content: "Na+"
+                        content: "mmol/L"
+                        param_code: "AH2P_BGA_NA"
+                        width: 21.14
+                    }
+                    children {
+                        content: "Cl-"
+                        content: "mmol/L"
+                        param_code: "AH2P_BGA_CL"
+                        width: 21.14
+                    }
+                    children {
+                        content: "Lac"
+                        content: "mmol/L"
+                        param_code: "AH2P_BGA_LAC"
+                    }
+                    height_rows: 1
+                }
+            }
+        }
+        notes: "备注： 意识 1清醒 2嗜睡 3意识模糊 4昏睡 5浅昏迷 6中度昏迷 7深昏迷 8药物镇静 9植物状态 10全麻未醒； 引流液颜色 1血性 2褐色 3黄色"
+        text_elem {
+            id: "title"
+            type: "text"
+            x: 0
+            y: 798  # A3.short_edge_pt - 1cm - 16pt = 842 - 28.35 - 16 ~= 798
+            width: 1191 # A3.long_edge_pt = 1191
+            height: 16
+            v_align_id: 2  # jfk.v_align_middle.id
+            h_align_id: 5  # jfk.h_align_center.id
+            font: "Microsoft YaHei"  # 微软雅黑
+            font_size: 16
+            font_color: "#000000"
+            char_spacing: 0.5
+            content: "安徽省第二人民医院 ICU护理记录单"
+        }
+    }
+}

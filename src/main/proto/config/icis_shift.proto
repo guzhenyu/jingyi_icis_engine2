@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+import "config/icis_settings.proto";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+message ShiftSettingsPB {
+    SystemSettingFunctionId function_id = 1;  // SystemSettingFunctionId.GET_SHIFT
+    string function_name = 2;
+
+    message TimeRange {
+        int32 start_hour = 1;   // 开始的小时数 (0-23)
+        int32 hours = 2;     // 持续的小时数
+    }
+    message Shift {
+        string name = 1;        // 班次名称，比如"A班/早班", "P班/中班", "N班/晚班"
+        TimeRange default_shift = 2;  // 默认班次
+        TimeRange monitoring_time_range = 3;    // 生理指征观察项时间段
+        TimeRange balance_time_range = 4;          // 出入量观察项
+    }
+    repeated Shift shift = 3;
+}
+
+message ShiftConfigPB {
+    ShiftSettingsPB default_setting = 1;
+}

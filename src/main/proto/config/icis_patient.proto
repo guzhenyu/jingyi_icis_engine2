@@ -1,0 +1,140 @@
+syntax = "proto3";
+
+import "config/icis_settings.proto";
+import "shared/shared.proto";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+message PatientEnumsV2 {
+    repeated shared.EnumValue admission_status = 1;
+    repeated shared.EnumValue admission_type = 2;
+    repeated shared.EnumValue discharged_type = 3;
+    repeated shared.EnumValue payment_method = 4;
+    repeated shared.EnumValue wristband_location = 5;
+    repeated shared.EnumValue patient_pose = 6;
+    repeated shared.EnumValue nursing_care_level = 7;
+    repeated shared.EnumValue illness_severity_level = 8;
+    repeated shared.EnumValue isolation_precaution = 9;
+    repeated shared.EnumValue blood_type = 10;
+    repeated shared.EnumValue blood_rh = 11;
+    repeated shared.EnumValue weigh_type = 12;
+    repeated shared.EnumValue id_type = 13;
+    repeated shared.EnumValue diet_type = 14;
+    repeated shared.EnumValue education_level = 15;
+}
+
+message DisplayFieldSettingsPB {
+    // GET_PATIENTS_IN_ICU
+    // GET_PATIENTS_PENDING_ADMISSION
+    // GET_PATIENTS_PENDING_DISCHARGED
+    // GET_PATIENTS_DISCHARGED
+    SystemSettingFunctionId function_id = 1;
+    string function_name = 2;
+
+    message HeaderColumn {
+        string column_id = 1;
+        string column_name = 2;
+    }
+    message Table {
+        string table_name = 1;
+        repeated HeaderColumn required_col = 2;
+        repeated HeaderColumn optional_col = 3;
+        repeated string col_id_to_display = 4;
+        // the list is calculated based on col_id_to_display and (required_col + optional_col).
+        repeated string col_name_to_display = 5;
+    }
+    repeated Table table = 3;
+}
+
+message PatientInfoPB {
+    int64 pid = 1;
+
+    // 入院信息
+    string his_mrn = 2;    // 住院号
+    string his_patient_id = 3;    // 从HIS获取的病人记录表主键ID
+    string his_admission_time_iso8601 = 4;    // 从HIS获取的病人入院时间
+    string his_admission_diagnosis = 5;    // 从HIS获取的病人入院诊断
+    string his_bed_number = 6;    // 从HIS获取的病人床位号
+    string icu_name = 7;    // 姓名
+    int32 icu_gender = 8;    // 性别
+    string icu_date_of_birth_iso8601 = 9;    // 生日
+    int32 age = 10;    // 年龄, <0 表示未知
+    float height = 11; // in meters    // 身高，单位：米
+    float weight = 12; // in kilograms    // 体重，单位：千克
+    string weight_type = 13;    // 体重类型
+    string weight_ibw = 14;    // 理想体重(IBW)
+    string bmi = 15;    // 体重指数
+    int32 blood_type = 16;    // 血型
+    int32 blood_rh = 17;    // 血型Rh
+    float bsa = 18;          // 体表面积，单位：平方米
+    string past_medical_history = 19;    // 医疗过往史
+    string allergies = 20;    // 过敏史
+    string phone = 21;    // 电话
+    string home_phone = 22;    // 家庭电话
+    string home_address = 23;    // 家庭地址
+    string document_type = 24;    // 证件类型
+    string id_card_number = 25;    // 身份证号
+    string nation = 26;    // 民族
+    string native_place = 27;    // 籍贯
+    int32 education_level = 28;  // 教育程度， PatientEnumsV2.education_level[x].id
+    string occupation = 29;    // 职业
+    int32 marital_status = 30;    // 婚姻状况
+    string emergency_contact_name = 31;    // 紧急联系人姓名
+    string emergency_contact_relation = 32;    // 紧急联系人关系
+    string emergency_contact_phone = 33;    // 紧急联系人电话
+    string emergency_contact_address = 34;    // 紧急联系人地址
+    string payment_method = 35;    // 结算方式
+    string insurance_type = 36;    // 医保类型
+    string insurance_number = 37;    // 医保号
+    string medical_card_number = 38;    // 就诊卡号
+    bool is_vip_patient = 39;    // 是否VIP病人
+    string bed_number_str = 40;    // 展示床位号
+    string wristband_location = 41;    // 腕带位置
+    string patient_pose = 42;    // 病人体位
+    string nursing_care_level = 43;    // 护理等级
+    string illness_severity_level = 44;    // 病情分级
+    string diet_type = 45;    // 饮食类型
+    string isolation_precaution = 46;    // 隔离措施
+    string chief_complaint = 47;    // 主诉
+
+    string attending_doctor_id = 48;    // 主治医生ID (通过此ID查询姓名)
+    string attending_doctor_name = 49;    // 主治医生姓名
+    string primary_care_doctor_id = 50;    // 管床医生ID (通过此ID查询姓名)
+    string primary_care_doctor_name = 51;    // 管床医生姓名
+    string admitting_doctor_id = 52;    // 收治医生ID (通过此ID查询姓名)
+    string admitting_doctor_name = 53;    // 收治医生姓名
+    string responsible_nurse_id = 54;    // 责任护士ID (通过此ID查询姓名)
+    string responsible_nurse_name = 55;    // 责任护士姓名
+
+    string diagnosis = 56;    // ICU诊断(永远展示最新的诊断信息)
+    string diagnosis_tcm = 57;    // 中医诊断
+    string diagnosis_type = 58;    // 诊断类型，较少使用，reserved
+
+    // 出入科状态
+    int32 admission_status = 59;    // 入科状态
+
+    // 入科信息
+    string admission_source_dept_name = 60;    // 入科来源科室名称，也可以是护士手动输入
+    int32 admission_type = 61;    // 入科类型
+    bool is_planned_admission = 62;    // 是否计划入科
+    string unplanned_admission_reason = 63;    // 非计划入科原因
+    string admission_time_iso8601 = 64;    // 入科时间
+
+    // 出科信息
+    int32 discharged_type = 65;    // 出科类型
+    string discharged_death_time_iso8601 = 66;    // 死亡时间。当出科类型为*死亡*时，该字段有效
+    string discharged_hospital_exit_time_iso8601 = 67;    // 出院时间
+    string discharged_dept_name = 68;    // 转出科室名称
+    string discharge_time_iso8601 = 69;    // 出科时间
+    string discharged_diagnosis = 70;    // 出科诊断
+}
+
+message Patient {
+    PatientEnumsV2 enums_v2 = 1;
+    repeated DisplayFieldSettingsPB default_display_field_settings = 2;
+    string pending_admission_name = 3;
+    string in_icu_name = 4;
+    string pending_discharged_name = 5;
+    string discharged_name = 6;
+    int32 grace_period_hours_to_readmit = 7; // 48小时内可以重新入科的时间间隔，单位：小时
+}

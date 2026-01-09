@@ -1,0 +1,110 @@
+syntax = "proto3";
+
+import "shared/shared.proto";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+// next_function_id: 49
+message MenuItem {
+    int32 function_id = 1;
+    string name = 2;
+    string display_name = 3;
+    bool disabled = 4;
+    int32 group_id = 5;  // 父级菜单组ID
+
+    int32 type = 6;  // 0: 普通菜单; 1: 独立表单菜单； 2： 聚合表单菜单
+    // type == 0 时， function_id 从10000开始
+    // type == 1 时有效
+    shared.IntStrKvPB separated_form_template = 7;  // 拖拽表单模板ID, dragable_form_templates.id/name
+    // type == 2 时有效
+    repeated shared.IntStrKvPB aggregated_form_template = 8;  // 聚合表单模板ID, dragable_form_templates.id/name
+}
+
+message MenuGroup {
+    int32 group_id = 1;
+    string name = 2;
+    string display_name = 3;
+    bool is_leaf_group = 4;
+    repeated MenuGroup sub_group = 5;
+    repeated MenuItem items = 6;
+}
+
+message Menu {
+    repeated MenuGroup group = 1;
+}
+
+message MenuConfigPB {
+    string dept_id = 1;
+    repeated MenuGroup menu_group = 2;
+    repeated MenuItem menu_item = 3;  // unassigned_menu_item可以通过menu_item.group_id < 0来判断
+
+    // 下面这一项不存库
+    repeated shared.IntStrKvPB unassigned_form_template = 4;
+}
+
+message PermissionPB {
+    int32 id = 1;
+    string name = 2;
+}
+
+message MenuPermissionPB {
+    int32 menu_group_id = 1;
+    int32 permission_id = 2;
+}
+
+message RolePB {
+    int32 id = 1;
+    string name = 2;
+    bool is_primary = 3;
+    repeated int32 child_role_id = 4;
+    repeated int32 permission_id = 5;
+}
+
+message AccountPB {
+    string id = 1;
+    string name = 2;
+    int32 gender = 3;
+    string date_of_birth_iso8601 = 4;
+    repeated int32 role_id = 5;
+}
+
+message DepartmentPB {
+    string id = 1;
+    string name = 2;
+    string abbreviation = 3;
+    string ward_code = 4;
+    string ward_name = 5;
+    string hospital_name = 6;
+}
+
+message DepartmentAccountPB {
+    string department_id = 1;
+    string account_id = 2;
+    int32 primary_role_id = 3;
+}
+
+message DepartmentAccountRolePB {
+    string department_id = 1;
+    string account_id = 2;
+    repeated int32 role_id = 3;
+}
+
+message DepartmentAccountPermissionPB {
+    string department_id = 1;
+    string account_id = 2;
+    repeated int32 permission_id = 3;
+}
+
+message UserConfigPB {
+    string admin_account_id = 1;
+    int32 admin_role_id = 2;
+    Menu menu = 3;
+    repeated PermissionPB permission = 4;
+    repeated MenuPermissionPB menu_permission = 5;
+    repeated RolePB role = 6;
+    repeated AccountPB account = 7;
+    repeated DepartmentPB department = 8;
+    repeated DepartmentAccountPB department_account = 9;
+    repeated DepartmentAccountRolePB department_account_role = 10;
+    repeated DepartmentAccountPermissionPB department_account_permission = 11;
+}

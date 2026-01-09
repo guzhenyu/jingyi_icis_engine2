@@ -1,0 +1,7 @@
+status_code_msg: "ok"
+status_code_msg: "病人不存在"
+status_code_msg: "病人不在ICU"
+status_code_msg: "床位配置已存在"
+status_code_msg: "床位配置不存在"
+status_code_msg: "床位已被占用"
+status_code_msg: "床位切换时间已过期"

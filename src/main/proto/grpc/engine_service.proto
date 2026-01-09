@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.jingyicare.jingyi_icis_engine.grpc";
+
+import "shared/shared.proto";
+
+service EngineService {
+    rpc SyncHisPatient (SyncHisPatientReq) returns (com.jingyicare.jingyi_icis_engine.proto.shared.GenericResp);
+}
+
+message SyncHisPatientReq {
+    string his_pid = 1;
+    string his_mrn = 2;
+}
+
+enum EngineStatusCode {
+    ENGINE_OK = 0;
+    ENGINE_PATIENT_NOT_FOUND = 1;                     // 病人不存在
+    ENGINE_PATIENT_NOT_IN_ICU = 2;                    // 病人不在ICU
+    ENGINE_BED_CONFIG_ALREADY_EXISTS = 3;             // 床位配置已存在
+    ENGINE_BED_CONFIG_NOT_EXISTS = 4;                 // 床位配置不存在
+    ENGINE_BED_ALREADY_OCCUPIED = 5;                  // 床位已被占用
+    ENGINE_BED_SWITCH_TIME_OUTDATED = 6;              // 床位切换时间已过期
+    ENGINE_LAST_CODE = 7;
+}
+
+message EngineConfigPB {
+    repeated string status_code_msg = 1;
+}

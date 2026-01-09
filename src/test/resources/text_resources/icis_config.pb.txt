@@ -1,0 +1,7171 @@
+zone_id: "Asia/Shanghai"
+text {
+    status_code_msg: "ok"
+    status_code_msg: "部门为空"
+    status_code_msg: "用户未登录"
+    status_code_msg: "用户不存在"
+    status_code_msg: "当前密码错误"
+    status_code_msg: "新密码和确认密码不一致"
+    status_code_msg: "新密码和旧密码不能相同"
+    status_code_msg: "新密码不能为空"
+    status_code_msg: "内部异常"
+    status_code_msg: "网络错误"
+    status_code_msg: "患者已存在"
+    status_code_msg: "患者不存在"
+    status_code_msg: "解析JSON失败"
+    status_code_msg: "医嘱不存在"
+    status_code_msg: "执行记录不存在"
+    status_code_msg: "动作类型不合格"
+    status_code_msg: "执行动作不存在"
+    status_code_msg: "动作ID不是最后一个"
+    status_code_msg: "执行记录已有动作"
+    status_code_msg: "管道名称已存在"
+    status_code_msg: "非引流管只能有一个实例"
+    status_code_msg: "管道类型不存在"
+    status_code_msg: "(管道类型ID)与(部门+管道类型名称)不匹配"
+    status_code_msg: "管道类型属性已存在"
+    status_code_msg: "管道类型属性不存在"
+    status_code_msg: "(管道类型属性ID)与(管道类型ID+属性编码)不匹配"
+    status_code_msg: "管道类型状态已存在"
+    status_code_msg: "管道类型状态不存在"
+    status_code_msg: "(管道类型状态ID)与(管道类型ID+状态编码)不匹配"
+    status_code_msg: "病人管道(名称)已存在"
+    status_code_msg: "病人插管记录不存在"
+    status_code_msg: "该时间已有维护记录"
+    status_code_msg: "监测参数编码为空"
+    status_code_msg: "监测参数编码已存在"
+    status_code_msg: "监测参数编码不存在"
+    status_code_msg: "监测参数平衡类型与值类型不匹配"
+    status_code_msg: "'出量/入量'的监测参数不允许多选"
+    status_code_msg: "监测参数已有部门配置"
+    status_code_msg: "出入量分组不可编辑"
+    status_code_msg: "观察组已存在"
+    status_code_msg: "观察组不存在"
+    status_code_msg: "观察组已被患者重新定义"
+    status_code_msg: "观察组列表为空"
+    status_code_msg: "无效的观察组部门"
+    status_code_msg: "观察组参数已存在"
+    status_code_msg: "分组参数与平衡类型不匹配"
+    status_code_msg: "观察组参数不存在"
+    status_code_msg: "观察时间点为空"
+    status_code_msg: "患者监测记录已存在"
+    status_code_msg: "患者监测记录不存在"
+    status_code_msg: "值元数据不存在"
+    status_code_msg: "无效的参数值"
+    status_code_msg: "无班次设置"
+    status_code_msg: "评分组不存在"
+    status_code_msg: "评分项不存在"
+    status_code_msg: "评分项单选数量错误"
+    status_code_msg: "评分项选项不存在"
+    status_code_msg: "评分项聚合器不支持"
+    status_code_msg: "评分组聚合器不支持"
+    status_code_msg: "评分组打印器不支持"
+    status_code_msg: "部门评分已存在"
+    status_code_msg: "部门评分不存在"
+    status_code_msg: "患者评分已存在"
+    status_code_msg: "患者评分不存在"
+    status_code_msg: "患者未出科"
+    status_code_msg: "新增执行动作时间早于最后一个执行动作时间"
+    status_code_msg: "给药速度或摄入量为负"
+    status_code_msg: "在科患者中未找到这名患者"
+    status_code_msg: "患者科室ID未找到"
+    status_code_msg: "未找到医嘱科室设置"
+    status_code_msg: "执行记录药品剂量组为空"
+    status_code_msg: "护理记录模板组已存在"
+    status_code_msg: "护理记录模板组不存在"
+    status_code_msg: "护理记录模板组已有模板"
+    status_code_msg: "护理记录模板已存在"
+    status_code_msg: "护理记录模板不存在"
+    status_code_msg: "护理记录已存在"
+    status_code_msg: "护理记录不存在"
+    status_code_msg: "护理计划部门模板组已存在"
+    status_code_msg: "护理计划部门模板组不存在"
+    status_code_msg: "护理计划部门模板组已有模板"
+    status_code_msg: "护理计划频次编码不存在"
+    status_code_msg: "护理计划部门模板已存在"
+    status_code_msg: "护理计划部门模板不存在"
+    status_code_msg: "无效的护理计划时间"
+    status_code_msg: "无效的护理计划停止时间"
+    status_code_msg: "护理计划不存在"
+    status_code_msg: "无效的护理计划停止时间"
+    status_code_msg: "护理执行记录不存在"
+    status_code_msg: "账号已存在"
+    status_code_msg: "部门已存在"
+    status_code_msg: "部门名称已存在"
+    status_code_msg: "部门不存在"
+    status_code_msg: "角色不存在"
+    status_code_msg: "角色已存在"
+    status_code_msg: "角色不是主要角色"
+    status_code_msg: "部门账号已存在"
+    status_code_msg: "部门账号不存在"
+    status_code_msg: "部门账号角色已存在"
+    status_code_msg: "部门账号角色不存在"
+    status_code_msg: "部门已有账号"
+    status_code_msg: "账号角色已存在"
+    status_code_msg: "账号角色不存在"
+    status_code_msg: "无权限"
+    status_code_msg: "权限不存在"
+    status_code_msg: "新增摄入液体超过剩余量"
+    status_code_msg: "无效的评分记录时间"
+    status_code_msg: "评分记录时间不能在入科时间之前"
+    status_code_msg: "评分记录时间不能在出科时间之后"
+    status_code_msg: "至少保留一个部门"
+    status_code_msg: "最后一个管道类型不能被禁用"
+    status_code_msg: "患者不在ICU"
+    status_code_msg: "无效的班次时间"
+    status_code_msg: "患者班次记录已存在"
+    status_code_msg: "患者班次记录不存在"
+    status_code_msg: "班次开始时间早于入科时间"
+    status_code_msg: "班次结束时间晚于出科时间"
+    status_code_msg: "无效的部门ID"
+    status_code_msg: "无效的时间格式"
+    status_code_msg: "无效的时间范围"
+    status_code_msg: "目录创建失败"
+    status_code_msg: "可拖拽表单模板已存在"
+    status_code_msg: "可拖拽表单模板不存在"
+    status_code_msg: "可拖拽表单已存在"
+    status_code_msg: "可拖拽表单不存在"
+    status_code_msg: "生成PDF报告失败"
+    status_code_msg: "可拖拽表单属性已存在"
+    status_code_msg: "可拖拽表单属性不存在"
+    status_code_msg: "无效的页面ID"
+    status_code_msg: "无效的组件ID"
+    status_code_msg: "无效的组件类型"
+    status_code_msg: "重复的组件名称"
+    status_code_msg: "床位配置已存在"
+    status_code_msg: "床位配置不存在"
+    status_code_msg: "床位已被占用"
+    status_code_msg: "床位切换时间已过期"
+    status_code_msg: "设备信息已存在"
+    status_code_msg: "设备信息不存在"
+    status_code_msg: "设备信息名称已存在"
+    status_code_msg: "设备已绑定"
+    status_code_msg: "设备有多个绑定"
+    status_code_msg: "患者已绑定相同类型设备"
+    status_code_msg: "床位配置显示名称已存在"
+    status_code_msg: "床位配置设备名称已存在"
+    status_code_msg: "解绑时间在绑定时间之前"
+    status_code_msg: "绑定时间冲突，如：其他病人已在绑定时间后绑定"
+    status_code_msg: "疾病不存在"
+    status_code_msg: "疾病某阶段未确认"
+    status_code_msg: "患者疾病已确认"
+    status_code_msg: "患者疾病未确认"
+    status_code_msg: "患者疾病确诊已排除"
+    status_code_msg: "疾病详细数据受损，编码解析失败"
+    status_code_msg: "疾病项目不存在"
+    status_code_msg: "床位配置床号限制超过"
+    status_code_msg: "Apache II评分缺少要素"
+    status_code_msg: "非预期Apache II评分要素"
+    status_code_msg: "Apache II评分类型不匹配"
+    status_code_msg: "Apache II评分缺少要素元数据"
+    status_code_msg: "Apache II评分CHC标识和慢性病标识不一致"
+    status_code_msg: "Apache评分已存在"
+    status_code_msg: "Apache评分不存在"
+    status_code_msg: "非预期SOFA评分要素"
+    status_code_msg: "SOFA评分已存在"
+    status_code_msg: "SOFA评分不存在"
+    status_code_msg: "非预期VTE Caprini评分要素"
+    status_code_msg: "非预期VTE Padua评分要素"
+    status_code_msg: "VTE Caprini评分已存在"
+    status_code_msg: "VTE Caprini评分不存在"
+    status_code_msg: "VTE Padua评分已存在"
+    status_code_msg: "VTE Padua评分不存在"
+    status_code_msg: "非预期BGA参数编码"
+    status_code_msg: "BGA参数编码不存在"
+    status_code_msg: "患者血气记录已存在"
+    status_code_msg: "患者血气记录不存在"
+    status_code_msg: "外部检验参数不存在"
+    status_code_msg: "检验参数不存在"
+    status_code_msg: "疾病记录已存在"
+    status_code_msg: "疾病记录不存在"
+    status_code_msg: "模板科室ID和账号ID都不为空"
+    status_code_msg: "模板科室ID和账号ID都为空"
+    status_code_msg: "模板已存在"
+    status_code_msg: "模板不存在"
+    status_code_msg: "模板组已存在"
+    status_code_msg: "模板组不存在"
+    status_code_msg: "模板参数已存在"
+    status_code_msg: "模板参数不存在"
+    status_code_msg: "模板参数编码元数据不存在"
+    status_code_msg: "模板参数编码不是数字"
+    status_code_msg: "出入量统计班次已存在"
+    status_code_msg: "出入量统计班次不存在"
+    status_code_msg: "记录时间在入科时间之前"
+    status_code_msg: "记录时间在出科时间之后"
+    status_code_msg: "停止时间不在开始时间之后"
+    status_code_msg: "只有管理员有权限"
+    status_code_msg: "同类型设备绑定时间早于解绑时间"
+    status_code_msg: "设备IP已被使用"
+    status_code_msg: "不允许添加入科时间以前的时间点"
+    status_code_msg: "不允许添加出科时间以后的时间点"
+    status_code_msg: "患者已出科，无需刷新医嘱"
+    status_code_msg: "监测时间点重复"
+    status_code_msg: "转出时需要目标科室名称"
+    status_code_msg: "死亡时需要死亡时间"
+    status_code_msg: "出院时需要出院时间"
+    status_code_msg: "无效的出科类型"
+    status_code_msg: "护嘱开立时间不允许早于入科时间"
+    status_code_msg: "药品编码和名称都为空"
+    status_code_msg: "药品已存在"
+    status_code_msg: "药品不存在"
+    status_code_msg: "给药途径编码和名称不能为空"
+    status_code_msg: "给药途径已存在"
+    status_code_msg: "给药途径不存在"
+    status_code_msg: "频次已存在"
+    status_code_msg: "频次不存在"
+    status_code_msg: "无效的菜单组ID"
+    status_code_msg: "菜单项名称已存在"
+    status_code_msg: "菜单项不存在"
+    status_code_msg: "无效的表单模板ID"
+    status_code_msg: "无效的菜单项类型"
+    status_code_msg: "无法重命名未分配的菜单项"
+    status_code_msg: "表单模板不存在"
+    status_code_msg: "表单模板不属于该科室"
+    status_code_msg: "表单模板已分给其他科室"
+    status_code_msg: "不是聚合表单菜单项"
+    status_code_msg: "菜单项中未找到表单模板"
+    status_code_msg: "有表单模板不在重新排序列表中"
+    status_code_msg: "给药速度和开始时间都需要设置，或者都为空"
+    status_code_msg: "摄入量或完成时间都需要设置，或者都为空"
+    status_code_msg: "补录医嘱的执行记录数量不为1"
+    status_code_msg: "摄入量不能为负数"
+    status_code_msg: "总摄入量不能为零或负数"
+    status_code_msg: "部门观察项分组不存在"
+    status_code_msg: "部门观察项分组名字为空"
+    status_code_msg: "部门观察项分组名字已经被使用"
+    status_code_msg: "部门编码不存在"
+    status_code_msg: "部门组长质控分组名称已存在"
+    status_code_msg: "部门组长质控分组数量不一致"
+    status_code_msg: "部门组长质控分组不存在"
+    status_code_msg: "部门组长质控分项名称已存在"
+    status_code_msg: "部门组长质控分项数量不一致"
+    status_code_msg: "部门组长质控分项不存在"
+    status_code_msg: "病人组长质控记录已存在"
+    status_code_msg: "病人组长质控项不存在"
+    status_code_msg: "未找到病人的观察项分组"
+    status_code_msg: "病人id与部门id不匹配"
+    status_code_msg: "权限被拒绝"
+    status_code_msg: "不能删除自己的账号"
+    status_code_msg: "病人危急值处理记录不存在"
+    status_code_msg: "病人危急值记录不存在"
+    status_code_msg: "床位数量记录已存在"
+    status_code_msg: "无效的质控项代码"
+    status_code_msg: "谵妄评估需要四个特征的评分"
+    status_code_msg: "谵妄评估组评分结果和评分明细不匹配"
+    status_code_msg: "评分组措施已存在"
+    status_code_msg: "评分组措施不存在"
+    status_code_msg: "未找到床位历史"
+    status_code_msg: "无效的床位名称"
+    status_code_msg: "床位历史与病人当前床号不匹配"
+    status_code_msg: "床位调度时，病人状态为出科；或重返时，病人状态不是出科"
+    status_code_msg: "在科病人床位使用结束时间不能为空"
+    status_code_msg: "重返床位调度时，病人MRN不匹配"
+    status_code_msg: "重返床位调度时，病人床位使用结束时间无效"
+    status_code_msg: "重返病人信息不一致"
+    status_code_msg: "重返His病人未找到"
+    status_code_msg: "出院时间晚于当前时间"
+    status_code_msg: "该床位旁已有同类型固定设备，无需手动绑定"
+    status_code_msg: "外部URL配置已存在"
+    status_code_msg: "外部URL配置不存在"
+    status_code_msg: "计算药品给药速度失败"
+    status_code_msg: "该病人的护理记录单正在生成中"
+    status_code_msg: "JFK数据源缺少必填输入字段"
+    units {
+        unit: {
+            id: 1
+            name: "ml"
+            name_en: "ml"
+        }
+        unit: {
+            id: 2
+            name: "mg"
+            name_en: "mg"
+        }
+        unit: {
+            id: 3
+            name: "%"
+            name_en: "%"
+        }
+        unit: {
+            id: 4
+            name: "g"
+            name_en: "g"
+        }
+        unit: {
+            id: 5
+            name: "μg"
+            name_en: "μg"
+        }
+
+        unit: {
+            id: 6
+            name: "bpm"
+            name_en: "bpm"
+        }
+
+        unit: {
+            id: 7
+            name: "℃"
+            name_en: "℃"
+        }
+
+        unit: {
+            id: 8
+            name: "mmHg"
+            name_en: "mmHg"
+        }
+
+        unit: {
+            id: 9
+            name: "cmH2O"
+            name_en: "cmH2O"
+        }
+
+        unit: {
+            id: 10
+            name: "mmol/L"
+            name_en: "mmol/L"
+        }
+
+        unit: {
+            id: 11
+            name: "ml/min"
+            name_en: "ml/min"
+        }
+
+        unit: {
+            id: 12
+            name: "ml/h"
+            name_en: "ml/h"
+        }
+
+        unit: {
+            id: 13
+            name: "滴/分"
+            name_en: "滴/分"
+        }
+
+        unit: {
+            id: 14
+            name: "次/分"
+            name_en: "次/分"
+        }
+
+        unit: {
+            id: 15
+            name: "μg/min.kg"
+            name_en: "μg/min.kg"
+        }
+
+        unit: {
+            id: 16
+            name: "μg/h.kg"
+            name_en: "μg/h.kg"
+        }
+
+        unit: {
+            id: 17
+            name: "cm"
+            name_en: "cm"
+        }
+
+        unit: {
+            id: 18
+            name: "mm"
+            name_en: "mm"
+        }
+
+        unit: {
+            id: 19
+            name: "L/min"
+            name_en: "L/min"
+        }
+
+        unit: {
+            id: 20
+            name: "u"
+            name_en: "u"
+        }
+
+        unit: {
+            id: 21
+            name: "iu"
+            name_en: "iu"
+        }
+
+        unit: {
+            id: 22
+            name: "万u"
+            name_en: "万u"
+        }
+
+        unit: {
+            id: 23
+            name: "粒"
+            name_en: "粒"
+        }
+
+        unit: {
+            id: 24
+            name: "袋"
+            name_en: "袋"
+        }
+
+        unit: {
+            id: 25
+            name: "片"
+            name_en: "片"
+        }
+
+        unit: {
+            id: 26
+            name: "支"
+            name_en: "支"
+        }
+
+        unit: {
+            id: 27
+            name: "包"
+            name_en: "包"
+        }
+
+        unit: {
+            id: 28
+            name: "瓶"
+            name_en: "瓶"
+        }
+
+        unit: {
+            id: 29
+            name: "盒"
+            name_en: "盒"
+        }
+
+        unit: {
+            id: 30
+            name: "只"
+            name_en: "只"
+        }
+
+        unit: {
+            id: 31
+            name: "桶"
+            name_en: "桶"
+        }
+
+        unit: {
+            id: 32
+            name: "公斤"
+            name_en: "公斤"
+        }
+
+        unit: {
+            id: 33
+            name: "滴"
+            name_en: "滴"
+        }
+
+        unit: {
+            id: 34
+            name: "次"
+            name_en: "次"
+        }
+
+        unit: {
+            id: 35
+            name: "ml/cmH2O"
+            name_en: "ml/cmH2O"
+        }
+
+        unit: {
+            id: 36
+            name: "ug/kg/min"
+            name_en: "ug/kg/min"
+        }
+
+        unit: {
+            id: 37
+            name: "ng/kg/min"
+            name_en: "ng/kg/min"
+        }
+
+        unit: {
+            id: 38
+            name: "ug/kg/h"
+            name_en: "ug/kg/h"
+        }
+
+        unit: {
+            id: 39
+            name: "mg/h"
+            name_en: "mg/h"
+        }
+
+        unit: {
+            id: 40
+            name: "u/h"
+            name_en: "u/h"
+        }
+
+        unit: {
+            id: 41
+            name: "mg/mg"
+            name_en: "mg/mg"
+        }
+
+        unit: {
+            id: 42
+            name: "μg/dL"
+            name_en: "μg/dL"
+        }
+
+        unit: {
+            id: 43
+            name: "mg/l"
+            name_en: "mg/l"
+        }
+
+        unit: {
+            id: 44
+            name: "个/HP"
+            name_en: "个/HP"
+        }
+
+        unit: {
+            id: 45
+            name: "分"
+            name_en: "分"
+        }
+
+        unit: {
+            id: 46
+            name: "ng/ml"
+            name_en: "ng/ml"
+        }
+
+        unit: {
+            id: 47
+            name: "个/ul"
+            name_en: "个/ul"
+        }
+
+        unit: {
+            id: 48
+            name: "uU/ml"
+            name_en: "uU/ml"
+        }
+
+        unit: {
+            id: 49
+            name: "μg/24h"
+            name_en: "μg/24h"
+        }
+
+        unit: {
+            id: 50
+            name: "ug/l"
+            name_en: "ug/l"
+        }
+
+        unit: {
+            id: 51
+            name: "μg/L/h"
+            name_en: "μg/L/h"
+        }
+
+        unit: {
+            id: 52
+            name: "mmol/Kg"
+            name_en: "mmol/Kg"
+        }
+
+        unit: {
+            id: 53
+            name: "ug/ml"
+            name_en: "ug/ml"
+        }
+
+        unit: {
+            id: 54
+            name: "10~12/L"
+            name_en: "10~12/L"
+        }
+
+        unit: {
+            id: 55
+            name: "/μl"
+            name_en: "/μl"
+        }
+
+        unit: {
+            id: 56
+            name: "cfu/ml"
+            name_en: "cfu/ml"
+        }
+
+        unit: {
+            id: 57
+            name: "μg/dl"
+            name_en: "μg/dl"
+        }
+
+        unit: {
+            id: 58
+            name: "μIU/ml"
+            name_en: "μIU/ml"
+        }
+
+        unit: {
+            id: 59
+            name: "ng/l"
+            name_en: "ng/l"
+        }
+
+        unit: {
+            id: 60
+            name: "度"
+            name_en: "度"
+        }
+
+        unit: {
+            id: 61
+            name: "级"
+            name_en: "级"
+        }
+
+        unit: {
+            id: 62
+            name: "10~9/L"
+            name_en: "10~9/L"
+        }
+
+        unit: {
+            id: 63
+            name: "mg/24h"
+            name_en: "mg/24h"
+        }
+
+        unit: {
+            id: 64
+            name: "mosm/kg"
+            name_en: "mosm/kg"
+        }
+
+        unit: {
+            id: 65
+            name: "mIU/ml"
+            name_en: "mIU/ml"
+        }
+
+        unit: {
+            id: 66
+            name: "×10~9/L"
+            name_en: "×10~9/L"
+        }
+
+        unit: {
+            id: 67
+            name: "ng"
+            name_en: "ng"
+        }
+
+        unit: {
+            id: 68
+            name: "U/ml"
+            name_en: "U/ml"
+        }
+
+        unit: {
+            id: 69
+            name: "mPa"
+            name_en: "mPa"
+        }
+
+        unit: {
+            id: 70
+            name: "KU/L"
+            name_en: "KU/L"
+        }
+
+        unit: {
+            id: 71
+            name: "g/l"
+            name_en: "g/l"
+        }
+
+        unit: {
+            id: 72
+            name: "fl"
+            name_en: "fl"
+        }
+
+        unit: {
+            id: 73
+            name: "μg/ml"
+            name_en: "μg/ml"
+        }
+
+        unit: {
+            id: 74
+            name: "IU/ml"
+            name_en: "IU/ml"
+        }
+
+        unit: {
+            id: 75
+            name: "mmol"
+            name_en: "mmol"
+        }
+
+        unit: {
+            id: 76
+            name: "sec"
+            name_en: "sec"
+        }
+
+        unit: {
+            id: 77
+            name: "min"
+            name_en: "min"
+        }
+
+        unit: {
+            id: 78
+            name: "uIU/ml"
+            name_en: "uIU/ml"
+        }
+
+        unit: {
+            id: 79
+            name: "%HbAlc"
+            name_en: "%HbAlc"
+        }
+
+        unit: {
+            id: 80
+            name: "cfu/m3"
+            name_en: "cfu/m3"
+        }
+
+        unit: {
+            id: 81
+            name: "E.U/dl"
+            name_en: "E.U/dl"
+        }
+
+        unit: {
+            id: 82
+            name: "mPa/S"
+            name_en: "mPa/S"
+        }
+
+        unit: {
+            id: 83
+            name: "mmol/l"
+            name_en: "mmol/l"
+        }
+
+        unit: {
+            id: 84
+            name: "/LP"
+            name_en: "/LP"
+        }
+
+        unit: {
+            id: 85
+            name: "ng/ml/h"
+            name_en: "ng/ml/h"
+        }
+
+        unit: {
+            id: 86
+            name: "cfu/cm2"
+            name_en: "cfu/cm2"
+        }
+
+        unit: {
+            id: 87
+            name: "mg/24"
+            name_en: "mg/24"
+        }
+
+        unit: {
+            id: 88
+            name: "mmol/kg"
+            name_en: "mmol/kg"
+        }
+
+        unit: {
+            id: 89
+            name: "N"
+            name_en: "N"
+        }
+
+        unit: {
+            id: 90
+            name: "g/dL"
+            name_en: "g/dL"
+        }
+
+        unit: {
+            id: 91
+            name: "min/m²"
+            name_en: "min/m²"
+        }
+
+        unit: {
+            id: 92
+            name: "L/min/m²"
+            name_en: "L/min/m²"
+        }
+
+        unit: {
+            id: 93
+            name: "Ds*m²/cm⁵"
+            name_en: "Ds*m²/cm⁵"
+        }
+
+        dosage_unit: 1
+        dosage_unit: 2
+        dosage_unit: 4
+        dosage_unit: 5
+        dosage_unit: 20
+        dosage_unit: 21
+        dosage_unit: 22
+        dosage_unit: 23
+        dosage_unit: 24
+        dosage_unit: 25
+        dosage_unit: 26
+        dosage_unit: 27
+        dosage_unit: 28
+        dosage_unit: 29
+        dosage_unit: 30
+        dosage_unit: 31
+        dosage_unit: 32
+        other_unit: 3
+        other_unit: 6
+        other_unit: 7
+        other_unit: 8
+        other_unit: 9
+        other_unit: 10
+        other_unit: 11
+        other_unit: 12
+        other_unit: 13
+        other_unit: 14
+        other_unit: 15
+        other_unit: 16
+        other_unit: 17
+        other_unit: 18
+        other_unit: 19
+        other_unit: 33
+        other_unit: 34
+        other_unit: 35
+        other_unit: 36
+        other_unit: 37
+        other_unit: 38
+        other_unit: 39
+        other_unit: 40
+        other_unit: 41
+        other_unit: 42
+        other_unit: 43
+        other_unit: 44
+        other_unit: 45
+        other_unit: 46
+        other_unit: 47
+        other_unit: 48
+        other_unit: 49
+        other_unit: 50
+        other_unit: 51
+        other_unit: 52
+        other_unit: 53
+        other_unit: 54
+        other_unit: 55
+        other_unit: 56
+        other_unit: 57
+        other_unit: 58
+        other_unit: 59
+        other_unit: 60
+        other_unit: 61
+        other_unit: 62
+        other_unit: 63
+        other_unit: 64
+        other_unit: 65
+        other_unit: 66
+        other_unit: 67
+        other_unit: 68
+        other_unit: 69
+        other_unit: 70
+        other_unit: 71
+        other_unit: 72
+        other_unit: 73
+        other_unit: 74
+        other_unit: 75
+        other_unit: 76
+        other_unit: 77
+        other_unit: 78
+        other_unit: 79
+        other_unit: 80
+        other_unit: 81
+        other_unit: 82
+        other_unit: 83
+        other_unit: 84
+        other_unit: 85
+        other_unit: 86
+        other_unit: 87
+        other_unit: 88
+        other_unit: 89
+        other_unit: 90
+        other_unit: 91
+        other_unit: 92
+        other_unit: 93
+    }
+    web_api_message {
+        undefined_username: "undefined"
+        yes_str: "是"
+        no_str: "否"
+        admission_status_str: "入科状态"
+        admission_type_str: "入科类型"
+        discharged_type_str: "出科类型"
+        gender_str: "性别"
+        marital_status_str: "婚姻状况"
+        is_planned_admission_str: "是否计划入科"
+        medication_type_str: "药品类型"
+        administration_route_group_str: "给药途径分组"
+        intake_type_str: "入量类型"
+    }
+}
+user {
+    admin_account_id: "admin"
+    admin_role_id: 1
+    menu {
+        group {
+            group_id: 1
+            name: "患者"
+            is_leaf_group: false
+            sub_group {
+                group_id: 2
+                name: "患者列表"
+                is_leaf_group: true
+                items {
+                    function_id: 1
+                    name: "在线患者"
+                }
+                items {
+                    function_id: 2
+                    name: "历史患者"
+                }
+                items {
+                    function_id: 3
+                    name: "患者卡片"
+                }
+                items {
+                    function_id: 41
+                    name: "设备绑定"
+                }
+            }
+            sub_group {
+                group_id: 3
+                name: "基本信息"
+                is_leaf_group: true
+                items {
+                    function_id: 4
+                    name: "基本信息"
+                }
+            }
+            sub_group {
+                group_id: 4
+                name: "文书打印"
+                is_leaf_group: true
+                items {
+                    function_id: 5
+                    name: "知情同意书"
+                }
+                items {
+                    function_id: 6
+                    name: "转运单"
+                }
+            }
+        }
+        group {
+            group_id: 5
+            name: "护士"
+            is_leaf_group: false
+            sub_group {
+                group_id: 6
+                name: "医嘱"
+                is_leaf_group: true
+                items {
+                    function_id: 7
+                    name: "执行用药"
+                }
+                items {
+                    function_id: 8
+                    name: "执行护嘱"
+                }
+            }
+            sub_group {
+                group_id: 7
+                name: "常规护理"
+                is_leaf_group: true
+                items {
+                    function_id: 9
+                    name: "观察项"
+                }
+                items {
+                    function_id: 10
+                    name: "出入量"
+                }
+                items {
+                    function_id: 11
+                    name: "管道"
+                }
+                items {
+                    function_id: 32
+                    name: "护理评分"
+                }
+                items {
+                    function_id: 33
+                    name: "护理记录"
+                }
+                items {
+                    function_id: 39
+                    name: "护理交班"
+                }
+                items {
+                    function_id: 44
+                    name: "血气"
+                }
+            }
+            sub_group {
+                group_id: 8
+                name: "文书打印"
+                is_leaf_group: true
+                items {
+                    function_id: 12
+                    name: "观察项单"
+                }
+                items {
+                    function_id: 40
+                    name: "平衡单"
+                }
+                items {
+                    function_id: 13
+                    name: "三管单"
+                }
+                items {
+                    function_id: 14
+                    name: "评分单"
+                }
+                items {
+                    function_id: 37
+                    name: "自定义表单"
+                }
+            }
+        }
+        group {
+            group_id: 9
+            name: "医生"
+            is_leaf_group: false
+            sub_group {
+                group_id: 10
+                name: "信息概览"
+                is_leaf_group: true
+                items {
+                    function_id: 16
+                    name: "患者概览"
+                }
+                items {
+                    function_id: 17
+                    name: "数据视图"
+                }
+            }
+            sub_group {
+                group_id: 11
+                name: "日常操作"
+                is_leaf_group: true
+                items {
+                    function_id: 19
+                    name: "医生评分"
+                }
+                items {
+                    function_id: 21
+                    name: "病情诊断"
+                }
+            }
+        }
+        group {
+            group_id: 12
+            name: "统计"
+            is_leaf_group: false
+            sub_group {
+                group_id: 14
+                name: "医生统计"
+                is_leaf_group: true
+                items {
+                    function_id: 24
+                    name: "质控统计"
+                }
+            }
+        }
+        group {
+            group_id: 15
+            name: "管理"
+            is_leaf_group: true
+            items {
+                function_id: 35
+                name: "科室管理"
+            }
+            items {
+                function_id: 27
+                name: "账号管理"
+            }
+            items {
+                function_id: 36
+                name: "权限管理"
+            }
+            items {
+                function_id: 42
+                name: "设备管理"
+            }
+        }
+        group {
+            group_id: 16
+            name: "配置"
+            is_leaf_group: true
+            items {
+                function_id: 28
+                name: "管道配置"
+            }
+            items {
+                function_id: 38
+                name: "表单模板配置"
+            }
+            items {
+                function_id: 31
+                name: "评分配置"
+            }
+            items {
+                function_id: 29
+                name: "功能配置"
+            }
+            items {
+                function_id: 30
+                name: "字典配置"
+            }
+            items {
+                function_id: 43
+                name: "床位配置"
+            }
+            items {
+                function_id: 45
+                name: "血气配置"
+            }
+        }
+    }
+    permission {
+        id: 1
+        name: "患者菜单"
+    }
+    permission {
+        id: 2
+        name: "护士菜单"
+    }
+    permission {
+        id: 3
+        name: "医生菜单"
+    }
+    permission {
+        id: 4
+        name: "统计菜单"
+    }
+    permission {
+        id: 5
+        name: "管理菜单"
+    }
+    permission {
+        id: 6
+        name: "配置菜单"
+    }
+    permission {
+        id: 7
+        name: "科研管理菜单"
+    }
+    menu_permission {
+        menu_group_id: 1
+        permission_id: 1
+    }
+    menu_permission {
+        menu_group_id: 5
+        permission_id: 2
+    }
+    menu_permission {
+        menu_group_id: 9
+        permission_id: 3
+    }
+    menu_permission {
+        menu_group_id: 12
+        permission_id: 4
+    }
+    menu_permission {
+        menu_group_id: 15
+        permission_id: 5
+    }
+    menu_permission {
+        menu_group_id: 16
+        permission_id: 6
+    }
+    role {
+        id: 1
+        name: "管理员"
+        is_primary: true
+        permission_id: 1
+        permission_id: 2
+        permission_id: 3
+        permission_id: 4
+        permission_id: 5
+        permission_id: 6
+    }
+    role {
+        id: 2
+        name: "主任"
+        is_primary: true
+        permission_id: 1
+        permission_id: 2
+        permission_id: 3
+        permission_id: 4
+        permission_id: 5
+        permission_id: 6
+    }
+    role {
+        id: 3
+        name: "护士长"
+        is_primary: true
+        permission_id: 1
+        permission_id: 2
+        permission_id: 3
+        permission_id: 4
+        permission_id: 5
+        permission_id: 6
+    }
+    role {
+        id: 4
+        name: "护理组长"
+        is_primary: true
+        permission_id: 1
+        permission_id: 2
+        permission_id: 3
+        permission_id: 4
+        permission_id: 5
+        permission_id: 6
+    }
+    role {
+        id: 5
+        name: "护士"
+        is_primary: true
+        permission_id: 1
+        permission_id: 2
+        permission_id: 3
+        permission_id: 4
+    }
+    role {
+        id: 6
+        name: "实习护士"
+        is_primary: true
+        permission_id: 1
+        permission_id: 2
+        permission_id: 3
+    }
+    role {
+        id: 7
+        name: "医生"
+        is_primary: true
+        permission_id: 1
+        permission_id: 2
+        permission_id: 3
+        permission_id: 4
+    }
+    role {
+        id: 8
+        name: "菜单权限组"
+        is_primary: false
+        permission_id: 1
+        permission_id: 2
+        permission_id: 3
+        permission_id: 4
+        permission_id: 5
+        permission_id: 6
+    }
+    account {
+        id: "admin"
+        name: "管理员"
+        gender: 1
+        date_of_birth_iso8601: ""
+        role_id: 1
+    }
+    department {
+        id: "99999"
+        name: "信息科"
+        abbreviation: "信息科"
+        hospital_name: ""
+    }
+}
+shift {
+    default_setting {
+        function_id: 5
+        function_name: "班次信息"
+        shift {
+            name: "A班/早班"
+            default_shift {
+                start_hour: 8
+                hours: 8
+            }
+            monitoring_time_range {
+                start_hour: 8
+                hours: 8
+            }
+            balance_time_range {
+                start_hour: 8
+                hours: 8
+            }
+        }
+        shift {
+            name: "P班/中班"
+            default_shift {
+                start_hour: 16
+                hours: 6
+            }
+            monitoring_time_range {
+                start_hour: 16
+                hours: 6
+            }
+            balance_time_range {
+                start_hour: 16
+                hours: 6
+            }
+        }
+        shift {
+            name: "N班/晚班"
+            default_shift {
+                start_hour: 22
+                hours: 10
+            }
+            monitoring_time_range {
+                start_hour: 22
+                hours: 10
+            }
+            balance_time_range {
+                start_hour: 22
+                hours: 10
+            }
+        }
+        shift {
+            name: "全天"
+            default_shift {
+                start_hour: 8
+                hours: 24
+            }
+            monitoring_time_range {
+                start_hour: 8
+                hours: 24
+            }
+            balance_time_range {
+                start_hour: 8
+                hours: 24
+            }
+        }
+    }
+}
+patient {
+    enums_v2 {
+        admission_status {
+            id: 0
+            name: "待入科"
+        }
+        admission_status {
+            id: 1
+            name: "在科"
+        }
+        admission_status {
+            id: 2
+            name: "待出科"
+        }
+        admission_status {
+            id: 3
+            name: "已出科"
+        }
+        admission_type {
+            id: 0
+            name: "待确定"
+        }
+        admission_type {
+            id: 1
+            name: "入院"
+        }
+        admission_type {
+            id: 2
+            name: "转入"
+        }
+        admission_type {
+            id: 3
+            name: "手术"
+        }
+        admission_type {
+            id: 4
+            name: "抢救"
+        }
+        admission_type {
+            id: 5
+            name: "重症"
+        }
+        admission_type {
+            id: 6
+            name: "外院"
+        }
+        admission_type {
+            id: 7
+            name: "病危"
+        }
+        discharged_type {
+            id: 1
+            name: "转出"
+        }
+        discharged_type {
+            id: 2
+            name: "死亡"
+        }
+        discharged_type {
+            id: 3
+            name: "出院"
+        }
+        payment_method {
+            id: 1
+            name: "本地医保"
+        }
+        payment_method {
+            id: 2
+            name: "异地医保"
+        }
+        payment_method {
+            id: 3
+            name: "自费"
+        }
+        payment_method {
+            id: 4
+            name: "农保"
+        }
+        wristband_location {
+            id: 1
+            name: "左手"
+        }
+        wristband_location {
+            id: 2
+            name: "右手"
+        }
+        wristband_location {
+            id: 3
+            name: "左脚"
+        }
+        wristband_location {
+            id: 4
+            name: "右脚"
+        }
+        wristband_location {
+            id: 5
+            name: "其他"
+        }
+        patient_pose {
+            id: 1
+            name: "卧床"
+        }
+        patient_pose {
+            id: 2
+            name: "平车"
+        }
+        patient_pose {
+            id: 3
+            name: "轮椅"
+        }
+        patient_pose {
+            id: 4
+            name: "坐椅"
+        }
+        patient_pose {
+            id: 5
+            name: "半卧"
+        }
+        nursing_care_level {
+            id: 1
+            name: "一级"
+        }
+        nursing_care_level {
+            id: 2
+            name: "二级"
+        }
+        nursing_care_level {
+            id: 3
+            name: "三级"
+        }
+        nursing_care_level {
+            id: 4
+            name: "特级"
+        }
+        nursing_care_level {
+            id: 5
+            name: "重症监护"
+        }
+        illness_severity_level {
+            id: 1
+            name: "轻度"
+        }
+        illness_severity_level {
+            id: 2
+            name: "中度"
+        }
+        illness_severity_level {
+            id: 3
+            name: "重度"
+        }
+        illness_severity_level {
+            id: 4
+            name: "危重"
+        }
+        illness_severity_level {
+            id: 5
+            name: "极危重"
+        }
+        isolation_precaution {
+            id: 1
+            name: "飞沫传播"
+        }
+        isolation_precaution {
+            id: 2
+            name: "空气传播"
+        }
+        isolation_precaution {
+            id: 3
+            name: "接触传播"
+        }
+        isolation_precaution {
+            id: 4
+            name: "血液体液传播"
+        }
+        isolation_precaution {
+            id: 5
+            name: "保护性隔离"
+        }
+        isolation_precaution {
+            id: 6
+            name: "空白选项"
+        }
+        blood_type {
+            id: 1
+            name: "A"
+        }
+        blood_type {
+            id: 2
+            name: "B"
+        }
+        blood_type {
+            id: 3
+            name: "O"
+        }
+        blood_type {
+            id: 4
+            name: "AB"
+        }
+        blood_rh {
+            id: 1
+            name: "RH阴性"
+        }
+        blood_rh {
+            id: 2
+            name: "RH阳性"
+        }
+        weigh_type {
+            id: 1
+            name: "平车"
+        }
+        id_type {
+            id: 1
+            name: "身份证"
+        }
+        id_type {
+            id: 2
+            name: "护照"
+        }
+        diet_type {
+            id: 1
+            name: "禁食"
+        }
+        diet_type {
+            id: 2
+            name: "流质"
+        }
+        diet_type {
+            id: 3
+            name: "半流质"
+        }
+        diet_type {
+            id: 4
+            name: "软食"
+        }
+        diet_type {
+            id: 5
+            name: "普食"
+        }
+        diet_type {
+            id: 6
+            name: "其他特殊食物"
+        }
+        diet_type {
+            id: 7
+            name: "禁食禁饮"
+        }
+        diet_type {
+            id: 8
+            name: "易消化饮食"
+        }
+        diet_type {
+            id: 9
+            name: "低盐低脂饮食"
+        }
+        education_level {
+            id: 1
+            name: "空白"
+        }
+        education_level {
+            id: 2
+            name: "文盲"
+        }
+        education_level {
+            id: 3
+            name: "小学"
+        }
+        education_level {
+            id: 4
+            name: "初中"
+        }
+        education_level {
+            id: 5
+            name: "高中"
+        }
+        education_level {
+            id: 6
+            name: "大专"
+        }
+        education_level {
+            id: 7
+            name: "本科及以上"
+        }
+    }
+    default_display_field_settings {
+        function_id: 1
+        function_name: "在科患者查询"
+        table {
+            table_name: "patient_records"
+            required_col {
+                column_id: "bed_number_str"
+                column_name: "床号"
+            }
+            required_col {
+                column_id: "icu_name"
+                column_name: "姓名"
+            }
+            required_col {
+                column_id: "his_mrn"
+                column_name: "住院号"
+            }
+            required_col {
+                column_id: "primary_care_doctor_id"
+                column_name: "管床医生"
+            }
+            required_col {
+                column_id: "icu_gender"
+                column_name: "性别"
+            }
+            required_col {
+                column_id: "icu_date_of_birth"
+                column_name: "出生日期"
+            }
+            required_col {
+                column_id: "admission_time"
+                column_name: "入科时间"
+            }
+            required_col {
+                column_id: "diagnosis"
+                column_name: "诊断"
+            }
+            optional_col {
+                column_id: "responsible_nurse_id"
+                column_name: "责任护士"
+            }
+            optional_col {
+                column_id: "height"
+                column_name: "身高，单位:米"
+            }
+            optional_col {
+                column_id: "diet_type"
+                column_name: "饮食类型"
+            }
+            optional_col {
+                column_id: "illness_severity_level"
+                column_name: "病情分级"
+            }
+            col_id_to_display: "bed_number_str"
+            col_id_to_display: "icu_name"
+            col_id_to_display: "his_mrn"
+            col_id_to_display: "primary_care_doctor_id"
+            col_id_to_display: "icu_gender"
+            col_id_to_display: "icu_date_of_birth"
+            col_id_to_display: "admission_time"
+            col_id_to_display: "diagnosis"
+        }
+    }
+    default_display_field_settings {
+        function_id: 2
+        function_name: "待入科患者查询"
+        table {
+            table_name: "patient_records"
+            required_col {
+                column_id: "bed_number_str"
+                column_name: "床号"
+            }
+            required_col {
+                column_id: "icu_name"
+                column_name: "姓名"
+            }
+            required_col {
+                column_id: "his_mrn"
+                column_name: "住院号"
+            }
+            required_col {
+                column_id: "diagnosis"
+                column_name: "诊断"
+            }
+            required_col {
+                column_id: "is_planned_admission"
+                column_name: "计划入科"
+            }
+            required_col {
+                column_id: "admission_time"
+                column_name: "入科时间"
+            }
+            required_col {
+                column_id: "icu_gender"
+                column_name: "性别"
+            }
+            required_col {
+                column_id: "icu_date_of_birth"
+                column_name: "出生日期"
+            }
+            required_col {
+                column_id: "admission_source_dept_name"
+                column_name: "入科来源科室"
+            }
+            required_col {
+                column_id: "admission_type"
+                column_name: "入科类型"
+            }
+            optional_col {
+                column_id: "illness_severity_level"
+                column_name: "病情分级"
+            }
+            col_id_to_display: "bed_number_str"
+            col_id_to_display: "icu_name"
+            col_id_to_display: "his_mrn"
+            col_id_to_display: "diagnosis"
+            col_id_to_display: "is_planned_admission"
+            col_id_to_display: "admission_time"
+            col_id_to_display: "icu_gender"
+            col_id_to_display: "icu_date_of_birth"
+            col_id_to_display: "admission_source_dept_name"
+            col_id_to_display: "admission_type"
+        }
+    }
+    default_display_field_settings {
+        function_id: 3
+        function_name: "待出科患者查询"
+        table {
+            table_name: "patient_records"
+            required_col {
+                column_id: "bed_number_str"
+                column_name: "床号"
+            }
+            required_col {
+                column_id: "icu_name"
+                column_name: "姓名"
+            }
+            required_col {
+                column_id: "admission_time"
+                column_name: "入科时间"
+            }
+            required_col {
+                column_id: "admission_type"
+                column_name: "入科类型"
+            }
+            required_col {
+                column_id: "is_planned_admission"
+                column_name: "计划入科"
+            }
+            required_col {
+                column_id: "admission_source_dept_name"
+                column_name: "入科来源科室"
+            }
+            required_col {
+                column_id: "icu_gender"
+                column_name: "性别"
+            }
+            required_col {
+                column_id: "icu_date_of_birth"
+                column_name: "出生日期"
+            }
+            required_col {
+                column_id: "his_mrn"
+                column_name: "住院号"
+            }
+            required_col {
+                column_id: "discharge_time"
+                column_name: "出科时间"
+            }
+            required_col {
+                column_id: "diagnosis"
+                column_name: "诊断"
+            }
+            optional_col {
+                column_id: "illness_severity_level"
+                column_name: "病情分级"
+            }
+            col_id_to_display: "bed_number_str"
+            col_id_to_display: "icu_name"
+            col_id_to_display: "admission_time"
+            col_id_to_display: "admission_type"
+            col_id_to_display: "is_planned_admission"
+            col_id_to_display: "admission_source_dept_name"
+            col_id_to_display: "icu_gender"
+            col_id_to_display: "icu_date_of_birth"
+            col_id_to_display: "his_mrn"
+            col_id_to_display: "discharge_time"
+            col_id_to_display: "diagnosis"
+        }
+    }
+    default_display_field_settings {
+        function_id: 4
+        function_name: "历史患者查询"
+        table {
+            table_name: "patient_records"
+            required_col {
+                column_id: "bed_number_str"
+                column_name: "床号"
+            }
+            required_col {
+                column_id: "icu_name"
+                column_name: "姓名"
+            }
+            required_col {
+                column_id: "icu_gender"
+                column_name: "性别"
+            }
+            required_col {
+                column_id: "icu_date_of_birth"
+                column_name: "出生日期"
+            }
+            required_col {
+                column_id: "his_mrn"
+                column_name: "住院号"
+            }
+            required_col {
+                column_id: "admission_time"
+                column_name: "入科时间"
+            }
+            required_col {
+                column_id: "admission_type"
+                column_name: "入科类型"
+            }
+            required_col {
+                column_id: "discharge_time"
+                column_name: "出科时间"
+            }
+            required_col {
+                column_id: "discharged_type"
+                column_name: "出科类型"
+            }
+            required_col {
+                column_id: "diagnosis"
+                column_name: "诊断"
+            }
+            optional_col {
+                column_id: "is_planned_admission"
+                column_name: "计划入科"
+            }
+            col_id_to_display: "bed_number_str"
+            col_id_to_display: "icu_name"
+            col_id_to_display: "icu_gender"
+            col_id_to_display: "icu_date_of_birth"
+            col_id_to_display: "his_mrn"
+            col_id_to_display: "admission_time"
+            col_id_to_display: "admission_type"
+            col_id_to_display: "discharge_time"
+            col_id_to_display: "discharged_type"
+            col_id_to_display: "diagnosis"
+        }
+    }
+    pending_admission_name: "待入科"
+    in_icu_name: "在科"
+    pending_discharged_name: "待出科"
+    discharged_name: "已出科"
+}
+medication {
+    enums {
+        medication_type_pending_confirmation {
+            id: 0
+            name: "其他"
+        }
+        medication_type_antibiotics {
+            id: 1
+            name: "抗生素"
+        }
+        medication_type_anti_inflammatory {
+            id: 2
+            name: "抗炎药"
+        }
+        medication_type_analgesics {
+            id: 3
+            name: "镇痛药"
+        }
+        administration_route_group_infusion_pump {
+            id: 0
+            name: "微泵"
+        }
+        administration_route_group_intravenous_drip {
+            id: 1
+            name: "点滴"
+        }
+        administration_route_group_intravenous_push {
+            id: 2
+            name: "静推"
+        }
+        administration_route_group_enteral {
+            id: 3
+            name: "肠胃"
+        }
+        administration_route_group_others {
+            id: 4
+            name: "其他"
+        }
+        order_duration_type_long_term {
+            id: 0
+            name: "长期医嘱"
+        }
+        order_duration_type_one_time {
+            id: 1
+            name: "临时医嘱"
+        }
+        order_duration_type_manual_entry {
+            id: 2
+            name: "补录医嘱"
+        }
+        medication_channel_pending_confirmation {
+            id: 0
+            name: "未确定"
+        }
+        medication_channel_intravenous {
+            id: 1
+            name: "静脉"
+        }
+        medication_channel_nasointestinal {
+            id: 2
+            name: "鼻肠管"
+        }
+        medication_execution_action_type_start {
+            id: 0
+            name: "开始"
+        }
+        medication_execution_action_type_pause {
+            id: 1
+            name: "暂停"
+        }
+        medication_execution_action_type_resume {
+            id: 2
+            name: "恢复"
+        }
+        medication_execution_action_type_adjust_speed {
+            id: 3
+            name: "调速"
+        }
+        medication_execution_action_type_fast_push {
+            id: 4
+            name: "快推"
+        }
+        medication_execution_action_type_complete {
+            id: 5
+            name: "完成"
+        }
+        medication_order_validity_type_valid {
+            id: 0
+            name: "正常"
+        }
+        medication_order_validity_type_stopped {
+            id: 1
+            name: "已停止"
+        }
+        medication_order_validity_type_canceled {
+            id: 2
+            name: "已取消"
+        }
+        medication_order_validity_type_overwritten {
+            id: 3
+            name: "被覆盖"
+        }
+        medication_order_validity_type_duration_one_time {
+            id: 4
+            name: "临时医嘱"
+        }
+        medication_order_validity_type_manual_entry {
+            id: 5
+            name: "补录医嘱"
+        }
+        one_time_execution_stop_strategy_ignore {
+            id: 0
+            name: "忽略停止时间"
+        }
+        one_time_execution_stop_strategy_delete_all {
+            id: 1
+            name: "删除所有停止的执行记录"
+        }
+        one_time_execution_stop_strategy_delete_after {
+            id: 2
+            name: "删除停止时间之后的执行记录"
+        }
+        dose_rate_unit: "μg/kg/min"
+        dose_rate_unit: "μg/kg/h"
+        dose_rate_unit: "mg/kg/min"
+        dose_rate_unit: "mg/kg/h"
+        dose_rate_unit: "μg/min"
+        dose_rate_unit: "μg/h"
+        dose_rate_unit: "ml/h"
+    }
+    intake_types {
+        intake_type {
+            id: 0
+            name: "不计入量"
+            monitoring_param_code: ""
+        }
+        intake_type {
+            id: 1
+            name: "静脉"
+            monitoring_param_code: "intravenous_intake"
+        }
+        intake_type {
+            id: 2
+            name: "输血"
+            monitoring_param_code: "transfusion_intake"
+        }
+        intake_type {
+            id: 3
+            name: "肠胃"
+            monitoring_param_code: "gastric_intake"
+        }
+        intake_type {
+            id: 4
+            name: "特殊"
+            monitoring_param_code: "special_intake"
+        }
+        intake_type {
+            id: 5
+            name: "其他"
+            monitoring_param_code: "other_intake"
+        }
+    }
+    freq_spec {
+        spec {
+            code: "QD"
+            name: "每日一次"
+            by_interval {
+                interval_days: 1
+            }
+            time {
+                hour: 8
+                minute: 0
+            }
+        }
+        spec {
+            code: "BID"
+            name: "每日两次"
+            by_interval {
+                interval_days: 1
+            }
+            time {
+                hour: 8
+                minute: 0
+            }
+            time {
+                hour: 20
+                minute: 0
+            }
+        }
+        spec {
+            code: "TID"
+            name: "每日三次"
+            by_interval {
+                interval_days: 1
+            }
+            time {
+                hour: 8
+                minute: 0
+            }
+            time {
+                hour: 14
+                minute: 0
+            }
+            time {
+                hour: 20
+                minute: 0
+            }
+        }
+        spec {
+            code: "TIW(147)"
+            name: "每周3次(147)"
+            by_week {
+                day_of_week: 1
+                day_of_week: 4
+                day_of_week: 7
+            }
+            time {
+                hour: 8
+                minute: 0
+            }
+        }
+        spec {
+            code: "test_qd"
+            name: "每日一次"
+            by_interval {
+                interval_days: 0
+            }
+            time {
+                hour: 8
+                minute: 0
+            }
+            support_nursing_order: 1
+        }
+        spec {
+            code: "test_bid"
+            name: "每日两次"
+            by_interval {
+                interval_days: 0
+            }
+            time {
+                hour: 10
+                minute: 0
+            }
+            time {
+                hour: 16
+                minute: 0
+            }
+            support_nursing_order: 1
+        }
+        spec {
+            code: "test_qd_q1d"
+            name: "每日一次"
+            by_interval {
+                interval_days: 1
+            }
+            time {
+                hour: 8
+                minute: 0
+            }
+            support_nursing_order: 1
+        }
+        spec {
+            code: "test_qd_24w"
+            name: "每日一次"
+            by_week {
+                day_of_week: 2
+                day_of_week: 4
+            }
+            time {
+                hour: 8
+                minute: 0
+            }
+            support_nursing_order: 1
+        }
+        once_code: "once"
+    }
+    order_group_settings {
+        function_id: 6
+        function_name: "医嘱分解设置"
+        type: BY_FREQUENCY
+        allow_order_type: "西药"
+        allow_order_type: "中药"
+        deny_status: "deny_未审核"
+        deny_administration_route_code: "denyXX"
+        deny_administration_route_code: "denyYY"
+        status_canceled_txt: "已取消"
+        prioritized_med_name: "氯化钠"
+        prioritized_med_name: "生理盐水"
+        prioritized_med_name: "葡萄糖"
+    }
+    delete_reason_canceled: "医嘱取消"
+    delete_reason_stopped: "医嘱停止"
+    delete_reason_manually: "人工删除"
+    order_group_not_started_txt: "未开始"
+    order_group_in_progress_txt: "未完成"
+    order_group_completed_txt: "已完成"
+    dosage_decimal_places: 2
+}
+tube {
+    drainage_tube_type: "引流管"
+    enums {
+        tube_ui_type_text {
+            id: 1
+            name: "文本输入框(单选)"
+        }
+        tube_ui_type_single_selector {
+            id: 2
+            name: "单选下拉框"
+        }
+        tube_ui_type_multi_selector {
+            id: 3
+            name: "多选下拉框"
+        }
+        patient_tube_status_deleted {
+            id: 1
+            name: "已删除"
+        }
+        patient_tube_status_inserted {
+            id: 2
+            name: "插管中"
+        }
+        patient_tube_status_removed {
+            id: 3
+            name: "已拔管"
+        }
+    }
+    type_list {
+        tube_type {
+            type: "引流管"
+            name: "引流管"
+        }
+        tube_type {
+            type: "气管插管"
+            name: "气管插管"
+        }
+        tube_type {
+            type: "气切套管"
+            name: "气切套管"
+        }
+        tube_type {
+            type: "中心静脉导管"
+            name: "中心静脉导管"
+        }
+        tube_type {
+            type: "输液港"
+            name: "输液港"
+        }
+        tube_type {
+            type: "胃管"
+            name: "胃管"
+        }
+        tube_type {
+            type: "鼻胃管"
+            name: "鼻胃管"
+        }
+        tube_type {
+            type: "鼻肠管"
+            name: "鼻肠管"
+        }
+        tube_type {
+            type: "尿管"
+            name: "尿管"
+        }
+        tube_type {
+            type: "PICC管"
+            name: "PICC管"
+        }
+        tube_type {
+            type: "PICCO管"
+            name: "PICCO管"
+        }
+        tube_type {
+            type: "ECMO管"
+            name: "ECMO管"
+        }
+        tube_type {
+            type: "CRRT管"
+            name: "CRRT管"
+        }
+        tube_type {
+            type: "Swan-Ganz管"
+            name: "Swan-Ganz管"
+        }
+        tube_type {
+            type: "IABP管"
+            name: "IABP管"
+        }
+        tube_type {
+            type: "外周静脉管"
+            name: "外周静脉管"
+        }
+        tube_type {
+            type: "透析管"
+            name: "透析管"
+        }
+        tube_type {
+            type: "血液透析管"
+            name: "血液透析管"
+        }
+        tube_type {
+            type: "中长导管"
+            name: "中长导管"
+        }
+        tube_type {
+            type: "浅静脉导管"
+            name: "浅静脉导管"
+        }
+        tube_type {
+            type: "外周静脉针"
+            name: "外周静脉针"
+        }
+        tube_type {
+            type: "空肠造瘘管"
+            name: "空肠造瘘管"
+        }
+        tube_type {
+            type: "胃造瘘管"
+            name: "胃造瘘管"
+        }
+        tube_type {
+            type: "肠梗阻导管"
+            name: "肠梗阻导管"
+        }
+        tube_type {
+            type: "膀胱造瘘管"
+            name: "膀胱造瘘管"
+        }
+        tube_type {
+            type: "肾造瘘管"
+            name: "肾造瘘管"
+        }
+        tube_type {
+            type: "颅内压监测管"
+            name: "颅内压监测管"
+        }
+        tube_type {
+            type: "PTCD管"
+            name: "PTCD管"
+        }
+        tube_type {
+            type: "动脉导管"
+            name: "动脉导管"
+        }
+    }
+    attribute_list {
+        attribute {
+            code: "身体部位"
+            name: "身体部位"
+        }
+        attribute {
+            code: "地点"
+            name: "地点"
+        }
+        attribute {
+            code: "型号"
+            name: "型号"
+        }
+        attribute {
+            code: "套管型号"
+            name: "套管型号"
+        }
+        attribute {
+            code: "材质"
+            name: "材质"
+        }
+        attribute {
+            code: "尿袋类型"
+            name: "尿袋类型"
+        }
+        attribute {
+            code: "尿管腔数量"
+            name: "尿管腔数量"
+        }
+        attribute {
+            code: "尖端位置"
+            name: "尖端位置"
+        }
+        attribute {
+            code: "内置"
+            name: "内置"
+        }
+        attribute {
+            code: "外露"
+            name: "外露"
+        }
+        attribute {
+            code: "有效期"
+            name: "有效期"
+        }
+    }
+
+    status_list {
+        status {
+            code: "水柱波动"
+            name: "水柱波动"
+            ui_type: 1
+        }
+        status {
+            code: "颜色"
+            name: "颜色"
+            ui_type: 1
+        }
+        status {
+            code: "系带"
+            name: "系带"
+            ui_type: 1
+        }
+        status {
+            code: "管道状态"
+            name: "管道状态"
+            ui_type: 1
+        }
+        status {
+            code: "引流液内容物"
+            name: "引流液内容物"
+            ui_type: 1
+        }
+        status {
+            code: "引流液性质"
+            name: "引流液性质"
+            ui_type: 1
+        }
+        status {
+            code: "引流方式"
+            name: "引流方式"
+            ui_type: 1
+        }
+        status {
+            code: "肝素钠溶液封管"
+            name: "肝素钠溶液封管"
+            ui_type: 1
+        }
+        status {
+            code: "位置"
+            name: "位置"
+            ui_type: 1
+        }
+        status {
+            code: "置入长度"
+            name: "置入长度"
+            ui_type: 1
+        }
+        status {
+            code: "外露长度"
+            name: "外露长度"
+            ui_type: 1
+        }
+        status {
+            code: "距门齿长度"
+            name: "距门齿长度"
+            ui_type: 1
+        }
+        status {
+            code: "冲管盐水"
+            name: "冲管盐水"
+            ui_type: 1
+        }
+        status {
+            code: "气囊压力"
+            name: "气囊压力"
+            ui_type: 1
+        }
+        status {
+            code: "导管头培养"
+            name: "导管头培养"
+            ui_type: 1
+        }
+        status {
+            code: "凝血分级"
+            name: "凝血分级"
+            ui_type: 1
+        }
+        status {
+            code: "深度"
+            name: "深度"
+            ui_type: 1
+        }
+        status {
+            code: "敷料"
+            name: "敷料"
+            ui_type: 1
+        }
+        status {
+            code: "更换敷料"
+            name: "更换敷料"
+            ui_type: 1
+        }
+        status {
+            code: "部位情况"
+            name: "部位情况"
+            ui_type: 1
+        }
+        status {
+            code: "置管方式"
+            name: "置管方式"
+            ui_type: 1
+        }
+        status {
+            code: "用法"
+            name: "用法"
+            ui_type: 1
+        }
+        status {
+            code: "臂围"
+            name: "臂围"
+            ui_type: 1
+        }
+        status {
+            code: "气泡溢出"
+            name: "气泡溢出"
+            ui_type: 1
+        }
+        status {
+            code: "大腿围"
+            name: "大腿围"
+            ui_type: 1
+        }
+        status {
+            code: "臀围"
+            name: "臀围"
+            ui_type: 1
+        }
+        status {
+            code: "性状"
+            name: "性状"
+            ui_type: 1
+        }
+        status {
+            code: "残留量"
+            name: "残留量"
+            ui_type: 1
+        }
+        status {
+            code: "归零"
+            name: "归零"
+            ui_type: 1
+        }
+        status {
+            code: "导管护理"
+            name: "导管护理"
+            ui_type: 1
+        }
+        status {
+            code: "加压带压力"
+            name: "加压带压力"
+            ui_type: 1
+        }
+        status {
+            code: "感染"
+            name: "感染"
+            ui_type: 1
+        }
+        status {
+            code: "保护膜完成"
+            name: "保护膜完成"
+            ui_type: 1
+        }
+        status {
+            code: "湿化器类型"
+            name: "湿化器类型"
+            ui_type: 1
+        }
+        status {
+            code: "生门下吸引"
+            name: "生门下吸引"
+            ui_type: 1
+        }
+        status {
+            code: "冲洗"
+            name: "冲洗"
+            ui_type: 1
+        }
+        status {
+            code: "通畅"
+            name: "通畅"
+            ui_type: 1
+        }
+        status {
+            code: "回血情况"
+            name: "回血情况"
+            ui_type: 1
+        }
+        status {
+            code: "穿刺口"
+            name: "穿刺口"
+            ui_type: 1
+        }
+        status {
+            code: "备注"
+            name: "备注"
+            ui_type: 1
+        }
+    }
+    tube_setting {
+        param {
+            code: "color"  # 实际参数: tube_ylg_引流管名称首字母_color
+            name: "引流液颜色"
+            value_meta {
+                value_type: STRING
+                tooltip: "引流液颜色"
+                opt_values: {
+                    str_val: "血色"
+                }
+                opt_values: {
+                    str_val: "褐色"
+                }
+                opt_values: {
+                    str_val: "黄色"
+                }
+            }
+        }
+    }
+}
+monitoring {
+    param_code_summary: "all"
+    param_code_summary_txt: "合计"
+    balance_in_group_name: "入量"
+    balance_out_group_name: "出量"
+    balance_net_group_name: "平衡量"
+    net_hourly_in_code: "hourly_intake"
+    net_hourly_out_code: "hourly_output"
+    net_hourly_net_code: "hourly_balance"
+    net_accumulated_in_code: "total_intake"
+    net_accumulated_out_code: "total_output"
+    net_accumulated_net_code: "total_balance"
+    daily_total_intake_code: "daily_total_intake"
+    daily_total_output_code: "daily_total_output"
+    daily_total_balance_code: "daily_total_balance"
+    enums {
+        balance_nan {
+            id: 0
+            name: "不进入平衡统计的量"
+        }
+        balance_in {
+            id: 1
+            name: "入量"
+        }
+        balance_out {
+            id: 2
+            name: "出量"
+        }
+        balance_net {
+            id: 3
+            name: "平衡量"
+        }
+        group_type_balance {
+            id: 1
+            name: "出入量分组"
+        }
+        group_type_monitoring {
+            id: 2
+            name: "观察项分组"
+        }
+        param_category_patient {
+            id: 1
+            name: "患者"
+        }
+        param_category_monitor {
+            id: 2
+            name: "监护仪"
+        }
+        param_category_vent {
+            id: 3
+            name: "呼吸机"
+        }
+        param_category_crrt {
+            id: 4
+            name: "血滤机"
+        }
+        param_category_bga {
+            id: 5
+            name: "血气机"
+        }
+        param_category_ecmo {
+            id: 6
+            name: "体外膜肺氧合机"
+        }
+        param_ui_modal_nan {
+            id: 1
+            name: "无特殊编辑对话框"
+        }
+    }
+    monitoring_param {
+        code: "intravenous_in"
+        name: "静脉入量"
+        value_meta {
+            value_type: FLOAT
+            decimal_places: 2
+            unit: "ml(毫升)"
+        }
+        balance_type: 1
+    }
+    monitoring_param {
+        code: "urine_out"
+        name: "尿量"
+        value_meta {
+            value_type: FLOAT
+            decimal_places: 2
+            unit: "ml(毫升)"
+        }
+        balance_type: 2
+    }
+    monitoring_param {
+        code: "temperature"
+        name: "体温"
+        value_meta {
+            value_type: FLOAT
+            upper_limit {
+                float_val: 42.5
+            }
+            lower_limit {
+                float_val: 34.0
+            }
+            decimal_places: 2
+            unit: "℃"
+        }
+    }
+    monitoring_param {
+        code: "test_param1_in"
+        name: "测试参数1"
+        value_meta {
+            value_type: FLOAT
+            decimal_places: 2
+            unit: "ml(毫升)"
+        }
+        balance_type: 1
+    }
+    monitoring_param {
+        code: "test_param2_in"
+        name: "测试参数2"
+        value_meta {
+            value_type: FLOAT
+            decimal_places: 2
+            unit: "ml(毫升)"
+        }
+        balance_type: 1
+    }
+    monitoring_param {
+        code: "test_param3_out"
+        name: "测试参数3"
+        value_meta {
+            value_type: FLOAT
+            decimal_places: 2
+            unit: "ml(毫升)"
+        }
+        balance_type: 2
+    }
+    monitoring_param {
+        code: "test_param4_out"
+        name: "测试参数4"
+        value_meta {
+            value_type: FLOAT
+            decimal_places: 2
+            unit: "ml(毫升)"
+        }
+        balance_type: 2
+    }
+    monitoring_param {
+        code: "test_param5_in"
+        name: "测试参数5"
+        value_meta {
+            value_type: FLOAT
+            decimal_places: 2
+            unit: "ml(毫升)"
+        }
+    }
+    monitoring_param {
+        code: "test_param6_in"
+        name: "测试参数6"
+        value_meta {
+            value_type: FLOAT
+            decimal_places: 2
+            unit: "ml(毫升)"
+        }
+    }
+    monitoring_param {
+        code: "intravenous_intake"
+        name: "静脉入量"
+        value_meta {
+            value_type: FLOAT
+            decimal_places: 1
+            unit: "ml"
+        }
+        balance_type: 1
+    }
+    monitoring_param {
+        code: "gastric_intake"
+        name: "胃肠入量"
+        value_meta {
+            value_type: FLOAT
+            decimal_places: 1
+            unit: "ml"
+        }
+        balance_type: 1
+    }
+    monitoring_param {
+        code: "transfusion_intake"
+        name: "输血入量"
+        value_meta {
+            value_type: FLOAT
+            decimal_places: 1
+            unit: "ml"
+        }
+        balance_type: 1
+    }
+    monitoring_param {
+        code: "special_intake"
+        name: "特殊入量"
+        value_meta {
+            value_type: FLOAT
+            decimal_places: 1
+            unit: "ml"
+        }
+        balance_type: 1
+    }
+    monitoring_param {
+        code: "other_intake"
+        name: "其他入量"
+
+        value_meta {
+            value_type: FLOAT
+            decimal_places: 1
+            unit: "ml"
+        }
+        balance_type: 1
+    }
+    monitoring_param {
+        code: "hourly_balance"
+        name: "每小时平衡量"
+
+        value_meta {
+            value_type: FLOAT
+            decimal_places: 2
+            unit: "ml"
+        }
+        balance_type: 3
+    }
+    monitoring_param {
+        code: "daily_total_intake"
+        name: "每天总入量"
+        value_meta {
+            value_type: FLOAT
+            decimal_places: 1
+            unit: "ml"
+        }
+    }
+    monitoring_param {
+        code: "daily_total_output"
+        name: "每天总出量"
+        value_meta {
+            value_type: FLOAT
+            decimal_places: 1
+            unit: "ml"
+        }
+    }
+    monitoring_param {
+        code: "daily_total_balance"
+        name: "每天总平衡"
+        value_meta {
+            value_type: FLOAT
+            decimal_places: 1
+            unit: "ml"
+        }
+    }
+    default_drainage_param {
+        value_meta {
+            value_type: FLOAT
+            decimal_places: 1
+            unit: "ml"
+        }
+        balance_type: 2
+    }
+    balance_group {
+        name: "入量"
+        sum_value_meta {
+            value_type: FLOAT
+            decimal_places: 2
+            unit: "ml(毫升)"
+        }
+        monitoring_param {
+            code: "test_param1_in"
+        }
+        monitoring_param {
+            code: "intravenous_intake"
+        }
+        monitoring_param {
+            code: "gastric_intake"
+        }
+        monitoring_param {
+            code: "transfusion_intake"
+        }
+    }
+    balance_group {
+        name: "出量"
+        sum_value_meta {
+            value_type: FLOAT
+            decimal_places: 2
+            unit: "ml(毫升)"
+        }
+        monitoring_param {
+            code: "test_param3_out"
+        }
+    }
+    balance_group {
+        name: "平衡量"
+        sum_value_meta {
+            value_type: FLOAT
+            decimal_places: 2
+            unit: "ml(毫升)"
+        }
+        monitoring_param {
+            code: "hourly_balance"
+        }
+    }
+    balance_param_type: INT32
+    balance_param_type: INT64
+    balance_param_type: FLOAT
+    balance_param_type: DOUBLE
+    balance_param_type: STRING
+}
+score {
+    enums {
+        score_item_type_single_selection {
+            id: 0
+            name: "单选"
+        }
+        score_item_type_multi_selection {
+            id: 1
+            name: "多选"
+        }
+        score_item_aggregator_sum {
+            id: 0
+            name: "求和"
+        }
+        score_item_aggregator_max {
+            id: 1
+            name: "最大值"
+        }
+        score_item_aggregator_first {
+            id: 2
+            name: "第一个score option"
+        }
+        score_item_aggregator_custom {
+            id: 3
+            name: "自定义"
+        }
+        score_group_aggregator_sum {
+            id: 0
+            name: "求和"
+        }
+        score_group_aggregator_first {
+            id: 1
+            name: "第一个score item"
+        }
+        score_group_aggregator_delirium {
+            id: 2
+            name: "谵妄评估"
+        }
+        score_group_aggregator_custom {
+            id: 3
+            name: "自定义"
+        }
+        score_group_printer_default {
+            id: 0
+            name: "默认"
+        }
+        score_group_printer_custom {
+            id: 1
+            name: "自定义"
+        }
+        delirium_code: "delirium"
+        positive_str: "阳性"
+        negative_str: "阴性"
+        unknown_str: "无法评估"
+        measure_type_boolean {
+            id: 1
+            name: "布尔型"
+        }
+        measure_type_input {
+            id: 2
+            name: "输入型"
+        }
+    }
+    group {
+        code: "test_score_1"
+        name: "测试1"
+        value_meta {
+            value_type: INT32
+            unit: "分"
+        }
+        item {
+            code: "test_group1_item1"
+            name: "test_group1_item1"
+            option {
+                code: "group1_item1_option1"
+                name: "group1_item1_option1"
+                score {
+                    int32_val: 1
+                }
+            }
+            option {
+                code: "group1_item1_option2"
+                name: "group1_item1_option2"
+                score {
+                    int32_val: 2
+                }
+            }
+            option {
+                code: "group1_item1_option3"
+                name: "group1_item1_option3"
+                score {
+                    int32_val: 3
+                }
+            }
+            score_item_type: 0
+            score_item_aggregator: 0
+        }
+        item {
+            code: "test_group1_item2"
+            name: "test_group1_item2"
+            option {
+                code: "group1_item2_option1"
+                name: "group1_item2_option1"
+                score {
+                    int32_val: 1
+                }
+            }
+            option {
+                code: "group1_item2_option2"
+                name: "group1_item2_option2"
+                score {
+                    int32_val: 2
+                }
+            }
+            option {
+                code: "group1_item2_option3"
+                name: "group1_item2_option3"
+                score {
+                    int32_val: 3
+                }
+            }
+            score_item_type: 1
+            score_item_aggregator: 0
+        }
+        item {
+            code: "test_group1_item3"
+            name: "test_group1_item3"
+            option {
+                code: "group1_item3_option1"
+                name: "group1_item3_option1"
+                score {
+                    int32_val: 1
+                }
+            }
+            option {
+                code: "group1_item3_option2"
+                name: "group1_item3_option2"
+                score {
+                    int32_val: 2
+                }
+            }
+            score_item_type: 1
+            score_item_aggregator: 1
+        }
+        score_group_aggregator: 0
+        score_group_printer: 0
+    }
+    group {
+        code: "test_score_2"
+        name: "test_score_2"
+        value_meta {
+            value_type: STRING
+            unit: ""
+        }
+        item {
+            code: "test_group2_item1"
+            name: "test_group2_item1"
+            option {
+                code: "group2_item1_option1"
+                name: "group2_item1_option1"
+                score {
+                    str_val: "level-1"
+                }
+            }
+            option {
+                code: "group2_item1_option2"
+                name: "group2_item1_option2"
+                score {
+                    str_val: "level-2"
+                }
+            }
+            score_item_type: 1
+            score_item_aggregator: 2
+        }
+        score_group_aggregator: 1
+        score_group_printer: 0
+    }
+    group {
+        code: "test_score_3"
+        name: "test_score_3"
+        value_meta {
+            value_type: INT32
+            unit: "分"
+        }
+        item {
+            code: "test_group3_item1"
+            name: "test_group3_item1"
+            option {
+                code: "group3_item1_option1"
+                name: "group3_item1_option1"
+                score {
+                    int32_val: 1
+                }
+            }
+            option {
+                code: "group3_item1_option2"
+                name: "group3_item1_option2"
+                score {
+                    int32_val: 2
+                }
+            }
+            score_item_type: 1
+            score_item_aggregator: 1
+        }
+        score_group_aggregator: 1
+        score_group_printer: 0
+    }
+    group {
+        code: "test_score_4"
+        name: "测试4"
+        value_meta {
+            value_type: INT32
+            unit: "分"
+        }
+        item {
+            code: "test_group4_item1"
+            name: "test_group4_item1"
+            option {
+                code: "group4_item1_option1"
+                name: "group4_item1_option1"
+                score {
+                    int32_val: 1
+                }
+            }
+            option {
+                code: "group4_item1_option2"
+                name: "group4_item1_option2"
+                score {
+                    int32_val: 2
+                }
+            }
+        }
+        score_group_aggregator: 0
+        score_group_printer: 0
+    }
+    default_score_group_code: "test_score_1"
+}
+nursing_record {
+    special_term{
+        superscript {
+            key: "¹"
+            val: "1"
+        }
+        superscript {
+            key: "²"
+            val: "2"
+        }
+        superscript {
+            key: "³"
+            val: "3"
+        }
+        superscript {
+            key: "⁴"
+            val: "4"
+        }
+        superscript {
+            key: "⁵"
+            val: "5"
+        }
+        superscript {
+            key: "⁶"
+            val: "6"
+        }
+        superscript {
+            key: "⁷"
+            val: "7"
+        }
+        superscript {
+            key: "⁸"
+            val: "8"
+        }
+        superscript {
+            key: "⁹"
+            val: "9"
+        }
+        superscript {
+            key: "⁰"
+            val: "0"
+        }
+        superscript {
+            key: "⁺"
+            val: "+"
+        }
+        superscript {
+            key: "⁻"
+            val: "-"
+        }
+        superscript {
+            key: "⁼"
+            val: "="
+        }
+        superscript {
+            key: "⁽"
+            val: "("
+        }
+        superscript {
+            key: "⁾"
+            val: ")"
+        }
+        subscript {
+            key: "₁"
+            val: "1"
+        }
+        subscript {
+            key: "₂"
+            val: "2"
+        }
+        subscript {
+            key: "₃"
+            val: "3"
+        }
+        subscript {
+            key: "₄"
+            val: "4"
+        }
+        subscript {
+            key: "₅"
+            val: "5"
+        }
+        subscript {
+            key: "₆"
+            val: "6"
+        }
+        subscript {
+            key: "₇"
+            val: "7"
+        }
+        subscript {
+            key: "₈"
+            val: "8"
+        }
+        subscript {
+            key: "₉"
+            val: "9"
+        }
+        subscript {
+            key: "₀"
+            val: "0"
+        }
+        subscript {
+            key: "₊"
+            val: "+"
+        }
+        subscript {
+            key: "₋"
+            val: "-"
+        }
+        subscript {
+            key: "₌"
+            val: "="
+        }
+        subscript {
+            key: "₍"
+            val: "("
+        }
+        subscript {
+            key: "₎"
+            val: ")"
+        }
+        other { key: "μ" val: "μ" }
+        other { key: "£" val: "£" }
+        other { key: "$" val: "$" }
+        other { key: "u" val: "u" }
+        other { key: "½" val: "½" }
+        other { key: "¼" val: "¼" }
+        other { key: "¾" val: "¾" }
+        other { key: "/" val: "/" }
+        other { key: "℃" val: "℃" }
+        other { key: "°" val: "°" }
+        other { key: "%" val: "%" }
+        other { key: "‰" val: "‰" }
+        other { key: "mmol/L" val: "mmol/L" }
+        other { key: "mmHg" val: "mmHg" }
+        other { key: "L/min" val: "L/min" }
+        other { key: "FiO₂" val: "FiO₂" }
+        other { key: "ml/h" val: "ml/h" }
+        other { key: "g/L" val: "g/L" }
+        other { key: "U/L" val: "U/L" }
+        other { key: "cmH₂O" val: "cmH₂O" }
+        other { key: "U/h" val: "U/h" }
+        other { key: "Ug/Kg/min" val: "Ug/Kg/min" }
+        other { key: "ug·kg⁻¹·min⁻¹" val: "ug·kg⁻¹·min⁻¹" }
+        other { key: "®" val: "®" }
+        other { key: "pg/ml" val: "pg/ml" }
+        other { key: "pg/ml" val: "pg/ml" }
+    }
+    quick_words {
+        word: "遵医嘱予"
+        word: "已报告医生"
+        word: "嘱观察"
+        word: "查动脉血气分析示"
+        word: "全天出入量"
+    }
+    default_dept_group {
+        name: "nursing_record_g1"
+        display_order: 1
+        nursing_record_template {
+            name: "nursing_record_g1_t1"
+            content: "nursing_record_g1_t1"
+            display_order: 1
+            is_common: 1
+        }
+        nursing_record_template {
+            name: "nursing_record_g1_t2"
+            content: "nursing_record_g1_t2"
+            display_order: 2
+            is_common: 0
+        }
+    }
+    default_dept_group {
+        name: "nursing_record_g2"
+        display_order: 2
+        nursing_record_template {
+            name: "nursing_record_g2_t1"
+            content: "nursing_record_g2_t1"
+            display_order: 1
+            is_common: 1
+        }
+    }
+}
+nursing_order {
+    default_dept_group {
+        name: "nursing_record_g1"
+        display_order: 1
+        nursing_order_template {
+            name: "nursing_order_g1_t1"
+            duration_type: 0
+            medication_freq_code: "test_qd_q1d"
+            display_order: 1
+        }
+        nursing_order_template {
+            name: "nursing_order_g1_t2"
+            duration_type: 0
+            medication_freq_code: "test_qd_24w"
+            display_order: 1
+        }
+    }
+    default_dept_group {
+        name: "nursing_record_g2"
+        display_order: 2
+        nursing_order_template {
+            name: "nursing_order_g2_t1"
+            duration_type: 0
+            medication_freq_code: "test_qd"
+            display_order: 1
+        }
+        nursing_order_template {
+            name: "nursing_order_g2_t2"
+            duration_type: 1
+            medication_freq_code: "test_qd"
+            display_order: 1
+        }
+        nursing_order_template {
+            name: "nursing_order_g2_t3"
+            duration_type: 0
+            medication_freq_code: "test_bid"
+            display_order: 1
+        }
+    }
+}
+jfk {
+    enums {
+        page_size_a3 {
+            id: 1
+            name: "A3"
+        }
+        page_size_a4 {
+            id: 2
+            name: "A4"
+        }
+        v_align_top {
+            id: 1
+            name: "顶端对齐"
+        }
+        v_align_middle {
+            id: 2
+            name: "垂直居中"
+        }
+        v_align_bottom {
+            id: 3
+            name: "底部对齐"
+        }
+        h_align_left {
+            id: 4
+            name: "左对齐"
+        }
+        h_align_center {
+            id: 5
+            name: "水平居中"
+        }
+        h_align_right {
+            id: 6
+            name: "右对齐"
+        }
+        font_microsoft_yahei {
+            id: 1
+            name: "Microsoft YaHei"
+            label: "微软雅黑"
+        }
+        font_microsoft_yahei_bold {
+            id: 2
+            name: "Microsoft YaHei Bold"
+            label: "微软雅黑加粗"
+        }
+    }
+}
+monitoring_report {
+    monitoring_template {
+        left_bottom_x: 58.0
+        left_bottom_y: 10.0
+        width: 725.0
+        height: 575.0
+
+        header {
+            height: 62.0
+        }
+
+        chart {
+            height: 120.0
+            padding_horizontal: 3.0
+            padding_vertical: 4.0
+            rulers {
+                ruler_major_scales: 5
+                ruler_major_scale_length: 6.0
+                ruler_minor_scales: 5
+                ruler_minor_scale_length: 3.0
+                ruler_font_size: 6
+                elem_right_padding: 3.0
+                ruler {
+                    code: "temperature"
+                }
+                ruler {
+                    code: "hr"
+                }
+                ruler {
+                    code: "respiratory_rate"
+                }
+                ruler {
+                    code: "Spo2"
+                }
+                ruler {
+                    code: "ibp_s"
+                    code: "ibp_d"
+                }
+            }
+            grids_left_bottom_x: 205.0
+            graph_sign_font_size: 5
+        }
+
+        metric_grids {
+            grid_height: 12.0
+            grid_padding_horizontal: 2.0
+            font_size: 7
+            group_width: 58.0
+            name_width: 58.0
+        }
+
+        footer {
+            height: 12.0
+        }
+
+        line_style_thick {
+            width: 0.5
+            gray_value: 0.0
+        }
+        line_style_thin {
+            width: 0.3
+            gray_value: 0.3
+        }
+        line_style_dotted {
+            width: 0.2
+            gray_value: 0.3
+            dash_pattern: 1.0
+            dash_pattern: 0.5
+        }
+    }
+}
+device {
+    enums {
+        network_protocol {
+            id: 1
+            name: "TCP/IP CLIENT"
+        }
+        network_protocol {
+            id: 2
+            name: "TCP/IP SERVER"
+        }
+        network_protocol {
+            id: 3
+            name: "UDP"
+        }
+        serial_protocol {
+            id: 1
+            name: "RS232"
+        }
+        serial_protocol {
+            id: 2
+            name: "RS485"
+        }
+        bed_type {
+            id: 1
+            name: "固定授权"
+        }
+        bed_type {
+            id: 2
+            name: "临时授权"
+        }
+        switch_type_normal {
+            id: 0
+            name: "普通换床"
+        }
+        switch_type_readmission_discharge {
+            id: 1
+            name: "24h重返-出科"
+        }
+        switch_type_readmission_admit {
+            id: 2
+            name: "24h重返-入科"
+        }
+    }
+    alternative_code_pair {
+        replacing_code: "vent_respiratory_rate"
+        replaced_code: "respiratory_rate"
+    }
+    param_code_to_approx: "nibp_s"
+    param_code_to_approx: "nibp_d"
+    param_code_to_approx: "nibp_m"
+    approx_seconds: 300
+    device_cascade {
+        entry {
+            device_type_id: 1
+            device_type_name: "监护仪"
+            manufacturer {
+                id: 1
+                name: "迈瑞"
+                model {
+                    id: 1
+                    model: "N12"
+                    driver_code: "JY_monitor_mindray_n"
+                }
+                model {
+                    id: 2
+                    model: "ipm8"
+                    driver_code: "JY_monitor_mindray_t"
+                }
+            }
+            manufacturer {
+                id: 2
+                name: "飞利浦"
+                model {
+                    id: 1
+                    model: "G60"
+                    driver_code: "JY_monitor_philips_g"
+                }
+                model {
+                    id: 2
+                    model: "mp550"
+                    driver_code: "JY_monitor_philips_mp"
+                }
+            }
+            manufacturer {
+                id: 3
+                name: "宝莱特"
+                model {
+                    id: 1
+                    model: "P15"
+                    driver_code: "JY_monitor_blt_p"
+                }
+            }
+            manufacturer {
+                id: 4
+                name: "科曼"
+                model {
+                    id: 1
+                    model: "C30"
+                    driver_code: "JY_monitor_comen_c"
+                }
+                model {
+                    id: 2
+                    model: "C90"
+                    driver_code: "JY_monitor_comen_hl7"
+                }
+            }
+        }
+        entry {
+            device_type_id: 2
+            device_type_name: "呼吸机"
+            manufacturer {
+                id: 1
+                name: "迈瑞"
+                model {
+                    id: 1
+                    model: "SV300"
+                    driver_code: "JY_vent_mindray_sv"
+                }
+                model {
+                    id: 2
+                    model: "SV600"
+                    driver_code: "JY_vent_mindray_egateway"
+                }
+            }
+            manufacturer {
+                id: 5
+                name: "鸟牌"
+                model {
+                    id: 1
+                    model: "VELA"
+                    driver_code: "JY_vent_vela"
+                }
+            }
+            manufacturer {
+                id: 6
+                name: "迈柯维"
+                model {
+                    id: 1
+                    model: "S"
+                    driver_code: "JY_vent_maquet_s"
+                }
+                model {
+                    id: 2
+                    model: "U"
+                    driver_code: "JY_vent_maquet_u"
+                }
+            }
+            manufacturer {
+                id: 7
+                name: "德尔格"
+                model {
+                    id: 1
+                    model: "Evita"
+                    driver_code: "JY_vent_drager_evita"
+                }
+                model {
+                    id: 2
+                    model: "Infinity"
+                    driver_code: "JY_vent_drager_infinity"
+                }
+            }
+        }
+        entry {
+            device_type_id: 3
+            device_type_name: "血气机"
+            manufacturer {
+                id: 8
+                name: "雷度"
+                model {
+                    id: 1
+                    model: "ABL90"
+                    driver_code: "JY_bga_radiometer_abl"
+                }
+            }
+            manufacturer {
+                id: 9
+                name: "贝克曼"
+                model {
+                    id: 1
+                    model: "GEM4000"
+                    driver_code: "JY_bga_beckman_gem4000"
+                }
+            }
+        }
+        entry {
+            device_type_id: 4
+            device_type_name: "PICCO"
+        }
+        entry {
+            device_type_id: 5
+            device_type_name: "ECMO"
+        }
+        entry {
+            device_type_id: 6
+            device_type_name: "CRRT"
+        }
+        entry {
+            device_type_id: 7
+            device_type_name: "免疫分析仪"
+        }
+        entry {
+            device_type_id: 8
+            device_type_name: "尿液分析仪"
+        }
+        entry {
+            device_type_id: 9
+            device_type_name: "中央站"
+            manufacturer {
+                id: 1
+                name: "迈瑞"
+                model {
+                    id: 1
+                    model: "eGateWay"
+                    driver_code: "JY_cms_mindray_egateway"
+                }
+                model {
+                    id: 2
+                    model: "迈瑞中央站"
+                    driver_code: "JY_cms_mindray_hl7"
+                }
+            }
+            manufacturer {
+                id: 4
+                name: "科曼"
+                model {
+                    id: 1
+                    model: "科曼中央站"
+                    driver_code: "JY_cms_comen_hl7"
+                }
+            }
+        }
+    }
+}
+diagnosis {
+    enums {
+        vital_sign_type {
+            id: 1
+            name: "心率"
+        }
+        vital_sign_type {
+            id: 2
+            name: "体温"
+        }
+        vital_sign_type {
+            id: 3
+            name: "呼吸"
+        }
+        vital_sign_type {
+            id: 4
+            name: "血氧饱和度"
+        }
+        vital_sign_type {
+            id: 5
+            name: "血压（有创收缩压）"
+        }
+        vital_sign_type {
+            id: 6
+            name: "血压（有创舒张压）"
+        }
+        vital_sign_type {
+            id: 7
+            name: "血压（无创收缩压）"
+        }
+        vital_sign_type {
+            id: 8
+            name: "血压（无创舒张压）"
+        }
+    }
+    vital_sign_type_map {
+        vital_sign_type_id: 1
+        monitoring_code: "hr"
+    }
+    vital_sign_type_map {
+        vital_sign_type_id: 2
+        monitoring_code: "temperature"
+    }
+    vital_sign_type_map {
+        vital_sign_type_id: 3
+        monitoring_code: "respiratory_rate"
+    }
+    vital_sign_type_map {
+        vital_sign_type_id: 4
+        monitoring_code: "Spo2"
+    }
+    vital_sign_type_map {
+        vital_sign_type_id: 5
+        monitoring_code: "ibp_s"
+    }
+    vital_sign_type_map {
+        vital_sign_type_id: 6
+        monitoring_code: "ibp_d"
+    }
+    vital_sign_type_map {
+        vital_sign_type_id: 7
+        monitoring_code: "nibp_s"
+    }
+    vital_sign_type_map {
+        vital_sign_type_id: 8
+        monitoring_code: "nibp_d"
+    }
+    disease_meta {
+        code: "SEPSIS"
+        name: "怀疑病人脓毒症休克"
+        description: "一种由感染引起的严重疾病"
+        phase {
+            code: "SUSPECTED_INFECTION"
+            name: "怀疑感染"
+            description: "第一阶段"
+            item {
+                code: "CHEST"
+                name: "胸部"
+                description: "胸部感染相关指标"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+            item {
+                code: "URINARY_SYSTEM"
+                name: "泌尿系"
+                description: "泌尿系统感染相关指标"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+            item {
+                code: "CNS"
+                name: "CNS(中枢神经病)"
+                description: "中枢神经系统感染相关指标"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+            item {
+                code: "SKIN_SOFT_TISSUE"
+                name: "皮肤软组织"
+                description: "皮肤及软组织感染相关指标"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+            item {
+                code: "JOINT"
+                name: "关节"
+                description: "关节感染相关指标"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+            item {
+                code: "BILIARY_SYSTEM"
+                name: "胆道系统"
+                description: "胆道系统感染相关指标"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+            item {
+                code: "OTHER"
+                name: "其他"
+                description: "其他部位的感染相关指标"
+                value_meta {
+                    value_type: STRING
+                }
+            }
+        }
+        phase {
+            code: "SEPSIS"
+            name: "脓毒症"
+            description: "第二阶段"
+            item {
+                code: "QSOFA_GE_2"
+                name: "qSofa>=2"
+                description: "qSOFA评分大于等于2"
+                value_meta {
+                    value_type: BOOL
+                }
+                auto_calculated: true
+            }
+            item {
+                code: "GCS_LT_13"
+                name: "GCS评分<13"
+                description: "GCS评分小于13"
+                value_meta {
+                    value_type: BOOL
+                }
+                auto_calculated: true
+            }
+            item {
+                code: "SYSTOLIC_PRESSURE_LE_100MMHG"
+                name: "收缩压<=100mmHG"
+                description: "收缩压小于等于100mmHG"
+                value_meta {
+                    value_type: BOOL
+                }
+                auto_calculated: true
+            }
+            item {
+                code: "RESPIRATORY_RATE_GT_22"
+                name: "呼吸频率>22"
+                description: "呼吸频率大于22次/分钟"
+                value_meta {
+                    value_type: BOOL
+                }
+                auto_calculated: true
+            }
+        }
+        phase {
+            code: "SEPTIC_SHOCK"
+            name: "脓毒症休克"
+            description: "第三阶段"
+            item {
+                code: "LACTATE_GE_2MMOL_L"
+                name: "血乳酸>=2mmol/L"
+                description: "血乳酸浓度大于等于2mmol/L"
+                value_meta {
+                    value_type: BOOL
+                }
+                auto_calculated: true
+            }
+            item {
+                code: "NEED_VASOPRESSOR"
+                name: "需要升压"
+                description: "需要使用升压药物以维持血压"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+        }
+    }
+    disease_meta {
+        code: "VAP"
+        name: "VAP呼吸机相关性肺炎"
+        description: "一种与呼吸机使用相关的肺炎"
+        phase {
+            code: "MECHANICAL_VENTILATION"
+            name: "机械通气情况"
+            description: "第一阶段"
+            item {
+                code: "VENTILATION_GT_48H"
+                name: "机械通气＞48h"
+                description: "患者机械通气时间超过48小时"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+            item {
+                code: "EXTUBATION_LT_48H"
+                name: "撤机拔管＜48h"
+                description: "患者撤机拔管时间小于48小时"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+        }
+        phase {
+            code: "CLINICAL_SYMPTOMS"
+            name: "临床表现"
+            description: "第二阶段"
+            item {
+                code: "FEVER_GT_38C"
+                name: "发热(体温>38℃)"
+                description: "体温超过38摄氏度"
+                value_meta {
+                    value_type: BOOL
+                }
+                auto_calculated: true
+            }
+            item {
+                code: "CHEST_SCAN_INFLAMMATION"
+                name: "胸部扫描发现新炎症"
+                description: "胸部影像学检查发现新的炎症表现"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+            item {
+                code: "WBC_ABNORMAL"
+                name: "白细胞计数异常"
+                description: "白细胞计数升高或降低，提示感染"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+            item {
+                code: "SECRETIONS_INCREASE"
+                name: "呼吸道分泌物增多或性质改变"
+                description: "呼吸道分泌物量增多或性状发生变化"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+            item {
+                code: "COUGH_DYSPNEA"
+                name: "新出现/加重咳嗽或呼吸困难"
+                description: "新出现或加重的咳嗽或呼吸困难症状"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+        }
+        phase {
+            code: "LABORATORY_TESTS"
+            name: "检验检查"
+            description: "第三阶段"
+            item {
+                code: "PAO2_FIO2_DECREASE"
+                name: "氧合指数（PaO2/FiO2比值）下降，呼吸功能恶化"
+                description: "氧合指数下降，提示呼吸功能恶化"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+            item {
+                code: "CRP_PCT_ELEVATED"
+                name: "C反应蛋白（CRP）和降钙素原（PCT）水平升高"
+                description: "C反应蛋白和降钙素原水平升高，提示感染加重"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+        }
+    }
+    disease_meta {
+        code: "CRBSI"
+        name: "CRBSI血管内管道相关血流感染"
+        description: "一种与血管内管道使用相关的血流感染"
+        phase {
+            code: "PICC_USAGE"
+            name: "PICC管使用情况"
+            description: "第一阶段"
+            item {
+                code: "PICC_GT_48H"
+                name: "带有PICC管＞48h"
+                description: "患者带有PICC管超过48小时"
+                value_meta {
+                    value_type: BOOL
+                }
+                auto_calculated: true
+            }
+            item {
+                code: "PICC_ICU_TRANSFER_LT_48H"
+                name: "携带PICC管转出ICU＜48h"
+                description: "患者携带PICC管转出ICU时间小于48小时"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+        }
+        phase {
+            code: "CLINICAL_SYMPTOMS"
+            name: "临床表现"
+            description: "第二阶段"
+            item {
+                code: "FEVER_GT_38C"
+                name: "发热(体温>38℃)"
+                description: "体温超过38摄氏度"
+                value_meta {
+                    value_type: BOOL
+                }
+                auto_calculated: true
+            }
+            item {
+                code: "CHILLS"
+                name: "寒战、发冷"
+                description: "患者出现寒战或发冷症状"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+            item {
+                code: "LOCAL_INFECTION"
+                name: "局部感染：如导管出口部位红肿、压痛、脓性分泌物等"
+                description: "导管出口部位出现红肿、压痛或脓性分泌物等局部感染表现"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+            item {
+                code: "SYSTEMIC_SYMPTOMS"
+                name: "全身症状：如低血压、心动过速、意识模糊等全身炎症反应综合征（SIRS）的表现"
+                description: "出现低血压、心动过速、意识模糊等全身炎症反应综合征表现"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+        }
+        phase {
+            code: "MICROBIOLOGICAL_TEST"
+            name: "微生物学检测"
+            description: "第三阶段"
+            item {
+                code: "BLOOD_CULTURE"
+                name: "血培养"
+                description: "通过血培养检测感染相关病原体"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+            item {
+                code: "CATHETER_TIP_CULTURE"
+                name: "导管尖端培养"
+                description: "通过导管尖端培养检测感染相关病原体"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+            item {
+                code: "SEMI_QUANTITATIVE_CULTURE"
+                name: "半定量培养"
+                description: "通过半定量培养方法检测感染相关病原体"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+        }
+    }
+    disease_meta {
+        code: "CAUTI"
+        name: "CAUTI尿管相关感染"
+        description: "一种与尿管使用相关的感染"
+        phase {
+            code: "CATHETER_USAGE"
+            name: "尿管使用情况"
+            description: "第一阶段"
+            item {
+                code: "CATHETER_GT_48H"
+                name: "带有导尿管>48h"
+                description: "患者带有导尿管超过48小时"
+                value_meta {
+                    value_type: BOOL
+                }
+                auto_calculated: true
+            }
+            item {
+                code: "CATHETER_ICU_TRANSFER_LT_48H"
+                name: "携带导尿管转出ICU<48h"
+                description: "患者携带导尿管转出ICU时间小于48小时"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+        }
+        phase {
+            code: "CLINICAL_SYMPTOMS"
+            name: "临床表现"
+            description: "第二阶段"
+            item {
+                code: "FEVER_GT_38C"
+                name: "发热(体温>38℃)"
+                description: "体温超过38摄氏度"
+                value_meta {
+                    value_type: BOOL
+                }
+                auto_calculated: true
+            }
+            item {
+                code: "URINARY_IRRITATION"
+                name: "尿路刺激症"
+                description: "患者出现尿路刺激症状"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+            item {
+                code: "FREQUENT_URGENT_URINATION"
+                name: "尿频/尿急/尿线中断"
+                description: "患者出现尿频、尿急或尿线中断症状"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+            item {
+                code: "LOWER_ABDOMINAL_PAIN"
+                name: "下腹部压痛或腰痛"
+                description: "患者出现下腹部压痛或腰痛症状"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+            item {
+                code: "MENTAL_STATUS_CHANGE"
+                name: "精神状态改变"
+                description: "患者出现精神状态改变，如意识模糊"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+            item {
+                code: "CATHETER_DISCHARGE"
+                name: "导尿管周围分泌物"
+                description: "导尿管周围出现异常分泌物"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+        }
+        phase {
+            code: "URINE_ANALYSIS"
+            name: "检验检查-尿液分析"
+            description: "第三阶段"
+            item {
+                code: "LEUKOCYTE_ESTERASE_POSITIVE"
+                name: "白细胞酯酶阳性"
+                description: "尿液分析中白细胞酯酶检测阳性，提示感染"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+            item {
+                code: "WBC_INCREASE_URINE"
+                name: "尿沉渣显微镜检查白细胞增多（>10个/HPF），提示感染"
+                description: "尿沉渣显微镜检查白细胞增多，提示尿路感染"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+            item {
+                code: "RBC_PROTEIN_URINE"
+                name: "尿中可能有红细胞和蛋白质"
+                description: "尿液中检测到红细胞和蛋白质，提示感染或炎症"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+            item {
+                code: "NITRITE_POSITIVE"
+                name: "亚硝酸盐阳性（某些细菌感染时）"
+                description: "尿液中亚硝酸盐检测阳性，提示某些细菌感染"
+                value_meta {
+                    value_type: BOOL
+                }
+            }
+        }
+    }
+    ibp_s_monitoring_code: "ibp_s"
+    nibp_s_monitoring_code: "nibp_s"
+    respiratory_rate_monitoring_code: "respiratory_rate"
+    temperature_monitoring_code: "temperature"
+    gcs_score_code: "gcs"
+    picc_tube_type: "PICCO管"
+    catheter_tube_type: "尿管"
+}
+doctor_score {
+    apache_ii_meta {
+        aps_param {
+            code: "body_temperature"
+            name: "体温"
+            description: "temperature"
+            value_meta {
+                value_type: FLOAT
+                decimal_places: 1
+                pad_zero_decimal: true
+                unit: "℃"
+            }
+        }
+        aps_param {
+            code: "mean_arterial_pressure"
+            name: "平均动脉压"
+            description: "ibp_m, nibp_m"
+            value_meta {
+                value_type: FLOAT
+                decimal_places: 0
+                pad_zero_decimal: false
+                unit: "mmHg"
+            }
+        }
+        aps_param {
+            code: "heart_rate"
+            name: "心率"
+            description: "hr"
+            value_meta {
+                value_type: FLOAT
+                decimal_places: 0
+                pad_zero_decimal: false
+                unit: "bpm"
+            }
+        }
+        aps_param {
+            code: "respiratory_rate"
+            name: "呼吸频率"
+            description: "respiratory_rate"
+            value_meta {
+                value_type: FLOAT
+                decimal_places: 0
+                pad_zero_decimal: false
+                unit: "bpm"
+            }
+        }
+        aps_param {
+            code: "fio2"
+            name: "FiO2"
+            description: "FiO2 (bga)"
+            value_meta {
+                value_type: FLOAT
+                decimal_places: 0
+                pad_zero_decimal: false
+                unit: "%"
+            }
+        }
+        aps_param {
+            code: "a_a_do2"
+            name: "肺泡-动脉氧分压差"
+            description: "bga_aado2, FiO2 < 0.5 时使用"
+            value_meta {
+                value_type: FLOAT
+                decimal_places: 2
+                pad_zero_decimal: false
+                unit: "mmHg"
+            }
+        }
+        aps_param {
+            code: "pao2"
+            name: "肺泡氧分压"
+            description: "bga_pao2, FiO2 >= 0.5 时使用"
+            value_meta {
+                value_type: FLOAT
+                decimal_places: 2
+                pad_zero_decimal: false
+                unit: "mmHg"
+            }
+        }
+        aps_param {
+            code: "ph"
+            name: "动脉血酸碱度"
+            description: "bga_ph(T)"
+            value_meta {
+                value_type: FLOAT
+                decimal_places: 2
+                pad_zero_decimal: false
+            }
+        }
+        aps_param {
+            code: "hco3"
+            name: "血碳酸氢根"
+            description: "bga_hco3-, 无血气pH时使用"
+            value_meta {
+                value_type: FLOAT
+                decimal_places: 2
+                pad_zero_decimal: false
+                unit: "mmol/L"
+            }
+        }
+        aps_param {
+            code: "sodium"
+            name: "血钠离子"
+            description: "lis_na+"
+            value_meta {
+                value_type: FLOAT
+                decimal_places: 2
+                pad_zero_decimal: false
+                unit: "mmol/L"
+            }
+        }
+        aps_param {
+            code: "potassium"
+            name: "血钾离子"
+            description: "lis_k+"
+            value_meta {
+                value_type: FLOAT
+                decimal_places: 2
+                pad_zero_decimal: false
+                unit: "mmol/L"
+            }
+        }
+        aps_param {
+            code: "creatinine"
+            name: "血清肌酐"
+            description: "lis_CREA, 检验参数"
+            value_meta {
+                value_type: FLOAT
+                decimal_places: 2
+                pad_zero_decimal: false
+                unit: "umol/L"
+            }
+        }
+        aps_param {
+            code: "has_acute_renal_failure"
+            name: "急性肾衰竭"
+            description: "是否存在急性肾衰竭，用于Cr得分调整"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        aps_param {
+            code: "hematocrit"
+            name: "血球压积"
+            description: "lis_hct"
+            value_meta {
+                value_type: FLOAT
+                decimal_places: 2
+                pad_zero_decimal: false
+                unit: "%"
+            }
+        }
+        aps_param {
+            code: "white_blood_cell_count"
+            name: "白细胞计数"
+            description: "lis_WBC"
+            value_meta {
+                value_type: FLOAT
+                decimal_places: 2
+                pad_zero_decimal: false
+                unit: "10^9/L"
+            }
+        }
+        aps_param {
+            code: "glasgow_coma_scale"
+            name: "格拉斯哥昏迷评分"
+            description: "gcs"
+            value_meta {
+                value_type: INT32
+                unit: "分"
+            }
+        }
+        chc_param {
+            code: "has_chronic_conditions"
+            name: "是否存在慢性疾病"
+            description: "有无慢性疾病"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        chc_param {
+            code: "cardiovascular_system"
+            name: "慢性心血管疾病"
+            description: "心血管系统"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        chc_param {
+            code: "respiratory_system"
+            name: "慢性呼吸系统疾病"
+            description: "呼吸系统"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        chc_param {
+            code: "liver_system"
+            name: "慢性肝病"
+            description: "肝脏系统"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        chc_param {
+            code: "kidney_system"
+            name: "慢性肾病"
+            description: "肾脏系统"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        chc_param {
+            code: "immune_dysfunction"
+            name: "免疫功能障碍"
+            description: "免疫系统异常"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        chc_param {
+            code: "non_operative_or_emergency_surgery"
+            name: "非手术或急诊手术"
+            description: "是否为非手术或急诊手术"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_respiratory_failure {
+            code: "asthma_or_allergy"
+            name: "哮喘或变态反应"
+            description: "哮喘或变态反应"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_respiratory_failure {
+            code: "copd"
+            name: "慢性阻塞性肺病"
+            description: "慢性阻塞性肺病"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_respiratory_failure {
+            code: "noncardiogenic_pulmonary_edema"
+            name: "非心源性肺水肿"
+            description: "非心源性肺水肿"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_respiratory_failure {
+            code: "nop_post_respiratory_arrest"
+            name: "呼吸停止后"
+            description: "呼吸停止后"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_respiratory_failure {
+            code: "aspiration"
+            name: "误吸"
+            description: "误吸"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_respiratory_failure {
+            code: "poisoning"
+            name: "中毒"
+            description: "中毒"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_respiratory_failure {
+            code: "pulmonary_embolism"
+            name: "肺栓塞"
+            description: "肺栓塞"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_respiratory_failure {
+            code: "infection"
+            name: "感染"
+            description: "感染"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_respiratory_failure {
+            code: "tumor"
+            name: "肿瘤"
+            description: "肿瘤"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_respiratory_failure_coef {
+            code: "asthma_or_allergy"
+            value {
+                float_val: -2.108
+            }
+        }
+        nop_respiratory_failure_coef {
+            code: "copd"
+            value {
+                float_val: -0.367
+            }
+        }
+        nop_respiratory_failure_coef {
+            code: "noncardiogenic_pulmonary_edema"
+            value {
+                float_val: -0.251
+            }
+        }
+        nop_respiratory_failure_coef {
+            code: "nop_post_respiratory_arrest"
+            value {
+                float_val: -0.168
+            }
+        }
+        nop_respiratory_failure_coef {
+            code: "aspiration"
+            value {
+                float_val: -0.142
+            }
+        }
+        nop_respiratory_failure_coef {
+            code: "poisoning"
+            value {
+                float_val: -0.142
+            }
+        }
+        nop_respiratory_failure_coef {
+            code: "pulmonary_embolism"
+            value {
+                float_val: -0.128
+            }
+        }
+        nop_respiratory_failure_coef {
+            code: "infection"
+            value {
+                float_val: 0
+            }
+        }
+        nop_respiratory_failure_coef {
+            code: "tumor"
+            value {
+                float_val: 0.891
+            }
+        }
+        nop_cardiovascular_failure {
+            code: "hypertension"
+            name: "高血压"
+            description: "高血压"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_cardiovascular_failure {
+            code: "arrhythmia"
+            name: "心率失常"
+            description: "心率失常"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_cardiovascular_failure {
+            code: "congestive_heart_failure"
+            name: "充血性心衰"
+            description: "充血性心衰"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_cardiovascular_failure {
+            code: "hemorrhagic_hypovolemic_shock"
+            name: "失血性或低血容量性休克"
+            description: "失血性或低血容量性休克"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_cardiovascular_failure {
+            code: "coronary_artery_disease"
+            name: "冠心病"
+            description: "冠心病"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_cardiovascular_failure {
+            code: "nop_sepsis"
+            name: "脓毒症"
+            description: "脓毒症"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_cardiovascular_failure {
+            code: "nop_post_cardiac_arrest"
+            name: "心脏骤停后"
+            description: "心脏骤停后"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_cardiovascular_failure {
+            code: "cardiogenic_shock"
+            name: "心源性休克"
+            description: "心源性休克"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_cardiovascular_failure {
+            code: "aortic_dissection"
+            name: "主动脉夹层动脉瘤"
+            description: "主动脉夹层动脉瘤"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_cardiovascular_failure_coef {
+            code: "hypertension"
+            value {
+                float_val: -1.798
+            }
+        }
+        nop_cardiovascular_failure_coef {
+            code: "arrhythmia"
+            value {
+                float_val: -1.368
+            }
+        }
+        nop_cardiovascular_failure_coef {
+            code: "congestive_heart_failure"
+            value {
+                float_val: -0.424
+            }
+        }
+        nop_cardiovascular_failure_coef {
+            code: "hemorrhagic_hypovolemic_shock"
+            value {
+                float_val: 0.493
+            }
+        }
+        nop_cardiovascular_failure_coef {
+            code: "coronary_artery_disease"
+            value {
+                float_val: -0.191
+            }
+        }
+        nop_cardiovascular_failure_coef {
+            code: "nop_sepsis"
+            value {
+                float_val: 0.113
+            }
+        }
+        nop_cardiovascular_failure_coef {
+            code: "nop_post_cardiac_arrest"
+            value {
+                float_val: 0.393
+            }
+        }
+        nop_cardiovascular_failure_coef {
+            code: "cardiogenic_shock"
+            value {
+                float_val: -0.259
+            }
+        }
+        nop_cardiovascular_failure_coef {
+            code: "aortic_dissection"
+            value {
+                float_val: 0.731
+            }
+        }
+        nop_trauma {
+            code: "nop_multiple_trauma"
+            name: "多发伤"
+            description: "多发伤"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_trauma {
+            code: "nop_brain_trauma"
+            name: "脑外伤"
+            description: "脑外伤"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_trauma_coef {
+            code: "nop_multiple_trauma"
+            value {
+                float_val: -1.228
+            }
+        }
+        nop_trauma_coef {
+            code: "nop_brain_trauma"
+            value {
+                float_val: -0.517
+            }
+        }
+        nop_neurological_disorder {
+            code: "seizure_disorder"
+            name: "癫痫发作"
+            description: "癫痫发作"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_neurological_disorder {
+            code: "ich_sdh_sah"
+            name: "脑出血/硬膜下/蛛网膜下出血"
+            description: "脑出血/硬膜下/蛛网膜下出血"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_neurological_disorder_coef {
+            code: "seizure_disorder"
+            value {
+                float_val: -0.584
+            }
+        }
+        nop_neurological_disorder_coef {
+            code: "ich_sdh_sah"
+            value {
+                float_val: 0.723
+            }
+        }
+        nop_other_conditions {
+            code: "drug_overdose"
+            name: "药物过量"
+            description: "药物过量"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_other_conditions {
+            code: "diabetic_ketoacidosis"
+            name: "糖尿病酮症"
+            description: "糖尿病酮症"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_other_conditions {
+            code: "nop_gi_bleeding"
+            name: "消化道出血"
+            description: "消化道出血"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_other_conditions_coef {
+            code: "drug_overdose"
+            value {
+                float_val: -3.353
+            }
+        }
+        nop_other_conditions_coef {
+            code: "diabetic_ketoacidosis"
+            value {
+                float_val: -1.507
+            }
+        }
+        nop_other_conditions_coef {
+            code: "nop_gi_bleeding"
+            value {
+                float_val: 0.334
+            }
+        }
+        nop_organ_damage {
+            code: "nop_metabolic_or_renal"
+            name: "代谢性或肾性"
+            description: "代谢性或肾性"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_organ_damage {
+            code: "nop_respiratory"
+            name: "呼吸系统"
+            description: "呼吸系统"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_organ_damage {
+            code: "nop_neurological"
+            name: "神经系统"
+            description: "神经系统"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_organ_damage {
+            code: "nop_cardiovascular"
+            name: "心血管系统"
+            description: "心血管系统"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_organ_damage {
+            code: "nop_gastrointestinal"
+            name: "胃肠道"
+            description: "胃肠道"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        nop_organ_damage_coef {
+            code: "nop_metabolic_or_renal"
+            value {
+                float_val: -0.885
+            }
+        }
+        nop_organ_damage_coef {
+            code: "nop_respiratory"
+            value {
+                float_val: -0.89
+            }
+        }
+        nop_organ_damage_coef {
+            code: "nop_neurological"
+            value {
+                float_val: -0.759
+            }
+        }
+        nop_organ_damage_coef {
+            code: "nop_cardiovascular"
+            value {
+                float_val: 0.47
+            }
+        }
+        nop_organ_damage_coef {
+            code: "nop_gastrointestinal"
+            value {
+                float_val: 0.501
+            }
+        }
+        op_surgery {
+            code: "op_multiple_trauma"
+            name: "多发伤"
+            description: "多发伤"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        op_surgery {
+            code: "chronic_cardiovascular_disease"
+            name: "慢性心血管疾病"
+            description: "慢性心血管疾病"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        op_surgery {
+            code: "peripheral_vascular_disease"
+            name: "外周血管疾病"
+            description: "外周血管疾病"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        op_surgery {
+            code: "heart_valve_surgery"
+            name: "心瓣膜手术"
+            description: "心瓣膜手术"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        op_surgery {
+            code: "tumor_craniotomy"
+            name: "肿瘤开颅手术"
+            description: "肿瘤开颅手术"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        op_surgery {
+            code: "renal_tumor_surgery"
+            name: "肾肿瘤手术"
+            description: "肾肿瘤手术"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        op_surgery {
+            code: "kidney_transplantation"
+            name: "肾移植"
+            description: "肾移植"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        op_surgery {
+            code: "op_brain_trauma"
+            name: "脑外伤"
+            description: "脑外伤"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        op_surgery {
+            code: "thoracic_tumor_surgery"
+            name: "胸部肿瘤手术"
+            description: "胸部肿瘤手术"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        op_surgery {
+            code: "ich_sdh_sah_craniotomy"
+            name: "脑出血/硬膜下/蛛网膜下出血开颅手术"
+            description: "脑出血/硬膜下/蛛网膜下出血开颅手术"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        op_surgery {
+            code: "laminectomy_or_spinal_surgery"
+            name: "椎板切除术或其他脊髓手术"
+            description: "椎板切除术或其他脊髓手术"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        op_surgery {
+            code: "hemorrhagic_shock"
+            name: "失血性休克"
+            description: "失血性休克"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        op_surgery {
+            code: "op_gi_bleeding"
+            name: "消化道出血"
+            description: "消化道出血"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        op_surgery {
+            code: "gi_tumor_surgery"
+            name: "消化道肿瘤手术"
+            description: "消化道肿瘤手术"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        op_surgery {
+            code: "postop_respiratory_insufficiency"
+            name: "术后呼吸功能不全"
+            description: "术后呼吸功能不全"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        op_surgery {
+            code: "gi_perforation_or_obstruction"
+            name: "消化道穿孔或梗阻"
+            description: "消化道穿孔或梗阻"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        op_surgery_coef {
+            code: "op_multiple_trauma"
+            value {
+                float_val: -1.684
+            }
+        }
+        op_surgery_coef {
+            code: "chronic_cardiovascular_disease"
+            value {
+                float_val: -1.376
+            }
+        }
+        op_surgery_coef {
+            code: "peripheral_vascular_disease"
+            value {
+                float_val: -1.315
+            }
+        }
+        op_surgery_coef {
+            code: "heart_valve_surgery"
+            value {
+                float_val: -1.261
+            }
+        }
+        op_surgery_coef {
+            code: "tumor_craniotomy"
+            value {
+                float_val: -1.245
+            }
+        }
+        op_surgery_coef {
+            code: "renal_tumor_surgery"
+            value {
+                float_val: -1.204
+            }
+        }
+        op_surgery_coef {
+            code: "kidney_transplantation"
+            value {
+                float_val: -1.042
+            }
+        }
+        op_surgery_coef {
+            code: "op_brain_trauma"
+            value {
+                float_val: -0.955
+            }
+        }
+        op_surgery_coef {
+            code: "thoracic_tumor_surgery"
+            value {
+                float_val: -0.802
+            }
+        }
+        op_surgery_coef {
+            code: "ich_sdh_sah_craniotomy"
+            value {
+                float_val: -0.788
+            }
+        }
+        op_surgery_coef {
+            code: "laminectomy_or_spinal_surgery"
+            value {
+                float_val: -0.699
+            }
+        }
+        op_surgery_coef {
+            code: "hemorrhagic_shock"
+            value {
+                float_val: -0.682
+            }
+        }
+        op_surgery_coef {
+            code: "op_gi_bleeding"
+            value {
+                float_val: -0.617
+            }
+        }
+        op_surgery_coef {
+            code: "gi_tumor_surgery"
+            value {
+                float_val: -0.248
+            }
+        }
+        op_surgery_coef {
+            code: "postop_respiratory_insufficiency"
+            value {
+                float_val: -0.14
+            }
+        }
+        op_surgery_coef {
+            code: "gi_perforation_or_obstruction"
+            value {
+                float_val: 0.06
+            }
+        }
+        op_postoperative_complications {
+            code: "op_sepsis"
+            name: "脓毒症"
+            description: "脓毒症"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        op_postoperative_complications {
+            code: "op_post_cardiac_arrest"
+            name: "心脏骤停后"
+            description: "心脏骤停后"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        op_postoperative_complications {
+            code: "op_post_respiratory_arrest"
+            name: "呼吸骤停后"
+            description: "呼吸骤停后"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        op_postoperative_complications_coef {
+            code: "op_sepsis"
+            value {
+                float_val: 0.113
+            }
+        }
+        op_postoperative_complications_coef {
+            code: "op_post_cardiac_arrest"
+            value {
+                float_val: 0.393
+            }
+        }
+        op_postoperative_complications_coef {
+            code: "op_post_respiratory_arrest"
+            value {
+                float_val: -0.168
+            }
+        }
+        op_nos {
+            code: "op_neurological"
+            name: "神经系统"
+            description: "神经系统"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        op_nos {
+            code: "op_cardiovascular"
+            name: "心血管系统"
+            description: "心血管系统"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        op_nos {
+            code: "op_respiratory"
+            name: "呼吸系统"
+            description: "呼吸系统"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        op_nos {
+            code: "op_gastrointestinal"
+            name: "胃肠道"
+            description: "胃肠道"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        op_nos {
+            code: "op_metabolic_or_renal"
+            name: "代谢性或肾性"
+            description: "代谢性或肾性"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+        op_nos_coef {
+            code: "op_neurological"
+            value {
+                float_val: -1.15
+            }
+        }
+        op_nos_coef {
+            code: "op_cardiovascular"
+            value {
+                float_val: -0.797
+            }
+        }
+        op_nos_coef {
+            code: "op_respiratory"
+            value {
+                float_val: -0.61
+            }
+        }
+        op_nos_coef {
+            code: "op_gastrointestinal"
+            value {
+                float_val: -0.613
+            }
+        }
+        op_nos_coef {
+            code: "op_metabolic_or_renal"
+            value {
+                float_val: -0.196
+            }
+        }
+    }
+    apache_ii_rules {
+        rule {
+            code: "body_temperature"
+            range {
+                is_lower_unbounded: true
+                upper_bound: 30.0
+                include_upper_bound: false
+                score: 4
+            }
+            range {
+                lower_bound: 30.0
+                include_lower_bound: true
+                upper_bound: 32.0
+                include_upper_bound: false
+                score: 3
+            }
+            range {
+                lower_bound: 32.0
+                include_lower_bound: true
+                upper_bound: 34.0
+                include_upper_bound: false
+                score: 2
+            }
+            range {
+                lower_bound: 34.0
+                include_lower_bound: true
+                upper_bound: 36.0
+                include_upper_bound: false
+                score: 1
+            }
+            range {
+                lower_bound: 36.0
+                include_lower_bound: true
+                upper_bound: 38.5
+                include_upper_bound: false
+                score: 0
+            }
+            range {
+                lower_bound: 38.5
+                include_lower_bound: true
+                upper_bound: 39.0
+                include_upper_bound: false
+                score: 1
+            }
+            range {
+                lower_bound: 39.0
+                include_lower_bound: true
+                upper_bound: 41.0
+                include_upper_bound: false
+                score: 3
+            }
+            range {
+                lower_bound: 41.0
+                include_lower_bound: true
+                is_upper_unbounded: true
+                score: 4
+            }
+        }
+        rule {
+            code: "mean_arterial_pressure"
+            range {
+                is_lower_unbounded: true
+                upper_bound: 50.0
+                include_upper_bound: false
+                score: 4
+            }
+            range {
+                lower_bound: 50.0
+                include_lower_bound: true
+                upper_bound: 70.0
+                include_upper_bound: false
+                score: 2
+            }
+            range {
+                lower_bound: 70.0
+                include_lower_bound: true
+                upper_bound: 110.0
+                include_upper_bound: false
+                score: 0
+            }
+            range {
+                lower_bound: 110.0
+                include_lower_bound: true
+                upper_bound: 130.0
+                include_upper_bound: false
+                score: 2
+            }
+            range {
+                lower_bound: 130.0
+                include_lower_bound: true
+                upper_bound: 160.0
+                include_upper_bound: false
+                score: 3
+            }
+            range {
+                lower_bound: 160.0
+                include_lower_bound: true
+                is_upper_unbounded: true
+                score: 4
+            }
+        }
+        rule {
+            code: "heart_rate"
+            range {
+                is_lower_unbounded: true
+                upper_bound: 40.0
+                include_upper_bound: false
+                score: 4
+            }
+            range {
+                lower_bound: 40.0
+                include_lower_bound: true
+                upper_bound: 55.0
+                include_upper_bound: false
+                score: 3
+            }
+            range {
+                lower_bound: 55.0
+                include_lower_bound: true
+                upper_bound: 70.0
+                include_upper_bound: false
+                score: 2
+            }
+            range {
+                lower_bound: 70.0
+                include_lower_bound: true
+                upper_bound: 110.0
+                include_upper_bound: false
+                score: 0
+            }
+            range {
+                lower_bound: 110.0
+                include_lower_bound: true
+                upper_bound: 140.0
+                include_upper_bound: false
+                score: 2
+            }
+            range {
+                lower_bound: 140.0
+                include_lower_bound: true
+                upper_bound: 180.0
+                include_upper_bound: false
+                score: 3
+            }
+            range {
+                lower_bound: 180.0
+                include_lower_bound: true
+                is_upper_unbounded: true
+                score: 4
+            }
+        }
+        rule {
+            code: "respiratory_rate"
+            range {
+                is_lower_unbounded: true
+                upper_bound: 6.0
+                include_upper_bound: false
+                score: 4
+            }
+            range {
+                lower_bound: 6.0
+                include_lower_bound: true
+                upper_bound: 10.0
+                include_upper_bound: false
+                score: 2
+            }
+            range {
+                lower_bound: 10.0
+                include_lower_bound: true
+                upper_bound: 12.0
+                include_upper_bound: false
+                score: 1
+            }
+            range {
+                lower_bound: 12.0
+                include_lower_bound: true
+                upper_bound: 25.0
+                include_upper_bound: false
+                score: 0
+            }
+            range {
+                lower_bound: 25.0
+                include_lower_bound: true
+                upper_bound: 35.0
+                include_upper_bound: false
+                score: 1
+            }
+            range {
+                lower_bound: 35.0
+                include_lower_bound: true
+                upper_bound: 50.0
+                include_upper_bound: false
+                score: 3
+            }
+            range {
+                lower_bound: 50.0
+                include_lower_bound: true
+                is_upper_unbounded: true
+                score: 4
+            }
+        }
+        rule {
+            code: "a_a_do2"
+            range {
+                is_lower_unbounded: true
+                upper_bound: 200.0
+                include_upper_bound: false
+                score: 0
+            }
+            range {
+                lower_bound: 200.0
+                include_lower_bound: true
+                upper_bound: 350.0
+                include_upper_bound: false
+                score: 2
+            }
+            range {
+                lower_bound: 350.0
+                include_lower_bound: true
+                upper_bound: 500.0
+                include_upper_bound: false
+                score: 3
+            }
+            range {
+                lower_bound: 500.0
+                include_lower_bound: true
+                is_upper_unbounded: true
+                score: 4
+            }
+        }
+        rule {
+            code: "pao2"
+            range {
+                is_lower_unbounded: true
+                upper_bound: 55.0
+                include_upper_bound: true
+                score: 4
+            }
+            range {
+                lower_bound: 55.0
+                include_lower_bound: false
+                upper_bound: 61.0
+                include_upper_bound: false
+                score: 3
+            }
+            range {
+                lower_bound: 61.0
+                include_lower_bound: true
+                upper_bound: 70.0
+                include_upper_bound: true
+                score: 1
+            }
+            range {
+                lower_bound: 70.0
+                include_lower_bound: false
+                is_upper_unbounded: true
+                score: 0
+            }
+        }
+        rule {
+            code: "ph"
+            range {
+                is_lower_unbounded: true
+                upper_bound: 7.15
+                include_upper_bound: false
+                score: 4
+            }
+            range {
+                lower_bound: 7.15
+                include_lower_bound: true
+                upper_bound: 7.25
+                include_upper_bound: false
+                score: 3
+            }
+            range {
+                lower_bound: 7.25
+                include_lower_bound: true
+                upper_bound: 7.33
+                include_upper_bound: false
+                score: 2
+            }
+            range {
+                lower_bound: 7.33
+                include_lower_bound: true
+                upper_bound: 7.5
+                include_upper_bound: false
+                score: 0
+            }
+            range {
+                lower_bound: 7.5
+                include_lower_bound: true
+                upper_bound: 7.6
+                include_upper_bound: false
+                score: 1
+            }
+            range {
+                lower_bound: 7.6
+                include_lower_bound: true
+                upper_bound: 7.7
+                include_upper_bound: false
+                score: 3
+            }
+            range {
+                lower_bound: 7.7
+                include_lower_bound: true
+                is_upper_unbounded: true
+                score: 4
+            }
+        }
+        rule {
+            code: "hco3"
+            range {
+                is_lower_unbounded: true
+                upper_bound: 15.0
+                include_upper_bound: false
+                score: 4
+            }
+            range {
+                lower_bound: 15.0
+                include_lower_bound: true
+                upper_bound: 18.0
+                include_upper_bound: false
+                score: 3
+            }
+            range {
+                lower_bound: 18.0
+                include_lower_bound: true
+                upper_bound: 22.0
+                include_upper_bound: false
+                score: 2
+            }
+            range {
+                lower_bound: 22.0
+                include_lower_bound: true
+                upper_bound: 32.0
+                include_upper_bound: false
+                score: 0
+            }
+            range {
+                lower_bound: 32.0
+                include_lower_bound: true
+                upper_bound: 41.0
+                include_upper_bound: false
+                score: 1
+            }
+            range {
+                lower_bound: 41.0
+                include_lower_bound: true
+                upper_bound: 52.0
+                include_upper_bound: false
+                score: 3
+            }
+            range {
+                lower_bound: 52.0
+                include_lower_bound: true
+                is_upper_unbounded: true
+                score: 4
+            }
+        }
+        rule {
+            code: "sodium"
+            range {
+                is_lower_unbounded: true
+                upper_bound: 111.0
+                include_upper_bound: false
+                score: 4
+            }
+            range {
+                lower_bound: 111.0
+                include_lower_bound: true
+                upper_bound: 120.0
+                include_upper_bound: false
+                score: 3
+            }
+            range {
+                lower_bound: 120.0
+                include_lower_bound: true
+                upper_bound: 130.0
+                include_upper_bound: false
+                score: 2
+            }
+            range {
+                lower_bound: 130.0
+                include_lower_bound: true
+                upper_bound: 150.0
+                include_upper_bound: false
+                score: 0
+            }
+            range {
+                lower_bound: 150.0
+                include_lower_bound: true
+                upper_bound: 155.0
+                include_upper_bound: false
+                score: 1
+            }
+            range {
+                lower_bound: 155.0
+                include_lower_bound: true
+                upper_bound: 160.0
+                include_upper_bound: false
+                score: 2
+            }
+            range {
+                lower_bound: 160.0
+                include_lower_bound: true
+                upper_bound: 180.0
+                include_upper_bound: false
+                score: 3
+            }
+            range {
+                lower_bound: 180.0
+                include_lower_bound: true
+                is_upper_unbounded: true
+                score: 4
+            }
+        }
+        rule {
+            code: "potassium"
+            range {
+                is_lower_unbounded: true
+                upper_bound: 2.5
+                include_upper_bound: false
+                score: 4
+            }
+            range {
+                lower_bound: 2.5
+                include_lower_bound: true
+                upper_bound: 3.0
+                include_upper_bound: false
+                score: 2
+            }
+            range {
+                lower_bound: 3.0
+                include_lower_bound: true
+                upper_bound: 3.5
+                include_upper_bound: false
+                score: 1
+            }
+            range {
+                lower_bound: 3.5
+                include_lower_bound: true
+                upper_bound: 5.5
+                include_upper_bound: false
+                score: 0
+            }
+            range {
+                lower_bound: 5.5
+                include_lower_bound: true
+                upper_bound: 6.0
+                include_upper_bound: false
+                score: 1
+            }
+            range {
+                lower_bound: 6.0
+                include_lower_bound: true
+                upper_bound: 7.0
+                include_upper_bound: false
+                score: 3
+            }
+            range {
+                lower_bound: 7.0
+                include_lower_bound: true
+                is_upper_unbounded: true
+                score: 4
+            }
+        }
+        rule {
+            code: "creatinine"
+            range {
+                is_lower_unbounded: true
+                upper_bound: 53.04
+                include_upper_bound: false
+                score: 2
+            }
+            range {
+                lower_bound: 53.04
+                include_lower_bound: true
+                upper_bound: 132.6
+                include_upper_bound: false
+                score: 0
+            }
+            range {
+                lower_bound: 132.6
+                include_lower_bound: true
+                upper_bound: 176.8
+                include_upper_bound: false
+                score: 2
+            }
+            range {
+                lower_bound: 176.8
+                include_lower_bound: true
+                upper_bound: 309.0
+                include_upper_bound: false
+                score: 3
+            }
+            range {
+                lower_bound: 309.0
+                include_lower_bound: true
+                is_upper_unbounded: true
+                score: 4
+            }
+        }
+        rule {
+            code: "hematocrit"
+            range {
+                is_lower_unbounded: true
+                upper_bound: 20.0
+                include_upper_bound: false
+                score: 4
+            }
+            range {
+                lower_bound: 20.0
+                include_lower_bound: true
+                upper_bound: 30.0
+                include_upper_bound: false
+                score: 2
+            }
+            range {
+                lower_bound: 30.0
+                include_lower_bound: true
+                upper_bound: 46.0
+                include_upper_bound: false
+                score: 0
+            }
+            range {
+                lower_bound: 46.0
+                include_lower_bound: true
+                upper_bound: 50.0
+                include_upper_bound: false
+                score: 1
+            }
+            range {
+                lower_bound: 50.0
+                include_lower_bound: true
+                upper_bound: 60.0
+                include_upper_bound: false
+                score: 2
+            }
+            range {
+                lower_bound: 60.0
+                include_lower_bound: true
+                is_upper_unbounded: true
+                score: 4
+            }
+        }
+        rule {
+            code: "white_blood_cell_count"
+            range {
+                is_lower_unbounded: true
+                upper_bound: 1.0
+                include_upper_bound: false
+                score: 4
+            }
+            range {
+                lower_bound: 1.0
+                include_lower_bound: true
+                upper_bound: 3.0
+                include_upper_bound: false
+                score: 2
+            }
+            range {
+                lower_bound: 3.0
+                include_lower_bound: true
+                upper_bound: 15.0
+                include_upper_bound: false
+                score: 0
+            }
+            range {
+                lower_bound: 15.0
+                include_lower_bound: true
+                upper_bound: 20.0
+                include_upper_bound: false
+                score: 1
+            }
+            range {
+                lower_bound: 20.0
+                include_lower_bound: true
+                upper_bound: 40.0
+                include_upper_bound: false
+                score: 2
+            }
+            range {
+                lower_bound: 40.0
+                include_lower_bound: true
+                is_upper_unbounded: true
+                score: 4
+            }
+        }
+        rule {
+            code: "glasgow_coma_scale"
+        }
+        rule {
+            code: "age"
+            range {
+                is_lower_unbounded: true
+                upper_bound: 45.0
+                include_upper_bound: false
+                score: 0
+            }
+            range {
+                lower_bound: 45.0
+                include_lower_bound: true
+                upper_bound: 55.0
+                include_upper_bound: false
+                score: 2
+            }
+            range {
+                lower_bound: 55.0
+                include_lower_bound: true
+                upper_bound: 65.0
+                include_upper_bound: false
+                score: 3
+            }
+            range {
+                lower_bound: 65.0
+                include_lower_bound: true
+                upper_bound: 75.0
+                include_upper_bound: false
+                score: 5
+            }
+            range {
+                lower_bound: 75.0
+                include_lower_bound: true
+                is_upper_unbounded: true
+                score: 6
+            }
+        }
+    }
+    sofa_meta {
+        # ----- 呼吸 -----
+        sofa_param {
+            code: "pao2_fio2_ratio"
+            name: "PaO2/FiO2 比值"
+            description: "P/F比"
+            value_meta {
+                value_type: FLOAT
+                decimal_places: 2
+                unit: ""
+            }
+        }
+        sofa_param {
+            code: "respiratory_support"
+            name: "呼吸支持"
+            description: "是否机械通气/呼吸支持"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+
+        # ----- 凝血 -----
+        sofa_param {
+            code: "platelet_count"
+            name: "血小板计数"
+            description: "platelet (x10^3/μL)"
+            value_meta {
+                value_type: FLOAT
+                decimal_places: 2
+                unit: "x10^3/μL"
+            }
+        }
+
+        # ----- 肝脏 -----
+        sofa_param {
+            code: "bilirubin"
+            name: "胆红素"
+            description: "bilirubin (umol/L)"
+            value_meta {
+                value_type: FLOAT
+                decimal_places: 2
+                unit: "umol/L"
+            }
+        }
+
+        # ----- 循环：平均动脉压 -----
+        sofa_param {
+            code: "circulation_mean_arterial_pressure"
+            name: "平均动脉压"
+            description: "MAP (mmHg)"
+            value_meta {
+                value_type: FLOAT
+                decimal_places: 2
+                unit: "mmHg"
+            }
+        }
+        # ----- 循环：多巴胺 -----
+        sofa_param {
+            code: "circulation_dopamine_dose"
+            name: "多巴胺剂量"
+            description: "Dopamine (μg/kg/min)"
+            value_meta {
+                value_type: FLOAT
+                decimal_places: 2
+                unit: "μg/kg/min"
+            }
+        }
+        # ----- 循环：肾上腺素 -----
+        sofa_param {
+            code: "circulation_epinephrine_dose"
+            name: "肾上腺素剂量"
+            description: "Epinephrine (μg/kg/min)"
+            value_meta {
+                value_type: FLOAT
+                decimal_places: 2
+                unit: "μg/kg/min"
+            }
+        }
+        # ----- 循环：去甲肾上腺素 -----
+        sofa_param {
+            code: "circulation_norepinephrine_dose"
+            name: "去甲肾上腺素剂量"
+            description: "Norepinephrine (μg/kg/min)"
+            value_meta {
+                value_type: FLOAT
+                decimal_places: 2
+                unit: "μg/kg/min"
+            }
+        }
+        # ----- 循环：多巴酚丁胺 -----
+        sofa_param {
+            code: "circulation_dobutamine_is_used"
+            name: "多巴酚丁胺"
+            description: "是否使用多巴酚丁胺"
+            value_meta {
+                value_type: BOOL
+            }
+        }
+
+        # ----- 神经 -----
+        sofa_param {
+            code: "glasgow_coma_scale"
+            name: "格拉斯哥昏迷评分"
+            description: "GCS (3-15)"
+            value_meta {
+                value_type: INT32
+                unit: "分"
+            }
+        }
+
+        # ----- 肾脏 -----
+        sofa_param {
+            code: "renal_creatinine"
+            name: "血肌酐"
+            description: "Creatinine (umol/L)"
+            value_meta {
+                value_type: FLOAT
+                decimal_places: 2
+                unit: "mg/dL"
+            }
+        }
+        sofa_param {
+            code: "renal_urine_output"
+            name: "尿量"
+            description: "24小时尿量 (mL/day)"
+            value_meta {
+                value_type: FLOAT
+                decimal_places: 2
+                unit: "mL/day"
+            }
+        }
+    }
+    # ========== SOFA 评分规则 ==========
+    sofa_rules {
+        # ----- 呼吸：PaO2/FiO2 比值 -----
+        rule {
+            code: "pao2_fio2_ratio"
+            range {
+                is_lower_unbounded: true
+                upper_bound: 100.0
+                include_upper_bound: false
+                score: 4
+            }
+            range {
+                lower_bound: 100.0
+                include_lower_bound: true
+                upper_bound: 200.0
+                include_upper_bound: false
+                score: 3
+            }
+            range {
+                lower_bound: 200.0
+                include_lower_bound: true
+                upper_bound: 300.0
+                include_upper_bound: false
+                score: 2
+            }
+            range {
+                lower_bound: 300.0
+                include_lower_bound: true
+                upper_bound: 400.0
+                include_upper_bound: false
+                score: 1
+            }
+            range {
+                lower_bound: 400.0
+                include_lower_bound: true
+                is_upper_unbounded: true
+                score: 0
+            }
+        }
+
+        # ----- 凝血：血小板计数 (x10^3/μL) -----
+        rule {
+            code: "platelet_count"
+            range {
+                is_lower_unbounded: true
+                upper_bound: 20.0
+                include_upper_bound: true
+                score: 4
+            }
+            range {
+                lower_bound: 20.0
+                include_lower_bound: false
+                upper_bound: 50.0
+                include_upper_bound: true
+                score: 3
+            }
+            range {
+                lower_bound: 50.0
+                include_lower_bound: false
+                upper_bound: 100.0
+                include_upper_bound: true
+                score: 2
+            }
+            range {
+                lower_bound: 100.0
+                include_lower_bound: false
+                upper_bound: 150.0
+                include_upper_bound: true
+                score: 1
+            }
+            range {
+                lower_bound: 150.0
+                include_lower_bound: false
+                is_upper_unbounded: true
+                score: 0
+            }
+        }
+
+        # ----- 肝脏：胆红素 (umol/L) -----
+        rule {
+            code: "bilirubin"
+            range {
+                is_lower_unbounded: true
+                upper_bound: 20.0
+                include_upper_bound: false
+                score: 0
+            }
+            range {
+                lower_bound: 20.0
+                include_lower_bound: true
+                upper_bound: 33.0
+                include_upper_bound: false
+                score: 1
+            }
+            range {
+                lower_bound: 33.0
+                include_lower_bound: true
+                upper_bound: 102.0
+                include_upper_bound: false
+                score: 2
+            }
+            range {
+                lower_bound: 102.0
+                include_lower_bound: true
+                upper_bound: 204.0
+                include_upper_bound: false
+                score: 3
+            }
+            range {
+                lower_bound: 204.0
+                include_lower_bound: true
+                is_upper_unbounded: true
+                score: 4
+            }
+        }
+
+        # ----- 循环：平均动脉压 -----
+        rule {
+            code: "circulation_mean_arterial_pressure"
+            range {
+                is_lower_unbounded: true
+                upper_bound: 70.0
+                include_upper_bound: false
+                score: 1
+            }
+            range {
+                lower_bound: 70.0
+                include_lower_bound: true
+                is_upper_unbounded: true
+                score: 0
+            }
+        }
+
+        # ----- 循环：多巴胺剂量 -----
+        #   （示例：<=5 → 得2分，5~15 → 3分，>15 → 4分）
+        rule {
+            code: "circulation_dopamine_dose"
+            range {
+                is_lower_unbounded: true
+                upper_bound: 5.0
+                include_upper_bound: true
+                score: 2
+            }
+            range {
+                lower_bound: 5.0
+                include_lower_bound: false
+                upper_bound: 15.0
+                include_upper_bound: true
+                score: 3
+            }
+            range {
+                lower_bound: 15.0
+                include_lower_bound: false
+                is_upper_unbounded: true
+                score: 4
+            }
+        }
+
+        # ----- 循环：肾上腺素剂量 -----
+        #   （示例：<=0.1 → 3分, >0.1 → 4分）
+        rule {
+            code: "circulation_epinephrine_dose"
+            range {
+                is_lower_unbounded: true
+                upper_bound: 0.0
+                include_upper_bound: true
+                score: 0
+            }
+            range {
+                lower_bound: 0.0
+                include_lower_bound: false
+                upper_bound: 0.1
+                include_upper_bound: true
+                score: 3
+            }
+            range {
+                lower_bound: 0.1
+                include_lower_bound: false
+                is_upper_unbounded: true
+                score: 4
+            }
+        }
+
+        # ----- 循环：去甲肾上腺素剂量 -----
+        rule {
+            code: "circulation_norepinephrine_dose"
+            range {
+                is_lower_unbounded: true
+                upper_bound: 0.0
+                include_upper_bound: true
+                score: 0
+            }
+            range {
+                lower_bound: 0.0
+                include_lower_bound: false
+                upper_bound: 0.1
+                include_upper_bound: true
+                score: 3
+            }
+            range {
+                lower_bound: 0.1
+                include_lower_bound: false
+                is_upper_unbounded: true
+                score: 4
+            }
+        }
+
+        # ----- 神经：格拉斯哥评分 -----
+        rule {
+            code: "glasgow_coma_scale"
+            range {
+                is_lower_unbounded: true
+                upper_bound: 6.0
+                include_upper_bound: false
+                score: 4
+            }
+            range {
+                lower_bound: 6.0
+                include_lower_bound: true
+                upper_bound: 10.0
+                include_upper_bound: false
+                score: 3
+            }
+            range {
+                lower_bound: 10.0
+                include_lower_bound: true
+                upper_bound: 13.0
+                include_upper_bound: false
+                score: 2
+            }
+            range {
+                lower_bound: 13.0
+                include_lower_bound: true
+                upper_bound: 15.0
+                include_upper_bound: false
+                score: 1
+            }
+            range {
+                lower_bound: 15.0
+                include_lower_bound: true
+                is_upper_unbounded: true
+                score: 0
+            }
+        }
+
+        # ----- 肾脏：血肌酐(umol/L) -----
+        rule {
+            code: "renal_creatinine"
+            range {
+                is_lower_unbounded: true
+                upper_bound: 110.0
+                include_upper_bound: false
+                score: 0
+            }
+            range {
+                lower_bound: 110.0
+                include_lower_bound: true
+                upper_bound: 171.0
+                include_upper_bound: false
+                score: 1
+            }
+            range {
+                lower_bound: 171.0
+                include_lower_bound: true
+                upper_bound: 300.0
+                include_upper_bound: false
+                score: 2
+            }
+            range {
+                lower_bound: 300.0
+                include_lower_bound: true
+                upper_bound: 441.0
+                include_upper_bound: false
+                score: 3
+            }
+            range {
+                lower_bound: 441.0
+                include_lower_bound: true
+                is_upper_unbounded: true
+                score: 4
+            }
+        }
+
+        # ----- 肾脏：尿量(mL/day) -----
+        rule {
+            code: "renal_urine_output"
+            range {
+                is_lower_unbounded: true
+                upper_bound: 200.0
+                include_upper_bound: false
+                score: 4
+            }
+            range {
+                lower_bound: 200.0
+                include_lower_bound: true
+                upper_bound: 500.0
+                include_upper_bound: true
+                score: 3
+            }
+            range {
+                lower_bound: 500.0
+                include_lower_bound: false
+                is_upper_unbounded: true
+                score: 0
+            }
+        }
+    }
+    vte_caprini_meta {
+        one_point_risk_factor {
+            code: "age_41_60"
+            name: "年龄为41-60岁"
+            description: "年龄为41-60岁"
+            value_meta { value_type: BOOL }
+        }
+        one_point_risk_factor {
+            code: "lower_limb_edema"
+            name: "下肢水肿"
+            description: "下肢水肿"
+            value_meta { value_type: BOOL }
+        }
+        one_point_risk_factor {
+            code: "varicose_veins"
+            name: "静脉曲张"
+            description: "静脉曲张"
+            value_meta { value_type: BOOL }
+        }
+        one_point_risk_factor {
+            code: "obesity_bmi_25"
+            name: "肥胖(BMI≥25)"
+            description: "肥胖(BMI≥25)"
+            value_meta { value_type: BOOL }
+        }
+        one_point_risk_factor {
+            code: "planned_minor_surgery"
+            name: "计划小手术"
+            description: "计划小手术"
+            value_meta { value_type: BOOL }
+        }
+        one_point_risk_factor {
+            code: "inflammatory_history"
+            name: "炎症性病史"
+            description: "炎症性病史"
+            value_meta { value_type: BOOL }
+        }
+        one_point_risk_factor {
+            code: "oral_contraceptives_hrt"
+            name: "口服避孕药或激素替代治疗"
+            description: "口服避孕药或激素替代治疗"
+            value_meta { value_type: BOOL }
+        }
+        one_point_risk_factor {
+            code: "pregnancy_or_postpartum"
+            name: "妊娠期或产后(1个月内)"
+            description: "妊娠期或产后(1个月内)"
+            value_meta { value_type: BOOL }
+        }
+        one_point_risk_factor {
+            code: "acute_myocardial_infarction"
+            name: "急性心肌梗塞"
+            description: "急性心肌梗塞"
+            value_meta { value_type: BOOL }
+        }
+        one_point_risk_factor {
+            code: "congestive_heart_failure"
+            name: "充血性心力衰竭"
+            description: "充血性心力衰竭"
+            value_meta { value_type: BOOL }
+        }
+        one_point_risk_factor {
+            code: "bedridden_medical_patient"
+            name: "卧床的内科患者"
+            description: "卧床的内科患者"
+            value_meta { value_type: BOOL }
+        }
+        one_point_risk_factor {
+            code: "pulmonary_dysfunction"
+            name: "肺功能异常"
+            description: "肺功能异常"
+            value_meta { value_type: BOOL }
+        }
+        one_point_risk_factor {
+            code: "major_surgery_history"
+            name: "大手术史(1个月内)"
+            description: "大手术史(1个月内)"
+            value_meta { value_type: BOOL }
+        }
+        one_point_risk_factor {
+            code: "sepsis"
+            name: "脓毒症"
+            description: "脓毒症"
+            value_meta { value_type: BOOL }
+        }
+        one_point_risk_factor {
+            code: "severe_lung_disease_pneumonia"
+            name: "严重肺部疾病，含肺炎(1个月内)"
+            description: "严重肺部疾病，含肺炎(1个月内)"
+            value_meta { value_type: BOOL }
+        }
+        one_point_risk_factor {
+            code: "unexplained_or_recurrent_miscarriage"
+            name: "不明原因或习惯性流产"
+            description: "不明原因或习惯性流产，早产伴有新生儿毒血症或发育受限"
+            value_meta { value_type: BOOL }
+        }
+        one_point_risk_factor {
+            code: "other_risk_factors"
+            name: "其他风险因素"
+            description: "其他风险因素（字符串输入）"
+            value_meta { value_type: STRING }
+        }
+        two_points_risk_factor {
+            code: "age_61_74"
+            name: "年龄为61-74岁"
+            description: "年龄为61-74岁"
+            value_meta { value_type: BOOL }
+        }
+        two_points_risk_factor {
+            code: "central_venous_catheter"
+            name: "中心静脉置管"
+            description: "中心静脉置管"
+            value_meta { value_type: BOOL }
+        }
+        two_points_risk_factor {
+            code: "arthroscopic_surgery"
+            name: "关节镜手术"
+            description: "关节镜手术"
+            value_meta { value_type: BOOL }
+        }
+        two_points_risk_factor {
+            code: "major_surgery_over_45min"
+            name: "大手术(＞45分钟)"
+            description: "大手术(＞45分钟)"
+            value_meta { value_type: BOOL }
+        }
+        two_points_risk_factor {
+            code: "bed_rest_over_72h"
+            name: "患者需要卧床(>72小时)"
+            description: "患者需要卧床(>72小时)"
+            value_meta { value_type: BOOL }
+        }
+        two_points_risk_factor {
+            code: "malignant_tumor"
+            name: "恶性肿瘤(既往或现患)"
+            description: "恶性肿瘤(既往或现患)"
+            value_meta { value_type: BOOL }
+        }
+        two_points_risk_factor {
+            code: "laparoscopic_surgery_over_45min"
+            name: "腹腔镜手术(＞45分钟)"
+            description: "腹腔镜手术(＞45分钟)"
+            value_meta { value_type: BOOL }
+        }
+        two_points_risk_factor {
+            code: "cast_immobilization"
+            name: "石膏固定(1个月内)"
+            description: "石膏固定(1个月内)"
+            value_meta { value_type: BOOL }
+        }
+        three_points_risk_factor {
+            code: "age_75_or_older"
+            name: "年龄≥75岁"
+            description: "年龄≥75岁"
+            value_meta { value_type: BOOL }
+        }
+        three_points_risk_factor {
+            code: "thrombosis_family_history"
+            name: "血栓家族病史"
+            description: "血栓家族病史"
+            value_meta { value_type: BOOL }
+        }
+        three_points_risk_factor {
+            code: "dvt_pe_history"
+            name: "DVT/PE患者"
+            description: "深静脉血栓/肺栓塞病史"
+            value_meta { value_type: BOOL }
+        }
+        three_points_risk_factor {
+            code: "prothrombin_20210a_positive"
+            name: "凝血酶原20210A阳性"
+            description: "凝血酶原20210A阳性"
+            value_meta { value_type: BOOL }
+        }
+        three_points_risk_factor {
+            code: "factor_v_leiden_positive"
+            name: "因子V Leiden阳性"
+            description: "因子V Leiden阳性"
+            value_meta { value_type: BOOL }
+        }
+        three_points_risk_factor {
+            code: "lupus_anticoagulant_positive"
+            name: "狼疮抗凝物阳性"
+            description: "狼疮抗凝物阳性"
+            value_meta { value_type: BOOL }
+        }
+        three_points_risk_factor {
+            code: "elevated_homocysteine"
+            name: "血清同型半胱氨酸升高"
+            description: "血清同型半胱氨酸升高"
+            value_meta { value_type: BOOL }
+        }
+        three_points_risk_factor {
+            code: "antiphospholipid_antibodies"
+            name: "抗心磷脂抗体升高"
+            description: "抗心磷脂抗体升高"
+            value_meta { value_type: BOOL }
+        }
+        three_points_risk_factor {
+            code: "heparin_induced_thrombocytopenia"
+            name: "肝素引起的血小板减少(HIT)"
+            description: "肝素诱导的血小板减少症(HIT)"
+            value_meta { value_type: BOOL }
+        }
+        three_points_risk_factor {
+            code: "other_congenital_or_acquired_thrombosis"
+            name: "其他先天性或后天血栓疾病"
+            description: "其他先天性或后天血栓疾病（字符串输入）"
+            value_meta { value_type: STRING }
+        }
+        five_points_risk_factor {
+            code: "stroke_within_month"
+            name: "脑卒中(1个月内)"
+            description: "脑卒中(1个月内)"
+            value_meta { value_type: BOOL }
+        }
+        five_points_risk_factor {
+            code: "multiple_trauma_within_month"
+            name: "多发性创伤(1个月内)"
+            description: "多发性创伤(1个月内)"
+            value_meta { value_type: BOOL }
+        }
+        five_points_risk_factor {
+            code: "acute_spinal_cord_injury"
+            name: "急性骨髓损伤(瘫痪)(1个月内)"
+            description: "急性脊髓损伤或瘫痪(1个月内)"
+            value_meta { value_type: BOOL }
+        }
+        five_points_risk_factor {
+            code: "hip_pelvis_lower_limb_fracture"
+            name: "髋关节、骨盆或下肢骨折"
+            description: "髋关节、骨盆或下肢骨折"
+            value_meta { value_type: BOOL }
+        }
+        five_points_risk_factor {
+            code: "elective_lower_limb_joint_replacement"
+            name: "选择性下肢关节置换术"
+            description: "选择性下肢关节置换术"
+            value_meta { value_type: BOOL }
+        }
+        bleeding_risk_general_factor {
+            code: "active_bleeding"
+            name: "活动性出血"
+            description: "活动性出血"
+            value_meta { value_type: BOOL }
+        }
+        bleeding_risk_general_factor {
+            code: "bleeding_event_within_3months"
+            name: "3个月内有出血事件"
+            description: "3个月内有出血事件"
+            value_meta { value_type: BOOL }
+        }
+        bleeding_risk_general_factor {
+            code: "severe_renal_or_liver_failure"
+            name: "严重肾功能或肝功能衰竭"
+            description: "严重肾功能或肝功能衰竭"
+            value_meta { value_type: BOOL }
+        }
+        bleeding_risk_general_factor {
+            code: "platelet_count_below_50"
+            name: "血小板计数<50*10^9/L"
+            description: "血小板计数<50*10^9/L"
+            value_meta { value_type: BOOL }
+        }
+        bleeding_risk_general_factor {
+            code: "uncontrolled_hypertension"
+            name: "未控制的高血压"
+            description: "未控制的高血压"
+            value_meta { value_type: BOOL }
+        }
+        bleeding_risk_general_factor {
+            code: "lumbar_epidural_or_spinal_anesthesia"
+            name: "腰穿、硬膜外或椎管内麻醉术前4h-术后12h"
+            description: "腰穿、硬膜外或椎管内麻醉术前4h-术后12h"
+            value_meta { value_type: BOOL }
+        }
+        bleeding_risk_general_factor {
+            code: "anticoagulant_antiplatelet_or_thrombolytic"
+            name: "抗凝药、抗血小板或溶栓治疗"
+            description: "同时使用抗凝药、抗血小板治疗或溶栓药物"
+            value_meta { value_type: BOOL }
+        }
+        bleeding_risk_general_factor {
+            code: "coagulation_disorder"
+            name: "凝血功能障碍"
+            description: "凝血功能障碍"
+            value_meta { value_type: BOOL }
+        }
+        bleeding_risk_general_factor {
+            code: "active_gi_ulcer"
+            name: "活动性消化道溃疡"
+            description: "活动性消化道溃疡"
+            value_meta { value_type: BOOL }
+        }
+        bleeding_risk_general_factor {
+            code: "known_untreated_bleeding_disorder"
+            name: "已知、未治疗的出血疾病"
+            description: "已知、未治疗的出血疾病"
+            value_meta { value_type: BOOL }
+        }
+        bleeding_risk_surgery_related_factor {
+            code: "abdominal_surgery_malignant_male_anemia_complex"
+            name: "腹部手术合并高危因素"
+            description: "腹部手术：恶性肿瘤男性患者，术前贫血，复杂手术"
+            value_meta { value_type: BOOL }
+        }
+        bleeding_risk_surgery_related_factor {
+            code: "pancreaticoduodenectomy_sepsis_fistula_bleeding"
+            name: "胰十二指肠切除术并发症"
+            description: "胰十二指肠切除术：败血症、胰瘘、手术部位出血"
+            value_meta { value_type: BOOL }
+        }
+        bleeding_risk_surgery_related_factor {
+            code: "liver_resection_pri_liver_cancer_low_hemoglobin_platelets"
+            name: "肝切除术高风险因素"
+            description: "肝切除术：原发性肝癌、术前血红蛋白和血小板计数低"
+            value_meta { value_type: BOOL }
+        }
+        bleeding_risk_surgery_related_factor {
+            code: "cardiac_surgery_long_cp_time"
+            name: "心脏手术体外循环时间长"
+            description: "心脏手术：体外循环时间较长"
+            value_meta { value_type: BOOL }
+        }
+        bleeding_risk_surgery_related_factor {
+            code: "thoracic_surgery_pneumonectomy_or_extended"
+            name: "胸部手术大范围切除"
+            description: "胸部手术：全肺切除术或扩张切除术"
+            value_meta { value_type: BOOL }
+        }
+        bleeding_risk_high_risk_surgery_factor {
+            code: "craniotomy"
+            name: "开颅手术"
+            description: "开颅手术"
+            value_meta { value_type: BOOL }
+        }
+        bleeding_risk_high_risk_surgery_factor {
+            code: "spinal_surgery"
+            name: "脊柱手术"
+            description: "脊柱手术"
+            value_meta { value_type: BOOL }
+        }
+        bleeding_risk_high_risk_surgery_factor {
+            code: "spinal_trauma"
+            name: "脊柱创伤"
+            description: "脊柱创伤"
+            value_meta { value_type: BOOL }
+        }
+        bleeding_risk_high_risk_surgery_factor {
+            code: "free_flap_reconstruction"
+            name: "游离皮瓣重建手术"
+            description: "游离皮瓣重建手术"
+            value_meta { value_type: BOOL }
+        }
+        prevention_assessment {
+            code: "prevention_anticoagulant_only_assess"
+            name: "抗凝药物预防"
+            description: "抗凝药物预防"
+            value_meta { value_type: BOOL }
+        }
+        prevention_assessment {
+            code: "prevention_physical_only_assess"
+            name: "物理预防"
+            description: "物理预防"
+            value_meta { value_type: BOOL }
+        }
+        prevention_assessment {
+            code: "prevention_anticoagulant_physical_assess"
+            name: "抗凝药物+物理预防"
+            description: "抗凝药物+物理预防"
+            value_meta { value_type: BOOL }
+        }
+        prevention_assessment {
+            code: "prevention_unavailable_assess"
+            name: "预防措施不可用"
+            description: "预防措施不可用"
+            value_meta { value_type: BOOL }
+        }
+        prevention_execution {
+            code: "prevention_anticoagulant_only_exec"
+            name: "抗凝药物预防"
+            description: "抗凝药物预防"
+            value_meta { value_type: BOOL }
+        }
+        prevention_execution {
+            code: "prevention_physical_only_exec"
+            name: "物理预防"
+            description: "物理预防"
+            value_meta { value_type: BOOL }
+        }
+        prevention_execution {
+            code: "prevention_anticoagulant_physical_exec"
+            name: "抗凝药物+物理预防"
+            description: "抗凝药物+物理预防"
+            value_meta { value_type: BOOL }
+        }
+        prevention_execution {
+            code: "prevention_unavailable_exec"
+            name: "预防措施不可用"
+            description: "预防措施不可用"
+            value_meta { value_type: BOOL }
+        }
+        basic_measure {
+            code: "elevate_limbs"
+            name: "抬高患者肢体"
+            description: "抬高患者肢体"
+            value_meta { value_type: BOOL }
+        }
+        basic_measure {
+            code: "ankle_exercise"
+            name: "踝关节活动"
+            description: "踝关节活动"
+            value_meta { value_type: BOOL }
+        }
+        basic_measure {
+            code: "quadriceps_contraction"
+            name: "股四头肌收缩"
+            description: "股四头肌收缩"
+            value_meta { value_type: BOOL }
+        }
+        basic_measure {
+            code: "deep_breathing_or_balloon"
+            name: "深呼吸或吹气球"
+            description: "做深呼吸或吹气球"
+            value_meta { value_type: BOOL }
+        }
+        basic_measure {
+            code: "quit_smoking_alcohol"
+            name: "戒烟戒酒"
+            description: "戒烟戒酒"
+            value_meta { value_type: BOOL }
+        }
+        basic_measure {
+            code: "drink_more_water"
+            name: "多饮水"
+            description: "多饮水"
+            value_meta { value_type: BOOL }
+        }
+        basic_measure {
+            code: "maintain_bowel_regular"
+            name: "保持大便通畅"
+            description: "保持大便通畅"
+            value_meta { value_type: BOOL }
+        }
+        basic_measure {
+            code: "turn_every_2h_or_leg_movement"
+            name: "2小时翻身或屈伸下肢"
+            description: "每2小时翻身或主动屈伸下肢"
+            value_meta { value_type: BOOL }
+        }
+        basic_measure {
+            code: "get_out_of_bed"
+            name: "下床活动"
+            description: "下床活动"
+            value_meta { value_type: BOOL }
+        }
+        basic_measure {
+            code: "other_basic_measures"
+            name: "其他护理措施"
+            description: "其他基础护理措施（字符串）"
+            value_meta { value_type: STRING }
+        }
+        mechanical_measure {
+            code: "intermittent_pneumatic_compression"
+            name: "间歇性气压装置"
+            description: "使用间充气加压泵进行下肢循环促进"
+            value_meta { value_type: BOOL }
+        }
+        mechanical_measure {
+            code: "graded_compression_stockings"
+            name: "分级加压弹力袜"
+            description: "穿戴分级加压弹力袜以促进静脉回流"
+            value_meta { value_type: BOOL }
+        }
+        mechanical_measure {
+            code: "foot_vein_pump"
+            name: "足底静脉泵"
+            description: "使用足底静脉泵进行血流刺激"
+            value_meta { value_type: BOOL }
+        }
+        pharmacological_measure {
+            code: "low_molecular_heparin_injection"
+            name: "低分子肝素注射"
+            description: "皮下注射低分子肝素"
+            value_meta { value_type: BOOL }
+        }
+        pharmacological_measure {
+            code: "rivaroxaban"
+            name: "利伐沙班"
+            description: "口服抗凝药利伐沙班"
+            value_meta { value_type: BOOL }
+        }
+        pharmacological_measure {
+            code: "warfarin"
+            name: "华法林"
+            description: "口服抗凝药华法林"
+            value_meta { value_type: BOOL }
+        }
+        pharmacological_measure {
+            code: "other_pharmacological_measures"
+            name: "其他药物措施"
+            description: "其他抗凝药物（字符串）"
+            value_meta { value_type: STRING }
+        }
+    }
+    vte_padua_meta {
+        one_point_risk_factor {
+            code: "age_70_or_older"
+            name: "年龄≥70岁"
+            description: "年龄≥70岁"
+            value_meta { value_type: BOOL }
+        }
+        one_point_risk_factor {
+            code: "obesity_bmi_30"
+            name: "肥胖(体重指数≥30kg/m²)"
+            description: "肥胖(体重指数≥30kg/m²)"
+            value_meta { value_type: BOOL }
+        }
+        one_point_risk_factor {
+            code: "acute_infection_rheumatic"
+            name: "急性感染和(或)风湿性疾病"
+            description: "急性感染和(或)风湿性疾病"
+            value_meta { value_type: BOOL }
+        }
+        one_point_risk_factor {
+            code: "acute_mi_or_stroke"
+            name: "急性心肌梗死和(或)缺血性脑卒中"
+            description: "急性心肌梗死和(或)缺血性脑卒中"
+            value_meta { value_type: BOOL }
+        }
+        one_point_risk_factor {
+            code: "hormone_therapy"
+            name: "正在进行激素治疗"
+            description: "正在进行激素治疗"
+            value_meta { value_type: BOOL }
+        }
+        one_point_risk_factor {
+            code: "heart_or_respiratory_failure"
+            name: "心脏和(或)呼吸衰竭"
+            description: "心脏和(或)呼吸衰竭"
+            value_meta { value_type: BOOL }
+        }
+
+        two_points_risk_factor {
+            code: "recent_trauma_or_surgery"
+            name: "近期(≤1个月)创伤或外科手术"
+            description: "近期(≤1个月)创伤或外科手术"
+            value_meta { value_type: BOOL }
+        }
+
+        three_points_risk_factor {
+            code: "thrombophilic_condition"
+            name: "有血栓形成倾向"
+            description: "抗凝血酶缺陷症、蛋白C或S缺乏、Leiden V因子、凝血酶原G20210A等易栓症筛查异常"
+            value_meta { value_type: BOOL }
+        }
+        three_points_risk_factor {
+            code: "active_malignancy"
+            name: "活动性恶性肿瘤"
+            description: "活动性恶性肿瘤，含局部或远端转移和/或6个月内接受化疗、放疗"
+            value_meta { value_type: BOOL }
+        }
+        three_points_risk_factor {
+            code: "prior_vte"
+            name: "既往静脉血栓栓塞症"
+            description: "既往静脉血栓栓塞症"
+            value_meta { value_type: BOOL }
+        }
+        three_points_risk_factor {
+            code: "immobilization"
+            name: "制动卧床≥3天"
+            description: "制动，患者身体原因或遵医嘱卧床休息≥3天"
+            value_meta { value_type: BOOL }
+        }
+
+        high_risk_one_item {
+            code: "active_gi_ulcer"
+            name: "活动性胃肠道溃疡"
+            description: "活动性胃肠道溃疡"
+            value_meta { value_type: BOOL }
+        }
+        high_risk_one_item {
+            code: "bleeding_event_within_3months"
+            name: "3个月内有出血事件"
+            description: "入院前3个月内有出血事件"
+            value_meta { value_type: BOOL }
+        }
+        high_risk_one_item {
+            code: "platelet_count_below_50"
+            name: "血小板计数<50*10^9/L"
+            description: "血小板计数<50*10^9/L"
+            value_meta { value_type: BOOL }
+        }
+
+        high_risk_three_or_more {
+            code: "age_85_or_older"
+            name: "年龄≥85岁"
+            description: "年龄≥85岁"
+            value_meta { value_type: BOOL }
+        }
+        high_risk_three_or_more {
+            code: "liver_dysfunction_inr_15"
+            name: "肝功能不全(INR > 1.5)"
+            description: "肝功能不全(INR > 1.5)"
+            value_meta { value_type: BOOL }
+        }
+        high_risk_three_or_more {
+            code: "severe_renal_failure"
+            name: "严重肾功能不全"
+            description: "严重肾功能不全(30ml/min/1.73 m²)"
+            value_meta { value_type: BOOL }
+        }
+        high_risk_three_or_more {
+            code: "icu_or_ccu_admission"
+            name: "入住ICU或CCU"
+            description: "入住ICU或CCU"
+            value_meta { value_type: BOOL }
+        }
+        high_risk_three_or_more {
+            code: "central_venous_catheter"
+            name: "中心静脉置管"
+            description: "中心静脉置管"
+            value_meta { value_type: BOOL }
+        }
+        high_risk_three_or_more {
+            code: "has_active_malignancy"
+            name: "现患恶性肿瘤"
+            description: "现患恶性肿瘤"
+            value_meta { value_type: BOOL }
+        }
+        high_risk_three_or_more {
+            code: "rheumatic_disease"
+            name: "风湿性疾病"
+            description: "风湿性疾病"
+            value_meta { value_type: BOOL }
+        }
+        high_risk_three_or_more {
+            code: "male_gender"
+            name: "男性"
+            description: "男性"
+            value_meta { value_type: BOOL }
+        }
+        prevention_assessment {
+            code: "prevention_anticoagulant_only_assess"
+            name: "抗凝药物预防"
+            description: "抗凝药物预防"
+            value_meta { value_type: BOOL }
+        }
+        prevention_assessment {
+            code: "prevention_physical_only_assess"
+            name: "物理预防"
+            description: "物理预防"
+            value_meta { value_type: BOOL }
+        }
+        prevention_assessment {
+            code: "prevention_anticoagulant_physical_assess"
+            name: "抗凝药物+物理预防"
+            description: "抗凝药物+物理预防"
+            value_meta { value_type: BOOL }
+        }
+        prevention_assessment {
+            code: "prevention_unavailable_assess"
+            name: "预防措施不可用"
+            description: "预防措施不可用"
+            value_meta { value_type: BOOL }
+        }
+        prevention_execution {
+            code: "prevention_anticoagulant_only_exec"
+            name: "抗凝药物预防"
+            description: "抗凝药物预防"
+            value_meta { value_type: BOOL }
+        }
+        prevention_execution {
+            code: "prevention_physical_only_exec"
+            name: "物理预防"
+            description: "物理预防"
+            value_meta { value_type: BOOL }
+        }
+        prevention_execution {
+            code: "prevention_anticoagulant_physical_exec"
+            name: "抗凝药物+物理预防"
+            description: "抗凝药物+物理预防"
+            value_meta { value_type: BOOL }
+        }
+        prevention_execution {
+            code: "prevention_unavailable_exec"
+            name: "预防措施不可用"
+            description: "预防措施不可用"
+            value_meta { value_type: BOOL }
+        }
+        basic_measure {
+            code: "elevate_limbs"
+            name: "抬高患者肢体"
+            description: "抬高患者肢体"
+            value_meta { value_type: BOOL }
+        }
+        basic_measure {
+            code: "ankle_exercise"
+            name: "踝关节活动"
+            description: "踝关节活动"
+            value_meta { value_type: BOOL }
+        }
+        basic_measure {
+            code: "quadriceps_contraction"
+            name: "股四头肌收缩"
+            description: "股四头肌收缩"
+            value_meta { value_type: BOOL }
+        }
+        basic_measure {
+            code: "deep_breathing_or_balloon"
+            name: "深呼吸或吹气球"
+            description: "做深呼吸或吹气球"
+            value_meta { value_type: BOOL }
+        }
+        basic_measure {
+            code: "quit_smoking_alcohol"
+            name: "戒烟戒酒"
+            description: "戒烟戒酒"
+            value_meta { value_type: BOOL }
+        }
+        basic_measure {
+            code: "drink_more_water"
+            name: "多饮水"
+            description: "多饮水"
+            value_meta { value_type: BOOL }
+        }
+        basic_measure {
+            code: "maintain_bowel_regular"
+            name: "保持大便通畅"
+            description: "保持大便通畅"
+            value_meta { value_type: BOOL }
+        }
+        basic_measure {
+            code: "turn_every_2h_or_leg_movement"
+            name: "2小时翻身或屈伸下肢"
+            description: "每2小时翻身或主动屈伸下肢"
+            value_meta { value_type: BOOL }
+        }
+        basic_measure {
+            code: "get_out_of_bed"
+            name: "下床活动"
+            description: "下床活动"
+            value_meta { value_type: BOOL }
+        }
+        basic_measure {
+            code: "other_basic_measures"
+            name: "其他护理措施"
+            description: "其他基础护理措施（字符串）"
+            value_meta { value_type: STRING }
+        }
+        mechanical_measure {
+            code: "intermittent_pneumatic_compression"
+            name: "间歇性气压装置"
+            description: "使用间充气加压泵进行下肢循环促进"
+            value_meta { value_type: BOOL }
+        }
+        mechanical_measure {
+            code: "graded_compression_stockings"
+            name: "分级加压弹力袜"
+            description: "穿戴分级加压弹力袜以促进静脉回流"
+            value_meta { value_type: BOOL }
+        }
+        mechanical_measure {
+            code: "foot_vein_pump"
+            name: "足底静脉泵"
+            description: "使用足底静脉泵进行血流刺激"
+            value_meta { value_type: BOOL }
+        }
+        pharmacological_measure {
+            code: "low_molecular_heparin_injection"
+            name: "低分子肝素注射"
+            description: "皮下注射低分子肝素"
+            value_meta { value_type: BOOL }
+        }
+        pharmacological_measure {
+            code: "rivaroxaban"
+            name: "利伐沙班"
+            description: "口服抗凝药利伐沙班"
+            value_meta { value_type: BOOL }
+        }
+        pharmacological_measure {
+            code: "warfarin"
+            name: "华法林"
+            description: "口服抗凝药华法林"
+            value_meta { value_type: BOOL }
+        }
+        pharmacological_measure {
+            code: "other_pharmacological_measures"
+            name: "其他药物措施"
+            description: "其他抗凝药物（字符串）"
+            value_meta { value_type: STRING }
+        }
+    }
+}
+bga {
+    enums {
+        bga_category {
+            id: 1
+            name: "动脉血"
+        }
+        bga_category {
+            id: 2
+            name: "静脉血"
+        }
+        bga_category {
+            id: 3
+            name: "脑脊液"
+        }
+    }
+}
+lis {
+    param {
+        param {
+            param_code: "lis_TBIL"
+            param_name: "总胆红素"
+            description: "TBIL"
+        }
+        value_meta {
+            value_type: FLOAT
+            decimal_places: 2
+            unit: "μmol/L"
+        }
+    }
+}
+overview {
+    enums {
+        param_type {
+            id: 1
+            name: "血气"
+        }
+        param_type {
+            id: 2
+            name: "检验"
+        }
+        param_type {
+            id: 3
+            name: "生命体征"
+        }
+        param_type {
+            id: 4
+            name: "出入量"
+        }
+        param_type {
+            id: 5
+            name: "药物"
+        }
+        graph_type {
+            id: 1
+            name: "柱状图"
+        }
+        graph_type {
+            id: 2
+            name: "折线图"
+        }
+        graph_type {
+            id: 3
+            name: "面积图"
+        }
+    }
+    vital_sign_blocked_param: "total_intake"
+    vital_sign_blocked_param: "total_output"
+    vital_sign_blocked_param: "total_balance"
+}

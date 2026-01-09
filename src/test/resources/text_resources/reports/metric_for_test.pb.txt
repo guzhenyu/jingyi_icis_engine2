@@ -1,0 +1,683 @@
+num_values_per_metric: 24
+utc_seconds: 1717628400
+utc_seconds: 1717632000
+utc_seconds: 1717635600
+utc_seconds: 1717639200
+utc_seconds: 1717642800
+utc_seconds: 1717646400
+utc_seconds: 1717650000
+utc_seconds: 1717653600
+utc_seconds: 1717657200
+utc_seconds: 1717660800
+utc_seconds: 1717664400
+utc_seconds: 1717668000
+utc_seconds: 1717671600
+utc_seconds: 1717675200
+utc_seconds: 1717678800
+utc_seconds: 1717682400
+utc_seconds: 1717686000
+utc_seconds: 1717603200
+utc_seconds: 1717606800
+utc_seconds: 1717610400
+utc_seconds: 1717614000
+utc_seconds: 1717617600
+utc_seconds: 1717621200
+utc_seconds: 1717624800
+metric {
+  name {
+    name: "body_temperature"
+    name_text: "体温"
+  }
+  group {
+    group: "vital_signs"
+    group_text: "生命体征"
+  }
+  is_new_group: true
+  unit {
+    unit: "celsius"
+    unit_text: "°C"
+    value_type: FLOAT
+    upper_bound {
+      float_val: 42.0
+    }
+    lower_bound {
+      float_val: 32.0
+    }
+  }
+  value {
+    float_val: 36.5
+  }
+  value {
+    float_val: 36.6
+  }
+  value {
+    float_val: 36.7
+  }
+  value {
+    float_val: 36.8
+  }
+  value {
+    float_val: 36.5
+  }
+  value {
+    float_val: 36.6
+  }
+  value {
+    float_val: 36.7
+  }
+  value {
+    float_val: 36.8
+  }
+  value {
+    float_val: 36.5
+  }
+  value {
+    float_val: 36.6
+  }
+  value {
+    float_val: 36.7
+  }
+  value {
+    float_val: 36.8
+  }
+  value {
+    float_val: 36.5
+  }
+  value {
+    float_val: 36.6
+  }
+  value {
+    float_val: 36.7
+  }
+  value {
+    float_val: 36.8
+  }
+  value {
+    float_val: 36.5
+  }
+  value {
+    float_val: 36.6
+  }
+  value {
+    float_val: 36.7
+  }
+  value {
+    float_val: 36.8
+  }
+  value {
+    float_val: 36.5
+  }
+  value {
+    float_val: 36.6
+  }
+  value {
+    float_val: 36.7
+  }
+  value {
+    float_val: 36.8
+  }
+}
+metric {
+  name {
+    name: "heartbeat_per_minute"
+    name_text: "心率"
+  }
+  group {
+    group: "vital_signs"
+    group_text: "生命体征"
+  }
+  is_new_group: false
+  unit {
+    unit: "heartbeat_per_minute"
+    unit_text: "bpm"
+    value_type: FLOAT
+    upper_bound {
+      float_val: 250.0
+    }
+    lower_bound {
+      float_val: 0.0
+    }
+  }
+  value {
+    float_val: 110.0
+  }
+  value {
+    float_val: 116.0
+  }
+  value {
+    float_val: 83
+  }
+  value {
+    float_val: 75
+  }
+  value {
+    float_val: 86
+  }
+  value {
+    float_val: 72
+  }
+  value {
+    float_val: 71
+  }
+  value {
+    float_val: 79
+  }
+  value {
+    float_val: 126
+  }
+  value {
+    float_val: 96
+  }
+  value {
+    float_val: 148
+  }
+  value {
+    float_val: 99
+  }
+  value {
+    float_val: 89
+  }
+  value {
+    float_val: 77
+  }
+  value {
+    float_val: 75
+  }
+  value {
+    float_val: 80
+  }
+  value {
+    float_val: 73
+  }
+  value {
+    float_val: 129
+  }
+  value {
+    float_val: 77
+  }
+  value {
+    float_val: 73
+  }
+  value {
+    float_val: 74
+  }
+  value {
+    float_val: 73
+  }
+  value {
+    float_val: 71
+  }
+  value {
+    float_val: 84
+  }
+}
+metric {
+  name {
+    name: "breaths_per_minute"
+    name_text: "呼吸"
+  }
+  group {
+    group: "vital_signs"
+    group_text: "生命体征"
+  }
+  is_new_group: false
+  unit {
+    unit: "breaths_per_minute"
+    unit_text: "bpm"
+    value_type: INT
+    upper_bound {
+      int_val: 75
+    }
+    lower_bound {
+      int_val: 0
+    }
+  }
+  value {
+    int_val: 20
+  }
+  value {
+    int_val: 21
+  }
+  value {
+    int_val: 15
+  }
+  value {
+    int_val: 20
+  }
+  value {
+    int_val: 25
+  }
+  value {
+    int_val: 23
+  }
+  value {
+    int_val: 27
+  }
+  value {
+    int_val: 29
+  }
+  value {
+    int_val: 18
+  }
+  value {
+    int_val: 31
+  }
+  value {
+    int_val: 25
+  }
+  value {
+    int_val: 24
+  }
+  value {
+    int_val: 10
+  }
+  value {
+    int_val: 33
+  }
+  value {
+    int_val: 21
+  }
+  value {
+    int_val: 25
+  }
+  value {
+    int_val: 27
+  }
+  value {
+    int_val: 17
+  }
+  value {
+    int_val: 16
+  }
+  value {
+    int_val: 23
+  }
+  value {
+    int_val: 16
+  }
+  value {
+    int_val: 25
+  }
+  value {
+    int_val: 19
+  }
+  value {
+    int_val: 19
+  }
+}
+metric {
+  name {
+    name: "oxygen_saturation"
+    name_text: "血氧饱和度"
+  }
+  group {
+    group: "vital_signs"
+    group_text: "生命体征"
+  }
+  is_new_group: false
+  unit {
+    unit: "percent"
+    unit_text: "%"
+    value_type: FLOAT
+    upper_bound {
+      float_val: 110.0
+    }
+    lower_bound {
+      float_val: 60.0
+    }
+  }
+  value {
+    float_val: 85
+  }
+  value {
+    float_val: 86
+  }
+  value {
+    float_val: 91
+  }
+  value {
+    float_val: 92
+  }
+  value {
+    float_val: 95
+  }
+  value {
+    float_val: 92
+  }
+  value {
+    float_val: 91
+  }
+  value {
+    float_val: 92
+  }
+  value {
+    float_val: 96
+  }
+  value {
+    float_val: 87
+  }
+  value {
+    float_val: 88
+  }
+  value {
+    float_val: 87
+  }
+  value {
+    float_val: 85
+  }
+  value {
+    float_val: 91
+  }
+  value {
+    float_val: 87
+  }
+  value {
+    float_val: 90
+  }
+  value {
+    float_val: 87
+  }
+  value {
+    float_val: 95
+  }
+  value {
+    float_val: 95
+  }
+  value {
+    float_val: 93
+  }
+  value {
+    float_val: 95
+  }
+  value {
+    float_val: 90
+  }
+  value {
+    float_val: 93
+  }
+  value {
+    float_val: 90
+  }
+}
+metric {
+  name {
+    name: "invasive_systolic_mmhg"
+    name_text: "有创收缩压"
+  }
+  group {
+    group: "vital_signs"
+    group_text: "生命体征"
+  }
+  is_new_group: false
+  unit {
+    unit: "mmHg"
+    unit_text: "mmHg"
+    value_type: FLOAT
+    upper_bound {
+      float_val: 270.0
+    }
+    lower_bound {
+      float_val: 20.0
+    }
+  }
+  value {
+    float_val: 147
+  }
+  value {
+    float_val: 145
+  }
+  value {
+    float_val: 149
+  }
+  value {
+    float_val: 137
+  }
+  value {
+    float_val: 136
+  }
+  value {
+    float_val: 142
+  }
+  value {
+    float_val: 141
+  }
+  value {
+    float_val: 146
+  }
+  value {
+    float_val: 148
+  }
+  value {
+    float_val: 151
+  }
+  value {
+    float_val: 137
+  }
+  value {
+    float_val: 144
+  }
+  value {
+    float_val: 141
+  }
+  value {
+    float_val: 138
+  }
+  value {
+    float_val: 119
+  }
+  value {
+    float_val: 117
+  }
+  value {
+    float_val: 132
+  }
+  value {
+    float_val: 122
+  }
+  value {
+    float_val: 115
+  }
+  value {
+    float_val: 135
+  }
+  value {
+    float_val: 126
+  }
+  value {
+    float_val: 143
+  }
+  value {
+    float_val: 145
+  }
+  value {
+    float_val: 143
+  }
+}
+metric {
+  name {
+    name: "invasive_diastolic_mmhg"
+    name_text: "有创舒张压"
+  }
+  group {
+    group: "vital_signs"
+    group_text: "生命体征"
+  }
+  is_new_group: false
+  unit {
+    unit: "mmHg"
+    unit_text: "mmHg"
+    value_type: FLOAT
+    upper_bound {
+      float_val: 270.0
+    }
+    lower_bound {
+      float_val: 20.0
+    }
+  }
+  value {
+    float_val: 61
+  }
+  value {
+    float_val: 68
+  }
+  value {
+    float_val: 67
+  }
+  value {
+    float_val: 59
+  }
+  value {
+    float_val: 63
+  }
+  value {
+    float_val: 59
+  }
+  value {
+    float_val: 60
+  }
+  value {
+    float_val: 63
+  }
+  value {
+    float_val: 64
+  }
+  value {
+    float_val: 58
+  }
+  value {
+    float_val: 49
+  }
+  value {
+    float_val: 72
+  }
+  value {
+    float_val: 69
+  }
+  value {
+    float_val: 55
+  }
+  value {
+    float_val: 42
+  }
+  value {
+    float_val: 41
+  }
+  value {
+    float_val: 52
+  }
+  value {
+    float_val: 50
+  }
+  value {
+    float_val: 57
+  }
+  value {
+    float_val: 54
+  }
+  value {
+    float_val: 52
+  }
+  value {
+    float_val: 56
+  }
+  value {
+    float_val: 59
+  }
+  value {
+    float_val: 56
+  }
+}
+metric {
+  name {
+    name: "blood_glucose"
+    name_text: "血糖"
+  }
+  group {
+    group: "vital_signs"
+    group_text: "生命体征"
+  }
+  is_new_group: false
+  unit {
+    unit: "millimoles_per_liter"
+    unit_text: "mmol/L"
+    value_type: FLOAT
+    upper_bound {
+      float_val: 16.0
+    }
+    lower_bound {
+      float_val: 1.0
+    }
+  }
+  value {
+    is_null: true
+  }
+  value {
+    is_null: true
+  }
+  value {
+    is_null: true
+  }
+  value {
+    is_null: true
+  }
+  value {
+    is_null: true
+  }
+  value {
+    float_val: 6.9
+  }
+  value {
+    is_null: true
+  }
+  value {
+    is_null: true
+  }
+  value {
+    is_null: true
+  }
+  value {
+    is_null: true
+  }
+  value {
+    is_null: true
+  }
+  value {
+    float_val: 9.3
+  }
+  value {
+    is_null: true
+  }
+  value {
+    is_null: true
+  }
+  value {
+    is_null: true
+  }
+  value {
+    is_null: true
+  }
+  value {
+    is_null: true
+  }
+  value {
+    float_val: 10.6
+  }
+  value {
+    is_null: true
+  }
+  value {
+    is_null: true
+  }
+  value {
+    is_null: true
+  }
+  value {
+    is_null: true
+  }
+  value {
+    is_null: true
+  }
+  value {
+    float_val: 8.6
+  }
+}

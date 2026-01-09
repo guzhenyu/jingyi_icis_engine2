@@ -1,0 +1,170 @@
+syntax = "proto3";
+
+import "config/icis_jfk.proto";
+import "config/icis_monitoring_report.proto";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+// 规格：A3，横版
+message ReportTemplateAh2PB {
+    string name = 1;
+    PagePB page = 2;
+}
+
+message PagePB {
+    TableCommonPB tbl_common = 1;
+    repeated SubPagePB sub_page = 2;
+}
+
+message TableCommonPB {
+    float left = 1;  // 表格左下角的横坐标，单位pt（1/72 inch）
+    float bottom = 2;  // 表格左下角的纵坐标，单位pt（1/72 inch）
+
+    // 表格总宽度，单位pt（1/72 inch），手动配置
+    float width = 3;
+
+    // 表格总高度：row_height * (header_rows + body_rows)
+    // 表格的总列数：header.body_cols
+    float row_height = 4;  // 表格中一行的高度，单位pt（1/72 inch），手动配置
+    int32 header_rows = 5;  // 表头总行数，手动配置
+    int32 body_rows = 6;  // 表格主体行数，手动配置
+
+    ////// 衍生字段（不必配置）
+    float height = 7;
+    repeated ParamColMetaPB param_col_meta = 8;  // 观察项列数与表头叶子结点的列数相同
+
+    TextStylePB text_style = 9;
+    LineStylePB line_style = 10;
+
+    float summary_row_hotizontal_padding = 11;  // 汇总行单元格水平内边距，单位pt（1/72 inch）
+}
+
+message SubPagePB {
+    // todo: 添加表头信息
+    TablePB table = 1;
+    string notes = 2;
+    repeated JfkTextPB text_elem = 3;
+}
+
+message TablePB {
+    // 表头
+    TableHeaderPB header = 1;  // 包含表头的行数的信息，header.header_rows
+    // 表格叶子列
+    repeated string col_param_code = 2;  // 由header.top_level_cell.param_code推算出
+}
+
+message ParamColMetaPB {
+    string param_code = 1;  // 观察项编码
+    float left = 2;  // 观察项列的左边框横坐标
+    float width = 3;  // 观察项列的宽度
+}
+
+message TableHeaderPB {
+    repeated HeaderCellPB top_level_cell = 1;
+}
+
+enum ContentCodeEnum {
+    NA = 0;
+    YEAR = 1;
+}
+
+message HeaderCellPB {
+    // 如果content_code不为NA，那么根据content_code算出content（比如年份），否则直接用content
+    ContentCodeEnum content_code = 1;
+    repeated string content = 2;  // 每个元素一行，放不下时折行/省略
+
+    // 对应列的观察项取数编码。
+    // 如果cell是叶子结点，该字段为手动配置项。
+    string param_code = 3;
+
+    // 子表头
+    // 如果为空，该cell为叶子结点
+    repeated HeaderCellPB children = 4;
+
+    // 该cell的宽度，单位pt（1/72 inch）
+    // 1. 如果该cell为top_level_cell, width为为手动配置项
+    // 2. 如果该cell不是top_level_cell
+    //    2.1 如果cell不是对应 父cell 的最后一项，width为为手动配置项
+    //    2.2 如果cell是对应 父cell 的最后一项，width会被自动推算。构建时强校验一致性，如果不一致会报错
+    float width = 5;
+
+    // 如果是叶子结点，该字段会被自动推算，构建时强校验一致性，如果不一致会报错
+    int32 height_rows = 6;
+
+    ////// 衍生字段（不必配置）
+    float left = 7;  // cell的左下角横坐标
+    float bottom = 8;  // cell的左下角纵坐标
+    float height = 9;  // cell的高度：height_rows * TablePB.row_height，单位pt（1/72 inch）
+}
+
+enum HorizontalAlign {
+    LEFT = 0;
+    CENTER = 1;
+    RIGHT = 2;
+}
+
+enum VerticalAlign {
+    TOP = 0;
+    MIDDLE = 1;
+    BOTTOM = 2;
+}
+
+// 目前只用 font_name, font_size, padding_left
+// （padding_right用padding_left一样的值）
+message TextStylePB {
+    // 字体名称，比如 "SimSun"、"Helvetica"、"Arial" 等
+    string font_name = 1;
+
+    // 字号，单位 pt（1/72 inch）
+    float font_size = 2;
+
+    // 粗体 / 斜体等样式
+    bool bold = 3;
+    bool italic = 4;
+
+    // 水平对齐方式
+    HorizontalAlign h_align = 5;
+
+    // 垂直对齐方式
+    VerticalAlign v_align = 6;
+
+    // 字符间距（PDFBox 对应 setCharacterSpacing），单位 pt
+    float char_spacing = 7;
+
+    // 行间距（倍数或固定值，渲染器解释），单位 pt
+    float line_spacing = 8;
+
+    // 单元格内边距，单位 pt
+    float padding = 9;
+    float v_padding = 10;
+
+    // 字体颜色（十六进制 RGB，如 "#000000"）
+    int32 color_r = 11;
+    int32 color_g = 12;
+    int32 color_b = 13;
+
+    // 背景色（十六进制 RGB，如 "#FFFFFF"），可选
+    string background_color = 14;
+
+    // 是否自动换行（true 则按单元格宽度折行）
+    bool wrap_text = 15;
+
+    // 溢出截断时显示的省略符，比如 "..." 或空
+    string ellipsis = 16;
+}
+
+message Ah2PageDataPB {
+    repeated Ah2RowBlockPB row_blocks = 1;
+}
+
+message Ah2RowBlockPB {
+    string ts_iso8601 = 1;  // 可以为空
+    bool is_summary_row = 2;  // 是否为汇总行
+    repeated string summary = 3;  // 仅 is_summary_row == true 时有效
+    repeated Ah2CodeValPB wrapped_lines_by_param = 4;  // is_summary_row == false 时有效
+}
+
+message Ah2CodeValPB {
+    string code = 1;  // AH2P 的观察项编码
+    repeated string value = 2;
+}

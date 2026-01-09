@@ -1,0 +1,34 @@
+enums {
+    gender {
+        id: 1
+        name: "男"
+    }
+    gender {
+        id: 0
+        name: "女"
+    }
+    gender {
+        id: 4
+        name: "不确定"
+    }
+    marital_status {
+        id: 0
+        name: "已婚"
+    }
+    marital_status {
+        id: 1
+        name: "单身"
+    }
+    marital_status {
+        id: 2
+        name: "离异"
+    }
+    marital_status {
+        id: 3
+        name: "分居"
+    }
+    marital_status {
+        id: 6
+        name: "不确定"
+    }
+}

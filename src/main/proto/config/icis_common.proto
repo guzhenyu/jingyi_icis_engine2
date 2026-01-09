@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+import "shared/shared.proto";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+////// 配置消息
+message CommonEnums {
+    repeated shared.EnumValue gender = 1;
+    repeated shared.EnumValue marital_status = 2;
+}
+
+message IcisCommonPB {
+    CommonEnums enums = 1;
+}

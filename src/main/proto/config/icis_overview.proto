@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+import "shared/shared.proto";
+import "shared/value_meta.proto";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+message OverviewEnums {
+    repeated shared.EnumValue param_type = 1; // 参数类型
+    repeated shared.EnumValue graph_type = 2; // 图表类型
+}
+
+message OverviewTemplatePB {
+    int64 id = 1; // 自增主键
+    string dept_id = 2; // 所属科室ID
+    string account_id = 3; // 所属用户账号ID
+    string created_by = 4; // 创建人账号
+    string created_at_iso8601 = 5; // 创建时间，ISO 8601格式
+    string template_name = 6; // 模板名称
+    string notes = 7; // 备注
+    int32 display_order = 8; // 模板显示顺序
+    repeated OverviewGroupPB group = 9; // 关联的分组列表
+}
+
+message OverviewGroupPB {
+    int64 id = 1; // 自增主键
+    int64 template_id = 2; // 所属模板ID
+    string group_name = 3; // 分组名称
+    bool is_balance_group = 4;  // 出入量组用同一个纵轴，不允许混选; 其他组允许混选
+    int32 display_order = 5; // 分组显示顺序
+    repeated OverviewParamPB param = 6; // 关联的参数列表
+}
+
+message OverviewParamPB {
+    int64 id = 1; // 自增主键
+    int64 group_id = 2; // 所属分组ID
+    string param_name = 3; // 参数名称
+    int32 graph_type = 4; // 图表类型：如柱状图、折线图
+    string color = 5; // 图表颜色
+    string point_icon = 6; // 点图标样式（后端枚举）
+    shared.ValueMetaPB value_meta = 7; // 含上下限等
+    int32 param_type = 8; // 参数类型：1-血气，2-检验，3-观察项
+    int32 bga_category_id = 9; // 血气类别ID，仅当param_type为1时有效
+    string param_code = 10; // 参数编码（lis为外部参数）
+    int32 balance_type_id = 11; // 对应于MonitoringPB.enums.balance_xx.id; 0: nan; 1: 入量; 2: 出量; 3: 平衡量
+    int32 display_order = 12; // 参数显示顺序
+}
+
+message OverviewDataPB {
+    int64 template_id = 1; // OverviewTemplate.id
+    repeated OverviewGroupDataPB group = 2; // 关联的分组数据列表
+}
+
+message OverviewGroupDataPB {
+    int64 group_id = 1; // 分组ID
+    string group_name = 2; // 分组名称
+    bool is_balance_group = 3; // 出入量组用同一个纵轴，不允许混选; 其他组允许混选
+    repeated OverviewParamDataPB param = 4; // 关联的参数数据列表
+}
+
+message OverviewParamDataPB {
+    int64 param_id = 1; // 参数ID
+    OverviewParamPB param = 2; // 参数元数据
+    repeated shared.TimedGenericValuePB time_value = 3; // 时间序列值（小时）
+}
+
+message OverviewConfigPB {
+    OverviewEnums enums = 1; // 枚举
+    repeated string vital_sign_blocked_param = 2; // 生命体征屏蔽参数
+}

@@ -1,0 +1,237 @@
+hospital_name: "安徽省二院"
+
+balance_group {
+    name: "入量"
+    sum_value_meta {
+        value_type: FLOAT
+        decimal_places: 2
+        unit: "ml"
+    }
+    monitoring_param {
+        code: "oral_intake"
+    }
+    monitoring_param {
+        code: "intravenous_intake"
+    }
+    monitoring_param {
+        code: "gastric_intake"
+    }
+    monitoring_param {
+        code: "other_intake"
+    }
+}
+balance_group {
+    name: "出量"
+    sum_value_meta {
+        value_type: FLOAT
+        decimal_places: 2
+        unit: "ml"
+    }
+    monitoring_param {
+        code: "urine_output"
+    }
+    monitoring_param {
+        code: "gastric_fluid_volume"
+    }
+    monitoring_param {
+        code: "stool_volume"
+    }
+    monitoring_param {
+        code: "crrt_UF"
+    }
+}
+balance_group {
+    name: "平衡量"
+    sum_value_meta {
+        value_type: FLOAT
+        decimal_places: 2
+        unit: "ml"
+    }
+    monitoring_param {
+        code: "hourly_intake"
+    }
+    monitoring_param {
+        code: "hourly_output"
+    }
+    monitoring_param {
+        code: "hourly_balance"
+    }
+    monitoring_param {
+        code: "total_intake"
+    }
+    monitoring_param {
+        code: "total_output"
+    }
+    monitoring_param {
+        code: "total_balance"
+    }
+}
+
+monitoring_group {
+    name: "生命体征"
+    sum_value_meta {
+        value_type: STRING
+    }
+    monitoring_param {
+        code: "temperature"
+    }
+    monitoring_param {
+        code: "skin_temperature"
+    }
+    monitoring_param {
+        code: "respiratory_rate"
+    }
+    monitoring_param {
+        code: "hr"
+    }
+    monitoring_param {
+        code: "heart_rhythm"
+    }
+    monitoring_param {
+        code: "cvp"
+    }
+    monitoring_param {
+        code: "icp"
+    }
+    monitoring_param {
+        code: "nibp_s"
+    }
+    monitoring_param {
+        code: "nibp_d"
+    }
+    monitoring_param {
+        code: "ibp_s"
+    }
+    monitoring_param {
+        code: "ibp_d"
+    }
+    monitoring_param {
+        code: "Spo2"
+    }
+    monitoring_param {
+        code: "blood_glucose"
+    }
+}
+monitoring_group {
+    name: "氧疗设置"
+    sum_value_meta {
+        value_type: STRING
+    }
+    monitoring_param {
+        code: "oxygen_delivery_method"
+    }
+    monitoring_param {
+        code: "vent_tube_plant_depth"
+    }
+    monitoring_param {
+        code: "vent_oxygen_concentration"
+    }
+    monitoring_param {
+        code: "vent_oxygen_flow_rate"
+    }
+    monitoring_param {
+        code: "vent_cuff_pressure"
+    }
+    monitoring_param {
+        code: "vent_respiratory_mode"
+    }
+    monitoring_param {
+        code: "vent_fio2"
+    }
+    monitoring_param {
+        code: "vent_respiratory_rate"
+    }
+    monitoring_param {
+        code: "vent_PS"
+    }
+    monitoring_param {
+        code: "vent_PEEP"
+    }
+    monitoring_param {
+        code: "vent_set_tidal_volume"
+    }
+    monitoring_param {
+        code: "left_breath_sounds"
+    }
+    monitoring_param {
+        code: "right_breath_sounds"
+    }
+    monitoring_param {
+        code: "sputum_amount"
+    }
+    monitoring_param {
+        code: "suction_count"
+    }
+    monitoring_param {
+        code: "sputum_color"
+    }
+    monitoring_param {
+        code: "sputum_consistency"
+    }
+    monitoring_param {
+        code: "washing_hair"
+    }
+    monitoring_param {
+        code: "pulmonary_physiotherapy"
+    }
+    monitoring_param {
+        code: "limb_pneumatic_therapy"
+    }
+}
+monitoring_group {
+    name: "护理措施"
+    sum_value_meta {
+        value_type: STRING
+    }
+    monitoring_param {
+        code: "oral_care"
+    }
+    monitoring_param {
+        code: "bed_bathing"
+    }
+    monitoring_param {
+        code: "perineal_care"
+    }
+    monitoring_param {
+        code: "tracheostomy_care"
+    }
+    monitoring_param {
+        code: "skin_care"
+    }
+    monitoring_param {
+        code: "body_position"
+    }
+    monitoring_param {
+        code: "airway_humidification"
+    }
+    monitoring_param {
+        code: "atomization"
+    }
+    monitoring_param {
+        code: "restraint"
+    }
+}
+monitoring_group {
+    name: "神经系统评估"
+    sum_value_meta {
+        value_type: STRING
+    }
+    monitoring_param {
+        code: "consciousness"
+    }
+    monitoring_param {
+        code: "score_delirium"
+    }
+    monitoring_param {
+        code: "left_pupil_size"
+    }
+    monitoring_param {
+        code: "right_pupil_size"
+    }
+    monitoring_param {
+        code: "left_pupil_reflex"
+    }
+    monitoring_param {
+        code: "right_pupil_reflex"
+    }
+}

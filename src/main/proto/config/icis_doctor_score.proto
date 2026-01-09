@@ -1,0 +1,213 @@
+syntax = "proto3";
+
+import "shared/shared.proto";
+import "shared/value_meta.proto";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+message DoctorScoreFactorMetaPB {
+    string code = 1;
+    string name = 2;
+    string description = 3;
+    shared.ValueMetaPB value_meta = 4;
+}
+
+message DoctorScoreFactorPB {
+    string code = 1;
+    shared.GenericValuePB value = 2;
+    string value_str = 3;
+    int32 score = 4;
+}
+
+// 表示一个浮点数区间及其对应的分数
+message FactorScoreRangePB {
+    // 区间的下限
+    float lower_bound = 1;
+    bool is_lower_unbounded = 2;
+    bool include_lower_bound = 3;
+
+    // 区间的上限
+    float upper_bound = 4;
+    bool is_upper_unbounded = 5;
+    bool include_upper_bound = 6;
+
+    // 该区间对应的分数
+    int32 score = 7;
+}
+
+// 表示一个参数的评分规则
+message FactorScoreRulePB {
+    // 参数的唯一标识符，例如 "body_temperature" 或 "mean_arterial_pressure"
+    string code = 1;
+    // 该参数的多个区间及其对应的分数
+    repeated FactorScoreRangePB range = 2;
+}
+
+/******
+ * ApacheII
+ **/
+message ApacheIIScoreMetaPB {
+    repeated DoctorScoreFactorMetaPB aps_param = 1;  // 急性生理评分参数
+    repeated DoctorScoreFactorMetaPB chc_param = 2;  // 慢性健康状况评分参数
+
+    // 非手术患者的诊断类别症状
+    repeated DoctorScoreFactorMetaPB nop_respiratory_failure = 3;       // 呼吸功能不全或衰竭组
+    repeated DoctorScoreFactorPB nop_respiratory_failure_coef = 4;      // 呼吸功能不全或衰竭组系数
+    repeated DoctorScoreFactorMetaPB nop_cardiovascular_failure = 5;    // 心血管功能不全或衰竭组
+    repeated DoctorScoreFactorPB nop_cardiovascular_failure_coef = 6;   // 心血管功能不全或衰竭组系数
+    repeated DoctorScoreFactorMetaPB nop_trauma = 7;                    // 创伤组
+    repeated DoctorScoreFactorPB nop_trauma_coef = 8;                   // 创伤组系数
+    repeated DoctorScoreFactorMetaPB nop_neurological_disorder = 9;     // 神经系统疾病组
+    repeated DoctorScoreFactorPB nop_neurological_disorder_coef = 10;   // 神经系统疾病组系数
+    repeated DoctorScoreFactorMetaPB nop_other_conditions = 11;       // 其他组
+    repeated DoctorScoreFactorPB nop_other_conditions_coef = 12;  // 其他组系数
+    repeated DoctorScoreFactorMetaPB nop_organ_damage = 13;          // 重要脏器受损组
+    repeated DoctorScoreFactorPB nop_organ_damage_coef = 14;     // 重要脏器受损组系数
+
+    // 手术患者的诊断类别症状
+    repeated DoctorScoreFactorMetaPB op_surgery = 15;                // 手术组
+    repeated DoctorScoreFactorPB op_surgery_coef = 16;           // 手术组系数
+    repeated DoctorScoreFactorMetaPB op_postoperative_complications = 17; // 术后并发症组
+    repeated DoctorScoreFactorPB op_postoperative_complications_coef = 18; // 术后并发症组系数
+    repeated DoctorScoreFactorMetaPB op_nos = 19;                  // NOS（未特指系统）组
+    repeated DoctorScoreFactorPB op_nos_coef = 20;             // NOS（未特指系统）组系数
+}
+
+// 表示多个参数的评分规则集合
+message ApacheIIScoreRulesPB {
+    // 多个参数的评分规则
+    repeated FactorScoreRulePB rule = 1;
+}
+
+message ApacheIIScorePB {
+    // Apache II评分
+    repeated DoctorScoreFactorPB aps_param = 1; // 急性生理评分参数
+    int32 aps_score = 2;                // 急性生理评分
+    int32 age = 3;                      // 年龄
+    int32 age_score = 4;                // 年龄评分
+    repeated DoctorScoreFactorPB chc_param = 5; // 慢性健康状况评分参数
+    int32 chc_score = 6;                // 慢性健康状况评分
+    int32 apache_ii_score = 7;          // Apache II评分
+
+    // 预计病死率
+    bool is_operative = 8;              // 是否为手术患者
+    bool is_emergency_operation = 9;    // 是否为急诊手术
+    string mortality_factor_code = 10;  // （非）手术患者诊断主因编码
+
+    float predicted_mortality_rate = 11;    // 预测死亡率
+}
+
+/******
+ * SOFAScore
+**/
+message SofaScoreMetaPB {
+    repeated DoctorScoreFactorMetaPB sofa_param = 1; // SOFA评分参数
+}
+
+message SofaScoreRulesPB {
+    // 多个参数的评分规则
+    repeated FactorScoreRulePB rule = 1;
+}
+
+// 表示SOFA评分
+message SOFAScorePB {
+    repeated DoctorScoreFactorPB sofa_param = 1;
+
+    int32 sofa_score = 2;
+}
+
+/******
+ * VTE-Caprini（外科）
+ **/
+
+message VTECapriniScoreMetaPB {
+    repeated DoctorScoreFactorMetaPB one_point_risk_factor = 1; // 风险因素1分项
+    repeated DoctorScoreFactorMetaPB two_points_risk_factor = 2; // 风险因素2分项
+    repeated DoctorScoreFactorMetaPB three_points_risk_factor = 3; // 风险因素3分项
+    repeated DoctorScoreFactorMetaPB five_points_risk_factor = 4; // 风险因素5分项
+
+    repeated DoctorScoreFactorMetaPB bleeding_risk_general_factor = 5; // 出血风险常规危险因素
+    repeated DoctorScoreFactorMetaPB bleeding_risk_surgery_related_factor = 6; // 出血风险手术相关危险因素
+    repeated DoctorScoreFactorMetaPB bleeding_risk_high_risk_surgery_factor = 7; // 出血风险高危手术
+
+    repeated DoctorScoreFactorMetaPB prevention_assessment = 8; // 评估结果
+    repeated DoctorScoreFactorMetaPB prevention_execution = 9; // 执行结果
+
+    repeated DoctorScoreFactorMetaPB basic_measure = 10; // 基本措施
+    repeated DoctorScoreFactorMetaPB mechanical_measure = 11; // 机械措施
+    repeated DoctorScoreFactorMetaPB pharmacological_measure = 12; // 药物措施
+}
+
+message VTECapriniScorePB {
+    repeated DoctorScoreFactorPB one_point_risk_factor = 1; // 风险因素1分项
+    repeated DoctorScoreFactorPB two_points_risk_factor = 2; // 风险因素2分项
+    repeated DoctorScoreFactorPB three_points_risk_factor = 3; // 风险因素3分项
+    repeated DoctorScoreFactorPB five_points_risk_factor = 4; // 风险因素5分项
+    int32 total_score = 5; // 总分（根据风险因素计算）
+
+    repeated DoctorScoreFactorPB bleeding_risk_general_factor = 6; // 出血风险常规危险因素
+    repeated DoctorScoreFactorPB bleeding_risk_surgery_related_factor = 7; // 出血风险手术相关危险因素
+    repeated DoctorScoreFactorPB bleeding_risk_high_risk_surgery_factor = 8; // 出血风险高危手术
+
+    repeated DoctorScoreFactorPB prevention_assessment = 9; // 评估结果
+    repeated DoctorScoreFactorPB prevention_execution = 10; // 执行结果
+
+    repeated DoctorScoreFactorPB basic_measure = 11; // 基本措施
+    repeated DoctorScoreFactorPB mechanical_measure = 12; // 机械措施
+    repeated DoctorScoreFactorPB pharmacological_measure = 13; // 药物措施
+}
+
+/******
+ * VTE-Padua（内科）
+ **/
+message VTEPaduaScoreMetaPB {
+    repeated DoctorScoreFactorMetaPB one_point_risk_factor = 1; // 风险因素1分项
+    repeated DoctorScoreFactorMetaPB two_points_risk_factor = 2; // 风险因素2分项
+    repeated DoctorScoreFactorMetaPB three_points_risk_factor = 3; // 风险因素3分项
+
+    repeated DoctorScoreFactorMetaPB high_risk_one_item = 4; // 出血高危条件（满足1项即为出血高危）
+    repeated DoctorScoreFactorMetaPB high_risk_three_or_more = 5; // 出血高危条件（满足3项及以上即为出血高危）
+
+    repeated DoctorScoreFactorMetaPB prevention_assessment = 6; // 评估结果
+    repeated DoctorScoreFactorMetaPB prevention_execution = 7; // 执行结果
+
+    repeated DoctorScoreFactorMetaPB basic_measure = 8; // 基本措施
+    repeated DoctorScoreFactorMetaPB mechanical_measure = 9; // 机械措施
+    repeated DoctorScoreFactorMetaPB pharmacological_measure = 10; // 药物措施
+}
+
+message VTEPaduaScorePB {
+    repeated DoctorScoreFactorPB one_point_risk_factor = 1; // 风险因素1分项
+    repeated DoctorScoreFactorPB two_points_risk_factor = 2; // 风险因素2分项
+    repeated DoctorScoreFactorPB three_points_risk_factor = 3; // 风险因素3分项
+
+    int32 total_score = 4; // 总分（根据风险因素计算）
+
+    repeated DoctorScoreFactorPB high_risk_one_item = 5; // 出血高危条件（满足1项即为出血高危）
+    repeated DoctorScoreFactorPB high_risk_three_or_more = 6; // 出血高危条件（满足3项及以上即为出血高危）
+
+    repeated DoctorScoreFactorPB prevention_assessment = 7; // 评估结果
+    repeated DoctorScoreFactorPB prevention_execution = 8; // 执行结果
+
+    repeated DoctorScoreFactorPB basic_measure = 9; // 基本措施
+    repeated DoctorScoreFactorPB mechanical_measure = 10; // 机械措施
+    repeated DoctorScoreFactorPB pharmacological_measure = 11; // 药物措施
+}
+
+message DoctorScoreTypePB {
+    int32 id = 1; // 评分类型ID
+    string dept_id = 2; // 部门ID
+    string code = 3; // 评分类型编码
+    string name = 4; // 评分类型名称
+    int32 display_order = 5; // 显示顺序
+}
+
+message DoctorScorePB {
+    repeated shared.StrKeyValPB doctor_score_type = 1; // 医生评分类型
+    ApacheIIScoreMetaPB apache_ii_meta = 2; // Apache II评分
+    ApacheIIScoreRulesPB apache_ii_rules = 3; // Apache II评分规则
+    SofaScoreMetaPB sofa_meta = 4; // SOFA评分
+    SofaScoreRulesPB sofa_rules = 5; // SOFA评分规则
+    VTECapriniScoreMetaPB vte_caprini_meta = 6; // Caprini评分
+    VTEPaduaScoreMetaPB vte_padua_meta = 7; // Padua评分
+}
