@@ -11,6 +11,7 @@ import org.springframework.stereotype.Repository;
 public interface AccountRepository extends JpaRepository<Account, Long> {
     List<Account> findByIsDeletedFalse();
     List<Account> findByNameAndIsDeletedFalse(String name);
+    List<Account> findByAccountIdInAndIsDeletedFalse(List<String> accountIds);
     List<Account> findByIdIn(List<Long> ids);
 
     Optional<Account> findByAccountIdAndIsDeletedFalse(String accountId);

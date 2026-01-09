@@ -1178,6 +1178,12 @@ public class WebApiService {
         return resp;
     }
 
+    public GetJfkSignPicsResp getJfkSignPics(String getJfkSignPicsReqJson) {
+        GetJfkSignPicsResp resp = reportService.getJfkSignPics(getJfkSignPicsReqJson);
+        resp = metricService.recordApiMetrics(resp, GetJfkSignPicsResp::getRt);
+        return resp;
+    }
+
     public GetPatientFormsResp getPatientForms(String getPatientFormsReqJson) {
         GetPatientFormsResp resp = reportService.getPatientForms(getPatientFormsReqJson);
         resp = metricService.recordApiMetrics(resp, GetPatientFormsResp::getRt);

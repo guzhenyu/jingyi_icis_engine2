@@ -21,7 +21,11 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 
 import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.entity.reports.*;
+import com.jingyicare.jingyi_icis_engine.entity.users.Account;
+import com.jingyicare.jingyi_icis_engine.entity.users.RbacDepartmentAccount;
 import com.jingyicare.jingyi_icis_engine.repository.reports.*;
+import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
+import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentAccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
@@ -43,6 +47,8 @@ public class ReportService {
         @Autowired MonitoringReportService monitoringReportService,
         @Autowired Ah2ReportService ah2ReportService,
         @Autowired JfkDataService jfkDataService,
+        @Autowired RbacDepartmentAccountRepository rbacDepartmentAccountRepo,
+        @Autowired AccountRepository accountRepo,
         @Autowired DragableFormTemplateRepository dragableTemplateRepo,
         @Autowired DragableFormRepository dragableFormRepo,
         @Autowired WardReportRepository wardReportRepo
@@ -54,6 +60,8 @@ public class ReportService {
         this.MONITORING_REPORT_TEMPLATE_NAME = protoService.getConfig().getMonitoringReport().getTemplateName();
 
         this.statusCodeMsgs = protoService.getConfig().getText().getStatusCodeMsgList();
+        this.nursingRoleIdSet = new HashSet<>(protoService.getConfig().getJfk().getNursingRoleIdsList());
+        this.doctorRoleIdSet = new HashSet<>(protoService.getConfig().getJfk().getDoctorRoleIdsList());
 
         this.protoService = protoService;
         this.shiftUtils = shiftUtils;
@@ -65,6 +73,9 @@ public class ReportService {
         this.monitoringReportService = monitoringReportService;
         this.ah2ReportService = ah2ReportService;
         this.jfkDataService = jfkDataService;
+
+        this.rbacDepartmentAccountRepo = rbacDepartmentAccountRepo;
+        this.accountRepo = accountRepo;
 
         this.dragableTemplateRepo = dragableTemplateRepo;
         this.dragableFormRepo = dragableFormRepo;
@@ -287,6 +298,60 @@ public class ReportService {
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.OK))
             .addAllOutput(outputList)
             .build();
+    }
+
+    @Transactional
+    public GetJfkSignPicsResp getJfkSignPics(String getJfkSignPicsReqJson) {
+        GetJfkSignPicsReq req;
+        try {
+            req = ProtoUtils.parseJsonToProto(getJfkSignPicsReqJson, GetJfkSignPicsReq.newBuilder());
+        } catch (Exception e) {
+            log.error("Failed to parse JSON: {}", e.getMessage());
+            return GetJfkSignPicsResp.newBuilder().build();
+        }
+
+        String deptId = req.getDeptId();
+        if (StrUtils.isBlank(deptId)) {
+            log.error("Department ID is empty.");
+            return GetJfkSignPicsResp.newBuilder().build();
+        }
+
+        List<StrKeyValPB> nursingSignPics = loadSignPics(deptId, nursingRoleIdSet);
+        List<StrKeyValPB> doctorSignPics = loadSignPics(deptId, doctorRoleIdSet);
+
+        return GetJfkSignPicsResp.newBuilder()
+            .addAllNursingSignPics(nursingSignPics)
+            .addAllDoctorSignPics(doctorSignPics)
+            .build();
+    }
+
+    private List<StrKeyValPB> loadSignPics(String deptId, Set<Integer> roleIdSet) {
+        if (StrUtils.isBlank(deptId) || roleIdSet == null || roleIdSet.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        List<RbacDepartmentAccount> deptAccounts = rbacDepartmentAccountRepo.findByIdDeptId(deptId);
+        if (deptAccounts.isEmpty()) return Collections.emptyList();
+
+        Set<String> accountIds = new HashSet<>();
+        for (RbacDepartmentAccount deptAccount : deptAccounts) {
+            if (deptAccount == null) continue;
+            Integer primaryRoleId = deptAccount.getPrimaryRoleId();
+            if (primaryRoleId == null || !roleIdSet.contains(primaryRoleId)) continue;
+            String accountId = deptAccount.getId() == null ? "" : deptAccount.getId().getAccountId();
+            if (StrUtils.isBlank(accountId)) continue;
+            accountIds.add(accountId);
+        }
+        if (accountIds.isEmpty()) return Collections.emptyList();
+
+        List<Account> accounts = accountRepo.findByAccountIdInAndIsDeletedFalse(new ArrayList<>(accountIds));
+        return accounts.stream()
+            .sorted(Comparator.comparing(Account::getAccountId))
+            .map(account -> StrKeyValPB.newBuilder()
+                .setKey(account.getName() == null ? "" : account.getName())
+                .setVal(account.getSignPic() == null ? "" : account.getSignPic())
+                .build())
+            .toList();
     }
 
     @Transactional
@@ -771,6 +836,8 @@ public class ReportService {
     private final String MONITORING_REPORT_TEMPLATE_NAME;
 
     private final List<String> statusCodeMsgs;
+    private final Set<Integer> nursingRoleIdSet;
+    private final Set<Integer> doctorRoleIdSet;
 
     private final ConfigProtoService protoService;
     private final ConfigShiftUtils shiftUtils;
@@ -782,6 +849,9 @@ public class ReportService {
     private final MonitoringReportService monitoringReportService;
     private final Ah2ReportService ah2ReportService;
     private final JfkDataService jfkDataService;
+
+    private final RbacDepartmentAccountRepository rbacDepartmentAccountRepo;
+    private final AccountRepository accountRepo;
 
     private final DragableFormTemplateRepository dragableTemplateRepo;
     private final DragableFormRepository dragableFormRepo;

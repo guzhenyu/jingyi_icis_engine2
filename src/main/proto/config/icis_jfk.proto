@@ -177,6 +177,8 @@ enum JfkValTypePB {
     STRING = 4;
     DATETIME = 5;
     IMAGE = 6;
+    NURSING_SIGN_PIC = 7;
+    DOCTOR_SIGN_PIC = 8;
 }
 
 message JfkValMetaPB {
@@ -242,4 +244,6 @@ message JfkConfigPB {
     JfkEnumsPB enums = 1;
     repeated JfkFieldMetaPB inputs = 2;
     repeated JfkDataSourceMetaPB data_sources = 3;
+    repeated int32 nursing_role_ids = 4;
+    repeated int32 doctor_role_ids = 5;
 }

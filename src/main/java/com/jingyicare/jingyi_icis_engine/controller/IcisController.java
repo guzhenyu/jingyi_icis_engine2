@@ -920,6 +920,11 @@ public class IcisController {
         return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getJfkData(getJfkDataReqJson)));
     }
 
+    @PostMapping("/report/getjfksignpics")
+    public ResponseEntity<String> getJfkSignPics(@RequestBody String getJfkSignPicsReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getJfkSignPics(getJfkSignPicsReqJson)));
+    }
+
     @PostMapping("/report/getpatientforms")
     public ResponseEntity<String> getPatientForms(@RequestBody String getPatientFormsReqJson) {
         return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getPatientForms(getPatientFormsReqJson)));

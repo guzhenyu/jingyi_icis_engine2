@@ -9725,6 +9725,12 @@ jfk {
             is_options: false
         }
     }
+    nursing_role_ids: 3
+    nursing_role_ids: 4
+    nursing_role_ids: 5
+    nursing_role_ids: 6
+    doctor_role_ids: 2
+    doctor_role_ids: 7
 }
 monitoring_report {
     template_name: "ah2"

@@ -3130,6 +3130,21 @@ message GetJfkDataResp {
 }
 
 /*
+ * /api/report/getjfksignpics
+ *  input: GetJfkSignPicsReq
+ *  output: GetJfkSignPicsResp
+ */
+message GetJfkSignPicsReq {
+    string dept_id = 1;
+}
+
+message GetJfkSignPicsResp {
+    shared.ReturnCode rt = 1;
+    repeated shared.StrKeyValPB nursing_sign_pics = 2;
+    repeated shared.StrKeyValPB doctor_sign_pics = 3;
+}
+
+/*
  * /api/report/getpatientforms
  *  input: GetPatientFormsReq
  *  output: GetPatientFormsResp
