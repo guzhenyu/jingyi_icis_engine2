@@ -181,11 +181,17 @@ public class MedicationDictionary {
 
         if (useAdminRateAsInput) {
             return extInput.toBuilder()
-                .setDoseRateAmount(extInput.getAdministrationRate() * toDoserMultiplier)
+                .setDoseRateAmount(ValueMetaUtils.normalize(
+                    extInput.getAdministrationRate() * toDoserMultiplier,
+                    3
+                ))
                 .build();
         } else {
             return extInput.toBuilder()
-                .setAdministrationRate(extInput.getDoseRateAmount() / toDoserMultiplier)
+                .setAdministrationRate(ValueMetaUtils.normalize(
+                    extInput.getDoseRateAmount() / toDoserMultiplier,
+                    3
+                ))
                 .build();
         }
     }

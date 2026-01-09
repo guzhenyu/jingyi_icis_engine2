@@ -3,11 +3,11 @@ page {
         left: 29.76
         bottom: 36.28
         width: 1131
-        row_height: 18.14
+        row_height: 12.85
         header_rows: 6
-        body_rows: 34
+        body_rows: 48
         text_style {
-            font_size: 8
+            font_size: 7
             char_spacing: 0.5
             padding: 0.5
             color_r: 0

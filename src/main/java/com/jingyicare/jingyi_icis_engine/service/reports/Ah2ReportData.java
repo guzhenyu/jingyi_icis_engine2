@@ -1945,6 +1945,39 @@ public class Ah2ReportData {
                             signColMeta.getWidth(), summaryLines * ctx.tblCommon.getRowHeight()
                         );
                     }
+
+                    // 小计行上边框加粗；总计行上下边框加粗
+                    final float ordinaryLineWidth = ctx.tblCommon.getLineStyle().getWidth();
+                    final float ordinaryGray = ctx.tblCommon.getLineStyle().getGrayValue();
+                    if (rowBlock.summary.size() == 1 &&
+                        rowBlock.summary.get(0).startsWith("总计")
+                    ) {
+                        // 总计行
+                        float yTop = ctx.tableHeaderBottom - rowBlock.startRow * ctx.tblCommon.getRowHeight();
+log.info("\n\n\n(总计) top = {}, bottom = {}\n\n\n", yTop, summaryBottom);
+                        float yBottom = summaryBottom;
+                        ctx.contentStream.setLineWidth(ordinaryLineWidth * 5);
+                        ctx.contentStream.setStrokingColor(0f);
+                        ctx.contentStream.moveTo(ctx.tblCommon.getLeft(), yTop);
+                        ctx.contentStream.lineTo(ctx.tblCommon.getLeft() + ctx.tblCommon.getWidth(), yTop);
+                        ctx.contentStream.stroke();
+                        ctx.contentStream.moveTo(ctx.tblCommon.getLeft(), yBottom);
+                        ctx.contentStream.lineTo(ctx.tblCommon.getLeft() + ctx.tblCommon.getWidth(), yBottom);
+                        ctx.contentStream.stroke();
+                        ctx.contentStream.setLineWidth(ordinaryLineWidth);
+                        ctx.contentStream.setStrokingColor(ordinaryGray);
+                    } else {
+                        // 小计行
+                        float yTop = ctx.tableHeaderBottom - rowBlock.startRow * ctx.tblCommon.getRowHeight();
+log.info("\n\n\n(小计) top = {}, bottom = {}\n\n\n", yTop, summaryBottom);
+                        ctx.contentStream.setLineWidth(ordinaryLineWidth * 5);
+                        ctx.contentStream.setStrokingColor(0f);
+                        ctx.contentStream.moveTo(ctx.tblCommon.getLeft(), yTop);
+                        ctx.contentStream.lineTo(ctx.tblCommon.getLeft() + ctx.tblCommon.getWidth(), yTop);
+                        ctx.contentStream.stroke();
+                        ctx.contentStream.setLineWidth(ordinaryLineWidth);
+                        ctx.contentStream.setStrokingColor(ordinaryGray);
+                    }
                 }  // 每页中除了第一个子页，其余子叶不填汇总行内容
             } else {  // 画普通行
                 LocalDateTime tsLocal = rowBlock.timestamp == null ?

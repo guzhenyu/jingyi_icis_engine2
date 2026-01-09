@@ -361,7 +361,7 @@ public class MedicationDictionaryTests extends TestsBase {
         );
         DosageGroupExtPB r1 = MedicationDictionary.calcMedRate(input1, /*useAdminRateAsInput*/ true);
         assertThat(r1).isNotNull();
-        assertThat(r1.getDoseRateAmount()).isCloseTo(0.1666666667, within(Consts.EPS));
+        assertThat(r1.getDoseRateAmount()).isCloseTo(0.167, within(Consts.EPS));
 
         // 用例2：mg/kg/h（无时间换算）
         // total=60 ml, solid=30 mg -> conc=0.5 mg/ml

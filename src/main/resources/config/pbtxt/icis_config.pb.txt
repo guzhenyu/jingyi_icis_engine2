@@ -4554,7 +4554,7 @@ monitoring {
         src: "bga"
         value_meta {
             value_type: FLOAT
-            decimal_places: 2
+            decimal_places: 3
             tooltip: "PH"
             upper_limit: {
                 float_val: 7.35
