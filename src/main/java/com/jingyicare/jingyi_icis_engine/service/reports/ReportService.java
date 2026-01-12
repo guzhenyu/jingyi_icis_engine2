@@ -307,19 +307,24 @@ public class ReportService {
             req = ProtoUtils.parseJsonToProto(getJfkSignPicsReqJson, GetJfkSignPicsReq.newBuilder());
         } catch (Exception e) {
             log.error("Failed to parse JSON: {}", e.getMessage());
-            return GetJfkSignPicsResp.newBuilder().build();
+            return GetJfkSignPicsResp.newBuilder()
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.PARSE_JSON_FAILED))
+                .build();
         }
 
         String deptId = req.getDeptId();
         if (StrUtils.isBlank(deptId)) {
             log.error("Department ID is empty.");
-            return GetJfkSignPicsResp.newBuilder().build();
+            return GetJfkSignPicsResp.newBuilder()
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.DEPT_IS_EMPTY))
+                .build();
         }
 
         List<StrKeyValPB> nursingSignPics = loadSignPics(deptId, nursingRoleIdSet);
         List<StrKeyValPB> doctorSignPics = loadSignPics(deptId, doctorRoleIdSet);
 
         return GetJfkSignPicsResp.newBuilder()
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.OK))
             .addAllNursingSignPics(nursingSignPics)
             .addAllDoctorSignPics(doctorSignPics)
             .build();
