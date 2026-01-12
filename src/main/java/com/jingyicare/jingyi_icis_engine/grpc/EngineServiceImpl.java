@@ -24,11 +24,13 @@ public class EngineServiceImpl extends EngineServiceGrpc.EngineServiceImplBase {
 
     public EngineServiceImpl(
         @Value("${engine_port}") int port,
+        @Value("${grpc.server.enabled:true}") boolean grpcServerEnabled,
         @Autowired EngineExtClient engineExtClient,
         @Autowired ConfigProtoService configProtoService,
         @Autowired PatientDeviceService patientDeviceService
     ) {
         this.port = port;
+        this.grpcServerEnabled = grpcServerEnabled;
         this.engineExtClient = engineExtClient;
         this.configProtoService = configProtoService;
 
@@ -47,6 +49,10 @@ public class EngineServiceImpl extends EngineServiceGrpc.EngineServiceImplBase {
 
     @PostConstruct
     public void startGrpcServer() throws IOException {
+        if (!grpcServerEnabled) {
+            log.info("gRPC Server is disabled");
+            return;
+        }
         server = ServerBuilder.forPort(port)
                 .addService(this)
                 .build()
@@ -73,6 +79,7 @@ public class EngineServiceImpl extends EngineServiceGrpc.EngineServiceImplBase {
         }
     }
 
+    private boolean grpcServerEnabled;
     private int port;
     private Server server;
     private EngineExtClient engineExtClient;
