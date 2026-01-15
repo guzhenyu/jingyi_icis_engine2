@@ -331,7 +331,7 @@ public class MedicationService {
 
         // 1. 生成医嘱组
         MedicationOrderGroup orderGroup = ordGroupGenerator.generateNonHisOrderGroup(
-            patientRecord, medOgSettings, accountId, planTime, orderTime,
+            patientRecord, medOgSettings, accountId, accountName, planTime, orderTime,
             req.getDosageGroup(), routeCode, routeName, req.getNote());
 
         // 2. 生成执行记录

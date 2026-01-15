@@ -558,7 +558,7 @@ public class OrderGroupGeneratorTests extends TestsBase {
             .build();
         final LocalDateTime orderTime = TimeUtils.getLocalTime(2024, 9, 11);
         MedicationOrderGroup mog = orderGroupGenerator.generateNonHisOrderGroup(
-            patient, medOgSettings, "doctor_1", orderTime, orderTime, dosageGroup, "route_code_1", "route_name_1", "");
+            patient, medOgSettings, "doctor_1", "doctor_1", orderTime, orderTime, dosageGroup, "route_code_1", "route_name_1", "");
         assertThat(mog.getHisPatientId()).isEqualTo("hisPatientId109");
         assertThat(StrUtils.isBlank(mog.getGroupId())).isTrue();
         assertThat(StrUtils.isBlank(mog.getMedicalOrderIds())).isTrue();

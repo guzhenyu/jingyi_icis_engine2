@@ -11,6 +11,11 @@ INSERT INTO raw_bga_record_details ("id", "record_id", "monitoring_param_code", 
 SELECT setval('raw_bga_records_id_seq', (SELECT MAX(id) FROM raw_bga_records) + 1);
 SELECT setval('raw_bga_record_details_id_seq', (SELECT MAX(id) FROM raw_bga_record_details) + 1);
 
+-- debug queries
+select id, his_bed_number, his_mrn from patient_records where icu_name = '代敏';
+select * from patient_bed_history where patient_id = 104;
+select * from raw_bga_records where mrn_bednum = '16';
+select * from raw_bga_record_details where record_id = 60;
 
 -- delete from patient_bga_record_details;
 -- delete from patient_bga_records;

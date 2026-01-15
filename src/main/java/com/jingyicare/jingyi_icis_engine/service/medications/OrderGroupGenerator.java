@@ -50,7 +50,8 @@ public class OrderGroupGenerator {
 
     public MedicationOrderGroup generateNonHisOrderGroup(
         PatientRecord patient, MedOrderGroupSettingsPB medOgSettings,
-        String accountId/*ordering doctor*/, LocalDateTime planTime, LocalDateTime orderTime,
+        String accountId/*ordering doctor*/, String accountName,
+        LocalDateTime planTime, LocalDateTime orderTime,
         MedicationDosageGroupPB dosageGroup, String routeCode, String routeName, String note
     ) {
         MedicationOrderGroup group = new MedicationOrderGroup();
@@ -59,7 +60,7 @@ public class OrderGroupGenerator {
         group.setGroupId("");
         group.setMedicalOrderIds("");
         group.setHisMrn(patient.getHisMrn());
-        group.setOrderingDoctor(accountId);
+        group.setOrderingDoctor(accountName);
         group.setOrderingDoctorId(accountId);
         group.setDeptId(patient.getDeptId());
 

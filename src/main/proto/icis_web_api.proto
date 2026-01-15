@@ -2797,6 +2797,13 @@ message NrShortcutBalancesPB {
     repeated shared.StrKeyValPB out_details = 5;  // 出量明细
     string net_ml = 6;  // 平衡量总量
     repeated shared.StrKeyValPB net_details = 7;  // 平衡量明细
+
+    string acc_in_ml = 8;  // 累计入量
+    repeated shared.StrKeyValPB acc_in_details = 9;  // 累计入量明细
+    string acc_out_ml = 10;  // 累计出量
+    repeated shared.StrKeyValPB acc_out_details = 11;  // 累计出量明细
+    string acc_net_ml = 12;  // 累计平衡量
+    repeated shared.StrKeyValPB acc_net_details = 13;  // 累计平衡量明细
 }
 
 message GetNursingRecordShortcuts2Resp {
@@ -3257,6 +3264,10 @@ message GetWardReportResp {
     // 病人交班明细
     repeated WardPatientStatsPB patient_stats = 7;
 }
+
+/*
+ * 插入快捷方式在 getnursingrecordshortcuts2
+ */
 
 /*
  * /api/monitoring/setwardreport

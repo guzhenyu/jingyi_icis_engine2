@@ -780,7 +780,8 @@ public class BgaService {
     ) {
         final Long pid = patientRecord.getId();
         final String deptId = patientRecord.getDeptId();
-
+log.info("\n\n\nSyncing raw BGA records for patient {}, from {} to {}",
+    pid, queryStartUtc, queryEndUtc);
         // 根据MRN和床位历史查询对应的原始血气记录
         List<RawBgaRecord> rawBgaRecords = collectRawBgaRecords(patientRecord, queryStartUtc, queryEndUtc);
 
@@ -807,6 +808,7 @@ public class BgaService {
         List<RawBgaRecord> result = new ArrayList<>();
         result.addAll(rawBgaRecordRepository
             .findByMrnBednumAndEffectiveTimeBetween(patient.getHisMrn(), start, end));
+log.info("\n\n\nFound {} raw BGA records by MRN {}; start {}; end {}", result.size(), patient.getHisMrn(), start, end);
 
         PatientDeviceService.UsageHistory<PatientDeviceService.BedName> bedHistory =
             patientDeviceService.getBedHistory(patient);
@@ -819,8 +821,10 @@ public class BgaService {
             LocalDateTime bedEnd = (i + 1 < bedHistory.usageRecords.size())
                 ? bedHistory.usageRecords.get(i + 1).getSecond()
                 : (bedHistory.endTime != null ? bedHistory.endTime : TimeUtils.getLocalTime(9999, 1, 1));
-            result.addAll(rawBgaRecordRepository
-                .findByMrnBednumAndEffectiveTimeBetween(bedName.displayBedNumber, bedStart, bedEnd));
+            List<RawBgaRecord> bedRecords = rawBgaRecordRepository
+                .findByMrnBednumAndEffectiveTimeBetween(bedName.displayBedNumber, bedStart, bedEnd);
+log.info("\n\n\n{} raw BGA records found by bed {}; start {}; end {}", bedRecords.size(), bedName.displayBedNumber, bedStart, bedEnd);
+            result.addAll(bedRecords);
         }
         return result;
     }

@@ -2,6 +2,7 @@ package com.jingyicare.jingyi_icis_engine.service.nursingrecords;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -11,6 +12,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
@@ -26,7 +28,6 @@ import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingRecord.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisShift.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
 
@@ -873,17 +874,29 @@ public class NursingRecordService {
                 .build();
         }
         final String deptId = patientRecord.getDeptId();
-        final ShiftSettingsPB shiftSettings = shiftUtils.getShiftByDeptId(deptId);
-        if (shiftSettings == null) {
-            log.error("ShiftSettings not found: {}", deptId);
+
+        // 班次起始时间
+        List<LocalDateTime> deptBalanceStatsUtcs = shiftUtils.getBalanceStatTimeUtcHistory(deptId);
+        LocalDateTime midnightUtc = pnrUtils.getMidnightUtc(deptBalanceStatsUtcs, shiftStartUtc);
+        LocalDateTime dayEndUtc = midnightUtc.plusDays(1).minusSeconds(1);
+        LocalDateTime dbsuCurUtc = null;
+        for (LocalDateTime statUtc : deptBalanceStatsUtcs) {
+            if (!dayEndUtc.isBefore(statUtc)) {
+                dbsuCurUtc = statUtc;
+            } else {
+                break;
+            }
+        }
+        if (dbsuCurUtc == null) {
+            log.error("Cannot find deptBalanceStatUtc for midnightUtc={}", midnightUtc);
             return GetNursingRecordShortcuts2Resp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.NO_SHIFT_SETTING))
                 .build();
         }
-
-        // 班次起始时间
-        shiftStartUtc = shiftUtils.getShiftStartTimeUtc(shiftSettings, shiftStartUtc, ZONE_ID);
-        final LocalDateTime shiftEndUtc = shiftStartUtc.plusHours(24);
+        LocalDateTime dbsuCurLocal = TimeUtils.getLocalDateTimeFromUtc(dbsuCurUtc, ZONE_ID);
+        int shiftStartHour = dbsuCurLocal.getHour();
+        shiftStartUtc = midnightUtc.plusHours(shiftStartHour);
+        final LocalDateTime shiftEndUtc = shiftStartUtc.plusDays(1);
 
         List<NrShortcutBasicMonitoringsPB> monList = buildShortcutMonitorings(pid, deptId, shiftStartUtc, shiftEndUtc);
         Pair<StatusCode, List<NrShortcutBalancesPB>> balancePair = buildShortcutBalances(
@@ -1007,17 +1020,23 @@ public class NursingRecordService {
         Map<String, MonitoringParamPB> paramMap = monitoringConfig.getMonitoringParams(deptId);
         Map<LocalDateTime, NrShortcutBalancesPB.Builder> balanceMap = new TreeMap<>();
 
-        fillBalanceValue(balanceMap, findCodeRecords(groupRecordsList, NET_HOURLY_IN_CODE),
-            paramMap.get(NET_HOURLY_IN_CODE), NrShortcutBalancesPB.Builder::setInMl);
-        fillBalanceValue(balanceMap, findCodeRecords(groupRecordsList, NET_HOURLY_OUT_CODE),
-            paramMap.get(NET_HOURLY_OUT_CODE), NrShortcutBalancesPB.Builder::setOutMl);
-        fillBalanceValue(balanceMap, findCodeRecords(groupRecordsList, NET_HOURLY_NET_CODE),
-            paramMap.get(NET_HOURLY_NET_CODE), NrShortcutBalancesPB.Builder::setNetMl);
+        List<String> hourlyCodes = new ArrayList<>();
+        if (!StrUtils.isBlank(NET_HOURLY_IN_CODE)) hourlyCodes.add(NET_HOURLY_IN_CODE);
+        if (!StrUtils.isBlank(NET_HOURLY_OUT_CODE)) hourlyCodes.add(NET_HOURLY_OUT_CODE);
+        List<PatientMonitoringRecord> hourlyRecords = hourlyCodes.isEmpty()
+            ? new ArrayList<>()
+            : monitoringRecordRepo.findByPidAndParamCodesAndEffectiveTimeRange(
+                pid, hourlyCodes, shiftStartUtc, shiftEndUtc
+            ).stream()
+            .sorted(Comparator.comparing(PatientMonitoringRecord::getEffectiveTime))
+            .toList();
+        fillShortcutBalanceHourlyValues(balanceMap, hourlyRecords, paramMap);
 
         appendBalanceDetails(balanceMap, inGroupRecords, paramMap, NrShortcutBalancesPB.Builder::addInDetails, null);
         appendBalanceDetails(balanceMap, outGroupRecords, paramMap, NrShortcutBalancesPB.Builder::addOutDetails, null);
         appendBalanceDetails(balanceMap, netGroupRecords, paramMap, NrShortcutBalancesPB.Builder::addNetDetails,
             Set.of(NET_HOURLY_IN_CODE, NET_HOURLY_OUT_CODE, NET_HOURLY_NET_CODE));
+        fillShortcutBalanceAccumulatedDetails(balanceMap, paramMap);
 
         List<NrShortcutBalancesPB> balanceList = balanceMap.values().stream()
             .map(NrShortcutBalancesPB.Builder::build)
@@ -1034,24 +1053,205 @@ public class NursingRecordService {
         );
     }
 
-    private void fillBalanceValue(
+    private void fillShortcutBalanceHourlyValues(
         Map<LocalDateTime, NrShortcutBalancesPB.Builder> balanceMap,
-        MonitoringCodeRecordsPB codeRecords,
-        MonitoringParamPB paramMeta,
-        BiConsumer<NrShortcutBalancesPB.Builder, String> valueSetter
+        List<PatientMonitoringRecord> hourlyRecords,
+        Map<String, MonitoringParamPB> paramMap
     ) {
-        if (codeRecords == null || codeRecords.getRecordValueList().isEmpty() || valueSetter == null) return;
-        for (MonitoringRecordValPB val : codeRecords.getRecordValueList()) {
-            if (StrUtils.isBlank(val.getRecordedAtIso8601())) continue;
-            LocalDateTime timeUtc = TimeUtils.fromIso8601String(val.getRecordedAtIso8601(), "UTC");
-            if (timeUtc == null) continue;
-            String valueStr = val.getValueStr();
-            if (StrUtils.isBlank(valueStr) && paramMeta != null) {
-                valueStr = ValueMetaUtils.extractAndFormatParamValue(val.getValue(), paramMeta.getValueMeta());
+        if (balanceMap == null || hourlyRecords == null || hourlyRecords.isEmpty()) return;
+
+        MonitoringParamPB inParam = paramMap == null ? null : paramMap.get(NET_HOURLY_IN_CODE);
+        MonitoringParamPB outParam = paramMap == null ? null : paramMap.get(NET_HOURLY_OUT_CODE);
+        MonitoringParamPB netParam = paramMap == null ? null : paramMap.get(NET_HOURLY_NET_CODE);
+        ValueMetaPB inMeta = inParam == null ? null : inParam.getValueMeta();
+        ValueMetaPB outMeta = outParam == null ? null : outParam.getValueMeta();
+        ValueMetaPB netMeta = netParam == null ? null : netParam.getValueMeta();
+
+        Map<LocalDateTime, GenericValuePB> inValueMap = new TreeMap<>();
+        Map<LocalDateTime, GenericValuePB> outValueMap = new TreeMap<>();
+        for (PatientMonitoringRecord record : hourlyRecords) {
+            if (record == null) continue;
+            LocalDateTime timeUtc = record.getEffectiveTime();
+            if (timeUtc == null ||
+                timeUtc.getMinute() != 0 || timeUtc.getSecond() != 0 || timeUtc.getNano() != 0
+            ) {
+                continue;
+            }
+            String code = record.getMonitoringParamCode();
+            if (NET_HOURLY_IN_CODE.equals(code) && inMeta != null) {
+                GenericValuePB value = getMonitoringRecordValue(record, inMeta);
+                if (value == null) continue;
+                value = ValueMetaUtils.formatParamValue(value, inMeta);
+                GenericValuePB existing = inValueMap.get(timeUtc);
+                inValueMap.put(timeUtc,
+                    existing == null ? value : ValueMetaUtils.addGenericValue(existing, value, inMeta)
+                );
+            } else if (NET_HOURLY_OUT_CODE.equals(code) && outMeta != null) {
+                GenericValuePB value = getMonitoringRecordValue(record, outMeta);
+                if (value == null) continue;
+                value = ValueMetaUtils.formatParamValue(value, outMeta);
+                GenericValuePB existing = outValueMap.get(timeUtc);
+                outValueMap.put(timeUtc,
+                    existing == null ? value : ValueMetaUtils.addGenericValue(existing, value, outMeta)
+                );
+            }
+        }
+
+        if (inMeta != null) {
+            GenericValuePB accIn = ValueMetaUtils.getDefaultValue(inMeta);
+            for (Map.Entry<LocalDateTime, GenericValuePB> entry : inValueMap.entrySet()) {
+                LocalDateTime timeUtc = entry.getKey();
+                GenericValuePB value = entry.getValue();
+                if (value == null) continue;
+                NrShortcutBalancesPB.Builder builder = getBalanceBuilder(balanceMap, timeUtc);
+                builder.setInMl(ValueMetaUtils.extractAndFormatParamValue(value, inMeta));
+                accIn = ValueMetaUtils.addGenericValue(accIn, value, inMeta);
+                builder.setAccInMl(ValueMetaUtils.extractAndFormatParamValue(accIn, inMeta));
+            }
+        }
+
+        if (outMeta != null) {
+            GenericValuePB accOut = ValueMetaUtils.getDefaultValue(outMeta);
+            for (Map.Entry<LocalDateTime, GenericValuePB> entry : outValueMap.entrySet()) {
+                LocalDateTime timeUtc = entry.getKey();
+                GenericValuePB value = entry.getValue();
+                if (value == null) continue;
+                NrShortcutBalancesPB.Builder builder = getBalanceBuilder(balanceMap, timeUtc);
+                builder.setOutMl(ValueMetaUtils.extractAndFormatParamValue(value, outMeta));
+                accOut = ValueMetaUtils.addGenericValue(accOut, value, outMeta);
+                builder.setAccOutMl(ValueMetaUtils.extractAndFormatParamValue(accOut, outMeta));
+            }
+        }
+
+        ValueMetaPB netValueMeta = netMeta != null ? netMeta : (inMeta != null ? inMeta : outMeta);
+        if (netValueMeta == null) return;
+
+        Set<LocalDateTime> netTimes = new TreeSet<>();
+        netTimes.addAll(inValueMap.keySet());
+        netTimes.addAll(outValueMap.keySet());
+        GenericValuePB accNet = ValueMetaUtils.getDefaultValue(netValueMeta);
+        for (LocalDateTime timeUtc : netTimes) {
+            GenericValuePB netValue = ValueMetaUtils.getDefaultValue(netValueMeta);
+            GenericValuePB inValue = inValueMap.get(timeUtc);
+            if (inValue != null && inMeta != null) {
+                netValue = ValueMetaUtils.addGenericValue(
+                    netValue,
+                    convertMonitoringValue(inValue, inMeta, netValueMeta),
+                    netValueMeta
+                );
+            }
+            GenericValuePB outValue = outValueMap.get(timeUtc);
+            if (outValue != null && outMeta != null) {
+                netValue = ValueMetaUtils.subtractGenericValue(
+                    netValue,
+                    convertMonitoringValue(outValue, outMeta, netValueMeta),
+                    netValueMeta
+                );
             }
             NrShortcutBalancesPB.Builder builder = getBalanceBuilder(balanceMap, timeUtc);
-            valueSetter.accept(builder, valueStr == null ? "" : valueStr);
+            builder.setNetMl(ValueMetaUtils.extractAndFormatParamValue(netValue, netValueMeta));
+            accNet = ValueMetaUtils.addGenericValue(accNet, netValue, netValueMeta);
+            builder.setAccNetMl(ValueMetaUtils.extractAndFormatParamValue(accNet, netValueMeta));
         }
+    }
+
+    private void fillShortcutBalanceAccumulatedDetails(
+        Map<LocalDateTime, NrShortcutBalancesPB.Builder> balanceMap,
+        Map<String, MonitoringParamPB> paramMap
+    ) {
+        if (balanceMap == null || balanceMap.isEmpty()) return;
+
+        Map<String, ValueMetaPB> metaByKey = new LinkedHashMap<>();
+        if (paramMap != null) {
+            for (MonitoringParamPB param : paramMap.values()) {
+                if (param == null) continue;
+                String name = param.getName();
+                ValueMetaPB valueMeta = param.getValueMeta();
+                if (StrUtils.isBlank(name) || valueMeta == null) continue;
+                metaByKey.putIfAbsent(name, valueMeta);
+            }
+        }
+
+        Map<String, Double> accInMap = new LinkedHashMap<>();
+        Map<String, Double> accOutMap = new LinkedHashMap<>();
+        Map<String, Double> accNetMap = new LinkedHashMap<>();
+        for (NrShortcutBalancesPB.Builder builder : balanceMap.values()) {
+            accumulateDetailsByKey(builder.getInDetailsList(), accInMap);
+            builder.addAllAccInDetails(buildAccumulatedDetailList(accInMap, metaByKey));
+            accumulateDetailsByKey(builder.getOutDetailsList(), accOutMap);
+            builder.addAllAccOutDetails(buildAccumulatedDetailList(accOutMap, metaByKey));
+            accumulateDetailsByKey(builder.getNetDetailsList(), accNetMap);
+            builder.addAllAccNetDetails(buildAccumulatedDetailList(accNetMap, metaByKey));
+        }
+    }
+
+    private void accumulateDetailsByKey(
+        List<StrKeyValPB> details,
+        Map<String, Double> accMap
+    ) {
+        if (details == null || details.isEmpty() || accMap == null) return;
+        for (StrKeyValPB detail : details) {
+            if (detail == null) continue;
+            String key = detail.getKey();
+            if (StrUtils.isBlank(key)) continue;
+            Double value = parseDetailValue(detail.getVal());
+            if (value == null) continue;
+            accMap.put(key, accMap.getOrDefault(key, 0.0d) + value);
+        }
+    }
+
+    private List<StrKeyValPB> buildAccumulatedDetailList(
+        Map<String, Double> accMap,
+        Map<String, ValueMetaPB> metaByKey
+    ) {
+        if (accMap == null || accMap.isEmpty()) return new ArrayList<>();
+        List<StrKeyValPB> result = new ArrayList<>();
+        for (Map.Entry<String, Double> entry : accMap.entrySet()) {
+            String key = entry.getKey();
+            Double value = entry.getValue();
+            ValueMetaPB valueMeta = metaByKey == null ? null : metaByKey.get(key);
+            String valueStr = formatAccumulatedValue(value, valueMeta);
+            result.add(StrKeyValPB.newBuilder()
+                .setKey(key == null ? "" : key)
+                .setVal(valueStr == null ? "" : valueStr)
+                .build());
+        }
+        return result;
+    }
+
+    private Double parseDetailValue(String valueStr) {
+        if (StrUtils.isBlank(valueStr)) return null;
+        String normalized = valueStr.replace(",", "").trim();
+        if (normalized.isEmpty()) return null;
+        try {
+            return Double.parseDouble(normalized);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private String formatAccumulatedValue(Double value, ValueMetaPB valueMeta) {
+        if (value == null) return "";
+        if (valueMeta != null && ValueMetaUtils.isNumber(valueMeta)) {
+            return ValueMetaUtils.formatNumberValue(value, valueMeta);
+        }
+        return BigDecimal.valueOf(value).stripTrailingZeros().toPlainString();
+    }
+
+    private GenericValuePB getMonitoringRecordValue(PatientMonitoringRecord record, ValueMetaPB valueMeta) {
+        if (record == null) return null;
+        MonitoringValuePB monitoringValuePB = ProtoUtils.decodeMonitoringValue(record.getParamValue());
+        if (monitoringValuePB != null) return monitoringValuePB.getValue();
+        String valueStr = record.getParamValueStr();
+        if (StrUtils.isBlank(valueStr) || valueMeta == null) return null;
+        return ValueMetaUtils.toGenericValue(valueStr, valueMeta);
+    }
+
+    private GenericValuePB convertMonitoringValue(
+        GenericValuePB value, ValueMetaPB srcMeta, ValueMetaPB dstMeta
+    ) {
+        if (value == null || srcMeta == null || dstMeta == null) return value;
+        return ValueMetaUtils.convertGenericValue(value, srcMeta, dstMeta);
     }
 
     private void appendBalanceDetails(
@@ -1085,16 +1285,6 @@ public class NursingRecordService {
                     .build());
             }
         }
-    }
-
-    private MonitoringCodeRecordsPB findCodeRecords(List<MonitoringGroupRecordsPB> groupRecordsList, String paramCode) {
-        if (groupRecordsList == null || StrUtils.isBlank(paramCode)) return null;
-        for (MonitoringGroupRecordsPB groupRecords : groupRecordsList) {
-            for (MonitoringCodeRecordsPB codeRecords : groupRecords.getCodeRecordsList()) {
-                if (paramCode.equals(codeRecords.getParamCode())) return codeRecords;
-            }
-        }
-        return null;
     }
 
     private String formatMonitoringValue(PatientMonitoringRecord record, String deptId) {
