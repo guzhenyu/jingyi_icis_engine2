@@ -96,8 +96,8 @@
 .index-module__nursing-order-card--_qb1L{cursor:pointer}.index-module__nursing-order-card--_qb1L .ant-card-body{padding:0;box-sizing:border-box}.index-module__nursing-order-card--_qb1L .index-module__nursing-order-card-header--yJsm3{display:flex;height:58px;border:1px solid #c4d9fc;border-radius:8px 8px 0px 0px;overflow:hidden}.index-module__nursing-order-card--_qb1L .index-module__nursing-order-card-header--yJsm3 .index-module__header-left--F2XTv{flex:0 0 86px;border-right:1px solid #c4d9fc;box-sizing:border-box;overflow:hidden}.index-module__nursing-order-card--_qb1L .index-module__nursing-order-card-header--yJsm3 .index-module__header-left--F2XTv .index-module__order-status--TkpyQ{height:36px;line-height:36px;text-align:center;font-size:14px;font-weight:1000;color:#fff}.index-module__nursing-order-card--_qb1L .index-module__nursing-order-card-header--yJsm3 .index-module__header-left--F2XTv .index-module__order-status-completed--IOYUG{background:#427ff7}.index-module__nursing-order-card--_qb1L .index-module__nursing-order-card-header--yJsm3 .index-module__header-left--F2XTv .index-module__order-status-not-completed--VhUcW{background:#faad14}.index-module__nursing-order-card--_qb1L .index-module__nursing-order-card-header--yJsm3 .index-module__header-left--F2XTv .index-module__order-freq--f7dEc{text-align:center;background:#f1f9ff}.index-module__nursing-order-card--_qb1L .index-module__nursing-order-card-header--yJsm3 .index-module__order-name--w45pK{height:50px;font-size:14px;font-weight:700;line-height:21px;padding:8px 10px;display:-webkit-box;-webkit-box-orient:vertical;line-clamp:2;-webkit-line-clamp:2;overflow:hidden;text-overflow:ellipsis;word-break:break-all}.index-module__nursing-order-card--_qb1L .index-module__order-record-list--pBfpb{height:208px;border:1px solid #d9d9d9;border-top:none;border-radius:0 0 8px 8px;overflow-y:auto}.index-module__nursing-order-card--_qb1L .index-module__order-record-list--pBfpb .index-module__order-record--HhFHH{display:flex;align-items:center;font-size:16px;line-height:24px;height:52px;border-bottom:1px solid #e2e2e2;padding:16px 10px 12px;margin:0 10px}.index-module__nursing-order-card--_qb1L .index-module__order-record-list--pBfpb .index-module__order-record--HhFHH .index-module__checkbox-img--zGDuE{width:20px;height:20px}.index-module__nursing-order-card--_qb1L .index-module__order-record-list--pBfpb .index-module__order-record-time--NzLe9{display:inline-block;font-size:16px;line-height:24px;margin-left:18px}
 .index-module__nursing-order-container--WK76U .index-module__nursing-order-content--__xL9 .index-module__nursing-order-group--FjUnm{background:#fff;box-shadow:0px 3px 6px -4px rgba(0,0,0,.12);border-radius:6px 6px 6px 6px;margin-bottom:16px}.index-module__nursing-order-container--WK76U .index-module__nursing-order-content--__xL9 .index-module__nursing-order-group--FjUnm:last-child{margin-bottom:0}.index-module__nursing-order-container--WK76U .index-module__nursing-order-content--__xL9 .index-module__nursing-order-group--FjUnm .ant-card-head{padding:16px 20px}.index-module__nursing-order-container--WK76U .index-module__nursing-order-content--__xL9 .index-module__nursing-order-group--FjUnm .ant-card-head .ant-card-head-title{font-size:18px;font-weight:bold;line-height:21px}.index-module__nursing-order-container--WK76U .index-module__nursing-order-content--__xL9 .index-module__nursing-order-group--FjUnm .ant-card-body{padding:16px 20px}
 .designer-root {
-  width: 1920px;
-  height: 1080px;
+  width: 100%;
+  height: 100%;
   background: #ffffff;
   border-radius: 12px;
   box-shadow: 0 18px 45px rgba(15, 23, 42, 0.15);
@@ -178,20 +178,25 @@
 
 .canvas-wrapper {
   height: 100%;
+  width: 100%;
   display: flex;
   flex-direction: column;
   background: #f5f7fa;
-  padding: 10px;
   box-sizing: border-box;
 }
 
 .canvas-area {
   flex: 1;
+  width: 100%;
   background: #f5f7fa;
   border-radius: 8px;
   display: flex;
-  justify-content: center; /* center horizontally */
-  align-items: flex-start;  /* stick to top so top edge is visible when scrolled to top */
+  /* center horizontally */
+  justify-content: flex-start;
+  /* stick to top so top edge is visible when scrolled to top */
+  align-items: center;
+  padding: 10px;
+  box-sizing: border-box;
   overflow: auto;
 }
 
@@ -231,6 +236,8 @@
   box-shadow: 0 12px 35px rgba(15, 23, 42, 0.12);
   box-sizing: border-box;
   transform-origin: top center;
+  margin: auto;
+  flex-shrink: 0;
 }
 
 .paper-guides {
@@ -323,7 +330,8 @@
   font-size: 12px;
   /* Stronger outer border for clarity */
   border: 1px solid #bfbfbf;
-  table-layout: fixed; /* even column widths without per-cell widths */
+  /* even column widths without per-cell widths */
+  table-layout: fixed;
 }
 
 .designer-element-table td,
@@ -396,6 +404,7 @@
 
 .properties-divider {
   margin: 12px 0;
+  border-top-width: 2px;
 }
 
 .canvas-hint {
@@ -405,6 +414,11 @@
   text-align: center;
 }
 
+.jfk-app-container {
+  height: 100%;
+  width: 100%;
+}
+.index-module__nursing-print-forms--ABdBN{display:flex;height:100%}.index-module__nursing-print-forms--ABdBN .index-module__form-temp-list--AvcPn{flex:0 0 200px}.index-module__nursing-print-forms--ABdBN .index-module__container--rDJS4{flex:1;display:flex;flex-direction:column}.index-module__nursing-print-forms--ABdBN .index-module__container--rDJS4 .index-module__print-form-container--ra24s{flex:1;overflow-y:auto;margin-top:16px}.index-module__empty--_GZOj{margin-top:200px}.index-module__layoutContainer--sMSLX{height:100%;width:100%;display:flex;gap:24px}.index-module__layoutContainer--sMSLX .ant-menu{height:calc(100% - 49px)}.index-module__layoutContainer--sMSLX .ant-layout-content{height:100%;overflow-y:auto;border:1px solid #f0f0f0;border-radius:6px}
 .index-module__custom-form-drawer--B9J77 .ant-drawer-body{padding:0}
 .index-module__patientDiagnosis--FkzwK{height:100%;display:flex;gap:16px}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisList--dAzTO{width:380px;border-radius:8px;border:1px solid #d9d9d9;background:#fff;padding:28px;box-sizing:border-box;display:flex;flex-direction:column;gap:22px}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisList--dAzTO .index-module__patientDiagnosisItem--n3DM3{width:100%;height:61px;display:flex;justify-content:center;align-items:center;overflow-wrap:break-word;color:#171717;font-size:16px;border-radius:6px;border:1px solid #d9d9d9;line-height:22px;padding:22px;cursor:pointer}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisList--dAzTO .index-module__patientDiagnosisItemSelected--wwWrM{border:1px solid #427ff7;background-color:#f1f9ff;box-shadow:0px 2px 0px 0px rgba(0,0,0,.02)}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisContent--aYxNm{flex:1;height:100%}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisContent--aYxNm .index-module__content--zMuln{padding:0 20px 20px;border-radius:4px;border:1px solid #e5eeff;background:#fff;height:calc(100% - 72px)}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisContent--aYxNm .index-module__content--zMuln .index-module__contentTitle--PervF{height:55px;border-bottom:1px solid #e2e2e2;display:flex;align-items:center;justify-content:space-between;gap:7px}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisContent--aYxNm .index-module__content--zMuln .index-module__diagnosisContent--dgMem{height:calc(100% - 55px);overflow-y:auto;display:flex;gap:16px}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisContent--aYxNm .index-module__content--zMuln .index-module__diagnosisContent--dgMem .index-module__diagnosisItem--OiATw{min-height:174px;padding-top:36px;display:flex}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisContent--aYxNm .index-module__content--zMuln .index-module__diagnosisContent--dgMem .index-module__diagnosisItem--OiATw .index-module__stage--QBBE6{width:220px;padding-left:16px;display:flex;gap:12px}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisContent--aYxNm .index-module__content--zMuln .index-module__diagnosisContent--dgMem .index-module__diagnosisItem--OiATw .index-module__stage--QBBE6 .index-module__stageLeft--UEXJV{height:100%}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisContent--aYxNm .index-module__content--zMuln .index-module__diagnosisContent--dgMem .index-module__diagnosisItem--OiATw .index-module__stage--QBBE6 .index-module__stageLeft--UEXJV .index-module__stageNumber--bdVdy{height:32px;width:32px;border-radius:50%;font-size:16px;font-weight:700;line-height:100%;margin-bottom:12px;display:flex;align-items:center;justify-content:center;color:#fff}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisContent--aYxNm .index-module__content--zMuln .index-module__diagnosisContent--dgMem .index-module__diagnosisItem--OiATw .index-module__stage--QBBE6 .index-module__stageLeft--UEXJV .index-module__stageLine--u6qjF{width:0px;height:calc(100% - 44px);margin:0 auto}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisContent--aYxNm .index-module__content--zMuln .index-module__diagnosisContent--dgMem .index-module__diagnosisItem--OiATw .index-module__stage--QBBE6 .index-module__stageRight--WQZrA .index-module__stageTitle--uSq42{color:#171717;font-size:18px;font-weight:700;line-height:32px}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisContent--aYxNm .index-module__content--zMuln .index-module__diagnosisContent--dgMem .index-module__diagnosisItem--OiATw .index-module__stage--QBBE6 .index-module__stageRight--WQZrA .index-module__stageSubTitle--gXTxE{color:#999;font-size:14px;font-weight:400;line-height:36px}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisContent--aYxNm .index-module__content--zMuln .index-module__diagnosisContent--dgMem .index-module__diagnosisItem--OiATw .index-module__diagnosisItemContent--SH3ot{flex:1;min-height:138px;border-bottom:1px solid #e2e2e2;padding-bottom:40px;overflow-x:hidden}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisContent--aYxNm .index-module__content--zMuln .index-module__diagnosisContent--dgMem .index-module__diagnosisItemComplete--zx5KE .index-module__stage--QBBE6 .index-module__stageLeft--UEXJV .index-module__stageNumber--bdVdy{background-color:#427ff7}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisContent--aYxNm .index-module__content--zMuln .index-module__diagnosisContent--dgMem .index-module__diagnosisItemComplete--zx5KE .index-module__stage--QBBE6 .index-module__stageLeft--UEXJV .index-module__stageLine--u6qjF{border-left:2px solid #427ff7}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisContent--aYxNm .index-module__content--zMuln .index-module__diagnosisContent--dgMem .index-module__diagnosisItemComplete--zx5KE .index-module__stage--QBBE6 .index-module__stageRight--WQZrA .index-module__stageTitle--uSq42{color:#171717}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisContent--aYxNm .index-module__content--zMuln .index-module__diagnosisContent--dgMem .index-module__diagnosisItemComplete--zx5KE .index-module__stage--QBBE6 .index-module__stageRight--WQZrA .index-module__stageSubTitle--gXTxE{color:#999}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisContent--aYxNm .index-module__content--zMuln .index-module__diagnosisContent--dgMem .index-module__diagnosisItemCurrent--kFsq1 .index-module__stage--QBBE6 .index-module__stageLeft--UEXJV .index-module__stageNumber--bdVdy{background-color:#fff;color:#427ff7;border:2px solid #427ff7}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisContent--aYxNm .index-module__content--zMuln .index-module__diagnosisContent--dgMem .index-module__diagnosisItemCurrent--kFsq1 .index-module__stage--QBBE6 .index-module__stageLeft--UEXJV .index-module__stageLine--u6qjF{border-left:2px dashed #427ff7}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisContent--aYxNm .index-module__content--zMuln .index-module__diagnosisContent--dgMem .index-module__diagnosisItemCurrent--kFsq1 .index-module__stage--QBBE6 .index-module__stageRight--WQZrA .index-module__stageTitle--uSq42{color:#171717}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisContent--aYxNm .index-module__content--zMuln .index-module__diagnosisContent--dgMem .index-module__diagnosisItemCurrent--kFsq1 .index-module__stage--QBBE6 .index-module__stageRight--WQZrA .index-module__stageSubTitle--gXTxE{color:#999}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisContent--aYxNm .index-module__content--zMuln .index-module__diagnosisContent--dgMem .index-module__diagnosisItemNocomplete--MU1fY .index-module__stage--QBBE6 .index-module__stageLeft--UEXJV .index-module__stageNumber--bdVdy{background-color:#fff;color:#999;border:2px solid #999}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisContent--aYxNm .index-module__content--zMuln .index-module__diagnosisContent--dgMem .index-module__diagnosisItemNocomplete--MU1fY .index-module__stage--QBBE6 .index-module__stageLeft--UEXJV .index-module__stageLine--u6qjF{border-left:2px dashed #999}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisContent--aYxNm .index-module__content--zMuln .index-module__diagnosisContent--dgMem .index-module__diagnosisItemNocomplete--MU1fY .index-module__stage--QBBE6 .index-module__stageRight--WQZrA .index-module__stageTitle--uSq42{color:#999}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisContent--aYxNm .index-module__content--zMuln .index-module__diagnosisContent--dgMem .index-module__diagnosisItemNocomplete--MU1fY .index-module__stage--QBBE6 .index-module__stageRight--WQZrA .index-module__stageSubTitle--gXTxE{color:#999}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisContent--aYxNm .index-module__content--zMuln .index-module__diagnosisContent--dgMem .index-module__diagnosisItemNocomplete--MU1fY .index-module__diagnosisItemContent--SH3ot{pointer-events:none}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisContent--aYxNm .index-module__content--zMuln .index-module__diagnosisContent--dgMem .index-module__diseaseItemDetail--J2N2W{width:40%;height:100%;padding:16px;border-left:1px solid #e2e2e2;display:flex;flex-direction:column}.index-module__patientDiagnosis--FkzwK .index-module__patientDiagnosisContent--aYxNm .index-module__content--zMuln .index-module__diagnosisContent--dgMem .index-module__diseaseItemDetail--J2N2W .index-module__diseaseItemDetailTip--ztNyl{height:48px;line-height:48px;font-size:16px;color:#999}
 .index-module__diagnoseHistory--Y8fW5{height:100%}
