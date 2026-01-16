@@ -82,6 +82,7 @@ public class Ah2ReportData {
         this.ZONE_ID = protoService.getConfig().getZoneId();
         this.statusCodeMsgs = protoService.getConfig().getText().getStatusCodeMsgList();
         this.BALANCE_GROUP_TYPE_ID = monitoringConfig.getBalanceGroupTypeId();
+        this.BALANCE_OUT_TYPE_ID = protoService.getConfig().getMonitoring().getEnums().getBalanceOut().getId();
         this.DOSAGE_DECIMAL_PLACES = protoService.getConfig().getMedication().getDosageDecimalPlaces();
         this.ENABLE_BALANCE_STATS_HOUR_SHIFT = protoService.getConfig().getMonitoringReport()
             .getSettings().getEnableBalanceStatsHourShift();
@@ -653,7 +654,7 @@ public class Ah2ReportData {
             );
             patientData.mpKvMap.put(paramCode, mvPb.getValue());
 
-            // 设置病人数据-引流管
+            // 其他出量：非尿/胃/大便/超滤 出量 + 引流管
             String tubeParamCode = null;
             String tubeName = null;
             String tubeVol = null;
@@ -681,8 +682,21 @@ public class Ah2ReportData {
                 if (vmPb == null) continue;  // 非法引流管编码;
                 tubeVol = ValueMetaUtils.extractAndFormatParamValue(mvPb.getValue(), vmPb);
                 if (StrUtils.isBlank(tubeVol)) continue;
-            } else {
-                continue;  // 非引流管编码
+            } else {  // 其他出量：非尿/胃/大便/超滤 出量
+                MonitoringParamPB mpPb = ctx.mpMap.get(paramCode);
+                if (mpPb == null || mpPb.getBalanceType() != BALANCE_OUT_TYPE_ID ||
+                    paramCode.equals(MP_URINE_OUTPUT) ||
+                    paramCode.equals(MP_GASTRIC_FLUID_VOLUME) ||
+                    paramCode.equals(MP_STOOL_VOLUME) ||
+                    paramCode.equals(MP_CRRT_UF)
+                ) {
+                    continue;
+                }
+                tubeParamCode = paramCode;
+                tubeName = mpPb.getName();
+                tubeVol = ValueMetaUtils.extractAndFormatParamValue(
+                    mvPb.getValue(), mpPb.getValueMeta());
+                if (StrUtils.isBlank(tubeVol)) continue;
             }
             final String tubeParamCodeF = tubeParamCode;
             final String tubeNameF = tubeName;
@@ -2129,6 +2143,7 @@ log.info("\n\n\n(小计) top = {}, bottom = {}\n\n\n", yTop, summaryBottom);
     private final String ZONE_ID;
     private final List<String> statusCodeMsgs;
     private final Integer BALANCE_GROUP_TYPE_ID;
+    private final Integer BALANCE_OUT_TYPE_ID;
     private final Integer DOSAGE_DECIMAL_PLACES;
     private final ValueMetaPB DRAINAGE_TUBE_COLOR_META;
     private final boolean ENABLE_BALANCE_STATS_HOUR_SHIFT;
