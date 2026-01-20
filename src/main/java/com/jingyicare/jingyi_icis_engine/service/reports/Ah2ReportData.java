@@ -2041,10 +2041,18 @@ log.info("\n\n\n(小计) top = {}, bottom = {}\n\n\n", yTop, summaryBottom);
                     int nLines = Math.max(1, wrappedLines.size());
                     float cellBottom = ctx.tableHeaderBottom -
                         (rowBlock.startRow + nLines) * ctx.tblCommon.getRowHeight();
+
+                    HorizontalAlign hAlign = HorizontalAlign.CENTER;
+                    if (paramCode.equals(AH2P_MED_EXEC) || paramCode.equals(AH2P_NASOGASTRIC) ||
+                        paramCode.equals(AH2P_NURSING_RECORD)
+                    ) {
+                        hAlign = HorizontalAlign.LEFT;
+                    }
+
                     PdfTextRenderer.drawTxt(
                         ctx.contentStream,
                         ctx.font, ctx.tblTxtStyle.getFontSize(), Color.BLACK,
-                        ctx.tblTxtStyle.getCharSpacing(), ctx.tblCommon.getRowHeight(), HorizontalAlign.CENTER,
+                        ctx.tblTxtStyle.getCharSpacing(), ctx.tblCommon.getRowHeight(), hAlign,
                         colMeta.getLeft(), cellBottom, colMeta.getWidth(), nLines * ctx.tblCommon.getRowHeight(),
                         wrappedLines
                     );
