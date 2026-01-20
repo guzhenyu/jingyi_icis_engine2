@@ -833,6 +833,21 @@ log.info("\n\n\n{} raw BGA records found by bed {}; start {}; end {}", bedRecord
         List<RawBgaRecord> rawRecords, Long pid, String deptId,
         String accountId, String accountName, LocalDateTime nowUtc
     ) {
+        // 将rawRecords按照mrn_bednum, effective_time去重，保留id最大的记录
+        rawRecords.sort(Comparator.comparing(RawBgaRecord::getId).reversed());
+        Map<String, Set<LocalDateTime>> seen = new HashMap<>();
+        List<RawBgaRecord> uniqueRecords = new ArrayList<>();
+        for (RawBgaRecord raw : rawRecords) {
+            String mrnOrBedNum = raw.getMrnBednum();
+            LocalDateTime effectiveTime = raw.getEffectiveTime();
+            if (!seen.containsKey(mrnOrBedNum) || !seen.get(mrnOrBedNum).contains(effectiveTime)) {
+                seen.computeIfAbsent(mrnOrBedNum, k -> new HashSet<>()).add(effectiveTime);
+                uniqueRecords.add(raw);
+            }
+        }
+        rawRecords = uniqueRecords;
+
+        // 将原始血气记录转化成病人的血气记录
         List<PatientBgaRecord> toSave = new ArrayList<>();
 
         for (RawBgaRecord raw : rawRecords) {
