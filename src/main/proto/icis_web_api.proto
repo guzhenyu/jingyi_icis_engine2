@@ -2448,6 +2448,7 @@ message SavePatientScoreResp {
  */
 message DeletePatientScoreReq {
     int64 id = 1;  // patient_scores.id
+    bool by_monitoring = 2;  // true: 从观察项界面删除；false: 从评分界面删除
 }
 
 /*

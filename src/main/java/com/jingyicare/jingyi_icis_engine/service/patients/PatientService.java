@@ -1063,13 +1063,15 @@ public class PatientService {
 
         // 如果待更新的诊断历史的时间是最新时间，更新对应的记录
         String latestDiagnosisStr = latestDiagnosis == null ?  "" :  latestDiagnosis.getDiagnosis();
-        if (!latestDiagnosis.getDiagnosisTime().isAfter(diagnosisTime) &&
+        if (latestDiagnosis != null && latestDiagnosis.getDiagnosisTime() != null &&
+            !latestDiagnosis.getDiagnosisTime().isAfter(diagnosisTime) &&
             !StrUtils.isBlank(req.getDiagnosisHistory().getDiagnosis())
         ) {
             latestDiagnosisStr = req.getDiagnosisHistory().getDiagnosis();
         }
         String latestDiagnosisTcmStr = latestDiagnosisTcm == null ? "" : latestDiagnosisTcm.getDiagnosisTcm();
-        if (!latestDiagnosisTcm.getDiagnosisTime().isAfter(diagnosisTime) &&
+        if (latestDiagnosisTcm != null && latestDiagnosisTcm.getDiagnosisTime() != null &&
+            latestDiagnosisTcm.getDiagnosisTime().isAfter(diagnosisTime) &&
             !StrUtils.isBlank(req.getDiagnosisHistory().getDiagnosisTcm())
         ) {
             latestDiagnosisTcmStr = req.getDiagnosisHistory().getDiagnosisTcm();
