@@ -138,3 +138,8 @@ message Patient {
     string discharged_name = 6;
     int32 grace_period_hours_to_readmit = 7; // 48小时内可以重新入科的时间间隔，单位：小时
 }
+
+message PatientReportConfigPB {
+    int64 pid = 1;
+    int32 nursing_report_start_id = 2;  // 护理单起始页码
+}

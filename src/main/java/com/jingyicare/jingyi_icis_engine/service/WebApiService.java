@@ -338,6 +338,18 @@ public class WebApiService {
         return resp;
     }
 
+    public GetPatientSettingsResp getPatientSettings(String getPatientSettingsReqJson) {
+        GetPatientSettingsResp resp = patientService.getPatientSettings(getPatientSettingsReqJson);
+        resp = metricService.recordApiMetrics(resp, GetPatientSettingsResp::getRt);
+        return resp;
+    }
+
+    public GenericResp updatePatientSettings(String updatePatientSettingsReqJson) {
+        GenericResp resp = patientService.updatePatientSettings(updatePatientSettingsReqJson);
+        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
+        return resp;
+    }
+
     public GetDiagnosisHistoryResp getDiagnosisHistory(String getDiagnosisHistoryReqJson) {
         GetDiagnosisHistoryResp resp = patientService.getDiagnosisHistory(getDiagnosisHistoryReqJson);
         resp = metricService.recordApiMetrics(resp, GetDiagnosisHistoryResp::getRt);

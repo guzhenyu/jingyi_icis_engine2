@@ -1025,6 +1025,30 @@ message UpdatePatientInfoV2Req {
 }
 
 /*
+ * /api/patient/getpatientsettings
+ *  input: GetPatientSettingsPB
+ *  output: GetPatientSettingsResp
+ */
+message GetPatientSettingsPB {
+    int64 pid = 1;
+}
+
+message GetPatientSettingsResp {
+    shared.ReturnCode rt = 1;
+    config.PatientReportConfigPB report_cfg = 2;
+}
+
+/*
+ * /api/patient/updatepatientsettings
+ *  input: UpdatePatientSettingsReq
+ *  output: GenericResp
+ */
+message UpdatePatientSettingsReq {
+    int64 pid = 1;
+    int32 nursing_report_start_id = 2;
+}
+
+/*
  * /api/patient/getdiagnosishistory
  *  input: GetDiagnosisHistoryReq
  *  output: GetDiagnosisHistoryResp

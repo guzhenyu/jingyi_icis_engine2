@@ -250,6 +250,16 @@ public class IcisController {
         return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.updatePatientInfoV2(updatePatientInfoV2ReqJson)));
     }
 
+    @PostMapping("/patient/getpatientsettings")
+    public ResponseEntity<String> getPatientSettings(@RequestBody String getPatientSettingsReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getPatientSettings(getPatientSettingsReqJson)));
+    }
+
+    @PostMapping("/patient/updatepatientsettings")
+    public ResponseEntity<String> updatePatientSettings(@RequestBody String updatePatientSettingsReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.updatePatientSettings(updatePatientSettingsReqJson)));
+    }
+
     @PostMapping("/patient/getdiagnosishistory")
     public ResponseEntity<String> getDiagnosisHistory(@RequestBody String getDiagnosisHistoryReqJson) {
         return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getDiagnosisHistory(getDiagnosisHistoryReqJson)));

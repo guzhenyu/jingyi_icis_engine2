@@ -23,6 +23,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoringReport.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoringReportAh2.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 
@@ -40,6 +41,7 @@ import com.jingyicare.jingyi_icis_engine.entity.users.Account;
 import com.jingyicare.jingyi_icis_engine.repository.doctors.*;
 import com.jingyicare.jingyi_icis_engine.repository.nursingrecords.*;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
+import com.jingyicare.jingyi_icis_engine.repository.patients.PatientSettingsRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patientshifts.*;
 import com.jingyicare.jingyi_icis_engine.repository.reports.*;
 import com.jingyicare.jingyi_icis_engine.repository.scores.*;
@@ -77,12 +79,15 @@ public class Ah2ReportData {
         @Autowired PatientNursingReportRepository pnrRepo,
         @Autowired PatientTubeRecordRepository ptrRepo,
         @Autowired PatientTubeStatusRecordRepository ptsrRepo,
-        @Autowired AccountRepository accountRepo
+        @Autowired AccountRepository accountRepo,
+        @Autowired PatientSettingsRepository patientSettingsRepository
     ) {
         this.ZONE_ID = protoService.getConfig().getZoneId();
         this.statusCodeMsgs = protoService.getConfig().getText().getStatusCodeMsgList();
         this.BALANCE_GROUP_TYPE_ID = monitoringConfig.getBalanceGroupTypeId();
+        this.BALANCE_IN_TYPE_ID = protoService.getConfig().getMonitoring().getEnums().getBalanceIn().getId();
         this.BALANCE_OUT_TYPE_ID = protoService.getConfig().getMonitoring().getEnums().getBalanceOut().getId();
+        this.BALANCE_NET_TYPE_ID = protoService.getConfig().getMonitoring().getEnums().getBalanceNet().getId();
         this.DOSAGE_DECIMAL_PLACES = protoService.getConfig().getMedication().getDosageDecimalPlaces();
         this.ENABLE_BALANCE_STATS_HOUR_SHIFT = protoService.getConfig().getMonitoringReport()
             .getSettings().getEnableBalanceStatsHourShift();
@@ -115,6 +120,7 @@ public class Ah2ReportData {
         this.ptrRepo = ptrRepo;
         this.ptsrRepo = ptsrRepo;
         this.accountRepo = accountRepo;
+        this.patientSettingsRepository = patientSettingsRepository;
 
         processingPids = new ConcurrentHashMap<>();
     }
@@ -142,7 +148,7 @@ public class Ah2ReportData {
      *       |                |--> getPatientData: 获取病人数据
      *       |                |      |--> fillCtxForDailyData: 获取班次数据
      *       |                |      |--> getBalanceSummary: 获取出入量记录
-     *       |                |      |--> getMonitoringData: 获取观察项，出入量数据，引流管数据
+     *       |                |      |--> getNonBalanceMonitoringData + getBalanceMonitoringData: 获取观察项，出入量数据，引流管数据
      *       |                |      |--> getMedExeData: 获取医嘱数据
      *       |                |      |--> getNursingRecords: 获取护理记录
      *       |                |      |--> getPatientScores: 获取护理评分
@@ -257,7 +263,8 @@ public class Ah2ReportData {
             Ah2PageData pageData = dailyDataMap.get(midnightUtc);
             if (pageData == null) {
                 Pair<StatusCode, Ah2PageData> pageDataPair = fetchDailyData(
-                    ctx, pid, deptId, midnightUtc, shiftStartUtc, shiftEndUtc, accountId, nowUtc
+                    ctx, pid, deptId, midnightUtc, shiftStartUtc, shiftEndUtc, accountId,
+                    nowUtc, dischargeTimeUtc
                 );
                 StatusCode statusCode = pageDataPair.getFirst() != StatusCode.OK ?
                     pageDataPair.getFirst() :
@@ -275,9 +282,19 @@ public class Ah2ReportData {
         long endQueryTimeMillis = System.currentTimeMillis();
         log.info("elasped time for query: {}ms", (endQueryTimeMillis - startQueryTimeMillis));
 
+        int nursingReportStartId = 1;
+        PatientSettings settings = patientSettingsRepository.findByPid(pid).orElse(null);
+        if (settings != null) {
+            PatientReportConfigPB reportCfgPb = ProtoUtils.decodePatientReportConfigPB(settings.getReportCfg());
+            if (reportCfgPb != null && reportCfgPb.getNursingReportStartId() > 0) {
+                nursingReportStartId = reportCfgPb.getNursingReportStartId();
+            }
+        }
+
         // 转化成分页数据，过滤掉无效页
         List<Ah2PageData> pageDataList = paginateData(
-            dailyDataList, dailyDataStartMidnightUtc, admissionTimeUtc, ctx.tblCommon.getBodyRows()
+            dailyDataList, dailyDataStartMidnightUtc, admissionTimeUtc, ctx.tblCommon.getBodyRows(),
+            nursingReportStartId
         );
         final LocalDateTime finalQueryStartUtc = queryStartUtc;
         final LocalDateTime finalQueryEndUtc = queryEndUtc;
@@ -412,7 +429,7 @@ public class Ah2ReportData {
         Ah2PdfContext ctx,
         long pid, String deptId, LocalDateTime midnightUtc,
         LocalDateTime shiftStartUtc, LocalDateTime shiftEndUtc,
-        String accountId, LocalDateTime nowUtc
+        String accountId, LocalDateTime nowUtc, LocalDateTime dischargeTimeUtc
     ) {
         // 获取观察项元数据
         ctx.mpMap = monitoringConfig.getMonitoringParams(deptId);
@@ -436,8 +453,20 @@ public class Ah2ReportData {
         if (statusCode != StatusCode.OK) {
             return new Pair<>(statusCode, null);
         }
+        LocalDateTime cutOffUtc = nowUtc;
+        if (dischargeTimeUtc != null && dischargeTimeUtc.isBefore(nowUtc))
+            cutOffUtc = dischargeTimeUtc;
+        Set<LocalDateTime> patientDataToDelete = new HashSet<>();
+        for (LocalDateTime effectiveTime : patientDataMap.keySet()) {
+            if (effectiveTime.isAfter(cutOffUtc)) {
+                patientDataToDelete.add(effectiveTime);
+            }
+        }
+        for (LocalDateTime effectiveTime : patientDataToDelete) {
+            patientDataMap.remove(effectiveTime);
+        }
 
-        Ah2PageData ah2PageData = convertToAh2PageData(ctx, patientDataMap, nowUtc);
+        Ah2PageData ah2PageData = convertToAh2PageData(ctx, patientDataMap, cutOffUtc);
         Ah2PageDataPB ah2PageDataPb = ah2PageData.toProto();
         pnrUtils.updateLastProcessedAt(pid, midnightUtc, ah2PageDataPb, nowUtc);
 
@@ -464,7 +493,11 @@ public class Ah2ReportData {
         }
 
         // 获取观察项
-        getMonitoringData(ctx, pid, shiftStartUtc, shiftEndUtc, patientDataMap);
+        List<PatientMonitoringRecord> mpRecords = pmrRepo.findByPidAndEffectiveTimeRange(
+            pid, shiftStartUtc, shiftEndUtc.plusMinutes(1)
+        );
+        getNonBalanceMonitoringData(ctx, pid, shiftStartUtc, shiftEndUtc, patientDataMap, mpRecords);
+        getBalanceMonitoringData(ctx, pid, shiftStartUtc, shiftEndUtc, patientDataMap, mpRecords);
 
         // 获取医嘱数据
         getMedExeData(pid, deptId, shiftStartUtc, shiftEndUtc, nowUtc, patientDataMap);
@@ -584,11 +617,41 @@ public class Ah2ReportData {
         return StatusCode.OK;
     }
 
-    private void getMonitoringData(
-        Ah2PdfContext ctx, Long pid, LocalDateTime shiftStartUtc, LocalDateTime shiftEndUtc, Map<LocalDateTime, PatientData> patientDataMap
+    private void getNonBalanceMonitoringData(
+        Ah2PdfContext ctx, Long pid, LocalDateTime shiftStartUtc, LocalDateTime shiftEndUtc,
+        Map<LocalDateTime, PatientData> patientDataMap, List<PatientMonitoringRecord> mpRecords
     ) {
-        List<PatientMonitoringRecord> mpRecords = pmrRepo
-            .findByPidAndEffectiveTimeRange(pid, shiftStartUtc, shiftEndUtc);
+        for (PatientMonitoringRecord pmr : mpRecords) {
+            String paramCode = pmr.getMonitoringParamCode();
+            MonitoringParamPB mpPb = ctx.mpMap.get(paramCode);
+            if (mpPb == null) continue;
+            // 过滤掉 出入量 相关的参数
+            if (mpPb.getBalanceType() == BALANCE_IN_TYPE_ID ||
+                mpPb.getBalanceType() == BALANCE_OUT_TYPE_ID ||
+                mpPb.getBalanceType() == BALANCE_NET_TYPE_ID
+            ) continue;
+
+            LocalDateTime effectiveTime = pmr.getEffectiveTime();
+            if (effectiveTime == null) continue;
+            // 普通出入量，shiftStartUtc整点算到前一天，shiftEndUtc整点算到当天
+            if (effectiveTime.equals(shiftStartUtc)) continue;
+            MonitoringValuePB mvPb = ProtoUtils.decodeMonitoringValue(pmr.getParamValue());
+            if (effectiveTime == null || mvPb == null) {
+                log.warn("Invalid monitoring record: {}", pmr.getId());
+                continue;
+            }
+
+            PatientData patientData = patientDataMap.computeIfAbsent(
+                effectiveTime, k -> new PatientData(effectiveTime)
+            );
+            patientData.mpKvMap.put(paramCode, mvPb.getValue());
+        }
+    }
+
+    private void getBalanceMonitoringData(
+        Ah2PdfContext ctx, Long pid, LocalDateTime shiftStartUtc, LocalDateTime shiftEndUtc,
+        Map<LocalDateTime, PatientData> patientDataMap, List<PatientMonitoringRecord> mpRecords
+    ) {
         // 提取每小时入量、每小时出量、每小时尿量
         List<Pair<LocalDateTime, GenericValuePB>> hourlyIntakeList = new ArrayList<>();
         List<Pair<LocalDateTime, GenericValuePB>> hourlyOutputList = new ArrayList<>();
@@ -596,70 +659,64 @@ public class Ah2ReportData {
         // 提取引流管数据
         Map<String, String> tubeCodeNameMap = patientTubeImpl.getMonitoringParamCodeNames(
             pid, shiftStartUtc, shiftEndUtc);  // 引流管 编码-名称 映射
+
         for (PatientMonitoringRecord pmr : mpRecords) {
             String paramCode = pmr.getMonitoringParamCode();
+            MonitoringParamPB mpPb = ctx.mpMap.get(paramCode);
+            if (mpPb == null) continue;
+            // 过滤掉 非出入量 相关的参数
+            if (mpPb.getBalanceType() != BALANCE_IN_TYPE_ID &&
+                mpPb.getBalanceType() != BALANCE_OUT_TYPE_ID &&
+                mpPb.getBalanceType() != BALANCE_NET_TYPE_ID
+            ) continue;
+
             LocalDateTime effectiveTime = pmr.getEffectiveTime();
+            if (effectiveTime == null) continue;
+            if (effectiveTime.getMinute() != 0 && effectiveTime.getSecond() != 0 &&
+                effectiveTime.getNano() != 0
+            ) {
+                log.warn("Non-hourly balance effective time: {}", effectiveTime);
+                continue;
+            }
+            // 普通出入量，shiftStartUtc整点算到当天，shiftEndUtc整点算到后一天
+            if (effectiveTime.equals(shiftEndUtc)) continue;
+            LocalDateTime balanceTime = effectiveTime.plusHours(1);
+
             MonitoringValuePB mvPb = ProtoUtils.decodeMonitoringValue(pmr.getParamValue());
-            if (StrUtils.isBlank(paramCode) || effectiveTime == null || mvPb == null) {
+            if (mvPb == null) {
                 log.warn("Invalid monitoring record: {}", pmr.getId());
                 continue;
             }
 
-            // 出入量时间微调
-            LocalDateTime balanceEffectiveTime = effectiveTime;
-            if (ENABLE_BALANCE_STATS_HOUR_SHIFT &&
-                balanceEffectiveTime.getMinute() == 0 &&
-                balanceEffectiveTime.getSecond() == 0 &&
-                balanceEffectiveTime.getNano() == 0
-            ) {
-                balanceEffectiveTime = balanceEffectiveTime.plusHours(1);
-            }
-
-            // 出入量，尿量
+            ///////////////////////////////////////////////////////////////////
+            // 出入量/尿量：循环结束后统计（算累计值）
             if (paramCode.equals(MP_HOURLY_INTAKE)) {
-                if (effectiveTime.getMinute() == 0 && effectiveTime.getSecond() == 0 &&
-                    effectiveTime.getNano() == 0
-                ) {
-                    hourlyIntakeList.add(new Pair<>(balanceEffectiveTime, mvPb.getValue()));
-                }
+                hourlyIntakeList.add(new Pair<>(balanceTime, mvPb.getValue()));
                 continue;
             }
             if (paramCode.equals(MP_HOURLY_OUTPUT)) {
-                if (effectiveTime.getMinute() == 0 && effectiveTime.getSecond() == 0 &&
-                    effectiveTime.getNano() == 0
-                ) {
-                    hourlyOutputList.add(new Pair<>(balanceEffectiveTime, mvPb.getValue()));
-                }
+                hourlyOutputList.add(new Pair<>(balanceTime, mvPb.getValue()));
                 continue;
             }
             if (paramCode.equals(MP_URINE_OUTPUT)) {
-                if (effectiveTime.getMinute() == 0 && effectiveTime.getSecond() == 0 &&
-                    effectiveTime.getNano() == 0
-                ) {
-                    urineOutputList.add(new Pair<>(balanceEffectiveTime, mvPb.getValue()));
-                }
+                urineOutputList.add(new Pair<>(balanceTime, mvPb.getValue()));
                 continue;
             }
 
+            ///////////////////////////////////////////////////////////////////
             // 设置病人观察项数据
-            if (paramCode.equals(MP_GASTRIC_FLUID_VOLUME) ||
-                paramCode.equals(MP_STOOL_VOLUME) ||
-                paramCode.equals(MP_CRRT_UF)
-            ) {
-                effectiveTime = effectiveTime.plusHours(1);
-            }
-            final LocalDateTime effectiveTimeF = effectiveTime; 
             PatientData patientData = patientDataMap.computeIfAbsent(
-                effectiveTimeF, k -> new PatientData(effectiveTimeF)
+                balanceTime, k -> new PatientData(balanceTime)
             );
             patientData.mpKvMap.put(paramCode, mvPb.getValue());
 
+            ///////////////////////////////////////////////////////////////////
             // 其他出量：非尿/胃/大便/超滤 出量 + 引流管
             String tubeParamCode = null;
             String tubeName = null;
             String tubeVol = null;
             String tubeColor = null;
-            if (paramCode.endsWith("_" + Consts.DRAINAGE_TUBE_COLOR_CODE)) {
+            if (paramCode.endsWith("_" + Consts.DRAINAGE_TUBE_COLOR_CODE)) { // 引流管颜色编码
                 tubeParamCode = paramCode.substring(0,
                     paramCode.length() - Consts.DRAINAGE_TUBE_COLOR_CODE.length() - 1);
                 tubeName = tubeCodeNameMap.get(tubeParamCode);
@@ -674,7 +731,7 @@ public class Ah2ReportData {
                     tubeColor = "3";
                 }
                 if (StrUtils.isBlank(tubeColor)) continue;
-            } else if (tubeCodeNameMap.containsKey(paramCode)) {
+            } else if (tubeCodeNameMap.containsKey(paramCode)) { // 引流管出量
                 tubeParamCode = paramCode;
                 tubeName = tubeCodeNameMap.get(tubeParamCode);
                 if (tubeName == null) continue;  // 非法引流管编码;
@@ -682,9 +739,8 @@ public class Ah2ReportData {
                 if (vmPb == null) continue;  // 非法引流管编码;
                 tubeVol = ValueMetaUtils.extractAndFormatParamValue(mvPb.getValue(), vmPb);
                 if (StrUtils.isBlank(tubeVol)) continue;
-            } else {  // 其他出量：非尿/胃/大便/超滤 出量
-                MonitoringParamPB mpPb = ctx.mpMap.get(paramCode);
-                if (mpPb == null || mpPb.getBalanceType() != BALANCE_OUT_TYPE_ID ||
+            } else {  // 其他与引流管放在一起的出量：非 尿/胃/大便/超滤 出量
+                if (mpPb.getBalanceType() != BALANCE_OUT_TYPE_ID ||
                     paramCode.equals(MP_URINE_OUTPUT) ||
                     paramCode.equals(MP_GASTRIC_FLUID_VOLUME) ||
                     paramCode.equals(MP_STOOL_VOLUME) ||
@@ -698,12 +754,8 @@ public class Ah2ReportData {
                     mvPb.getValue(), mpPb.getValueMeta());
                 if (StrUtils.isBlank(tubeVol)) continue;
             }
-            final String tubeParamCodeF = tubeParamCode;
+            final String tubeParamCodeF = tubeParamCode;  // lambda中必须用final
             final String tubeNameF = tubeName;
-            final LocalDateTime balanceEffectiveTimeF = balanceEffectiveTime;
-            patientData = patientDataMap.computeIfAbsent(
-                balanceEffectiveTimeF, k -> new PatientData(balanceEffectiveTimeF)
-            );
             DrainageTubeData tubeData = patientData.drainageTubeMap.computeIfAbsent(
                 tubeParamCode, k -> new DrainageTubeData(tubeParamCodeF, tubeNameF)
             );
@@ -711,58 +763,43 @@ public class Ah2ReportData {
             if (tubeVol != null ) tubeData.volume = tubeVol;
         }
 
-        // 提取元数据
-        ValueMetaPB hourlyIntakeMeta = ctx.mpVmMap.get(MP_HOURLY_INTAKE);
-        ValueMetaPB hourlyOutputMeta = ctx.mpVmMap.get(MP_HOURLY_OUTPUT);
-        ValueMetaPB urineOutputMeta = ctx.mpVmMap.get(MP_URINE_OUTPUT);
-        if (hourlyIntakeMeta == null || hourlyOutputMeta == null || urineOutputMeta == null) {
-            log.warn("Missing monitoring param meta for hourly intake/output or urine output.");
+        processHourlySeries(
+            hourlyIntakeList, ctx.mpVmMap.get(MP_HOURLY_INTAKE),
+            MP_HOURLY_INTAKE, MP_ACCU_INTAKE, patientDataMap
+        );
+        processHourlySeries(
+            hourlyOutputList, ctx.mpVmMap.get(MP_HOURLY_OUTPUT), 
+            MP_HOURLY_OUTPUT, MP_ACCU_OUTPUT, patientDataMap
+        );
+        processHourlySeries(
+            urineOutputList, ctx.mpVmMap.get(MP_URINE_OUTPUT),
+            MP_URINE_OUTPUT, MP_ACCU_URINE_OUTPUT, patientDataMap
+        );
+    }
+
+    private void processHourlySeries(
+        List<Pair<LocalDateTime, GenericValuePB>> series,
+        ValueMetaPB meta, String hourlyMpCode, String accuMpCode,
+        Map<LocalDateTime, PatientData> patientDataMap
+    ) {
+        if (meta == null || series == null || series.isEmpty()) {
+            log.warn("Invalid input to processHourlySeries: hourlyMpCode={}", hourlyMpCode);
             return;
         }
 
-        // 处理每小时入量
-        GenericValuePB accTotalIntake = ValueMetaUtils.getDefaultValue(hourlyIntakeMeta);
-        hourlyIntakeList.sort(Comparator.comparing(Pair::getFirst));
-        for (Pair<LocalDateTime, GenericValuePB> pair : hourlyIntakeList) {
-            LocalDateTime effectiveTime = pair.getFirst();
+        GenericValuePB acc = ValueMetaUtils.getDefaultValue(meta);
+        series.sort(Comparator.comparing(Pair::getFirst));
+        for (Pair<LocalDateTime, GenericValuePB> pair : series) {
+            LocalDateTime time = pair.getFirst();
             GenericValuePB value = pair.getSecond();
-            if (effectiveTime == null || value == null) continue;
-            PatientData patientData = patientDataMap.computeIfAbsent(
-                effectiveTime, k -> new PatientData(effectiveTime)
-            );
-            patientData.mpKvMap.put(MP_HOURLY_INTAKE, value);
-            accTotalIntake = ValueMetaUtils.addGenericValue(accTotalIntake, value, hourlyIntakeMeta);
-            patientData.mpKvMap.put(MP_ACCU_INTAKE, accTotalIntake);
-        }
+            if (time == null || value == null) continue;
 
-        // 处理每小时出量
-        GenericValuePB accTotalOutput = ValueMetaUtils.getDefaultValue(hourlyOutputMeta);
-        hourlyOutputList.sort(Comparator.comparing(Pair::getFirst));
-        for (Pair<LocalDateTime, GenericValuePB> pair : hourlyOutputList) {
-            LocalDateTime effectiveTime = pair.getFirst();
-            GenericValuePB value = pair.getSecond();
-            if (effectiveTime == null || value == null) continue;
             PatientData patientData = patientDataMap.computeIfAbsent(
-                effectiveTime, k -> new PatientData(effectiveTime)
+                time, k -> new PatientData(time)
             );
-            patientData.mpKvMap.put(MP_HOURLY_OUTPUT, value);
-            accTotalOutput = ValueMetaUtils.addGenericValue(accTotalOutput, value, hourlyOutputMeta);
-            patientData.mpKvMap.put(MP_ACCU_OUTPUT, accTotalOutput);
-        }
-
-        // 处理每小时尿量
-        GenericValuePB accTotalUrineOutput = ValueMetaUtils.getDefaultValue(urineOutputMeta);
-        urineOutputList.sort(Comparator.comparing(Pair::getFirst));
-        for (Pair<LocalDateTime, GenericValuePB> pair : urineOutputList) {
-            LocalDateTime effectiveTime = pair.getFirst();
-            GenericValuePB value = pair.getSecond();
-            if (effectiveTime == null || value == null) continue;
-            PatientData patientData = patientDataMap.computeIfAbsent(
-                effectiveTime, k -> new PatientData(effectiveTime)
-            );
-            patientData.mpKvMap.put(MP_URINE_OUTPUT, value);
-            accTotalUrineOutput = ValueMetaUtils.addGenericValue(accTotalUrineOutput, value, urineOutputMeta);
-            patientData.mpKvMap.put(MP_ACCU_URINE_OUTPUT, accTotalUrineOutput);
+            patientData.mpKvMap.put(hourlyMpCode, value);
+            acc = ValueMetaUtils.addGenericValue(acc, value, meta);
+            patientData.mpKvMap.put(accuMpCode, acc);
         }
     }
 
@@ -1127,6 +1164,15 @@ public class Ah2ReportData {
             ctx, paramMap, patientData.mpKvMap, rowBlock.wrappedLinesByParam);
         paramCountCnt += setMonitoringItem(MP_RESPIRATORY_TUBE_DEPTH, AH2P_RESPIRATORY_TUBE_DEPTH,
             ctx, paramMap, patientData.mpKvMap, rowBlock.wrappedLinesByParam);
+
+        // 氧浓度 / 氧流量
+        int oxygenConcentrationFlowCnt = setMonitoringItem(MP_VENT_OXYGEN_CONCENTRATION, AH2P_OXYGEN_CONCENTRATION_FLOW,
+            ctx, paramMap, patientData.mpKvMap, rowBlock.wrappedLinesByParam);
+        if (oxygenConcentrationFlowCnt <= 0) {
+            oxygenConcentrationFlowCnt = setMonitoringItem(MP_VENT_OXYGEN_FLOW_RATE, AH2P_OXYGEN_CONCENTRATION_FLOW,
+            ctx, paramMap, patientData.mpKvMap, rowBlock.wrappedLinesByParam);
+        }
+        paramCountCnt += oxygenConcentrationFlowCnt;
 
         paramCountCnt += setMonitoringItem(MP_RESPIRATORY_MODE, AH2P_RESPIRATORY_MODE,
             ctx, paramMap, patientData.mpKvMap, rowBlock.wrappedLinesByParam);
@@ -1707,15 +1753,16 @@ public class Ah2ReportData {
 
     private List<Ah2PageData> paginateData(
         List<Ah2PageData> dailyDataList, LocalDateTime dailyDataStartMidnightUtc,
-        LocalDateTime admissionTimeUtc, int linesPerPage
+        LocalDateTime admissionTimeUtc, int linesPerPage, int startPageNumber
     ) {
         if (dailyDataStartMidnightUtc == null || admissionTimeUtc == null || dailyDataList == null || dailyDataList.isEmpty() || linesPerPage <= 0) {
             return new ArrayList<>();
         }
 
+        int normalizedStartPageNumber = Math.max(startPageNumber, 1);
         List<Ah2PageData> pageDataList = new ArrayList<>();
         Ah2PageData curPage = new Ah2PageData();
-        curPage.pageNumber = 1;
+        curPage.pageNumber = normalizedStartPageNumber;
         curPage.pageStartTs = dailyDataStartMidnightUtc;
         int curPageLines = 0;
         LocalDateTime curPageDate = dailyDataStartMidnightUtc;
@@ -1832,7 +1879,7 @@ public class Ah2ReportData {
 
                         // 开新的一页
                         curPage = new Ah2PageData();
-                        curPage.pageNumber = pageDataList.size() + 1;
+                        curPage.pageNumber = normalizedStartPageNumber + pageDataList.size();
                         curPageLines = 0;
                         curPage.pageStartTs = curPageDate;
                     }
@@ -1889,6 +1936,7 @@ public class Ah2ReportData {
             }
         }
 
+log.info("\n\npageData:\n{}\n\n", ProtoUtils.protoToTxt(ctx.pageData.toProto()));
         // 画数据块
         for (Ah2PageData.RowBlock rowBlock : ctx.pageData.rowBlocks) {
             // - 画表体横线
@@ -2151,7 +2199,9 @@ log.info("\n\n\n(小计) top = {}, bottom = {}\n\n\n", yTop, summaryBottom);
     private final String ZONE_ID;
     private final List<String> statusCodeMsgs;
     private final Integer BALANCE_GROUP_TYPE_ID;
+    private final Integer BALANCE_IN_TYPE_ID;
     private final Integer BALANCE_OUT_TYPE_ID;
+    private final Integer BALANCE_NET_TYPE_ID;
     private final Integer DOSAGE_DECIMAL_PLACES;
     private final ValueMetaPB DRAINAGE_TUBE_COLOR_META;
     private final boolean ENABLE_BALANCE_STATS_HOUR_SHIFT;
@@ -2178,6 +2228,7 @@ log.info("\n\n\n(小计) top = {}, bottom = {}\n\n\n", yTop, summaryBottom);
     private final PatientTubeRecordRepository ptrRepo;
     private final PatientTubeStatusRecordRepository ptsrRepo;
     private final AccountRepository accountRepo;
+    private final PatientSettingsRepository patientSettingsRepository;
 
     private Map<String, Long> accountIdToPk;
 
@@ -2367,11 +2418,185 @@ log.info("\n\n\n(小计) top = {}, bottom = {}\n\n\n", yTop, summaryBottom);
     public static final String AH2P_BGA_LAC = "AH2P_BGA_LAC";  // 血气：Lac
 }
 
-/*
-观察项列表：
----
-vent_oxygen_concentration 氧浓度
-vent_oxygen_flow_rate 氧流量
 
-管道/管道维护/异常：?????
-*/
+    // private void getMonitoringData(
+    //     Ah2PdfContext ctx, Long pid, LocalDateTime shiftStartUtc, LocalDateTime shiftEndUtc, Map<LocalDateTime, PatientData> patientDataMap
+    // ) {
+    //     List<PatientMonitoringRecord> mpRecords = pmrRepo
+    //         .findByPidAndEffectiveTimeRange(pid, shiftStartUtc, shiftEndUtc);
+    //     // 提取每小时入量、每小时出量、每小时尿量
+    //     List<Pair<LocalDateTime, GenericValuePB>> hourlyIntakeList = new ArrayList<>();
+    //     List<Pair<LocalDateTime, GenericValuePB>> hourlyOutputList = new ArrayList<>();
+    //     List<Pair<LocalDateTime, GenericValuePB>> urineOutputList = new ArrayList<>();
+    //     // 提取引流管数据
+    //     Map<String, String> tubeCodeNameMap = patientTubeImpl.getMonitoringParamCodeNames(
+    //         pid, shiftStartUtc, shiftEndUtc);  // 引流管 编码-名称 映射
+    //     for (PatientMonitoringRecord pmr : mpRecords) {
+    //         String paramCode = pmr.getMonitoringParamCode();
+    //         LocalDateTime effectiveTime = pmr.getEffectiveTime();
+    //         MonitoringValuePB mvPb = ProtoUtils.decodeMonitoringValue(pmr.getParamValue());
+    //         if (StrUtils.isBlank(paramCode) || effectiveTime == null || mvPb == null) {
+    //             log.warn("Invalid monitoring record: {}", pmr.getId());
+    //             continue;
+    //         }
+
+    //         // 出入量时间微调
+    //         LocalDateTime balanceEffectiveTime = effectiveTime;
+    //         if (ENABLE_BALANCE_STATS_HOUR_SHIFT &&
+    //             balanceEffectiveTime.getMinute() == 0 &&
+    //             balanceEffectiveTime.getSecond() == 0 &&
+    //             balanceEffectiveTime.getNano() == 0
+    //         ) {
+    //             balanceEffectiveTime = balanceEffectiveTime.plusHours(1);
+    //         }
+
+    //         // 出入量，尿量
+    //         if (paramCode.equals(MP_HOURLY_INTAKE)) {
+    //             if (effectiveTime.getMinute() == 0 && effectiveTime.getSecond() == 0 &&
+    //                 effectiveTime.getNano() == 0
+    //             ) {
+    //                 hourlyIntakeList.add(new Pair<>(balanceEffectiveTime, mvPb.getValue()));
+    //             }
+    //             continue;
+    //         }
+    //         if (paramCode.equals(MP_HOURLY_OUTPUT)) {
+    //             if (effectiveTime.getMinute() == 0 && effectiveTime.getSecond() == 0 &&
+    //                 effectiveTime.getNano() == 0
+    //             ) {
+    //                 hourlyOutputList.add(new Pair<>(balanceEffectiveTime, mvPb.getValue()));
+    //             }
+    //             continue;
+    //         }
+    //         if (paramCode.equals(MP_URINE_OUTPUT)) {
+    //             if (effectiveTime.getMinute() == 0 && effectiveTime.getSecond() == 0 &&
+    //                 effectiveTime.getNano() == 0
+    //             ) {
+    //                 urineOutputList.add(new Pair<>(balanceEffectiveTime, mvPb.getValue()));
+    //             }
+    //             continue;
+    //         }
+
+    //         // 设置病人观察项数据
+    //         if (paramCode.equals(MP_GASTRIC_FLUID_VOLUME) ||
+    //             paramCode.equals(MP_STOOL_VOLUME) ||
+    //             paramCode.equals(MP_CRRT_UF)
+    //         ) {
+    //             effectiveTime = effectiveTime.plusHours(1);
+    //         }
+    //         final LocalDateTime effectiveTimeF = effectiveTime;
+    //         PatientData patientData = patientDataMap.computeIfAbsent(
+    //             effectiveTimeF, k -> new PatientData(effectiveTimeF)
+    //         );
+    //         patientData.mpKvMap.put(paramCode, mvPb.getValue());
+
+    //         // 其他出量：非尿/胃/大便/超滤 出量 + 引流管
+    //         String tubeParamCode = null;
+    //         String tubeName = null;
+    //         String tubeVol = null;
+    //         String tubeColor = null;
+    //         if (paramCode.endsWith("_" + Consts.DRAINAGE_TUBE_COLOR_CODE)) {
+    //             tubeParamCode = paramCode.substring(0,
+    //                 paramCode.length() - Consts.DRAINAGE_TUBE_COLOR_CODE.length() - 1);
+    //             tubeName = tubeCodeNameMap.get(tubeParamCode);
+    //             if (tubeName == null) continue;  // 非法引流管颜色编码;
+    //             String rawTubeColor = ValueMetaUtils.extractAndFormatParamValue(
+    //                 mvPb.getValue(), DRAINAGE_TUBE_COLOR_META);
+    //             if (rawTubeColor.equals("血性")) {
+    //                 tubeColor = "1";
+    //             } else if (rawTubeColor.equals("褐色")) {
+    //                 tubeColor = "2";
+    //             } else if (rawTubeColor.equals("黄色")) {
+    //                 tubeColor = "3";
+    //             }
+    //             if (StrUtils.isBlank(tubeColor)) continue;
+    //         } else if (tubeCodeNameMap.containsKey(paramCode)) {
+    //             tubeParamCode = paramCode;
+    //             tubeName = tubeCodeNameMap.get(tubeParamCode);
+    //             if (tubeName == null) continue;  // 非法引流管编码;
+    //             ValueMetaPB vmPb = ctx.mpVmMap.get(paramCode);
+    //             if (vmPb == null) continue;  // 非法引流管编码;
+    //             tubeVol = ValueMetaUtils.extractAndFormatParamValue(mvPb.getValue(), vmPb);
+    //             if (StrUtils.isBlank(tubeVol)) continue;
+    //         } else {  // 其他出量：非尿/胃/大便/超滤 出量
+    //             MonitoringParamPB mpPb = ctx.mpMap.get(paramCode);
+    //             if (mpPb == null || mpPb.getBalanceType() != BALANCE_OUT_TYPE_ID ||
+    //                 paramCode.equals(MP_URINE_OUTPUT) ||
+    //                 paramCode.equals(MP_GASTRIC_FLUID_VOLUME) ||
+    //                 paramCode.equals(MP_STOOL_VOLUME) ||
+    //                 paramCode.equals(MP_CRRT_UF)
+    //             ) {
+    //                 continue;
+    //             }
+    //             tubeParamCode = paramCode;
+    //             tubeName = mpPb.getName();
+    //             tubeVol = ValueMetaUtils.extractAndFormatParamValue(
+    //                 mvPb.getValue(), mpPb.getValueMeta());
+    //             if (StrUtils.isBlank(tubeVol)) continue;
+    //         }
+    //         final String tubeParamCodeF = tubeParamCode;
+    //         final String tubeNameF = tubeName;
+    //         final LocalDateTime balanceEffectiveTimeF = balanceEffectiveTime;
+    //         patientData = patientDataMap.computeIfAbsent(
+    //             balanceEffectiveTimeF, k -> new PatientData(balanceEffectiveTimeF)
+    //         );
+    //         DrainageTubeData tubeData = patientData.drainageTubeMap.computeIfAbsent(
+    //             tubeParamCode, k -> new DrainageTubeData(tubeParamCodeF, tubeNameF)
+    //         );
+    //         if (tubeColor != null) tubeData.color = tubeColor;
+    //         if (tubeVol != null ) tubeData.volume = tubeVol;
+    //     }
+
+    //     // 提取元数据
+    //     ValueMetaPB hourlyIntakeMeta = ctx.mpVmMap.get(MP_HOURLY_INTAKE);
+    //     ValueMetaPB hourlyOutputMeta = ctx.mpVmMap.get(MP_HOURLY_OUTPUT);
+    //     ValueMetaPB urineOutputMeta = ctx.mpVmMap.get(MP_URINE_OUTPUT);
+    //     if (hourlyIntakeMeta == null || hourlyOutputMeta == null || urineOutputMeta == null) {
+    //         log.warn("Missing monitoring param meta for hourly intake/output or urine output.");
+    //         return;
+    //     }
+
+    //     // 处理每小时入量
+    //     GenericValuePB accTotalIntake = ValueMetaUtils.getDefaultValue(hourlyIntakeMeta);
+    //     hourlyIntakeList.sort(Comparator.comparing(Pair::getFirst));
+    //     for (Pair<LocalDateTime, GenericValuePB> pair : hourlyIntakeList) {
+    //         LocalDateTime effectiveTime = pair.getFirst();
+    //         GenericValuePB value = pair.getSecond();
+    //         if (effectiveTime == null || value == null) continue;
+    //         PatientData patientData = patientDataMap.computeIfAbsent(
+    //             effectiveTime, k -> new PatientData(effectiveTime)
+    //         );
+    //         patientData.mpKvMap.put(MP_HOURLY_INTAKE, value);
+    //         accTotalIntake = ValueMetaUtils.addGenericValue(accTotalIntake, value, hourlyIntakeMeta);
+    //         patientData.mpKvMap.put(MP_ACCU_INTAKE, accTotalIntake);
+    //     }
+
+    //     // 处理每小时出量
+    //     GenericValuePB accTotalOutput = ValueMetaUtils.getDefaultValue(hourlyOutputMeta);
+    //     hourlyOutputList.sort(Comparator.comparing(Pair::getFirst));
+    //     for (Pair<LocalDateTime, GenericValuePB> pair : hourlyOutputList) {
+    //         LocalDateTime effectiveTime = pair.getFirst();
+    //         GenericValuePB value = pair.getSecond();
+    //         if (effectiveTime == null || value == null) continue;
+    //         PatientData patientData = patientDataMap.computeIfAbsent(
+    //             effectiveTime, k -> new PatientData(effectiveTime)
+    //         );
+    //         patientData.mpKvMap.put(MP_HOURLY_OUTPUT, value);
+    //         accTotalOutput = ValueMetaUtils.addGenericValue(accTotalOutput, value, hourlyOutputMeta);
+    //         patientData.mpKvMap.put(MP_ACCU_OUTPUT, accTotalOutput);
+    //     }
+
+    //     // 处理每小时尿量
+    //     GenericValuePB accTotalUrineOutput = ValueMetaUtils.getDefaultValue(urineOutputMeta);
+    //     urineOutputList.sort(Comparator.comparing(Pair::getFirst));
+    //     for (Pair<LocalDateTime, GenericValuePB> pair : urineOutputList) {
+    //         LocalDateTime effectiveTime = pair.getFirst();
+    //         GenericValuePB value = pair.getSecond();
+    //         if (effectiveTime == null || value == null) continue;
+    //         PatientData patientData = patientDataMap.computeIfAbsent(
+    //             effectiveTime, k -> new PatientData(effectiveTime)
+    //         );
+    //         patientData.mpKvMap.put(MP_URINE_OUTPUT, value);
+    //         accTotalUrineOutput = ValueMetaUtils.addGenericValue(accTotalUrineOutput, value, urineOutputMeta);
+    //         patientData.mpKvMap.put(MP_ACCU_URINE_OUTPUT, accTotalUrineOutput);
+    //     }
+    // }

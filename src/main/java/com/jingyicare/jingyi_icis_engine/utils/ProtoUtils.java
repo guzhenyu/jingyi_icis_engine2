@@ -389,6 +389,19 @@ public class ProtoUtils {
         return Base64.getEncoder().encodeToString(pb.toByteArray());
     }
 
+    static public PatientReportConfigPB decodePatientReportConfigPB(String base64) {
+        try {
+            return PatientReportConfigPB.parseFrom(Base64.getDecoder().decode(base64));
+        } catch (Exception e) {
+            log.error("Failed to decode PatientReportConfigPB from base64 string ", e);
+            return null;
+        }
+    }
+
+    static public String encodePatientReportConfigPB(PatientReportConfigPB pb) {
+        return Base64.getEncoder().encodeToString(pb.toByteArray());
+    }
+
     private static final Set<Descriptors.FieldDescriptor> fields = new HashSet<>();
     private static final JsonFormat.Printer jsonPrinter;
     static {

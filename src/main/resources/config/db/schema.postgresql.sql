@@ -3935,3 +3935,15 @@ COMMENT ON COLUMN dept_system_settings.function_id IS '功能ID';
 COMMENT ON COLUMN dept_system_settings.settings_pb IS '不同的功能ID，有不同的PB的Base64字节码，比如显示入科状态用的是icis_config.proto:DisplayFieldSettingsPB';
 COMMENT ON COLUMN dept_system_settings.modified_at IS '最后修改时间';
 COMMENT ON COLUMN dept_system_settings.modified_by IS '最后修改人';
+
+CREATE TABLE patient_settings (
+    pid BIGINT NOT NULL PRIMARY KEY,
+    report_cfg TEXT NOT NULL,
+    modified_at TIMESTAMP NOT NULL,
+    modified_by VARCHAR(255) NOT NULL
+);
+COMMENT ON TABLE patient_settings IS '病人设置';
+COMMENT ON COLUMN patient_settings.pid IS '病人ID';
+COMMENT ON COLUMN patient_settings.report_cfg IS 'PatientReportConfigPB 的 Base64字节码';
+COMMENT ON COLUMN patient_settings.modified_at IS '最后修改时间';
+COMMENT ON COLUMN patient_settings.modified_by IS '最后修改人';

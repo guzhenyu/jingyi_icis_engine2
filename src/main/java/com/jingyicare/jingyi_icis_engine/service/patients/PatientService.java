@@ -52,7 +52,8 @@ public class PatientService {
         @Autowired BedConfigRepository bedConfigRepository,
         @Autowired DiagnosisHistoryRepository diagnosisHistoryRepository,
         @Autowired PatientDeviceRepository patientDeviceRepository,
-        @Autowired ReadmissionHistoryRepository readmissionHistoryRepository
+        @Autowired ReadmissionHistoryRepository readmissionHistoryRepository,
+        @Autowired PatientSettingsRepository patientSettingsRepository
     ) {
         this.enumsV2 = protoService.getConfig().getPatient().getEnumsV2();
         this.ZONE_ID = protoService.getConfig().getZoneId();
@@ -122,6 +123,7 @@ public class PatientService {
         this.diagnosisHistoryRepository = diagnosisHistoryRepository;
         this.patientDeviceRepository = patientDeviceRepository;
         this.readmissionHistoryRepository = readmissionHistoryRepository;
+        this.patientSettingsRepository = patientSettingsRepository;
     }
 
     @Transactional
@@ -814,6 +816,105 @@ public class PatientService {
                 .build();
         }
         patientRecordRepository.save(patient);
+
+        return GenericResp.newBuilder()
+            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .build();
+    }
+
+    @Transactional
+    public GetPatientSettingsResp getPatientSettings(String getPatientSettingsReqJson) {
+        final GetPatientSettingsPB req;
+        try {
+            req = ProtoUtils.parseJsonToProto(getPatientSettingsReqJson, GetPatientSettingsPB.newBuilder());
+        } catch (Exception e) {
+            log.error("Failed to convert string to proto: {}", e);
+            return GetPatientSettingsResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .build();
+        }
+
+        Long pid = req.getPid();
+        PatientRecord patient = patientRecordRepository.findById(pid).orElse(null);
+        if (patient == null) {
+            return GetPatientSettingsResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
+                .build();
+        }
+
+        PatientSettings settings = patientSettingsRepository.findByPid(pid).orElse(null);
+        PatientReportConfigPB reportCfgPb = null;
+        if (settings != null) {
+            reportCfgPb = ProtoUtils.decodePatientReportConfigPB(settings.getReportCfg());
+        }
+
+        PatientReportConfigPB.Builder reportCfgBuilder = reportCfgPb == null
+            ? PatientReportConfigPB.newBuilder().setNursingReportStartId(1)
+            : reportCfgPb.toBuilder();
+        reportCfgBuilder.setPid(pid);
+
+        return GetPatientSettingsResp.newBuilder()
+            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setReportCfg(reportCfgBuilder.build())
+            .build();
+    }
+
+    @Transactional
+    public GenericResp updatePatientSettings(String updatePatientSettingsReqJson) {
+        final UpdatePatientSettingsReq req;
+        try {
+            UpdatePatientSettingsReq.Builder builder = UpdatePatientSettingsReq.newBuilder();
+            JsonFormat.parser().merge(updatePatientSettingsReqJson, builder);
+            req = builder.build();
+        } catch (Exception e) {
+            log.error("Failed to convert string to proto: ", e, "\n", e.getStackTrace());
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .build();
+        }
+
+        Pair<String, String> account = userService.getAccountWithAutoId();
+        if (account == null) {
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
+                .build();
+        }
+        final String accountId = account.getFirst();
+        final LocalDateTime nowUtc = TimeUtils.getNowUtc();
+
+        Long pid = req.getPid();
+        PatientRecord patient = patientRecordRepository.findById(pid).orElse(null);
+        if (patient == null) {
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
+                .build();
+        }
+
+        PatientSettings settings = patientSettingsRepository.findByPid(pid).orElse(null);
+        PatientReportConfigPB reportCfgPb = null;
+        if (settings != null) {
+            reportCfgPb = ProtoUtils.decodePatientReportConfigPB(settings.getReportCfg());
+        }
+
+        PatientReportConfigPB.Builder reportCfgBuilder = reportCfgPb == null
+            ? PatientReportConfigPB.newBuilder().setPid(pid)
+            : reportCfgPb.toBuilder();
+        reportCfgBuilder.setNursingReportStartId(req.getNursingReportStartId());
+
+        String reportCfgBase64 = ProtoUtils.encodePatientReportConfigPB(reportCfgBuilder.build());
+        if (settings == null) {
+            settings = PatientSettings.builder()
+                .pid(pid)
+                .reportCfg(reportCfgBase64)
+                .modifiedAt(nowUtc)
+                .modifiedBy(accountId)
+                .build();
+        } else {
+            settings.setReportCfg(reportCfgBase64);
+            settings.setModifiedAt(nowUtc);
+            settings.setModifiedBy(accountId);
+        }
+        patientSettingsRepository.save(settings);
 
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -2050,4 +2151,5 @@ public class PatientService {
     private DiagnosisHistoryRepository diagnosisHistoryRepository;
     private PatientDeviceRepository patientDeviceRepository;
     private ReadmissionHistoryRepository readmissionHistoryRepository;
+    private PatientSettingsRepository patientSettingsRepository;
 }
