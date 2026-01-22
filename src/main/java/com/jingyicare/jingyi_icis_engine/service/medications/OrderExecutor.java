@@ -367,6 +367,11 @@ public class OrderExecutor {
         return medExeActionRepo.save(action);
     }
 
+    public MedicationExecutionAction updateExeAction(MedicationExecutionAction action) {
+        if (action == null) return null;
+        return medExeActionRepo.save(action);
+    }
+
     private List<LocalDateTime> getExeTimeList(
         int durationType, boolean isCanceled, LocalDateTime cancelShiftTime, LocalDateTime stopShiftTime,
         LocalDateTime orderShiftTime, LocalDateTime planTime, int orderValidity,

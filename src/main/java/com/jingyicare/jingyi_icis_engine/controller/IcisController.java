@@ -525,9 +525,9 @@ public class IcisController {
         return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.newOrderGroup(newOrderGroupReqJson)));
     }
 
-    @PostMapping("/medication/addorderexeaction")
-    public ResponseEntity<String> addOrderExeAction(@RequestBody String addOrderExeActionReqJson) {
-        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.addOrderExeAction(addOrderExeActionReqJson)));
+    @PostMapping("/medication/saveorderexeaction")
+    public ResponseEntity<String> saveOrderExeAction(@RequestBody String saveOrderExeActionReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.saveOrderExeAction(saveOrderExeActionReqJson)));
     }
 
     @PostMapping("/medication/delorderexeaction")

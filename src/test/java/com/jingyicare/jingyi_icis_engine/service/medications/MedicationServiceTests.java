@@ -931,30 +931,30 @@ public class MedicationServiceTests extends TestsBase {
 
         // 新增执行过程
         final Long medExeRecId = resp.getOrderGroup(0).getExeRecord(0).getMedExeRec().getId();
-        String addOrderExeActionReqJson = String.format(
+        String saveOrderExeActionReqJson = String.format(
             "{\"med_exe_rec_id\": %d, \"action_type\": %d, \"administration_rate\": %f," +
             " \"intake_vol_ml\": %f, \"created_at_iso8601\": \"2024-10-10T15:00:00+08:00\"}",
             medExeRecId, ACTION_TYPE_START, 10.0, 0.0
         );
-        AddOrderExeActionResp resp2 = medService.addOrderExeAction(addOrderExeActionReqJson);
+        SaveOrderExeActionResp resp2 = medService.saveOrderExeAction(saveOrderExeActionReqJson);
         assertThat(resp2.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         assertThat(resp2.getExeRecord().getMedExeActionCount()).isEqualTo(1);
         assertThat(resp2.getExeRecord().getMedExeAction(0).getActionType()).isEqualTo(ACTION_TYPE_START);
 
-        addOrderExeActionReqJson = String.format(
+        saveOrderExeActionReqJson = String.format(
             "{\"med_exe_rec_id\": %d, \"action_type\": %d, \"administration_rate\": %f," +
             " \"intake_vol_ml\": %f, \"created_at_iso8601\": \"2024-10-10T15:10:00+08:00\"}",
             medExeRecId, ACTION_TYPE_START, 10.0, 0.0
         );
-        resp2 = medService.addOrderExeAction(addOrderExeActionReqJson);
+        resp2 = medService.saveOrderExeAction(saveOrderExeActionReqJson);
         assertThat(resp2.getRt().getCode()).isEqualTo(StatusCode.ACTION_TYPE_NOT_QUALIFIED.ordinal());
 
-        addOrderExeActionReqJson = String.format(
+        saveOrderExeActionReqJson = String.format(
             "{\"med_exe_rec_id\": %d, \"action_type\": %d, \"administration_rate\": %f," +
             " \"intake_vol_ml\": %f, \"created_at_iso8601\": \"2024-10-10T15:20:00+08:00\"}",
             medExeRecId, ACTION_TYPE_PAUSE, 0.0, 0.0
         );
-        resp2 = medService.addOrderExeAction(addOrderExeActionReqJson);
+        resp2 = medService.saveOrderExeAction(saveOrderExeActionReqJson);
         assertThat(resp2.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         assertThat(resp2.getExeRecord().getMedExeActionCount()).isEqualTo(2);
         assertThat(resp2.getExeRecord().getMedExeAction(0).getActionType()).isEqualTo(ACTION_TYPE_START);
@@ -1004,23 +1004,23 @@ public class MedicationServiceTests extends TestsBase {
 
         // 新增执行过程
         final Long medExeRecId = resp.getOrderGroup(0).getExeRecord(0).getMedExeRec().getId();
-        String addOrderExeActionReqJson = String.format(
+        String saveOrderExeActionReqJson = String.format(
             "{\"med_exe_rec_id\": %d, \"action_type\": %d, \"administration_rate\": %f," +
             " \"intake_vol_ml\": %f, \"created_at_iso8601\": \"2024-10-10T15:00:00+08:00\"}",
             medExeRecId, ACTION_TYPE_START, 60.0, 0.0
         );
-        AddOrderExeActionResp resp2 = medService.addOrderExeAction(addOrderExeActionReqJson);
+        SaveOrderExeActionResp resp2 = medService.saveOrderExeAction(saveOrderExeActionReqJson);
         assertThat(resp2.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         assertThat(resp2.getExeRecord().getMedExeActionCount()).isEqualTo(1);
         assertThat(resp2.getExeRecord().getMedExeAction(0).getActionType()).isEqualTo(ACTION_TYPE_START);
 
         // 暂停
-        addOrderExeActionReqJson = String.format(
+        saveOrderExeActionReqJson = String.format(
             "{\"med_exe_rec_id\": %d, \"action_type\": %d, \"administration_rate\": %f," +
             " \"intake_vol_ml\": %f, \"created_at_iso8601\": \"2024-10-10T15:30:00+08:00\"}",
             medExeRecId, ACTION_TYPE_PAUSE, 0.0, 0.0
         );
-        resp2 = medService.addOrderExeAction(addOrderExeActionReqJson);
+        resp2 = medService.saveOrderExeAction(saveOrderExeActionReqJson);
         assertThat(resp2.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         assertThat(resp2.getExeRecord().getMedExeActionCount()).isEqualTo(2);
         assertThat(resp2.getExeRecord().getMedExeAction(0).getActionType()).isEqualTo(ACTION_TYPE_START);
@@ -1095,16 +1095,16 @@ public class MedicationServiceTests extends TestsBase {
         // 新增执行过程start (deptId + ROUTE4)
         LocalDateTime actionStartTime = TimeUtils.getUtcFromLocalDateTime(
             TimeUtils.getLocalTime(2024, 10, 10, 16, 10), ZONE_ID);
-        AddOrderExeActionReq addOrderExeActionReq = AddOrderExeActionReq.newBuilder()
+        SaveOrderExeActionReq saveOrderExeActionReq = SaveOrderExeActionReq.newBuilder()
             .setMedExeRecId(medExeRecId)
             .setActionType(ACTION_TYPE_START)
             .setAdministrationRate(60.0)
             .setIntakeVolMl(0.0)
             .setCreatedAtIso8601(TimeUtils.toIso8601String(actionStartTime, ZONE_ID))
             .build();
-        String addOrderExeActionReqJson = ProtoUtils.protoToJson(addOrderExeActionReq);
-        AddOrderExeActionResp addOrderExeActionResp = medService.addOrderExeAction(addOrderExeActionReqJson);
-        assertThat(addOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        String saveOrderExeActionReqJson = ProtoUtils.protoToJson(saveOrderExeActionReq);
+        SaveOrderExeActionResp saveOrderExeActionResp = medService.saveOrderExeAction(saveOrderExeActionReqJson);
+        assertThat(saveOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
         medExeRec = medExeRecRepo.findById(medExeRecId).orElse(null);
         assertThat(medExeRec).isNotNull();
@@ -1115,33 +1115,33 @@ public class MedicationServiceTests extends TestsBase {
         // 新增执行过程COMPLETE失败（在start之前）
         LocalDateTime actionEndTime = TimeUtils.getUtcFromLocalDateTime(
             TimeUtils.getLocalTime(2024, 10, 10, 16, 0), ZONE_ID);
-        addOrderExeActionReq = AddOrderExeActionReq.newBuilder()
+        saveOrderExeActionReq = SaveOrderExeActionReq.newBuilder()
             .setMedExeRecId(medExeRecId)
             .setActionType(ACTION_TYPE_COMPLETE)
             .setAdministrationRate(0.0)
             .setIntakeVolMl(0.0)
             .setCreatedAtIso8601(TimeUtils.toIso8601String(actionEndTime, ZONE_ID))
             .build();
-        addOrderExeActionReqJson = ProtoUtils.protoToJson(addOrderExeActionReq);
-        addOrderExeActionResp = medService.addOrderExeAction(addOrderExeActionReqJson);
-        assertThat(addOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.ACTION_TIME_BEFORE_LAST_ACTION_TIME.ordinal());
+        saveOrderExeActionReqJson = ProtoUtils.protoToJson(saveOrderExeActionReq);
+        saveOrderExeActionResp = medService.saveOrderExeAction(saveOrderExeActionReqJson);
+        assertThat(saveOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.ACTION_TIME_BEFORE_LAST_ACTION_TIME.ordinal());
 
         // 新增执行过程COMPLETE
         actionEndTime = TimeUtils.getUtcFromLocalDateTime(
             TimeUtils.getLocalTime(2024, 10, 10, 17, 40), ZONE_ID);
-        addOrderExeActionReq = AddOrderExeActionReq.newBuilder()
+        saveOrderExeActionReq = SaveOrderExeActionReq.newBuilder()
             .setMedExeRecId(medExeRecId)
             .setActionType(ACTION_TYPE_COMPLETE)
             .setAdministrationRate(0.0)
             .setIntakeVolMl(0.0)
             .setCreatedAtIso8601(TimeUtils.toIso8601String(actionEndTime, ZONE_ID))
             .build();
-        addOrderExeActionReqJson = ProtoUtils.protoToJson(addOrderExeActionReq);
-        addOrderExeActionResp = medService.addOrderExeAction(addOrderExeActionReqJson);
-        assertThat(addOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
-        assertThat(addOrderExeActionResp.getExeRecord().getMedExeActionCount()).isEqualTo(2);
-        final Long startMedExeActionId = addOrderExeActionResp.getExeRecord().getMedExeAction(0).getId();
-        final Long completeMedExeActionId = addOrderExeActionResp.getExeRecord().getMedExeAction(1).getId();
+        saveOrderExeActionReqJson = ProtoUtils.protoToJson(saveOrderExeActionReq);
+        saveOrderExeActionResp = medService.saveOrderExeAction(saveOrderExeActionReqJson);
+        assertThat(saveOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        assertThat(saveOrderExeActionResp.getExeRecord().getMedExeActionCount()).isEqualTo(2);
+        final Long startMedExeActionId = saveOrderExeActionResp.getExeRecord().getMedExeAction(0).getId();
+        final Long completeMedExeActionId = saveOrderExeActionResp.getExeRecord().getMedExeAction(1).getId();
 
         medExeRec = medExeRecRepo.findById(medExeRecId).orElse(null);
         assertThat(medExeRec).isNotNull();
@@ -1240,31 +1240,29 @@ public class MedicationServiceTests extends TestsBase {
         // 新增执行过程start, 60ml/hour
         LocalDateTime actionStartTime = TimeUtils.getUtcFromLocalDateTime(
             TimeUtils.getLocalTime(2024, 10, 10, 9, 0), ZONE_ID);
-        AddOrderExeActionReq addOrderExeActionReq = AddOrderExeActionReq.newBuilder()
+        SaveOrderExeActionReq saveOrderExeActionReq = SaveOrderExeActionReq.newBuilder()
             .setMedExeRecId(medExeRecId)
             .setActionType(ACTION_TYPE_START)
             .setAdministrationRate(60.0)
             .setIntakeVolMl(0.0)
             .setCreatedAtIso8601(TimeUtils.toIso8601String(actionStartTime, ZONE_ID))
             .build();
-        String addOrderExeActionReqJson = ProtoUtils.protoToJson(addOrderExeActionReq);
-        AddOrderExeActionResp addOrderExeActionResp = medService.addOrderExeAction(addOrderExeActionReqJson);
-        assertThat(addOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
-
+        String saveOrderExeActionReqJson = ProtoUtils.protoToJson(saveOrderExeActionReq);
+        SaveOrderExeActionResp saveOrderExeActionResp = medService.saveOrderExeAction(saveOrderExeActionReqJson);
+        assertThat(saveOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         // 新增执行过程fast push, 50ml - 过度了
         actionStartTime = TimeUtils.getUtcFromLocalDateTime(
             TimeUtils.getLocalTime(2024, 10, 10, 10, 0), ZONE_ID);
-        addOrderExeActionReq = AddOrderExeActionReq.newBuilder()
+        saveOrderExeActionReq = SaveOrderExeActionReq.newBuilder()
             .setMedExeRecId(medExeRecId)
             .setActionType(ACTION_TYPE_FAST_PUSH)
             .setAdministrationRate(0.0)
             .setIntakeVolMl(50.0)
             .setCreatedAtIso8601(TimeUtils.toIso8601String(actionStartTime, ZONE_ID))
             .build();
-        addOrderExeActionReqJson = ProtoUtils.protoToJson(addOrderExeActionReq);
-        addOrderExeActionResp = medService.addOrderExeAction(addOrderExeActionReqJson);
-        assertThat(addOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.INTAKE_LIQUID_MORE_THAN_REMAINING.ordinal());
-
+        saveOrderExeActionReqJson = ProtoUtils.protoToJson(saveOrderExeActionReq);
+        saveOrderExeActionResp = medService.saveOrderExeAction(saveOrderExeActionReqJson);
+        assertThat(saveOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.INTAKE_LIQUID_MORE_THAN_REMAINING.ordinal());
         // 如果自然结束，查看对应的剩余时间
         resp = medService.getOrderGroups(getOrderGroupsReqJson);
         assertThat(resp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
@@ -1276,10 +1274,10 @@ public class MedicationServiceTests extends TestsBase {
         assertThat(intakeRec.getMl()).isEqualTo(0);
 
         // 新增执行过程fast push, 40ml - 刚好
-        addOrderExeActionReq = addOrderExeActionReq.toBuilder().setIntakeVolMl(40.0).build();
-        addOrderExeActionReqJson = ProtoUtils.protoToJson(addOrderExeActionReq);
-        addOrderExeActionResp = medService.addOrderExeAction(addOrderExeActionReqJson);
-        assertThat(addOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        saveOrderExeActionReq = saveOrderExeActionReq.toBuilder().setIntakeVolMl(40.0).build();
+        saveOrderExeActionReqJson = ProtoUtils.protoToJson(saveOrderExeActionReq);
+        saveOrderExeActionResp = medService.saveOrderExeAction(saveOrderExeActionReqJson);
+        assertThat(saveOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
         // 获取执行记录，以及对应的剩余时间
         resp = medService.getOrderGroups(getOrderGroupsReqJson);
@@ -1347,49 +1345,47 @@ public class MedicationServiceTests extends TestsBase {
         // 新增执行过程fast push, 50ml
         LocalDateTime actionStartTime = TimeUtils.getUtcFromLocalDateTime(
             TimeUtils.getLocalTime(2024, 10, 10, 9, 0), ZONE_ID);
-        AddOrderExeActionReq addOrderExeActionReq = AddOrderExeActionReq.newBuilder()
+        SaveOrderExeActionReq saveOrderExeActionReq = SaveOrderExeActionReq.newBuilder()
             .setMedExeRecId(medExeRecId)
             .setActionType(ACTION_TYPE_FAST_PUSH)
             .setAdministrationRate(0.0)
             .setIntakeVolMl(50.0)
             .setCreatedAtIso8601(TimeUtils.toIso8601String(actionStartTime, ZONE_ID))
             .build();;
-        String addOrderExeActionReqJson = ProtoUtils.protoToJson(addOrderExeActionReq);
-        AddOrderExeActionResp addOrderExeActionResp = medService.addOrderExeAction(addOrderExeActionReqJson);
-        assertThat(addOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
-
+        String saveOrderExeActionReqJson = ProtoUtils.protoToJson(saveOrderExeActionReq);
+        SaveOrderExeActionResp saveOrderExeActionResp = medService.saveOrderExeAction(saveOrderExeActionReqJson);
+        assertThat(saveOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         // 在推50ml， 刚好100
         actionStartTime = TimeUtils.getUtcFromLocalDateTime(
             TimeUtils.getLocalTime(2024, 10, 10, 9, 30), ZONE_ID);
-        addOrderExeActionReq = addOrderExeActionReq.toBuilder()
+        saveOrderExeActionReq = saveOrderExeActionReq.toBuilder()
             .setCreatedAtIso8601(TimeUtils.toIso8601String(actionStartTime, ZONE_ID))
             .build();
-        addOrderExeActionReqJson = ProtoUtils.protoToJson(addOrderExeActionReq);
-        addOrderExeActionResp = medService.addOrderExeAction(addOrderExeActionReqJson);
-        assertThat(addOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
-
+        saveOrderExeActionReqJson = ProtoUtils.protoToJson(saveOrderExeActionReq);
+        saveOrderExeActionResp = medService.saveOrderExeAction(saveOrderExeActionReqJson);
+        assertThat(saveOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         // 新增执行过程fast push, 50ml - 过度了
         actionStartTime = TimeUtils.getUtcFromLocalDateTime(
             TimeUtils.getLocalTime(2024, 10, 10, 10, 0), ZONE_ID);
-        addOrderExeActionReq = addOrderExeActionReq.toBuilder()
+        saveOrderExeActionReq = saveOrderExeActionReq.toBuilder()
             .setIntakeVolMl(50.0)
             .setCreatedAtIso8601(TimeUtils.toIso8601String(actionStartTime, ZONE_ID))
             .build();
-        addOrderExeActionReqJson = ProtoUtils.protoToJson(addOrderExeActionReq);
-        addOrderExeActionResp = medService.addOrderExeAction(addOrderExeActionReqJson);
-        assertThat(addOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.INTAKE_LIQUID_MORE_THAN_REMAINING.ordinal());
+        saveOrderExeActionReqJson = ProtoUtils.protoToJson(saveOrderExeActionReq);
+        saveOrderExeActionResp = medService.saveOrderExeAction(saveOrderExeActionReqJson);
+        assertThat(saveOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.INTAKE_LIQUID_MORE_THAN_REMAINING.ordinal());
 
         // 新增执行过程complete, 50ml - 过度了
         actionStartTime = TimeUtils.getUtcFromLocalDateTime(
             TimeUtils.getLocalTime(2024, 10, 10, 10, 30), ZONE_ID);
-        addOrderExeActionReq = addOrderExeActionReq.toBuilder()
+        saveOrderExeActionReq = saveOrderExeActionReq.toBuilder()
             .setActionType(ACTION_TYPE_COMPLETE)
             .setIntakeVolMl(50.0)
             .setCreatedAtIso8601(TimeUtils.toIso8601String(actionStartTime, ZONE_ID))
             .build();
-        addOrderExeActionReqJson = ProtoUtils.protoToJson(addOrderExeActionReq);
-        addOrderExeActionResp = medService.addOrderExeAction(addOrderExeActionReqJson);
-        assertThat(addOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.INTAKE_LIQUID_MORE_THAN_REMAINING.ordinal());
+        saveOrderExeActionReqJson = ProtoUtils.protoToJson(saveOrderExeActionReq);
+        saveOrderExeActionResp = medService.saveOrderExeAction(saveOrderExeActionReqJson);
+        assertThat(saveOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.INTAKE_LIQUID_MORE_THAN_REMAINING.ordinal());
 
         // 获取执行记录，以及对应的剩余时间
         resp = medService.getOrderGroups(getOrderGroupsReqJson);
@@ -1462,30 +1458,29 @@ public class MedicationServiceTests extends TestsBase {
         // 新增执行过程start, 60ml/hour
         LocalDateTime actionStartTime = TimeUtils.getUtcFromLocalDateTime(
             TimeUtils.getLocalTime(2024, 10, 10, 9, 0), ZONE_ID);
-        AddOrderExeActionReq addOrderExeActionReq = AddOrderExeActionReq.newBuilder()
+        SaveOrderExeActionReq saveOrderExeActionReq = SaveOrderExeActionReq.newBuilder()
             .setMedExeRecId(medExeRecId)
             .setActionType(ACTION_TYPE_START)
             .setAdministrationRate(60.0)
             .setIntakeVolMl(0.0)
             .setCreatedAtIso8601(TimeUtils.toIso8601String(actionStartTime, ZONE_ID))
             .build();
-        String addOrderExeActionReqJson = ProtoUtils.protoToJson(addOrderExeActionReq);
-        AddOrderExeActionResp addOrderExeActionResp = medService.addOrderExeAction(addOrderExeActionReqJson);
-        assertThat(addOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
-
+        String saveOrderExeActionReqJson = ProtoUtils.protoToJson(saveOrderExeActionReq);
+        SaveOrderExeActionResp saveOrderExeActionResp = medService.saveOrderExeAction(saveOrderExeActionReqJson);
+        assertThat(saveOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         // 新增执行过程pause
         actionStartTime = TimeUtils.getUtcFromLocalDateTime(
             TimeUtils.getLocalTime(2024, 10, 10, 10, 0), ZONE_ID);
-        addOrderExeActionReq = AddOrderExeActionReq.newBuilder()
+        saveOrderExeActionReq = SaveOrderExeActionReq.newBuilder()
             .setMedExeRecId(medExeRecId)
             .setActionType(ACTION_TYPE_PAUSE)
             .setAdministrationRate(0.0)
             .setIntakeVolMl(0.0)
             .setCreatedAtIso8601(TimeUtils.toIso8601String(actionStartTime, ZONE_ID))
             .build();
-        addOrderExeActionReqJson = ProtoUtils.protoToJson(addOrderExeActionReq);
-        addOrderExeActionResp = medService.addOrderExeAction(addOrderExeActionReqJson);
-        assertThat(addOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        saveOrderExeActionReqJson = ProtoUtils.protoToJson(saveOrderExeActionReq);
+        saveOrderExeActionResp = medService.saveOrderExeAction(saveOrderExeActionReqJson);
+        assertThat(saveOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
         // 获取执行记录，以及对应的剩余时间
         resp = medService.getOrderGroups(getOrderGroupsReqJson);
@@ -1500,16 +1495,16 @@ public class MedicationServiceTests extends TestsBase {
         // 新增执行过程complete
         actionStartTime = TimeUtils.getUtcFromLocalDateTime(
             TimeUtils.getLocalTime(2024, 10, 10, 10, 30), ZONE_ID);
-        addOrderExeActionReq = AddOrderExeActionReq.newBuilder()
+        saveOrderExeActionReq = SaveOrderExeActionReq.newBuilder()
             .setMedExeRecId(medExeRecId)
             .setActionType(ACTION_TYPE_COMPLETE)
             .setAdministrationRate(0.0)
             .setIntakeVolMl(0.0)
             .setCreatedAtIso8601(TimeUtils.toIso8601String(actionStartTime, ZONE_ID))
             .build();
-        addOrderExeActionReqJson = ProtoUtils.protoToJson(addOrderExeActionReq);
-        addOrderExeActionResp = medService.addOrderExeAction(addOrderExeActionReqJson);
-        assertThat(addOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        saveOrderExeActionReqJson = ProtoUtils.protoToJson(saveOrderExeActionReq);
+        saveOrderExeActionResp = medService.saveOrderExeAction(saveOrderExeActionReqJson);
+        assertThat(saveOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
         // 获取执行记录，以及对应的剩余时间
         resp = medService.getOrderGroups(getOrderGroupsReqJson);
@@ -1582,45 +1577,42 @@ public class MedicationServiceTests extends TestsBase {
         // 新增执行过程start, 30ml/hour
         LocalDateTime actionStartTime = TimeUtils.getUtcFromLocalDateTime(
             TimeUtils.getLocalTime(2024, 10, 10, 9, 0), ZONE_ID);
-        AddOrderExeActionReq addOrderExeActionReq = AddOrderExeActionReq.newBuilder()
+        SaveOrderExeActionReq saveOrderExeActionReq = SaveOrderExeActionReq.newBuilder()
             .setMedExeRecId(medExeRecId)
             .setActionType(ACTION_TYPE_START)
             .setAdministrationRate(30.0)
             .setIntakeVolMl(0.0)
             .setCreatedAtIso8601(TimeUtils.toIso8601String(actionStartTime, ZONE_ID))
             .build();
-        String addOrderExeActionReqJson = ProtoUtils.protoToJson(addOrderExeActionReq);
-        AddOrderExeActionResp addOrderExeActionResp = medService.addOrderExeAction(addOrderExeActionReqJson);
-        assertThat(addOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
-
+        String saveOrderExeActionReqJson = ProtoUtils.protoToJson(saveOrderExeActionReq);
+        SaveOrderExeActionResp saveOrderExeActionResp = medService.saveOrderExeAction(saveOrderExeActionReqJson);
+        assertThat(saveOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         // 新增执行过程fast_push, 20ml
         actionStartTime = TimeUtils.getUtcFromLocalDateTime(
             TimeUtils.getLocalTime(2024, 10, 10, 10, 0), ZONE_ID);
-        addOrderExeActionReq = AddOrderExeActionReq.newBuilder()
+        saveOrderExeActionReq = SaveOrderExeActionReq.newBuilder()
             .setMedExeRecId(medExeRecId)
             .setActionType(ACTION_TYPE_FAST_PUSH)
             .setAdministrationRate(0.0)
             .setIntakeVolMl(20.0)
             .setCreatedAtIso8601(TimeUtils.toIso8601String(actionStartTime, ZONE_ID))
             .build();
-        addOrderExeActionReqJson = ProtoUtils.protoToJson(addOrderExeActionReq);
-        addOrderExeActionResp = medService.addOrderExeAction(addOrderExeActionReqJson);
-        assertThat(addOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
-
+        saveOrderExeActionReqJson = ProtoUtils.protoToJson(saveOrderExeActionReq);
+        saveOrderExeActionResp = medService.saveOrderExeAction(saveOrderExeActionReqJson);
+        assertThat(saveOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         // 新增执行过程complete
         actionStartTime = TimeUtils.getUtcFromLocalDateTime(
             TimeUtils.getLocalTime(2024, 10, 10, 11, 0), ZONE_ID);
-        addOrderExeActionReq = AddOrderExeActionReq.newBuilder()
+        saveOrderExeActionReq = SaveOrderExeActionReq.newBuilder()
             .setMedExeRecId(medExeRecId)
             .setActionType(ACTION_TYPE_COMPLETE)
             .setAdministrationRate(0.0)
             .setIntakeVolMl(0.0)
             .setCreatedAtIso8601(TimeUtils.toIso8601String(actionStartTime, ZONE_ID))
             .build();
-        addOrderExeActionReqJson = ProtoUtils.protoToJson(addOrderExeActionReq);
-        addOrderExeActionResp = medService.addOrderExeAction(addOrderExeActionReqJson);
-        assertThat(addOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
-
+        saveOrderExeActionReqJson = ProtoUtils.protoToJson(saveOrderExeActionReq);
+        saveOrderExeActionResp = medService.saveOrderExeAction(saveOrderExeActionReqJson);
+        assertThat(saveOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         // 获取执行记录，以及对应的剩余时间
         resp = medService.getOrderGroups(getOrderGroupsReqJson);
         assertThat(resp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
@@ -1675,12 +1667,12 @@ public class MedicationServiceTests extends TestsBase {
 
         // 新增执行过程
         final Long medExeRecId = resp.getOrderGroup(0).getExeRecord(0).getMedExeRec().getId();
-        String addOrderExeActionReqJson = String.format(
+        String saveOrderExeActionReqJson = String.format(
             "{\"med_exe_rec_id\": %d, \"action_type\": %d, \"administration_rate\": %f," +
             " \"intake_vol_ml\": %f, \"created_at_iso8601\": \"2024-10-10T15:00:00+08:00\"}",
             medExeRecId, ACTION_TYPE_START, 60.0, 0.0
         );
-        AddOrderExeActionResp resp2 = medService.addOrderExeAction(addOrderExeActionReqJson);
+        SaveOrderExeActionResp resp2 = medService.saveOrderExeAction(saveOrderExeActionReqJson);
         assertThat(resp2.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         assertThat(resp2.getExeRecord().getMedExeActionCount()).isEqualTo(1);
         assertThat(resp2.getExeRecord().getMedExeAction(0).getActionType()).isEqualTo(ACTION_TYPE_START);
@@ -1758,12 +1750,12 @@ public class MedicationServiceTests extends TestsBase {
 
         // 新增执行过程
         final Long medExeRecId = resp.getOrderGroup(0).getExeRecord(0).getMedExeRec().getId();
-        String addOrderExeActionReqJson = String.format(
+        String saveOrderExeActionReqJson = String.format(
             "{\"med_exe_rec_id\": %d, \"action_type\": %d, \"administration_rate\": %f," +
             " \"intake_vol_ml\": %f, \"created_at_iso8601\": \"2024-10-10T15:00:00+08:00\"}",
             medExeRecId, ACTION_TYPE_START, 60.0, 0.0
         );
-        AddOrderExeActionResp resp2 = medService.addOrderExeAction(addOrderExeActionReqJson);
+        SaveOrderExeActionResp resp2 = medService.saveOrderExeAction(saveOrderExeActionReqJson);
         assertThat(resp2.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         assertThat(resp2.getExeRecord().getMedExeActionCount()).isEqualTo(1);
         assertThat(resp2.getExeRecord().getMedExeAction(0).getActionType()).isEqualTo(ACTION_TYPE_START);

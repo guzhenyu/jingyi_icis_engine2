@@ -349,48 +349,47 @@ public class PatientMonitoringServiceTests extends TestsBase {
         // 新增执行过程start, 10ml/hour
         LocalDateTime actionUtc = TimeUtils.getUtcFromLocalDateTime(
             TimeUtils.getLocalTime(2024, 10, 11, 9, 0), ZONE_ID);
-        AddOrderExeActionReq addOrderExeActionReq = AddOrderExeActionReq.newBuilder()
+        SaveOrderExeActionReq saveOrderExeActionReq = SaveOrderExeActionReq.newBuilder()
             .setMedExeRecId(medExeRecId1)
             .setActionType(ACTION_TYPE_START)
             .setAdministrationRate(10.0)
             .setIntakeVolMl(0.0)
             .setCreatedAtIso8601(TimeUtils.toIso8601String(actionUtc, ZONE_ID))
             .build();
-        String addOrderExeActionReqJson = ProtoUtils.protoToJson(addOrderExeActionReq);
-        AddOrderExeActionResp addOrderExeActionResp = medService.addOrderExeAction(addOrderExeActionReqJson);
-        assertThat(addOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
-
-        addOrderExeActionReq = addOrderExeActionReq.toBuilder()
+        String saveOrderExeActionReqJson = ProtoUtils.protoToJson(saveOrderExeActionReq);
+        SaveOrderExeActionResp saveOrderExeActionResp = medService.saveOrderExeAction(saveOrderExeActionReqJson);
+        assertThat(saveOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        saveOrderExeActionReq = saveOrderExeActionReq.toBuilder()
             .setMedExeRecId(medExeRecId2)
             .build();
-        addOrderExeActionReqJson = ProtoUtils.protoToJson(addOrderExeActionReq);
-        addOrderExeActionResp = medService.addOrderExeAction(addOrderExeActionReqJson);
-        assertThat(addOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        saveOrderExeActionReqJson = ProtoUtils.protoToJson(saveOrderExeActionReq);
+        saveOrderExeActionResp = medService.saveOrderExeAction(saveOrderExeActionReqJson);
+        assertThat(saveOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
-        addOrderExeActionReq = addOrderExeActionReq.toBuilder()
+        saveOrderExeActionReq = saveOrderExeActionReq.toBuilder()
             .setMedExeRecId(medExeRecId3)
             .build();
-        addOrderExeActionReqJson = ProtoUtils.protoToJson(addOrderExeActionReq);
-        addOrderExeActionResp = medService.addOrderExeAction(addOrderExeActionReqJson);
-        assertThat(addOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        saveOrderExeActionReqJson = ProtoUtils.protoToJson(saveOrderExeActionReq);
+        saveOrderExeActionResp = medService.saveOrderExeAction(saveOrderExeActionReqJson);
+        assertThat(saveOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
         // 结束执行过程(medExeRecId1, medExeRecId2在数据库中，medExeRecId3临时算)
         actionUtc = TimeUtils.getUtcFromLocalDateTime(
             TimeUtils.getLocalTime(2024, 10, 11, 15, 0), ZONE_ID);
-        addOrderExeActionReq = addOrderExeActionReq.toBuilder()
+        saveOrderExeActionReq = saveOrderExeActionReq.toBuilder()
             .setMedExeRecId(medExeRecId1)
             .setActionType(ACTION_TYPE_COMPLETE)
             .setAdministrationRate(0.0)
             .setCreatedAtIso8601(TimeUtils.toIso8601String(actionUtc, ZONE_ID))
             .build();
-        addOrderExeActionReqJson = ProtoUtils.protoToJson(addOrderExeActionReq);
-        addOrderExeActionResp = medService.addOrderExeAction(addOrderExeActionReqJson);
+        saveOrderExeActionReqJson = ProtoUtils.protoToJson(saveOrderExeActionReq);
+        saveOrderExeActionResp = medService.saveOrderExeAction(saveOrderExeActionReqJson);
 
-        addOrderExeActionReq = addOrderExeActionReq.toBuilder()
+        saveOrderExeActionReq = saveOrderExeActionReq.toBuilder()
             .setMedExeRecId(medExeRecId2)
             .build();
-        addOrderExeActionReqJson = ProtoUtils.protoToJson(addOrderExeActionReq);
-        addOrderExeActionResp = medService.addOrderExeAction(addOrderExeActionReqJson);
+        saveOrderExeActionReqJson = ProtoUtils.protoToJson(saveOrderExeActionReq);
+        saveOrderExeActionResp = medService.saveOrderExeAction(saveOrderExeActionReqJson);
 
         // 查看结果
         GetPatientMonitoringGroupsReq getReq = GetPatientMonitoringGroupsReq.newBuilder()

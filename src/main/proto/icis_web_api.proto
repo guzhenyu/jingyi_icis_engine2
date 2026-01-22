@@ -1392,20 +1392,21 @@ message NewOrderGroupResp {
 }
 
 /*
- * /api/medication/addorderexeaction
- *  input: AddOrderExeActionReq
- *  output: AddOrderExeActionResp
+ * /api/medication/saveorderexeaction
+ *  input: SaveOrderExeActionReq
+ *  output: SaveOrderExeActionResp
  */
-message AddOrderExeActionReq {
+message SaveOrderExeActionReq {
     int64 med_exe_rec_id = 1;
     int32 action_type = 2;
     double administration_rate = 3;
     config.DosageGroupExtPB dosage_group_ext = 4;  // 开启药速功能(ug/kg/min...)时启用该字段
     double intake_vol_ml = 5;
     string created_at_iso8601 = 6;
+    int64 action_id = 7;  // 新增时设置
 }
 
-message AddOrderExeActionResp {
+message SaveOrderExeActionResp {
     shared.ReturnCode rt = 1;
     ExecutionRecordPB exe_record = 2;
 }

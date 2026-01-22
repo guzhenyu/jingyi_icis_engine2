@@ -833,7 +833,7 @@ public class Ah2ReportData {
         Map<LocalDateTime, PatientData> patientDataMap
     ) {
         List<NursingRecord> records = nrRepo.findByPatientIdAndEffectiveTimeBetweenAndIsDeletedFalse(
-            pid, startUtc, endUtc.minusSeconds(1)
+            pid, startUtc.plusMinutes(1), endUtc
         );
 
         // 按时间分组
@@ -871,7 +871,7 @@ public class Ah2ReportData {
         Map<LocalDateTime, PatientData> patientDataMap
     ) {
         List<PatientScore> scores = psRepo.findByPidAndEffectiveTimeBetweenAndIsDeletedFalse(
-            pid, startUtc, endUtc.minusSeconds(1)
+            pid, startUtc.plusMinutes(1), endUtc
         );
 
         // 按时间分组
@@ -891,7 +891,7 @@ public class Ah2ReportData {
         }
 
         List<VTECapriniScore> vteScores = vteCapriniScoreRepo.findByPidAndScoreTimeBetweenAndIsDeletedFalse(
-            pid, startUtc, endUtc.minusSeconds(1)
+            pid, startUtc.plusMinutes(1), endUtc
         );
         for (VTECapriniScore vteScore : vteScores) {
             if (vteScore.getScoreTime() == null || vteScore.getTotalScore() == null) continue;
@@ -919,7 +919,7 @@ public class Ah2ReportData {
         Map<LocalDateTime, PatientData> patientDataMap
     ) {
         List<PatientBgaRecord> bgaRecords = pbgarRepo
-            .findByPidAndEffectiveTimeBetweenAndIsDeletedFalse(pid, startUtc, endUtc.minusSeconds(1));
+            .findByPidAndEffectiveTimeBetweenAndIsDeletedFalse(pid, startUtc.plusMinutes(1), endUtc);
         List<Long> bgaIds = bgaRecords.stream().map(PatientBgaRecord::getId).toList();
         Map<Long, List<PatientBgaRecordDetail>> bgaDetailsMap = pbgardRepo.findByRecordIdInAndIsDeletedFalse(bgaIds)
             .stream().collect(Collectors.groupingBy(PatientBgaRecordDetail::getRecordId));

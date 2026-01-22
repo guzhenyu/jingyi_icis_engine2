@@ -426,15 +426,15 @@ public class MedicationService {
     }
 
     @Transactional
-    public AddOrderExeActionResp addOrderExeAction(String addOrderExeActionReqJson) {
-        final AddOrderExeActionReq req;
+    public SaveOrderExeActionResp saveOrderExeAction(String saveOrderExeActionReqJson) {
+        final SaveOrderExeActionReq req;
         try {
-            AddOrderExeActionReq.Builder builder = AddOrderExeActionReq.newBuilder();
-            JsonFormat.parser().merge(addOrderExeActionReqJson, builder);
+            SaveOrderExeActionReq.Builder builder = SaveOrderExeActionReq.newBuilder();
+            JsonFormat.parser().merge(saveOrderExeActionReqJson, builder);
             req = builder.build();
         } catch (Exception e) {
             log.error("Failed to convert string to proto: ", e, "\n", e.getStackTrace());
-            return AddOrderExeActionResp.newBuilder()
+            return SaveOrderExeActionResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
@@ -443,7 +443,7 @@ public class MedicationService {
         final Pair<String, String> account = userService.getAccountWithAutoId();
         if (account == null) {
             log.error("accountId is empty.");
-            return AddOrderExeActionResp.newBuilder()
+            return SaveOrderExeActionResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
@@ -455,7 +455,7 @@ public class MedicationService {
         MedicationExecutionRecord exeRec = ordExecutor.getExeRecord(medExeRecId);
         if (exeRec == null) {
             log.error("ExecutionRecord not found: ", medExeRecId);
-            return AddOrderExeActionResp.newBuilder()
+            return SaveOrderExeActionResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.EXECUTION_RECORD_NOT_FOUND))
                 .build();
         }
@@ -463,19 +463,46 @@ public class MedicationService {
         MedicationOrderGroup orderGroup = ordGroupGenerator.getOrderGroup(exeRec.getMedicationOrderGroupId());
         if (orderGroup == null) {
             log.error("OrderGroup not found: ", exeRec.getMedicationOrderGroupId());
-            return AddOrderExeActionResp.newBuilder()
+            return SaveOrderExeActionResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ORDER_GROUP_NOT_FOUND))
                 .build();
         }
 
+        final Long actionId = req.getActionId();
         List<MedicationExecutionAction> exeActions = ordExecutor.getExeActions(medExeRecId);
+        exeActions.sort(Comparator.comparing(MedicationExecutionAction::getId));
+        MedicationExecutionAction targetAction = null;
+        List<MedicationExecutionAction> baseExeActions = exeActions;
+        if (actionId > 0) {
+            targetAction = ordExecutor.getExeAction(actionId);
+            if (targetAction == null || Boolean.TRUE.equals(targetAction.getIsDeleted())) {
+                log.error("ExecutionAction not found: ", actionId);
+                return SaveOrderExeActionResp.newBuilder()
+                    .setRt(protoService.getReturnCode(StatusCode.EXECUTION_ACTION_NOT_FOUND))
+                    .build();
+            }
+            if (!medExeRecId.equals(targetAction.getMedicationExecutionRecordId())) {
+                log.error("ExecutionAction does not belong to record: ", actionId, medExeRecId);
+                return SaveOrderExeActionResp.newBuilder()
+                    .setRt(protoService.getReturnCode(StatusCode.INVALID_PARAM_VALUE))
+                    .build();
+            }
+            MedicationExecutionAction lastAction = exeActions.isEmpty() ? null : exeActions.get(exeActions.size() - 1);
+            if (lastAction == null || !actionId.equals(lastAction.getId())) {
+                log.error("ActionId is not the last one: ", actionId);
+                return SaveOrderExeActionResp.newBuilder()
+                    .setRt(protoService.getReturnCode(StatusCode.ACTION_ID_NOT_LAST))
+                    .build();
+            }
+            baseExeActions = exeActions.subList(0, exeActions.size() - 1);
+        }
+
         final LocalDateTime createdAtUtc = TimeUtils.fromIso8601String(req.getCreatedAtIso8601(), "UTC");
-        if (exeActions.size() > 0) {
-            exeActions.sort(Comparator.comparing(MedicationExecutionAction::getId));
-            LocalDateTime lastActionTime = exeActions.get(exeActions.size() - 1).getCreatedAt();
+        if (!baseExeActions.isEmpty()) {
+            LocalDateTime lastActionTime = baseExeActions.get(baseExeActions.size() - 1).getCreatedAt();
             if (createdAtUtc.isBefore(lastActionTime)) {
                 log.error("ActionTime is before lastActionTime: ", createdAtUtc, lastActionTime);
-                return AddOrderExeActionResp.newBuilder()
+                return SaveOrderExeActionResp.newBuilder()
                     .setRt(protoService.getReturnCode(StatusCode.ACTION_TIME_BEFORE_LAST_ACTION_TIME))
                     .build();
             }
@@ -487,16 +514,16 @@ public class MedicationService {
         final Map<String, RouteDetails> routeDetailsMap = routeRepo.findRouteDetailsByDeptId(orderGroup.getDeptId())
             .stream().collect(Collectors.toMap(RouteDetails::getCode, rd -> rd));
         final Boolean isContinuous = medMonitoringService.isRouteContinuous(routeDetailsMap, orderGroup, exeRec);
-        List<Integer> qualifiedActionTypes = getNextActionTypes(isContinuous, exeActions);
+        List<Integer> qualifiedActionTypes = getNextActionTypes(isContinuous, baseExeActions);
         if (!qualifiedActionTypes.contains(actionType)) {
             log.error("ActionType is not qualified: ", actionType);
-            return AddOrderExeActionResp.newBuilder()
+            return SaveOrderExeActionResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACTION_TYPE_NOT_QUALIFIED))
                 .build();
         }
         if (req.getAdministrationRate() < 0 || req.getIntakeVolMl() < 0) {
             log.error("AdministrationRate or IntakeVolMl is negative: ", req.getAdministrationRate(), req.getIntakeVolMl());
-            return AddOrderExeActionResp.newBuilder()
+            return SaveOrderExeActionResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ADMINISTRATION_RATE_OR_INTAKE_VOL_NEGATIVE))
                 .build();
         }
@@ -504,50 +531,74 @@ public class MedicationService {
         // 如果是单次用药（快推等），检查用药量是否超过最大值
         MedicationDosageGroupPB dosageGroupPb = medMonitoringService.getDosageGroupPB(orderGroup, exeRec);
         MedMonitoringService.FluidIntakeData intakeData = medMonitoringService
-            .calcFluidIntakeImpl(isContinuous, dosageGroupPb, exeActions, createdAtUtc);
+            .calcFluidIntakeImpl(isContinuous, dosageGroupPb, baseExeActions, createdAtUtc);
         if (intakeData.leftMl - req.getIntakeVolMl() < -EPSILON) {
             log.error("Intake liquid is more that the remaining intake: {}, {}",
                 req.getIntakeVolMl(), intakeData.leftMl);
-            return AddOrderExeActionResp.newBuilder()
+            return SaveOrderExeActionResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.INTAKE_LIQUID_MORE_THAN_REMAINING))
                 .build();
         }
 
-        // 新增执行过程，更新执行记录的开始时间和结束时间
         String medicationRateStr = ProtoUtils.encodeDosageGroupExt(req.getDosageGroupExt());
-        MedicationExecutionAction newExeAction = ordExecutor.addExeAction(
-            accountId, accountName, medExeRecId, actionType, req.getAdministrationRate(),
-            medicationRateStr, req.getIntakeVolMl(), createdAtUtc
-        );
+        List<MedicationExecutionAction> oldExeActions = new ArrayList<>(exeActions);
+        MedicationExecutionAction savedAction;
+        List<MedicationExecutionAction> updatedExeActions = new ArrayList<>(exeActions);
+        if (actionId > 0) {
+            targetAction.setActionType(actionType);
+            targetAction.setAdministrationRate(
+                req.getAdministrationRate() <= 0 ? null : req.getAdministrationRate());
+            targetAction.setMedicationRate(medicationRateStr);
+            targetAction.setIntakeVolMl(req.getIntakeVolMl() <= 0 ? null : req.getIntakeVolMl());
+            targetAction.setCreatedAt(createdAtUtc);
+            targetAction.setModifiedAt(TimeUtils.getNowUtc());
+            savedAction = ordExecutor.updateExeAction(targetAction);
+            updatedExeActions.set(updatedExeActions.size() - 1, savedAction);
+        } else {
+            savedAction = ordExecutor.addExeAction(
+                accountId, accountName, medExeRecId, actionType, req.getAdministrationRate(),
+                medicationRateStr, req.getIntakeVolMl(), createdAtUtc
+            );
+            updatedExeActions.add(savedAction);
+        }
 
         // 更新exeRecord统计信息
-        boolean updateExeRecordStartTime = false;
-        boolean updateExeRecordEndTime = false;
-        if (exeActions.size() == 0) {
+        boolean updateExeRecord = false;
+        if (baseExeActions.isEmpty()) {
             exeRec.setStartTime(createdAtUtc);
-            updateExeRecordStartTime = true;
+            updateExeRecord = true;
         }
         if (isCompleteAction) {
             exeRec.setEndTime(createdAtUtc);
-            updateExeRecordEndTime = true;
+            updateExeRecord = true;
+        } else if (actionId > 0 && exeRec.getEndTime() != null) {
+            exeRec.setEndTime(null);
+            updateExeRecord = true;
         }
-        if (updateExeRecordStartTime || updateExeRecordEndTime) {
+        if (updateExeRecord) {
             ordExecutor.updateExeRecord(exeRec);
         }
 
+        if (actionId > 0) {
+            MedicationExecutionAction lastOldAction = oldExeActions.isEmpty()
+                ? null
+                : oldExeActions.get(oldExeActions.size() - 1);
+            if (lastOldAction != null && ACTION_TYPE_COMPLETE.equals(lastOldAction.getActionType())) {
+                exeRecordStatRepo.deleteByExeRecordId(medExeRecId);
+            }
+        }
+
         // 重新计算药物剩余量, 更新小时输液统计
-        List<MedicationExecutionAction> oldExeActions = new ArrayList<>(exeActions);
-        exeActions.add(newExeAction);
         ExecutionRecordPB exeRecPb = composeExeRecordPB(
             orderGroup.getAdministrationRouteCode(), orderGroup.getAdministrationRouteName(),
-            isContinuous, dosageGroupPb, exeRec, exeActions
+            isContinuous, dosageGroupPb, exeRec, updatedExeActions
         );
         updateExeRecordStats(exeRecPb);
         medReportUtils.setDirtyPatientNursingReports(
-            orderGroup, exeRec, oldExeActions, exeActions, routeDetailsMap, TimeUtils.getNowUtc(), accountId
+            orderGroup, exeRec, oldExeActions, updatedExeActions, routeDetailsMap, TimeUtils.getNowUtc(), accountId
         );
 
-        return AddOrderExeActionResp.newBuilder()
+        return SaveOrderExeActionResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
             .setExeRecord(exeRecPb)
             .build();

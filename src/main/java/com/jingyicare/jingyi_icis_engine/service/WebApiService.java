@@ -668,9 +668,9 @@ public class WebApiService {
         return resp;
     }
 
-    public AddOrderExeActionResp addOrderExeAction(String addOrderExeActionReqJson) {
-        AddOrderExeActionResp resp = medicationService.addOrderExeAction(addOrderExeActionReqJson);
-        resp = metricService.recordApiMetrics(resp, AddOrderExeActionResp::getRt);
+    public SaveOrderExeActionResp saveOrderExeAction(String saveOrderExeActionReqJson) {
+        SaveOrderExeActionResp resp = medicationService.saveOrderExeAction(saveOrderExeActionReqJson);
+        resp = metricService.recordApiMetrics(resp, SaveOrderExeActionResp::getRt);
         return resp;
     }
 
