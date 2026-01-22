@@ -627,7 +627,7 @@ public class OrderGroupGeneratorTests extends TestsBase {
         assertThat(orderGroups.get(0).getOrderValidity()).isEqualTo(0);  // medication_order_validity_type_valid
         final MedicationDosageGroupPB medDosageGroup = ProtoUtils.decodeDosageGroup(
             orderGroups.get(0).getMedicationDosageGroup());
-        assertThat(medDosageGroup.getDisplayName()).isEqualTo("med_name_2 + med_name_1");
+        assertThat(medDosageGroup.getDisplayName()).isEqualTo("med_name_2(1mg) + med_name_1(1mg)");
     }
 
     @Test
@@ -671,7 +671,7 @@ public class OrderGroupGeneratorTests extends TestsBase {
         assertThat(orderGroups.get(0).getOrderValidity()).isEqualTo(0);  // medication_order_validity_type_valid
         final MedicationDosageGroupPB medDosageGroup = ProtoUtils.decodeDosageGroup(
             orderGroups.get(0).getMedicationDosageGroup());
-        assertThat(medDosageGroup.getDisplayName()).isEqualTo("med_name_1 + med_name_3 + med_name_2_氯化钠");
+        assertThat(medDosageGroup.getDisplayName()).isEqualTo("med_name_1(1mg) + med_name_3(1mg) + med_name_2_氯化钠(1mg)");
     }
 
     private void initMedOrderGroupSettings() {

@@ -16,6 +16,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
 import com.jingyicare.jingyi_icis_engine.entity.medications.*;
 import com.jingyicare.jingyi_icis_engine.repository.medications.*;
 import com.jingyicare.jingyi_icis_engine.service.*;
+import com.jingyicare.jingyi_icis_engine.service.medications.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.*;
 import com.jingyicare.jingyi_icis_engine.service.tubes.*;
@@ -36,7 +37,8 @@ public class MedReportUtils {
         @Autowired MedicationExecutionRecordRepository recRepo,
         @Autowired MedicationExecutionActionRepository actionRepo,
         @Autowired AdministrationRouteRepository routeRepo,
-        @Autowired AdministrationRouteGroupRepository routeGroupRepo
+        @Autowired AdministrationRouteGroupRepository routeGroupRepo,
+        @Autowired MedicationConfig medConfig
     ) {
         this.ZONE_ID = protoService.getConfig().getZoneId();
         this.BALANCE_GROUP_TYPE_ID = protoService.getConfig().getMonitoring()
@@ -52,6 +54,10 @@ public class MedReportUtils {
         this.recRepo = recRepo;
         this.routeRepo = routeRepo;
         this.routeGroupRepo = routeGroupRepo;
+
+        // todo(guzhenyu): 通过默认医嘱设置，重置剂量组名称
+        this.medOrderGroupSettingsPb = protoService.getConfig().getMedication().getOrderGroupSettings();
+        this.medConfig = medConfig;
     }
 
     /**
@@ -161,14 +167,28 @@ public class MedReportUtils {
             MedMonitoringService.FluidIntakeData intake = medMonService.calcFluidIntakeImpl(
                 route.getIsContinuous(), dosageGroupPb, actions, calcTimeUtc
             );
+            // 医嘱名称
+            String dosageGroupDisplayName = medConfig.getDosageGroupDisplayName(
+                medOrderGroupSettingsPb, dosageGroupPb
+            );
+            // 首个执行动作的速度/药速
+            MedicationExecutionAction firstAction = actions.get(0);
+            DosageGroupExtPB firstActionDGE = ProtoUtils.decodeDosageGroupExt(firstAction.getMedicationRate());
+            String rateStr = "";
+            if (firstActionDGE != null && firstActionDGE.getDoseRateAmount() > 0) {
+                rateStr = (firstActionDGE.getDoseRateAmount() + firstActionDGE.getDoseRateUnit());
+            } else {
+                rateStr = (firstAction.getAdministrationRate() + "ml");
+            }
             MedExeRecordSummaryPB summary = MedExeRecordSummaryPB.newBuilder()
-                .setDosageGroupDisplayName(dosageGroupPb.getDisplayName())
+                .setDosageGroupDisplayName(dosageGroupDisplayName)
                 .setStartTimeIso8601(TimeUtils.toIso8601String(rec.getStartTime(), ZONE_ID))
                 .setIntakeMl(ValueMetaUtils.normalize(intake.getUsedMl(), Consts.MED_ML_DECIMAL_PLACES))
                 .setIntakeGroupId(route.getGroupId())
                 .setIntakeGroupName(routeGroupName)
                 .setAdminCode(route.getCode())
                 .setAdminName(route.getName())
+                .setRateStr(rateStr)
                 .build();
             summaries.add(summary);
         }
@@ -378,4 +398,7 @@ public class MedReportUtils {
     private final MedicationExecutionActionRepository actionRepo;
     private final AdministrationRouteRepository routeRepo;
     private final AdministrationRouteGroupRepository routeGroupRepo;
+
+    private final MedOrderGroupSettingsPB medOrderGroupSettingsPb;
+    private final MedicationConfig medConfig;
 }

@@ -112,4 +112,16 @@ public class StrUtils {
         while (i >= 0 && s.charAt(i) == ' ') i--;
         return s.substring(0, i + 1);
     }
+
+    public static String formatDouble(double num, int decimalPlaces) {
+        if (decimalPlaces < 0) decimalPlaces = 0;
+        double scale = Math.pow(10, decimalPlaces);
+        long rounded = Math.round(num * scale);
+        if (decimalPlaces == 0) {
+            return String.valueOf(rounded);
+        }
+        double result = rounded / scale;
+        String format = "%." + decimalPlaces + "f";
+        return String.format(format, result);
+    }
 }

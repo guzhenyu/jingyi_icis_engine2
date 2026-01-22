@@ -1,4 +1,5 @@
 # catheter_slippage 做了特殊处理, 20260120
+# 执行用药，医嘱名称中剂量的显示规则，doseDecimalPlaces + adminRateDecimalPlaces
 zone_id: "Asia/Shanghai"
 text {
     status_code_msg: "ok"
@@ -1931,6 +1932,8 @@ medication {
         prioritized_med_name: "NS"
         prioritized_med_name: "生理盐水"
         prioritized_med_name: "葡萄糖"
+        doseDecimalPlaces: 1
+        adminRateDecimalPlaces: 2
     }
     delete_reason_canceled: "医嘱取消"
     delete_reason_stopped: "医嘱停止"
@@ -1938,7 +1941,7 @@ medication {
     order_group_not_started_txt: "未开始"
     order_group_in_progress_txt: "未完成"
     order_group_completed_txt: "已完成"
-    dosage_decimal_places: 2
+    dosage_decimal_places: 0
     diet_admin_code: "103"  # 省二院/口服
     diet_admin_code: "03"   # 省二院/口服
     diet_admin_code: "114"   # 省二院/鼻饲

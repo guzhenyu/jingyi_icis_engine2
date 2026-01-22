@@ -72,7 +72,7 @@ public class OrderGroupGenerator {
 
         // 药物成分
         dosageGroup = dosageGroup.toBuilder()
-            .setDisplayName(config.concatMedicationNames(medOgSettings, dosageGroup))
+            .setDisplayName(config.getDosageGroupDisplayName(medOgSettings, dosageGroup))
             .build();
         group.setMedicationDosageGroup(Base64.getEncoder().encodeToString(dosageGroup.toByteArray()));
         medDict.updateIfNecessary(patient.getDeptId(), dosageGroup, routeCode, routeName);
@@ -220,7 +220,6 @@ public class OrderGroupGenerator {
         int qualifiedOrderCnt = 0;
         MedicalOrderIdsPB.Builder orderIdsBuilder = MedicalOrderIdsPB.newBuilder();
         MedicationDosageGroupPB.Builder dosageGroupBuilder = MedicationDosageGroupPB.newBuilder();
-        List<String> medicationNames = new ArrayList<>();
         Set<String> doctorSet = new HashSet<>();
         Set<String> doctorIdSet = new HashSet<>();
         Set<String> orderTypeSet = new HashSet<>();
@@ -269,7 +268,6 @@ public class OrderGroupGenerator {
             if (!StrUtils.isBlank(order.getMedicationType())) dosageBuilder.setType(order.getMedicationType());
             if (!StrUtils.isBlank(order.getPaymentType())) dosageBuilder.setPaymentType(order.getPaymentType());
             dosageGroupBuilder.addMd(dosageBuilder.build());
-            medicationNames.add(order.getOrderName());
 
             orderDurationTypeSet.add(order.getOrderDurationType());
             planTimeSet.add(order.getPlanTime().withSecond(0).withNano(0));
@@ -325,8 +323,10 @@ public class OrderGroupGenerator {
             }
         }
 
-        dosageGroupBuilder.setDisplayName(config.concatMedicationNames(medOgSettings, medicationNames));
-        group.setMedicationDosageGroup(Base64.getEncoder().encodeToString(dosageGroupBuilder.build().toByteArray()));
+        MedicationDosageGroupPB dosageGroup = dosageGroupBuilder.build();
+        dosageGroup = dosageGroup.toBuilder().setDisplayName(
+            config.getDosageGroupDisplayName(medOgSettings, dosageGroup)).build();
+        group.setMedicationDosageGroup(Base64.getEncoder().encodeToString(dosageGroup.toByteArray()));
 
         checkAndSet("order_duration_type", orderDurationTypeSet, inconsistentFields, group::setOrderDurationType);
         if (!canceled && !stopped) {

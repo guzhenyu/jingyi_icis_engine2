@@ -203,23 +203,27 @@ public class MedicationConfig {
         ).count() == 0;
     }
 
-    public String concatMedicationNames(MedOrderGroupSettingsPB settingsPb, MedicationDosageGroupPB dosageGroup) {
-        return concatMedicationNames(settingsPb, dosageGroup.getMdList().stream().map(md -> md.getName()).toList());
-    }
-    
-    public String concatMedicationNames(MedOrderGroupSettingsPB settingsPb, List<String> mdNames) {
+    public String getDosageGroupDisplayName(
+        MedOrderGroupSettingsPB settingsPb, MedicationDosageGroupPB dosageGroup
+    ) {
         List<String> prioritizedMedNames = settingsPb.getPrioritizedMedNameList();
 
         List<Map.Entry<String, Integer>> nameWithPriority = new ArrayList<>();
-        for (String mdName : mdNames) {
+        for (MedicationDosagePB md : dosageGroup.getMdList()) {
             int index = -1;
             for (int i = 0; i < prioritizedMedNames.size(); i++) {
-                if (mdName.contains(prioritizedMedNames.get(i))) {
+                if (md.getName().contains(prioritizedMedNames.get(i))) {
                     index = i;
                     break;
                 }
             }
-            nameWithPriority.add(Map.entry(mdName, index));
+
+            // '%s(%s%s)' % (药物名称, 剂量, 剂量单位)
+            // 剂量保留1位小数
+            String displayName = md.getName() + '(' +
+                StrUtils.formatDouble(md.getDose(), settingsPb.getDoseDecimalPlaces()) + md.getDoseUnit() +
+                ')';
+            nameWithPriority.add(Map.entry(displayName, index));
         }
 
         Collections.sort(nameWithPriority, (entry1, entry2) -> {

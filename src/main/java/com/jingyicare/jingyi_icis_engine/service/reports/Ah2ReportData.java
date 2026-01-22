@@ -782,10 +782,11 @@ public class Ah2ReportData {
         ValueMetaPB meta, String hourlyMpCode, String accuMpCode,
         Map<LocalDateTime, PatientData> patientDataMap
     ) {
-        if (meta == null || series == null || series.isEmpty()) {
+        if (meta == null || series == null) {
             log.warn("Invalid input to processHourlySeries: hourlyMpCode={}", hourlyMpCode);
             return;
         }
+        if (series.isEmpty()) return;
 
         GenericValuePB acc = ValueMetaUtils.getDefaultValue(meta);
         series.sort(Comparator.comparing(Pair::getFirst));
@@ -1109,9 +1110,7 @@ public class Ah2ReportData {
             ctx, paramMap, patientData.mpKvMap, rowBlock.wrappedLinesByParam);
         paramCountCnt += setMonitoringItem(MP_RESPIRATORY_RATE, AH2P_RESPIRATORY_RATE,
             ctx, paramMap, patientData.mpKvMap, rowBlock.wrappedLinesByParam);
-        paramCountCnt += setBloodPressure(false/*isInvasive*/,
-            ctx, paramMap, patientData.mpKvMap, rowBlock.wrappedLinesByParam);
-        paramCountCnt += setBloodPressure(true/*isInvasive*/,
+        paramCountCnt += setBloodPressure(
             ctx, paramMap, patientData.mpKvMap, rowBlock.wrappedLinesByParam);
         paramCountCnt += setMonitoringItem(MP_SPO2, AH2P_SPO2,
             ctx, paramMap, patientData.mpKvMap, rowBlock.wrappedLinesByParam);
@@ -1166,14 +1165,11 @@ public class Ah2ReportData {
             ctx, paramMap, patientData.mpKvMap, rowBlock.wrappedLinesByParam);
 
         // 氧浓度 / 氧流量
-        int oxygenConcentrationFlowCnt = setMonitoringItem(MP_VENT_OXYGEN_CONCENTRATION, AH2P_OXYGEN_CONCENTRATION_FLOW,
+        paramCountCnt += setOxygenConcentrationFlow(
             ctx, paramMap, patientData.mpKvMap, rowBlock.wrappedLinesByParam);
-        if (oxygenConcentrationFlowCnt <= 0) {
-            oxygenConcentrationFlowCnt = setMonitoringItem(MP_VENT_OXYGEN_FLOW_RATE, AH2P_OXYGEN_CONCENTRATION_FLOW,
-            ctx, paramMap, patientData.mpKvMap, rowBlock.wrappedLinesByParam);
-        }
-        paramCountCnt += oxygenConcentrationFlowCnt;
 
+        paramCountCnt += setMonitoringItem(MP_VENT_CUFF_PRESSURE, AH2P_VENT_CUFF_PRESSURE,
+            ctx, paramMap, patientData.mpKvMap, rowBlock.wrappedLinesByParam);
         paramCountCnt += setMonitoringItem(MP_RESPIRATORY_MODE, AH2P_RESPIRATORY_MODE,
             ctx, paramMap, patientData.mpKvMap, rowBlock.wrappedLinesByParam);
         paramCountCnt += setMonitoringItem(MP_RESPIRATORY_RATE_VENT, AH2P_RESPIRATORY_RATE_VENT,
@@ -1314,7 +1310,6 @@ public class Ah2ReportData {
     }
 
     private int setBloodPressure(
-        boolean isInvasive,
         Ah2PdfContext ctx,
         Map<String, ValueMetaPB> paramMap,
         Map<String, GenericValuePB> mpKvMap,
@@ -1326,26 +1321,35 @@ public class Ah2ReportData {
             return 0;
         }
 
-        // 提取元数据
-        String mpBpsCode = isInvasive ? MP_IBP_S : MP_NIBP_S;
-        ValueMetaPB mpBpsValueMeta = paramMap.get(mpBpsCode);
-        GenericValuePB bpsGvPb = mpKvMap.get(mpBpsCode);
-        String mpBpdCode = isInvasive ? MP_IBP_D : MP_NIBP_D;
-        ValueMetaPB mpBpdValueMeta = paramMap.get(mpBpdCode);
-        GenericValuePB bpdGvPb = mpKvMap.get(mpBpdCode);
-        String ah2pCode = isInvasive ? AH2P_IBP : AH2P_NIBP;
+        // 列参数
+        String ah2pCode = AH2P_NIBP_IBP;
         ParamColMetaPB colMeta = ctx.colMetaMap.get(ah2pCode);
-        if (mpBpdValueMeta == null || mpBpsValueMeta == null || colMeta == null) {
-            return 0;
+        if (colMeta == null) return 0;
+
+        // 提取有创血压
+        ValueMetaPB mpIBPSValueMeta = paramMap.get(MP_IBP_S);
+        GenericValuePB mpIBPSGvPb = mpKvMap.get(MP_IBP_S);
+        ValueMetaPB mpIBPDValueMeta = paramMap.get(MP_IBP_D);
+        GenericValuePB mpIBPDGvPb = mpKvMap.get(MP_IBP_D);
+        String bpsStrVal = (mpIBPSValueMeta == null || mpIBPSGvPb == null) ? "" :
+            ValueMetaUtils.extractAndFormatParamValue(mpIBPSGvPb, mpIBPSValueMeta);
+        String bpdStrVal = (mpIBPDValueMeta == null || mpIBPDGvPb == null) ? "" :
+            ValueMetaUtils.extractAndFormatParamValue(mpIBPDGvPb, mpIBPDValueMeta);
+
+        if (StrUtils.isBlank(bpsStrVal) && StrUtils.isBlank(bpdStrVal)) {
+            // 提取无创血压
+            ValueMetaPB mpNIBPSValueMeta = paramMap.get(MP_NIBP_S);
+            GenericValuePB mpNIBPSGvPb = mpKvMap.get(MP_NIBP_S);
+            ValueMetaPB mpNIBPDValueMeta = paramMap.get(MP_NIBP_D);
+            GenericValuePB mpNIBPDGvPb = mpKvMap.get(MP_NIBP_D);
+            bpsStrVal = (mpNIBPSValueMeta == null || mpNIBPSGvPb == null) ? "" :
+                ValueMetaUtils.extractAndFormatParamValue(mpNIBPSGvPb, mpNIBPSValueMeta);
+            bpdStrVal = (mpNIBPDValueMeta == null || mpNIBPDGvPb == null) ? "" :
+                ValueMetaUtils.extractAndFormatParamValue(mpNIBPDGvPb, mpNIBPDValueMeta);
         }
 
-        String bpsStrVal = bpsGvPb == null ? "" : ValueMetaUtils.extractAndFormatParamValue(bpsGvPb, mpBpsValueMeta);
-        String bpdStrVal = bpdGvPb == null ? "" : ValueMetaUtils.extractAndFormatParamValue(bpdGvPb, mpBpdValueMeta);
-        if (StrUtils.isBlank(bpsStrVal) && StrUtils.isBlank(bpdStrVal)) {
-            return 0;
-        }
-        String strVal = (StrUtils.isBlank(bpsStrVal) ? "" : bpsStrVal) + "/" +
-            (StrUtils.isBlank(bpdStrVal) ? "" : bpdStrVal); 
+        String strVal = (StrUtils.isBlank(bpsStrVal) && StrUtils.isBlank(bpdStrVal)) ? "" :
+            bpsStrVal + "/" + bpdStrVal;
         try {
             List<String> wrappedLines = JfkPdfUtils.getWrappedLines(
                 ctx.font, ctx.tblTxtStyle.getFontSize(), colMeta.getWidth(),
@@ -1387,15 +1391,16 @@ public class Ah2ReportData {
             List<String> medDescLines = new ArrayList<>();
             List<String> medVolLines = new ArrayList<>();
             for (MedExeRecordSummaryPB exeSum : patientData.medExeList) {
-                String descStr = exeSum.getDosageGroupDisplayName();
+                // '%s(%s %s ml)' % (医嘱名称, 用药方式, 速度药速)
+                String descStr = exeSum.getDosageGroupDisplayName() + "(" +
+                    exeSum.getAdminName() + exeSum.getRateStr() + ")";
                 List<String> wrappedLines = JfkPdfUtils.getWrappedLines(
                     ctx.font, ctx.tblTxtStyle.getFontSize(), medColMeta.getWidth(),
                     ctx.tblTxtStyle.getCharSpacing(), new ArrayList<>(List.of(descStr))
                 );
                 if (wrappedLines == null || wrappedLines.isEmpty()) continue;
-                medVolLines.add(String.valueOf(
-                    ValueMetaUtils.normalize(exeSum.getIntakeMl(), DOSAGE_DECIMAL_PLACES)
-                ));
+                String medVolStr = StrUtils.formatDouble(exeSum.getIntakeMl(), DOSAGE_DECIMAL_PLACES);
+                medVolLines.add(medVolStr);
                 for (int i = 1; i < wrappedLines.size(); i++) {
                     medVolLines.add("");  // 用药量列空行补齐
                 }
@@ -1424,9 +1429,7 @@ public class Ah2ReportData {
                     ctx.tblTxtStyle.getCharSpacing(), new ArrayList<>(List.of(descStr))
                 );
                 if (wrappedLines == null || wrappedLines.isEmpty()) continue;
-                dietVolLines.add(String.valueOf(
-                    ValueMetaUtils.normalize(exeSum.getIntakeMl(), DOSAGE_DECIMAL_PLACES)
-                ));
+                dietVolLines.add(StrUtils.formatDouble(exeSum.getIntakeMl(), DOSAGE_DECIMAL_PLACES));
                 for (int i = 1; i < wrappedLines.size(); i++) {
                     dietVolLines.add("");  // 用药量列空行补齐
                 }
@@ -1635,6 +1638,47 @@ public class Ah2ReportData {
             }
         }
         return null;
+    }
+
+    private int setOxygenConcentrationFlow(
+        Ah2PdfContext ctx,
+        Map<String, ValueMetaPB> paramMap,
+        Map<String, GenericValuePB> mpKvMap,
+        Map<String, List<String>> wrappedLinesByParam /*output param*/
+    ) {
+        String ah2pCode = AH2P_OXYGEN_CONCENTRATION_FLOW;
+        ParamColMetaPB colMeta = ctx.colMetaMap.get(ah2pCode);
+        if (colMeta == null) return 0;
+
+
+        // 氧浓度
+        ValueMetaPB ocValueMeta = paramMap.get(MP_VENT_OXYGEN_CONCENTRATION);
+        GenericValuePB ocGvPb = mpKvMap.get(MP_VENT_OXYGEN_CONCENTRATION);
+        String ocStrVal = ValueMetaUtils.extractAndFormatParamValue(ocGvPb, ocValueMeta);
+
+        // 氧流量
+        ValueMetaPB ofValueMeta = paramMap.get(MP_VENT_OXYGEN_FLOW_RATE);
+        GenericValuePB ofGvPb = mpKvMap.get(MP_VENT_OXYGEN_FLOW_RATE);
+        String ofStrVal = ValueMetaUtils.extractAndFormatParamValue(ofGvPb, ofValueMeta);
+
+        String strVal = StrUtils.isBlank(ocStrVal) ?
+            (StrUtils.isBlank(ofStrVal) ? "" : ofStrVal) :
+            (StrUtils.isBlank(ofStrVal) ? ocStrVal : ocStrVal + "/" + ofStrVal);
+        if (StrUtils.isBlank(strVal)) return 0;
+
+        try {
+            List<String> wrappedLines = JfkPdfUtils.getWrappedLines(
+                ctx.font, ctx.tblTxtStyle.getFontSize(), colMeta.getWidth(),
+                ctx.tblTxtStyle.getCharSpacing(), new ArrayList<>(List.of(strVal))
+            );
+            if (wrappedLines != null && !wrappedLines.isEmpty()) {
+                wrappedLinesByParam.put(ah2pCode, wrappedLines);
+                return 1;
+            }
+        } catch (Exception e) {
+            log.error("Error wrapping text for param {}: {}", ah2pCode, e.getMessage());
+        }
+        return 0;
     }
 
     private int setNursingScore(
@@ -1936,7 +1980,7 @@ public class Ah2ReportData {
             }
         }
 
-log.info("\n\npageData:\n{}\n\n", ProtoUtils.protoToTxt(ctx.pageData.toProto()));
+// log.info("\n\npageData:\n{}\n\n", ProtoUtils.protoToTxt(ctx.pageData.toProto()));
         // 画数据块
         for (Ah2PageData.RowBlock rowBlock : ctx.pageData.rowBlocks) {
             // - 画表体横线
@@ -2016,7 +2060,7 @@ log.info("\n\npageData:\n{}\n\n", ProtoUtils.protoToTxt(ctx.pageData.toProto()))
                     ) {
                         // 总计行
                         float yTop = ctx.tableHeaderBottom - rowBlock.startRow * ctx.tblCommon.getRowHeight();
-log.info("\n\n\n(总计) top = {}, bottom = {}\n\n\n", yTop, summaryBottom);
+// log.info("\n\n\n(总计) top = {}, bottom = {}\n\n\n", yTop, summaryBottom);
                         float yBottom = summaryBottom;
                         ctx.contentStream.setLineWidth(ordinaryLineWidth * 5);
                         ctx.contentStream.setStrokingColor(0f);
@@ -2031,7 +2075,7 @@ log.info("\n\n\n(总计) top = {}, bottom = {}\n\n\n", yTop, summaryBottom);
                     } else {
                         // 小计行
                         float yTop = ctx.tableHeaderBottom - rowBlock.startRow * ctx.tblCommon.getRowHeight();
-log.info("\n\n\n(小计) top = {}, bottom = {}\n\n\n", yTop, summaryBottom);
+// log.info("\n\n\n(小计) top = {}, bottom = {}\n\n\n", yTop, summaryBottom);
                         ctx.contentStream.setLineWidth(ordinaryLineWidth * 5);
                         ctx.contentStream.setStrokingColor(0f);
                         ctx.contentStream.moveTo(ctx.tblCommon.getLeft(), yTop);
@@ -2276,6 +2320,7 @@ log.info("\n\n\n(小计) top = {}, bottom = {}\n\n\n", yTop, summaryBottom);
     public static final String MP_RESPIRATORY_TUBE_DEPTH = "vent_tube_plant_depth";  // (呼吸机)插管深度
     public static final String MP_VENT_OXYGEN_CONCENTRATION = "vent_oxygen_concentration";  // 氧浓度
     public static final String MP_VENT_OXYGEN_FLOW_RATE = "vent_oxygen_flow_rate";  // 氧流量
+    public static final String MP_VENT_CUFF_PRESSURE = "vent_cuff_pressure";  // 气囊压力
     public static final String MP_RESPIRATORY_MODE = "vent_respiratory_mode";  // 呼吸模式 | 机械通气/模式
     public static final String MP_RESPIRATORY_RATE_VENT = "vent_respiratory_rate";  // 呼吸频率 | 机械通气/频率
     public static final String MP_SET_TIDAL_VOLUME = "vent_set_tidal_volume";  // sVt | 机械通气/VT(set)
@@ -2343,8 +2388,7 @@ log.info("\n\n\n(小计) top = {}, bottom = {}\n\n\n", yTop, summaryBottom);
     public static final String AH2P_HEART_RATE = "AH2P_HEART_RATE";  // 心率
     public static final String AH2P_HEART_RHYTHM = "AH2P_HEART_RHYTHM";  // 心律
     public static final String AH2P_RESPIRATORY_RATE = "AH2P_RESPIRATORY_RATE";  // 呼吸频率
-    public static final String AH2P_NIBP = "AH2P_NIBP";  // 无创血压
-    public static final String AH2P_IBP = "AH2P_IBP";  // 有创血压
+    public static final String AH2P_NIBP_IBP = "AH2P_NIBP_IBP";  // 无创/有创血压, 无创优先
     public static final String AH2P_SPO2 = "AH2P_SPO2";  // SpO2
     public static final String AH2P_CVP = "AH2P_CVP";  // CVP
     public static final String AH2P_ICP = "AH2P_ICP";  // ICP
@@ -2370,6 +2414,7 @@ log.info("\n\n\n(小计) top = {}, bottom = {}\n\n\n", yTop, summaryBottom);
     public static final String AH2P_OXYGEN_DELIVERY_METHOD = "AH2P_OXYGEN_DELIVERY_METHOD";  // 吸氧方式
     public static final String AH2P_RESPIRATORY_TUBE_DEPTH = "AH2P_RESPIRATORY_TUBE_DEPTH";  // 插管深度
     public static final String AH2P_OXYGEN_CONCENTRATION_FLOW = "AH2P_OXYGEN_CONCENTRATION_FLOW";  // 氧浓度/氧流量
+    public static final String AH2P_VENT_CUFF_PRESSURE = "AH2P_VENT_CUFF_PRESSURE";  // 气囊压力
     public static final String AH2P_RESPIRATORY_MODE = "AH2P_RESPIRATORY_MODE";  // 呼吸模式
     public static final String AH2P_RESPIRATORY_RATE_VENT = "AH2P_RESPIRATORY_RATE_VENT";  // 呼吸频率
     public static final String AH2P_SET_TIDAL_VOLUME = "AH2P_SET_TIDAL_VOLUME";  // VT(set)

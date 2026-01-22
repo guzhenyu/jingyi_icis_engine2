@@ -107,15 +107,9 @@ page {
                         width: 16.03
                     }
                     children {
-                        content: "无创血压"
+                        content: "无创/有创血压"
                         content: "mmHg"
-                        param_code: "AH2P_NIBP"
-                        width: 36.08
-                    }
-                    children {
-                        content: "有创血压"
-                        content: "mmHg"
-                        param_code: "AH2P_IBP"
+                        param_code: "AH2P_NIBP_IBP"
                         width: 36.08
                     }
                     children {
@@ -135,7 +129,7 @@ page {
                         content: "mmHg"
                         param_code: "AH2P_ICP"
                     }
-                    width: 340.73
+                    width: 304.65
                     height_rows: 1
                 }
                 top_level_cell {
@@ -149,7 +143,7 @@ page {
                     children {
                         content: "执行用药"
                         param_code: "AH2P_MED_EXEC"
-                        width: 137.9
+                        width: 173.98
                     }
                     children {
                         content: "液体量"
@@ -179,7 +173,7 @@ page {
                         content: "ml"
                         param_code: "AH2P_TOTAL_INTAKE"
                     }
-                    width: 301.85
+                    width: 337.93
                     height_rows: 1
                 }
                 top_level_cell {
@@ -452,6 +446,11 @@ page {
                     width: 20.04
                 }
                 top_level_cell {
+                    content: "气囊压力(mmHg)"
+                    param_code: "AH2P_VENT_CUFF_PRESSURE"
+                    width: 20.04
+                }
+                top_level_cell {
                     content: "机械通气"
                     children {
                         content: "模式"
@@ -534,27 +533,27 @@ page {
                     children {
                         content: "Braden评分"
                         param_code: "AH2P_BRADEN"
-                        width: 28.06
+                        width: 20.04
                     }
                     children {
                         content: "Morse跌倒评估"
                         param_code: "AH2P_MORSE"
-                        width: 32.07
+                        width: 20.04
                     }
                     children {
                         content: "自理评估"
                         param_code: "AH2P_AODLS"
-                        width: 28.06
+                        width: 20.04
                     }
                     children {
                         content: "VTE"
                         param_code: "AH2P_VTE_CAPRINI"
-                        width: 32.07
+                        width: 20.04
                     }
                     children {
                         content: "导管风险评估"
                         param_code: "AH2P_CATHETER_SLIPPAGE"
-                        width: 32.07
+                        width: 20.04
                     }
                     children {
                         content: "RASS镇静评估"
@@ -565,7 +564,7 @@ page {
                         content: "CPOT/NRS"
                         param_code: "AH2P_CPOT_NRS"
                     }
-                    width: 204.44
+                    width: 140.28
                     height_rows: 1
                 }
                 top_level_cell {
@@ -573,7 +572,7 @@ page {
                     children {
                         content: "名称"
                         param_code: "AH2P_TUBE_NAME"
-                        width: 84.18
+                        width: 128.3
                     }
                     children {
                         content: "置管深度"
@@ -599,7 +598,7 @@ page {
                         }
                         height_rows: 2
                     }
-                    width: 152.33
+                    width: 196.45
                     height_rows: 1
                 }
                 top_level_cell {

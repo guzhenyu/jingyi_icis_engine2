@@ -233,13 +233,19 @@ message MedOrderGroupSettingsPB {
 
     bool enable_medication_speed = 16;  // 是否启用'药速'
 
+    /*
+     * 药物展示规则
+     */
+    int32 doseDecimalPlaces = 17;
+    int32 adminRateDecimalPlaces = 18;
+
     // todo(guzhenyu): 待实现
     message MedOrderExpansionPB {
         string code = 1;  // 医嘱分解方法编码：by_frequency, by_full_process, by_his
         string name = 2;  // 医嘱分解方法名称: 按频次, 全流程, HIS（同步action start/end）
         repeated string administration_route_code = 3;  // 医嘱分解方法适用的给药途径编码，["defaults"]表示其他所有的给药途径
     }
-    repeated MedOrderExpansionPB med_order_expansion = 17;
+    repeated MedOrderExpansionPB med_order_expansion = 19;
 }
 
 // 医嘱入量类型
@@ -263,6 +269,8 @@ message MedExeRecordSummaryPB {
     string intake_group_name = 5;  // 用药途径分组名称
     string admin_code = 6;  // 用药途径code
     string admin_name = 7;  // 用药途径名称
+
+    string rate_str = 8;  // 首个执行动作的药速/速度
 }
 
 message MedicationConfigPB {

@@ -34,6 +34,7 @@ public class ValueMetaUtils {
     public static String extractAndFormatParamValue(
         GenericValuePB value, ValueMetaPB valueMeta
     ) {
+        if (value == null || valueMeta == null) return "";
         switch (valueMeta.getValueType()) {
             case FLOAT:
                 return formatNumberValue(value.getFloatVal(), valueMeta);

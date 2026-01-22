@@ -180,7 +180,7 @@ public class MedicationServiceTests extends TestsBase {
         assertThat(resp.getOrderGroup(0).getMedOrderGroup().getGroupId()).isEqualTo("group_id_304");
         assertThat(resp.getOrderGroup(0).getMedOrderGroup().getDosageGroup().getMdList()).hasSize(1);
         assertThat(resp.getOrderGroup(0).getMedOrderGroup().getDosageGroup().getDisplayName())
-            .isEqualTo("med_name_2");
+            .isEqualTo("med_name_2(1mg)");
         assertThat(resp.getOrderGroup(0).getMedOrderGroup().getMedicalOrderIds().getIdList()).hasSize(1);
         assertThat(resp.getOrderGroup(0).getMedOrderGroup().getMedicalOrderIds().getId(0)).isEqualTo("order_id_305");
         assertThat(resp.getOrderGroup(0).getExeRecordList()).hasSize(3);
@@ -195,7 +195,7 @@ public class MedicationServiceTests extends TestsBase {
         assertThat(resp.getOrderGroup(1).getMedOrderGroup().getGroupId()).isEqualTo("group_id_303");
         assertThat(resp.getOrderGroup(1).getMedOrderGroup().getDosageGroup().getMdList()).hasSize(2);
         assertThat(resp.getOrderGroup(1).getMedOrderGroup().getDosageGroup().getDisplayName())
-            .isEqualTo("med_name_3 + med_name_1_氯化钠");
+            .isEqualTo("med_name_3(1mg) + med_name_1_氯化钠(1mg)");
         assertThat(resp.getOrderGroup(1).getMedOrderGroup().getMedicalOrderIds().getIdList()).hasSize(2);
         assertThat(resp.getOrderGroup(1).getMedOrderGroup().getMedicalOrderIds().getId(0)).isEqualTo("order_id_303");
         assertThat(resp.getOrderGroup(1).getMedOrderGroup().getMedicalOrderIds().getId(1)).isEqualTo("order_id_304");
@@ -211,7 +211,7 @@ public class MedicationServiceTests extends TestsBase {
         assertThat(resp.getOrderGroup(2).getMedOrderGroup().getGroupId()).isEqualTo("group_id_302");
         assertThat(resp.getOrderGroup(2).getMedOrderGroup().getDosageGroup().getMdList()).hasSize(1);
         assertThat(resp.getOrderGroup(2).getMedOrderGroup().getDosageGroup().getDisplayName())
-            .isEqualTo("med_name_1");
+            .isEqualTo("med_name_1(1mg)");
         assertThat(resp.getOrderGroup(2).getMedOrderGroup().getMedicalOrderIds().getIdList()).hasSize(1);
         assertThat(resp.getOrderGroup(2).getMedOrderGroup().getMedicalOrderIds().getId(0)).isEqualTo("order_id_302");
         assertThat(resp.getOrderGroup(2).getExeRecordList()).hasSize(3);
@@ -226,7 +226,7 @@ public class MedicationServiceTests extends TestsBase {
         assertThat(resp.getOrderGroup(3).getMedOrderGroup().getGroupId()).isEqualTo("group_id_301");
         assertThat(resp.getOrderGroup(3).getMedOrderGroup().getDosageGroup().getMdList()).hasSize(1);
         assertThat(resp.getOrderGroup(3).getMedOrderGroup().getDosageGroup().getDisplayName())
-            .isEqualTo("med_name_2");
+            .isEqualTo("med_name_2(1mg)");
         assertThat(resp.getOrderGroup(3).getMedOrderGroup().getMedicalOrderIds().getIdList()).hasSize(1);
         assertThat(resp.getOrderGroup(3).getMedOrderGroup().getMedicalOrderIds().getId(0)).isEqualTo("order_id_301");
         assertThat(resp.getOrderGroup(3).getExeRecordList()).hasSize(3);
