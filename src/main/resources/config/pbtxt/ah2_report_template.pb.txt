@@ -446,7 +446,7 @@ page {
                     width: 20.04
                 }
                 top_level_cell {
-                    content: "气囊压力(mmHg)"
+                    content: "气囊压力(cmH2O)"
                     param_code: "AH2P_VENT_CUFF_PRESSURE"
                     width: 20.04
                 }

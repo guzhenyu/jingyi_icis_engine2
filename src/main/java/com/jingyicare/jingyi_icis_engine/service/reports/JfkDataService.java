@@ -725,18 +725,25 @@ public class JfkDataService {
                 Map<String, Integer> optionScoreMap = itemOptionScoreMap.get(code);
                 if (optionScoreMap == null) continue;
                 int sum = 0;
+                boolean filled = false;
                 for (String optionCode : itemPb.getScoreOptionCodeList()) {
                     Integer score = optionScoreMap.get(optionCode);
-                    if (score != null) sum += score;
+                    if (score != null) {
+                        sum += score;
+                        filled = true;
+                    }
                 }
-                itemScoreSum.put(code, sum);
+                if (filled) {
+                    itemScoreSum.put(code, sum);
+                }
             }
 
             for (Map.Entry<String, ScoreItemMetaPB> entry : itemMetaMap.entrySet()) {
                 String itemCode = entry.getKey();
-                int score = itemScoreSum.getOrDefault(itemCode, 0);
+                Integer score = itemScoreSum.get(itemCode);
+                String scoreStr = score == null ? "" : String.valueOf(score);
                 itemScoreLists.get(itemCode).add(JfkValPB.newBuilder()
-                    .setStrVal(String.valueOf(score))
+                    .setStrVal(scoreStr)
                     .build());
             }
         }
