@@ -47,6 +47,7 @@ public class ScoreService {
         @Autowired DeptScoreGroupRepository deptScoreGroupRepo,
         @Autowired PatientScoreRepository patientScoreRepo,
         @Autowired MonitoringParamRepository monitoringParamRepo,
+        @Autowired PatientMonitoringRecordRepository pmrRepo,
         @Autowired AccountRepository accountRepo
     ) {
         this.protoService = protoService;
@@ -98,6 +99,7 @@ public class ScoreService {
         this.deptScoreGroupRepo = deptScoreGroupRepo;
         this.patientScoreRepo = patientScoreRepo;
         this.monitoringParamRepo = monitoringParamRepo;
+        this.pmrRepo = pmrRepo;
         this.accountRepo = accountRepo;
     }
 
@@ -897,6 +899,22 @@ public class ScoreService {
                 .build();
         }
         final String deptId = patientRec.getDeptId();
+
+        // 处理观察项
+        if (req.getByMonitoring()) {
+            String paramCode = scoreCodeParamCodeMap.get(patientScore.getScoreGroupCode());
+            PatientMonitoringRecord pmrToDel = pmrRepo
+                .findByPidAndMonitoringParamCodeAndEffectiveTimeAndIsDeletedFalse(pid, paramCode, effectiveTime)
+                .orElse(null);
+            if (pmrToDel != null) {
+                pmrToDel.setIsDeleted(true);
+                pmrToDel.setDeletedBy(accountId);
+                pmrToDel.setDeletedAt(TimeUtils.getNowUtc());
+                pmrRepo.save(pmrToDel);
+                log.info("delete monitoring param: paramCode {}, effectiveTime {}, pid {}", paramCode, effectiveTime, pid);
+            }
+        }
+
         // 更新护理单的处理时间（为 打印从首页到尾页都一致的护理单 提效，省二院）
         pnrUtils.updateLatestDataTime(pid, deptId, effectiveTime, effectiveTime, TimeUtils.getNowUtc());
 
@@ -1545,5 +1563,6 @@ public class ScoreService {
     private final DeptScoreGroupRepository deptScoreGroupRepo;
     private final PatientScoreRepository patientScoreRepo;
     private final MonitoringParamRepository monitoringParamRepo;
+    private final PatientMonitoringRecordRepository pmrRepo;
     private final AccountRepository accountRepo;
 }

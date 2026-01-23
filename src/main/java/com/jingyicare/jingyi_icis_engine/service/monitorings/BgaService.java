@@ -808,7 +808,6 @@ log.info("\n\n\nSyncing raw BGA records for patient {}, from {} to {}",
         List<RawBgaRecord> result = new ArrayList<>();
         result.addAll(rawBgaRecordRepository
             .findByMrnBednumAndEffectiveTimeBetween(patient.getHisMrn(), start, end));
-log.info("\n\n\nFound {} raw BGA records by MRN {}; start {}; end {}", result.size(), patient.getHisMrn(), start, end);
 
         PatientDeviceService.UsageHistory<PatientDeviceService.BedName> bedHistory =
             patientDeviceService.getBedHistory(patient);
@@ -821,10 +820,21 @@ log.info("\n\n\nFound {} raw BGA records by MRN {}; start {}; end {}", result.si
             LocalDateTime bedEnd = (i + 1 < bedHistory.usageRecords.size())
                 ? bedHistory.usageRecords.get(i + 1).getSecond()
                 : (bedHistory.endTime != null ? bedHistory.endTime : TimeUtils.getLocalTime(9999, 1, 1));
+            String bedNumber = bedName.displayBedNumber;
+
+            // 床号匹配尾数，前面0可以忽略
             List<RawBgaRecord> bedRecords = rawBgaRecordRepository
-                .findByMrnBednumAndEffectiveTimeBetween(bedName.displayBedNumber, bedStart, bedEnd);
-log.info("\n\n\n{} raw BGA records found by bed {}; start {}; end {}", bedRecords.size(), bedName.displayBedNumber, bedStart, bedEnd);
-            result.addAll(bedRecords);
+                .findByEffectiveTimeBetween(bedStart, bedEnd);
+            List<RawBgaRecord> qualifiedBedRecords = new ArrayList<>();
+            for (RawBgaRecord rec : bedRecords) {
+                if (bedNumber.endsWith(rec.getMrnBednum())) {
+                    String prefix = bedNumber.substring(0, bedNumber.length() - rec.getMrnBednum().length());
+                    if (prefix.isEmpty() || prefix.matches("0+")) {
+                        qualifiedBedRecords.add(rec);
+                    }
+                }
+            }
+            result.addAll(qualifiedBedRecords);
         }
         return result;
     }

@@ -106,6 +106,15 @@ public class StrUtils {
         }
     }
 
+    public static Long parseLongOrDefault(String str, long defaultValue) {
+        if (isBlank(str)) return defaultValue;
+        try {
+            return Long.parseLong(str);
+        } catch (NumberFormatException e) {
+            return defaultValue;
+        }
+    }
+
     public static String trimRightSpaces(String s) {
         if (s == null || s.isEmpty()) return s;
         int i = s.length() - 1;

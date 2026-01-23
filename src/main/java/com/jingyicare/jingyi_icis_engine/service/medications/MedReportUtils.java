@@ -175,11 +175,14 @@ public class MedReportUtils {
             MedicationExecutionAction firstAction = actions.get(0);
             DosageGroupExtPB firstActionDGE = ProtoUtils.decodeDosageGroupExt(firstAction.getMedicationRate());
             String rateStr = "";
-            if (firstActionDGE != null && firstActionDGE.getDoseRateAmount() > 0) {
-                rateStr = (firstActionDGE.getDoseRateAmount() + firstActionDGE.getDoseRateUnit());
-            } else {
-                rateStr = (firstAction.getAdministrationRate() + "ml");
+            if (route.getGroupId() == 0/*微泵组*/) {  // administration_route_group.id
+                if (firstActionDGE != null && firstActionDGE.getDoseRateAmount() > 0) {
+                    rateStr = (firstActionDGE.getDoseRateAmount() + firstActionDGE.getDoseRateUnit());
+                } else {
+                    rateStr = (firstAction.getAdministrationRate() + "ml/h");
+                }
             }
+            
             MedExeRecordSummaryPB summary = MedExeRecordSummaryPB.newBuilder()
                 .setDosageGroupDisplayName(dosageGroupDisplayName)
                 .setStartTimeIso8601(TimeUtils.toIso8601String(rec.getStartTime(), ZONE_ID))

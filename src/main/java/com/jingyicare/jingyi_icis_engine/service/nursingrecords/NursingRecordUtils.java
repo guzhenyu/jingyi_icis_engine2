@@ -21,7 +21,7 @@ public class NursingRecordUtils {
         long entityId, String content, LocalDateTime effectiveTimeUtc,
         String modifiedBy, String modifiedByAccountName, boolean enableUpdatingCreatedBy
     ) {
-        if (entityId <= 0 || StrUtils.isBlank(content)) {
+        if (entityId <= 0 /*|| StrUtils.isBlank(content)*/) {
             return StatusCode.INVALID_PARAM_VALUE;
         }
 
@@ -55,7 +55,9 @@ public class NursingRecordUtils {
             }
 
             // 1.2 幂等：内容与时间均未变，直接返回 OK
-            if (Objects.equals(lockedOld.getContent(), content)) {
+            if (Objects.equals(lockedOld.getContent(), content) &&
+                Objects.equals(lockedOld.getEffectiveTime(), effectiveTimeUtc)
+            ) {
                 conn.rollback();
                 return StatusCode.OK;
             }

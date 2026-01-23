@@ -1638,27 +1638,22 @@ public class MedicationService {
         // 评估药物类型：固体/液体/不确定；固体重量；液体容量等)
         MedicationDosageGroupPB.Builder targetDGBuilder = MedicationDosageGroupPB.newBuilder();
         for (MedicationDosagePB md : dosageGroup.getMdList()) {
-            if (md.getIntakeVolMl() > 0) {
-                targetDGBuilder.addMd(md.toBuilder().setFormType(DosageFormTypeEnum.DFT_LIQUID).build());
-                continue;
-            }
-            double liquidMl = medDict.calculateLiquidVolume(md.getSpec(), md.getDose(), md.getDoseUnit());
-            if (liquidMl > 0) {
-                targetDGBuilder.addMd(md.toBuilder()
-                    .setFormType(DosageFormTypeEnum.DFT_LIQUID)
-                    .setIntakeVolMl(liquidMl)
-                    .build());
-                continue;
-            }
+            MedicationDosagePB.Builder mdBuilder = md.toBuilder();
+            DosageFormTypeEnum dosageFormType = DosageFormTypeEnum.DFT_UNKNOWN;
+
+            // todo(guzhenyu): 同时有液体量&规格时，不算固体量
             double solidMg = medDict.calculateSolidMg(md.getSpec(), md.getDose(), md.getDoseUnit());
             if (solidMg > 0) {
-                targetDGBuilder.addMd(md.toBuilder()
-                    .setFormType(DosageFormTypeEnum.DFT_SOLID)
-                    .setSolidMg(solidMg)
-                    .build());
-                continue;
+                mdBuilder.setSolidMg(solidMg);
+                dosageFormType = DosageFormTypeEnum.DFT_SOLID;
             }
-            targetDGBuilder.addMd(md.toBuilder().setFormType(DosageFormTypeEnum.DFT_UNKNOWN).build());
+
+            double liquidMl = medDict.calculateLiquidVolume(md.getSpec(), md.getDose(), md.getDoseUnit());
+            if (md.getIntakeVolMl() > 0 || liquidMl > 0) {
+                if (md.getIntakeVolMl() <= 0) mdBuilder.setIntakeVolMl(liquidMl);
+                if (dosageFormType == DosageFormTypeEnum.DFT_UNKNOWN) dosageFormType = DosageFormTypeEnum.DFT_LIQUID;
+            }
+            targetDGBuilder.addMd(mdBuilder.setFormType(dosageFormType).build());
         }
         targetDGBuilder.setDisplayName(dosageGroup.getDisplayName());
         MedicationDosageGroupPB targetDosageGroup = targetDGBuilder.build();

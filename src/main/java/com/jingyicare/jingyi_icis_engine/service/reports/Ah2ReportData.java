@@ -503,7 +503,7 @@ public class Ah2ReportData {
         getMedExeData(pid, deptId, shiftStartUtc, shiftEndUtc, nowUtc, patientDataMap);
 
         // 获取护理记录
-        getNursingRecords(pid, shiftStartUtc, shiftEndUtc, patientDataMap);
+        getNursingRecords(ctx, pid, shiftStartUtc, shiftEndUtc, patientDataMap);
 
         // 获取护理评分
         getPatientScores(pid, shiftStartUtc, shiftEndUtc, patientDataMap);
@@ -830,6 +830,7 @@ public class Ah2ReportData {
     }
 
     private void getNursingRecords(
+        Ah2PdfContext ctx,
         Long pid, LocalDateTime startUtc, LocalDateTime endUtc,
         Map<LocalDateTime, PatientData> patientDataMap
     ) {
@@ -859,7 +860,8 @@ public class Ah2ReportData {
                 effectiveTime, k -> new PatientData(effectiveTime)
             );
             for (NursingRecord record : recList) {
-                Long nurseAccountId = getAccountPk(record.getCreatedBy());
+                // Long nurseAccountId = getAccountPk(record.getCreatedBy());
+                Long nurseAccountId = StrUtils.parseLongOrDefault(getShiftNurseIdStr(ctx, effectiveTime), 0);
                 patientData.nursingRecords.add(new Pair<>(
                     record.getContent(), nurseAccountId
                 ));
@@ -1585,19 +1587,7 @@ public class Ah2ReportData {
         if (ts == null) return;
 
         // 获取当班护士
-        String nurseIdStr = null;
-        for (Pair<Pair<LocalDateTime/*start*/, LocalDateTime/*end*/>, Long/*accountId*/> shift :
-            ctx.shiftNurses
-        ) {
-            LocalDateTime start = shift.getFirst().getFirst();
-            LocalDateTime end = shift.getFirst().getSecond();
-            Long accountId = shift.getSecond();
-            if (!ts.isBefore(start) && ts.isBefore(end)) {
-                nurseIdStr = accountId == null ? null : accountId.toString();
-                break;
-            }
-        }
-
+        String nurseIdStr = getShiftNurseIdStr(ctx, ts);
         if (StrUtils.isBlank(nurseIdStr)) return;
         wrappedLinesByParam.put(AH2P_SIGNATURE, new ArrayList<>(List.of(nurseIdStr)));
 
