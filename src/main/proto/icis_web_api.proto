@@ -301,7 +301,7 @@ enum StatusCode {
     EXT_URL_ALREADY_EXISTS = 265; // 外部URL配置已存在
     EXT_URL_NOT_FOUND = 266; // 外部URL配置不存在
     CALC_MED_RATE_FAILED = 267; // 计算药品给药速度失败
-    AH2_NURSING_REPORT_IS_IN_PROGRESS = 268; // 该病人的护理报告正在生成中
+    AH2_NURSING_REPORT_IS_IN_PROGRESS = 268; // 该病人的护理记录单正在生成中
     JFK_MISSING_REQUIRED_FIELD = 269; // JFK数据源缺少必填输入字段
     LAST_CODE = 270;
 }

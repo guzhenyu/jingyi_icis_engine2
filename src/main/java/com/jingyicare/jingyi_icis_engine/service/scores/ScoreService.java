@@ -80,15 +80,6 @@ public class ScoreService {
         for (ScoreGroupMetaPB meta : scorePb.getGroupList()) {
             allScoreGroupMeta.add(meta.toBuilder().setOrigName(meta.getName()).build());
         }
-        allScoreGroupMeta.add(
-            ScoreGroupMetaPB.newBuilder()
-                .setId(10000)
-                .setCode("vte_caprini")
-                .setName("VTE Caprini评分")
-                .setOrigName("VTE Caprini评分")
-                .setDisplayOrder(9999)
-                .build()
-        );
 
         this.scoreConfig = scoreConfig;
         this.scoreCalculator = scoreCalculator;

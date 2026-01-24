@@ -1,5 +1,6 @@
 # catheter_slippage 做了特殊处理, 20260120
 # 执行用药，医嘱名称中剂量的显示规则，doseDecimalPlaces + adminRateDecimalPlaces
+# VTE评分配置：ah2vte
 zone_id: "Asia/Shanghai"
 text {
     status_code_msg: "ok"
@@ -8684,19 +8685,19 @@ score {
         }
         item {
             code: "catheter_awareness"
-            name: "意识（1分）"
-            option { code: "awareness_mild" name: "轻度烦躁" score { int32_val: 1 } }
-            option { code: "awareness_moderate" name: "中度烦躁" score { int32_val: 1 } }
-            option { code: "awareness_severe" name: "重度烦躁" score { int32_val: 1 } }
-            option { code: "awareness_confused" name: "意识不清" score { int32_val: 1 } }
+            name: "意识"
+            option { code: "awareness_mild" name: "轻度烦躁" score { int32_val: 2 } }
+            option { code: "awareness_moderate" name: "中度烦躁" score { int32_val: 3 } }
+            option { code: "awareness_severe" name: "重度烦躁" score { int32_val: 5 } }
+            option { code: "awareness_confused" name: "意识不清" score { int32_val: 2 } }
             score_item_type: 0
         }
         item {
             code: "catheter_other"
-            name: "其它（1分）"
-            option { code: "other_cough" name: "咳逆、咳嗽" score { int32_val: 1 } }
-            option { code: "other_obese" name: "肥胖（颈部短）" score { int32_val: 1 } }
-            option { code: "other_infant" name: "幼儿" score { int32_val: 1 } }
+            name: "其它"
+            option { code: "other_cough" name: "咳逆、咳嗽" score { int32_val: 2 } }
+            option { code: "other_obese" name: "肥胖（颈部短）" score { int32_val: 2 } }
+            option { code: "other_infant" name: "幼儿" score { int32_val: 5 } }
             score_item_type: 1
         }
         item {
@@ -8845,6 +8846,323 @@ score {
             option { code: "aware_voice_pain" name: "对声音和疼痛都有反应" score { int32_val: 1 } }
             option { code: "aware_pain_only" name: "只对疼痛刺激有反应" score { int32_val: 2 } }
             option { code: "aware_none" name: "无反应" score { int32_val: 3 } }
+        }
+    }
+    group {
+        code: "ah2vte"
+        name: "VTE评分"
+        description: ""
+        score_group_aggregator: 0
+        value_meta {
+            value_type: INT32
+            unit: "分"
+        }
+        item {
+            code: "score_5_options"
+            name: "5分"
+            option {
+                code: "score_5_none"
+                name: "无"
+                score {
+                    int32_val: 0
+                }
+            }
+            option {
+                code: "bedridden_stroke"
+                name: "一个月内需长期卧床的脑卒中"
+                score {
+                    int32_val: 5
+                }
+            }
+            option {
+                code: "lower_limb_joint_replacement"
+                name: "一个月内下肢关节置换手术室"
+                score {
+                    int32_val: 5
+                }
+            }
+            option {
+                code: "hip_pelvis_lower_limb_fracture"
+                name: "一个月内髋关节、骨盆或下肢骨折"
+                score {
+                    int32_val: 5
+                }
+            }
+            option {
+                code: "acute_spinal_injury"
+                name: "一个月内急性脊髓损伤（瘫痪）"
+                score {
+                    int32_val: 5
+                }
+            }
+            option {
+                code: "severe_trauma"
+                name: "一个月内严重创伤，如由于车祸或坠落导致的多处骨折"
+                score {
+                    int32_val: 5
+                }
+            }
+            score_item_type: 1
+        }
+        item {
+            code: "score_3_options"
+            name: "3分"
+            option {
+                code: "score_3_none"
+                name: "无"
+                score {
+                    int32_val: 0
+                }
+            }
+            option {
+                code: "age_ge_75"
+                name: "年龄≥75岁"
+                score {
+                    int32_val: 3
+                }
+            }
+            option {
+                code: "vte_history"
+                name: "VTE病史"
+                score {
+                    int32_val: 3
+                }
+            }
+            option {
+                code: "vte_family_history"
+                name: "VTE家族史"
+                score {
+                    int32_val: 3
+                }
+            }
+            option {
+                code: "factor_v_leiden"
+                name: "凝血因子VLeiden突变"
+                score {
+                    int32_val: 3
+                }
+            }
+            option {
+                code: "prothrombin_g20210a"
+                name: "凝血酶原G20210A突变"
+                score {
+                    int32_val: 3
+                }
+            }
+            option {
+                code: "lupus_anticoagulant"
+                name: "狼疮抗凝物阳性"
+                score {
+                    int32_val: 3
+                }
+            }
+            option {
+                code: "antiphospholipid_antibody"
+                name: "抗磷脂抗体阳性"
+                score {
+                    int32_val: 3
+                }
+            }
+            option {
+                code: "hyperhomocysteinemia"
+                name: "高同型半胱氨酸血症"
+                score {
+                    int32_val: 3
+                }
+            }
+            option {
+                code: "heparin_induced_thrombocytopenia"
+                name: "肝素诱导的血小板减少症"
+                score {
+                    int32_val: 3
+                }
+            }
+            option {
+                code: "other_hypercoagulable_state"
+                name: "其他高凝状态:如血纤维蛋白异常、红细胞增多症等"
+                score {
+                    int32_val: 3
+                }
+            }
+            score_item_type: 1
+        }
+        item {
+            code: "score_2_options"
+            name: "2分"
+            option {
+                code: "score_2_none"
+                name: "无"
+                score {
+                    int32_val: 0
+                }
+            }
+            option {
+                code: "age_61_74"
+                name: "年龄61-74岁"
+                score {
+                    int32_val: 2
+                }
+            }
+            option {
+                code: "malignant_tumor"
+                name: "恶性肿瘤"
+                score {
+                    int32_val: 2
+                }
+            }
+            option {
+                code: "surgery_ge_45min"
+                name: "手术时间45min"
+                score {
+                    int32_val: 2
+                }
+            }
+            option {
+                code: "lower_limb_immobilization"
+                name: "一个月内下肢石膏固定或其他原因限制下肢活动"
+                score {
+                    int32_val: 2
+                }
+            }
+            option {
+                code: "central_venous_catheter"
+                name: "一个月内或现在有PICC置管或CVC置管或输液港"
+                score {
+                    int32_val: 2
+                }
+            }
+            option {
+                code: "bedridden_ge_72h"
+                name: "卧床，时间≥72h，持续步行小于30步"
+                score {
+                    int32_val: 2
+                }
+            }
+            score_item_type: 1
+        }
+        item {
+            code: "score_1_options"
+            name: "1分"
+            option {
+                code: "score_1_none"
+                name: "无"
+                score {
+                    int32_val: 0
+                }
+            }
+            option {
+                code: "age_41_60"
+                name: "年龄41-60岁"
+                score {
+                    int32_val: 1
+                }
+            }
+            option {
+                code: "surgery_lt_45min"
+                name: "手术时间<45min"
+                score {
+                    int32_val: 1
+                }
+            }
+            option {
+                code: "lower_limb_edema"
+                name: "下肢水肿"
+                score {
+                    int32_val: 1
+                }
+            }
+            option {
+                code: "severe_copd"
+                name: "严重肺气肿(如COPD、肺气肿)，不包含哮喘"
+                score {
+                    int32_val: 1
+                }
+            }
+            option {
+                code: "sepsis"
+                name: "一个月内或现在脓毒症"
+                score {
+                    int32_val: 1
+                }
+            }
+            option {
+                code: "varicose_veins"
+                name: "下肢静脉曲张"
+                score {
+                    int32_val: 1
+                }
+            }
+            option {
+                code: "acute_myocardial_infarction"
+                name: "一个月内急性心肌梗死"
+                score {
+                    int32_val: 1
+                }
+            }
+            option {
+                code: "congestive_heart_failure"
+                name: "一个月内充血性心力衰竭"
+                score {
+                    int32_val: 1
+                }
+            }
+            option {
+                code: "inflammatory_bowel_disease"
+                name: "炎性肠病史(如克罗恩病)"
+                score {
+                    int32_val: 1
+                }
+            }
+            option {
+                code: "bedridden_lt_72h"
+                name: "卧床，时间<72h，持续步行小于30步"
+                score {
+                    int32_val: 1
+                }
+            }
+            option {
+                code: "pregnancy_postpartum"
+                name: "妊娠或产后1月内"
+                score {
+                    int32_val: 1
+                }
+            }
+            option {
+                code: "pregnancy_complications_history"
+                name: "有不明原因的死胎史、三次以上自然流产史、伴有先兆子癫的早产史、低体重儿生产史"
+                score {
+                    int32_val: 1
+                }
+            }
+            option {
+                code: "oral_contraceptives"
+                name: "口服避孕药或具他药物避孕措施"
+                score {
+                    int32_val: 1
+                }
+            }
+            option {
+                code: "obesity"
+                name: "肥胖(BMI)>25Kg/m2"
+                score {
+                    int32_val: 1
+                }
+            }
+            option {
+                code: "long_term_hormone_therapy"
+                name: "长期激素治疗"
+                score {
+                    int32_val: 1
+                }
+            }
+            option {
+                code: "recent_surgery_ge_45min"
+                name: "一个月内进行过全麻或局麻下的≥45min的手术"
+                score {
+                    int32_val: 1
+                }
+            }
+            score_item_type: 1
         }
     }
     default_score_group_code: "gcs"

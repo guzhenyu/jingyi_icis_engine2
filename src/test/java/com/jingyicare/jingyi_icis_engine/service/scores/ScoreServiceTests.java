@@ -65,7 +65,7 @@ public class ScoreServiceTests extends TestsBase {
         String getScoreGroupMetaReqJson = ProtoUtils.protoToJson(getScoreGroupMetaReq);
         GetScoreGroupMetaResp getScoreGroupMetaResp = scoreService.getScoreGroupMeta(getScoreGroupMetaReqJson);
         assertThat(getScoreGroupMetaResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
-        assertThat(getScoreGroupMetaResp.getScoreGroupMetaList()).hasSize(5);  // 4 + 1(vte_caprini)
+        assertThat(getScoreGroupMetaResp.getScoreGroupMetaList()).hasSize(4);
 
         getScoreGroupMetaReq = GetScoreGroupMetaReq.newBuilder().setDeptId(deptId).build();
         getScoreGroupMetaReqJson = ProtoUtils.protoToJson(getScoreGroupMetaReq);

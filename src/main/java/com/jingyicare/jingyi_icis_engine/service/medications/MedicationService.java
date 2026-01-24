@@ -144,8 +144,12 @@ public class MedicationService {
         final LocalDateTime queryEndUtc = TimeUtils.fromIso8601String(req.getQueryEndIso8601(), "UTC");
 
         // 只有在科病人，且有明确的分解指令，才分解
+        LocalDateTime nowUtc = TimeUtils.getNowUtc();
         if (expandExeRecord) {
-            if (patientRecord.getAdmissionStatus() == patientService.getAdmissionStatusDischargedId()) {
+            if (patientRecord.getAdmissionStatus() == patientService.getAdmissionStatusDischargedId() &&
+                patientRecord.getDischargeTime() != null && 
+                nowUtc.isAfter(patientRecord.getDischargeTime().plusHours(8))
+            ) {
                 return GetOrderGroupsResp.newBuilder()
                     .setRt(protoService.getReturnCode(StatusCode.DISCHARGED_PATIENT_EXE_RECORD_NOT_TO_REFRESH))
                     .build();

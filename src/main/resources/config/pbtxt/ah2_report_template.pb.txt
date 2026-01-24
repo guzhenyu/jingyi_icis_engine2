@@ -28,13 +28,13 @@ page {
                     children {
                         content: "日期"
                         param_code: "AH2P_MMDD"
-                        width: 32.1
+                        width: 27.1
                     }
                     children {
                         content: "时间"
                         param_code: "AH2P_HHMM"
                     }
-                    width: 64.2
+                    width: 54.2
                     height_rows: 1
                 }
                 top_level_cell {
@@ -82,7 +82,7 @@ page {
                     children {
                         content: "体温℃"
                         param_code: "AH2P_TEMPERATURE"
-                        width: 26.056
+                        width: 24.05
                     }
                     children {
                         content: "末梢皮温"
@@ -129,14 +129,14 @@ page {
                         content: "mmHg"
                         param_code: "AH2P_ICP"
                     }
-                    width: 304.65
+                    width: 302.644
                     height_rows: 1
                 }
                 top_level_cell {
                     content: "血糖"
                     content: "mmol/L"
                     param_code: "AH2P_BLOOD_GLUCOSE"
-                    width: 32.07
+                    width: 24.05
                 }
                 top_level_cell {
                     content: "入量"
@@ -160,7 +160,7 @@ page {
                         content: "饮食/鼻饲量"
                         content: "ml"
                         param_code: "AH2P_NASOGASTRIC_ML"
-                        width: 24.85
+                        width: 30.87
                     }
                     children {
                         content: "每小时入量"
@@ -173,7 +173,7 @@ page {
                         content: "ml"
                         param_code: "AH2P_TOTAL_INTAKE"
                     }
-                    width: 337.93
+                    width: 343.95
                     height_rows: 1
                 }
                 top_level_cell {
@@ -207,7 +207,7 @@ page {
                         children {
                             content: "名称"
                             param_code: "AH2P_OTHER_OUTPUT_NAME"
-                            width: 52.51
+                            width: 56.536
                         }
                         children {
                             content: "量ml"
@@ -218,7 +218,7 @@ page {
                             content: "引流液颜色"
                             param_code: "AH2P_DRAINAGE_FLUID_COLOR"
                         }
-                        width: 92.2
+                        width: 96.226
                         height_rows: 1
                     }
                     children {
@@ -232,13 +232,13 @@ page {
                         content: "ml"
                         param_code: "AH2P_ACCUMULATED_OUTPUT"
                     }
-                    width: 224.48
+                    width: 228.506
                     height_rows: 1
                 }
                 top_level_cell {
                     content: "病情观察及处理"
                     param_code: "AH2P_NURSING_RECORD"
-                    width: 128.27
+                    width: 140.27
                 }
                 top_level_cell {
                     content: "签名"
@@ -443,7 +443,7 @@ page {
                 top_level_cell {
                     content: "氧浓度(%)/氧流量(L/min)"
                     param_code: "AH2P_OXYGEN_CONCENTRATION_FLOW"
-                    width: 20.04
+                    width: 30.1
                 }
                 top_level_cell {
                     content: "气囊压力(cmH2O)"
@@ -652,7 +652,7 @@ page {
                         content: "体位"
                         param_code: "AH2P_BODY_POSITION"
                     }
-                    width: 180.39
+                    width: 170.33
                     height_rows: 1
                 }
                 top_level_cell {

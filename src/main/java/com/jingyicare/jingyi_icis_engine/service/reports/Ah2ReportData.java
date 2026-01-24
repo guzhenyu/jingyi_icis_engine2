@@ -174,6 +174,10 @@ public class Ah2ReportData {
         Long pid, String deptId, LocalDateTime queryStartUtc, LocalDateTime queryEndUtc,
         String accountId
     ) {
+        log.info(
+            "\n\n(debug) AH2 collectPageData start pid={}, deptId={}, queryStartUtc={}, queryEndUtc={}, accountId={}, thread={}",
+            pid, deptId, queryStartUtc, queryEndUtc, accountId, Thread.currentThread().getName()
+        );
         loadAccountSignatureMap(ctx);
 
         // 检查参数合法性
@@ -181,6 +185,10 @@ public class Ah2ReportData {
             queryStartUtc == null || queryEndUtc == null || !queryEndUtc.isAfter(queryStartUtc)
         ) {
             log.error("Invalid parameters.");
+            log.info(
+                "\n\n(debug) AH2 collectPageData invalid params pid={}, deptId={}, queryStartUtc={}, queryEndUtc={}, accountId={}",
+                pid, deptId, queryStartUtc, queryEndUtc, accountId
+            );
             return new Pair<>(
                 ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.INVALID_PARAM_VALUE), null
             );
@@ -188,6 +196,10 @@ public class Ah2ReportData {
 
         // 尝试占位
         if (!tryAcquire(pid)) {
+            log.info(
+                "\n\n(debug) AH2 collectPageData busy pid={}, deptId={}, queryStartUtc={}, queryEndUtc={}, accountId={}, inFlight={}",
+                pid, deptId, queryStartUtc, queryEndUtc, accountId, getInFlightDebugString(pid)
+            );
             return new Pair<>(
                 ReturnCodeUtils.getReturnCode(
                     statusCodeMsgs,
@@ -201,6 +213,10 @@ public class Ah2ReportData {
         final PatientRecord patientRecord = patientService.getPatientRecord(pid);
         if (patientRecord == null) {
             log.error("Patient not found.");
+            log.info(
+                "\n\n(debug) AH2 collectPageData patient not found pid={}, deptId={}, accountId={}",
+                pid, deptId, accountId
+            );
             return new Pair<>(
                 ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.PATIENT_NOT_FOUND), null
             );
@@ -240,6 +256,10 @@ public class Ah2ReportData {
              midnightUtc = midnightUtc.plusDays(1)
         ) {
             setLastProcessedAt(pid, midnightUtc);
+            log.info(
+                "\n\n(debug) AH2 dailyData loop pid={}, midnightUtc={}, dbsuIdx={}, dbsuTotal={}",
+                pid, midnightUtc, dbsuIdx, deptBalanceStatsUtcs.size()
+            );
 
             // 定位到当天的班次起始时间，获取班次起始小时
             LocalDateTime dayEndUtc = midnightUtc.plusDays(1).minusSeconds(1);
@@ -258,24 +278,42 @@ public class Ah2ReportData {
             int shiftStartHour = dbsuCurLocal.getHour();
             final LocalDateTime shiftStartUtc = midnightUtc.plusHours(shiftStartHour);
             final LocalDateTime shiftEndUtc = shiftStartUtc.plusDays(1);
+            log.info(
+                "\n\n(debug) AH2 dailyData window pid={}, midnightUtc={}, shiftStartUtc={}, shiftEndUtc={}, dbsuCurUtc={}",
+                pid, midnightUtc, shiftStartUtc, shiftEndUtc, dbsuCurUtc
+            );
 
             // 获取或补齐护理单数据
             Ah2PageData pageData = dailyDataMap.get(midnightUtc);
             if (pageData == null) {
+                log.info(
+                    "\n\n(debug) AH2 dailyData fetch start pid={}, midnightUtc={}",
+                    pid, midnightUtc
+                );
                 Pair<StatusCode, Ah2PageData> pageDataPair = fetchDailyData(
                     ctx, pid, deptId, midnightUtc, shiftStartUtc, shiftEndUtc, accountId,
                     nowUtc, dischargeTimeUtc
+                );
+                log.info(
+                    "\n\n(debug) AH2 dailyData fetch end pid={}, midnightUtc={}, statusCode={}, hasData={}",
+                    pid, midnightUtc, pageDataPair.getFirst(), pageDataPair.getSecond() != null
                 );
                 StatusCode statusCode = pageDataPair.getFirst() != StatusCode.OK ?
                     pageDataPair.getFirst() :
                     (pageDataPair.getSecond() == null ? StatusCode.INTERNAL_EXCEPTION : StatusCode.OK);
                 if (statusCode != StatusCode.OK) {
                     log.error("cannot find deptBalanceStatUtc for midnightUtc=" + midnightUtc);
+                    log.info(
+                        "\n\n(debug) AH2 dailyData fetch failed pid={}, midnightUtc={}, statusCode={}",
+                        pid, midnightUtc, statusCode
+                    );
                     release(pid);
                     return new Pair<>(ReturnCodeUtils.getReturnCode(statusCodeMsgs, statusCode), null);
                 }
                 // pageData 不可能为 null（前面已判空）
                 pageData = pageDataPair.getSecond();
+            } else {
+                log.info("\n\n(debug) AH2 dailyData cache hit pid={}, midnightUtc={}", pid, midnightUtc);
             }
             dailyDataList.add(pageData);
         }
@@ -296,13 +334,23 @@ public class Ah2ReportData {
             dailyDataList, dailyDataStartMidnightUtc, admissionTimeUtc, ctx.tblCommon.getBodyRows(),
             nursingReportStartId
         );
+        int pagesBeforeFilter = pageDataList == null ? 0 : pageDataList.size();
         final LocalDateTime finalQueryStartUtc = queryStartUtc;
         final LocalDateTime finalQueryEndUtc = queryEndUtc;
         pageDataList = pageDataList.stream().filter(p -> (
             p.pageStartTs != null && p.pageEndTs != null &&
             !p.pageEndTs.isBefore(finalQueryStartUtc) && !p.pageStartTs.isAfter(finalQueryEndUtc)
         )).toList();
+        int pagesAfterFilter = pageDataList == null ? 0 : pageDataList.size();
+        log.info(
+            "\n\n(debug) AH2 paginate result pid={}, pagesBeforeFilter={}, pagesAfterFilter={}, queryStartUtc={}, queryEndUtc={}",
+            pid, pagesBeforeFilter, pagesAfterFilter, finalQueryStartUtc, finalQueryEndUtc
+        );
         release(pid);
+        log.info(
+            "\n\n(debug) AH2 collectPageData end pid={}, pages={}",
+            pid, pageDataList == null ? 0 : pageDataList.size()
+        );
 
         return new Pair<>(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.OK), pageDataList);
     }
@@ -318,12 +366,30 @@ public class Ah2ReportData {
     private boolean tryAcquire(long pid) {
         cleanupStale();
         var prev = processingPids.putIfAbsent(pid, new PidInFlight());
-        return prev == null;
+        if (prev == null) {
+            log.info("\n\n(debug) AH2 report acquire ok pid={}, inFlightSize={}", pid, processingPids.size());
+            return true;
+        }
+        long ageMs = System.currentTimeMillis() - prev.startedAt;
+        log.info(
+            "\n\n(debug) AH2 report acquire busy pid={}, startedAt={}, lastProgressAtUtc={}, ageMs={}, inFlightSize={}",
+            pid, new Date(prev.startedAt), prev.lastProgressAt, ageMs, processingPids.size()
+        );
+        return false;
     }
 
     // 释放占位（务必放在 finally 中调用）
     private void release(long pid) {
-        processingPids.remove(pid);
+        PidInFlight removed = processingPids.remove(pid);
+        if (removed == null) {
+            log.info("\n\n(debug) AH2 report release pid={}, removed=false, inFlightSize={}", pid, processingPids.size());
+            return;
+        }
+        long ageMs = System.currentTimeMillis() - removed.startedAt;
+        log.info(
+            "\n\n(debug) AH2 report release pid={}, removed=true, startedAt={}, lastProgressAtUtc={}, ageMs={}, inFlightSize={}",
+            pid, new Date(removed.startedAt), removed.lastProgressAt, ageMs, processingPids.size()
+        );
     }
 
     // 返回最后处理时间的本地化字符串（失败返回 ""）
@@ -340,7 +406,17 @@ public class Ah2ReportData {
     private void setLastProcessedAt(long pid, LocalDateTime timeUtc) {
         var inFlight = processingPids.get(pid);
         if (inFlight != null) {
+            LocalDateTime prev = inFlight.lastProgressAt;
             inFlight.lastProgressAt = timeUtc;
+            log.info(
+                "\n\n(debug) AH2 report progress pid={}, prevLastProgressAtUtc={}, newLastProgressAtUtc={}",
+                pid, prev, timeUtc
+            );
+        } else {
+            log.info(
+                "\n\n(debug) AH2 report progress update missed pid={}, newLastProgressAtUtc={}, reason=not-in-flight",
+                pid, timeUtc
+            );
         }
     }
 
@@ -350,11 +426,26 @@ public class Ah2ReportData {
         long now = System.currentTimeMillis();
         processingPids.forEach((k, v) -> {
             if (now - v.startedAt > STALE_MS) {
-                processingPids.remove(k, v);
+                boolean removed = processingPids.remove(k, v);
+                if (removed) {
+                    long ageMs = now - v.startedAt;
+                    log.info(
+                        "\n\n(debug) AH2 report cleanupStale removed pid={}, startedAt={}, lastProgressAtUtc={}, ageMs={}, staleMs={}",
+                        k, new Date(v.startedAt), v.lastProgressAt, ageMs, STALE_MS
+                    );
+                }
             }
         });
     }
 
+    private String getInFlightDebugString(long pid) {
+        var inFlight = processingPids.get(pid);
+        if (inFlight == null) return "null";
+        long ageMs = System.currentTimeMillis() - inFlight.startedAt;
+        return "startedAt=" + new Date(inFlight.startedAt)
+            + ", lastProgressAtUtc=" + inFlight.lastProgressAt
+            + ", ageMs=" + ageMs;
+    }
     private Long getAccountPk(String accountId) {
         if (StrUtils.isBlank(accountId)) return null;
         if (accountIdToPk != null && accountIdToPk.containsKey(accountId)) {
@@ -431,6 +522,10 @@ public class Ah2ReportData {
         LocalDateTime shiftStartUtc, LocalDateTime shiftEndUtc,
         String accountId, LocalDateTime nowUtc, LocalDateTime dischargeTimeUtc
     ) {
+        log.info(
+            "\n\n(debug) AH2 fetchDailyData start pid={}, deptId={}, midnightUtc={}, shiftStartUtc={}, shiftEndUtc={}, accountId={}, nowUtc={}",
+            pid, deptId, midnightUtc, shiftStartUtc, shiftEndUtc, accountId, nowUtc
+        );
         // 获取观察项元数据
         ctx.mpMap = monitoringConfig.getMonitoringParams(deptId);
         if (ctx.mpMap == null || ctx.mpMap.isEmpty()) {
@@ -451,6 +546,10 @@ public class Ah2ReportData {
             patientDataMap
         );
         if (statusCode != StatusCode.OK) {
+            log.info(
+                "\n\n(debug) AH2 fetchDailyData getPatientData failed pid={}, midnightUtc={}, statusCode={}",
+                pid, midnightUtc, statusCode
+            );
             return new Pair<>(statusCode, null);
         }
         LocalDateTime cutOffUtc = nowUtc;
@@ -469,6 +568,10 @@ public class Ah2ReportData {
         Ah2PageData ah2PageData = convertToAh2PageData(ctx, patientDataMap, cutOffUtc);
         Ah2PageDataPB ah2PageDataPb = ah2PageData.toProto();
         pnrUtils.updateLastProcessedAt(pid, midnightUtc, ah2PageDataPb, nowUtc);
+        log.info(
+            "\n\n(debug) AH2 fetchDailyData end pid={}, midnightUtc={}, patientDataCount={}, cutOffUtc={}",
+            pid, midnightUtc, patientDataMap.size(), cutOffUtc
+        );
 
         // 返回 Ah2PageData
         return new Pair<>(StatusCode.OK, ah2PageData);
