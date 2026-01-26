@@ -17,3 +17,10 @@ INSERT INTO bed_configs ("id", "department_id", "his_bed_number", "device_bed_nu
 -- 设置序列的下一个值为当前最大ID + 1
 SELECT setval('his_patient_records_id_seq', (SELECT MAX(id) FROM his_patient_records) + 1);
 SELECT setval('bed_configs_id_seq', (SELECT MAX(id) FROM bed_configs) + 1);
+
+-- 病人出入科脚本
+-- update his_patient_records set admission_status = 3, discharge_time='2026-01-26 00:00:00' where id = 1;
+
+-- update his_patient_records set admission_status = 1, discharge_time=null where id = 1;
+-- update patient_records set admission_status = 1, discharge_time=null where id = 1;
+

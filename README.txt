@@ -20,6 +20,8 @@ scp D:\git_code\重症\icis_jd\src\main\resources\config\device_driver.txt jingy
 # lsof -i :8080
 nohup java -jar ./jingyi_icis_engine-0.0.1-SNAPSHOT.jar --cert_pb_txt=./安徽省第二人民医院数字证书.txt --public_key_file_path=./jingyi_pub.key 1>>/jydata/log/output/nohup_engine.txt 2>>/jydata/log/output/nohup_engine.txt &
 java -jar ./target/jingyi_icis_engine-0.0.1-SNAPSHOT.jar --cert_pb_txt="C:\Users\gzyrm\Desktop\晶医\02重症项目\安徽省二院\证书\安徽省第二人民医院数字证书.txt" --public_key_file_path="C:\Users\gzyrm\Desktop\晶医\02重症项目\安徽省二院\证书\jingyi_pub.key" --spring.datasource.url=jdbc:postgresql://192.168.0.49:5432/jingyi_icis_db
+java -jar ./target/jingyi_icis_engine-0.0.1-SNAPSHOT.jar --jingyi.textresources.icis_config="classpath:/config/pbtxt/icis_config.pb.txt"  --spring.datasource.url=jdbc:postgresql://192.168.0.223:5432/jingyi_icis_db
+java -jar ./target/jingyi_icis_engine-0.0.1-SNAPSHOT.jar --jingyi.textresources.icis_config="classpath:/config/pbtxt/hospitals/ah2_icis_config.pb.txt"  --spring.datasource.url=jdbc:postgresql://192.168.0.223:5432/jingyi_icis_db
 
 # lsof -i :8082
 nohup java -jar ./icis_bridge-0.0.1-SNAPSHOT.jar 1>>/jydata/log/output/nohup_bridge.txt 2>>/jydata/log/output/nohup_bridge.txt &

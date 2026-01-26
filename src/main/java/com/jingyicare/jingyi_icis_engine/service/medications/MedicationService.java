@@ -126,7 +126,8 @@ public class MedicationService {
         }
         final Boolean patientInIcu = (
             patientRecord.getAdmissionStatus() == patientService.getAdmissionStatusInIcuId() ||
-            patientRecord.getAdmissionStatus() == patientService.getAdmissionStatusPendingDischargedId()
+            patientRecord.getAdmissionStatus() == patientService.getAdmissionStatusPendingDischargedId() ||
+            patientRecord.getAdmissionStatus() == patientService.getAdmissionStatusDischargedId()
         );
         final String deptId = patientRecord.getDeptId();
         final ShiftSettingsPB shiftSettings = shiftUtils.getShiftByDeptId(deptId);
@@ -161,7 +162,7 @@ public class MedicationService {
                 );
                 for (LocalDateTime shiftUtc : shiftUtcList) {
                     ordExecutor.retrieveExeRecords(
-                        patientInIcu, shiftSettings, medOgSettings, accountId, orderGroups, shiftUtc
+                        patientInIcu, shiftSettings, medOgSettings, accountId, orderGroups, shiftUtc, patientRecord.getDischargeTime()
                     );
                 }
             }
@@ -224,7 +225,7 @@ public class MedicationService {
             shiftSettings, queryStartUtc, queryEndUtc.minusMinutes(1), ZONE_ID
         );
         for (LocalDateTime shiftUtc : shiftUtcList) {
-            ordExecutor.retrieveExeRecords(patientInIcu, shiftSettings, medOgSettings, accountId, orderGroup, shiftUtc);
+            ordExecutor.retrieveExeRecords(patientInIcu, shiftSettings, medOgSettings, accountId, orderGroup, shiftUtc, patientRecord.getDischargeTime());
         }
 
         // 组装医嘱
@@ -342,7 +343,8 @@ public class MedicationService {
         final Boolean isPersonalMedications = req.getIsPersonalMedications() > 0;
         List<MedicationExecutionRecord> records = ordExecutor.retrieveExeRecords(
             true, shiftSettings, medOgSettings, accountId, orderGroup, isPersonalMedications,
-            shiftUtils.getShiftStartTimeUtc(shiftSettings, orderTime, ZONE_ID));
+            shiftUtils.getShiftStartTimeUtc(shiftSettings, orderTime, ZONE_ID), patientRecord.getDischargeTime()
+        );
         
         // 必须有且仅有 1 条执行记录
         if (records.size() != 1) {

@@ -72,12 +72,12 @@ public class OrderExecutor {
     // **retrieveExeRecords(版本3(重载): 获取单个医嘱执行记录, 是否个人用药, 用于补录医嘱)
     public List<List<MedicationExecutionRecord>> retrieveExeRecords(
         Boolean patientInIcu, ShiftSettingsPB shiftSettings, MedOrderGroupSettingsPB medOrdGroupSettings,
-        String accountId, List<MedicationOrderGroup> medOrdGroups, LocalDateTime retrieveUtcTime
+        String accountId, List<MedicationOrderGroup> medOrdGroups, LocalDateTime retrieveUtcTime, LocalDateTime dischargeTime
     ) {
         List<List<MedicationExecutionRecord>> recordsList = new ArrayList<>();
         for (MedicationOrderGroup medOrdGroup : medOrdGroups) {
             recordsList.add(retrieveExeRecords(
-                patientInIcu, shiftSettings, medOrdGroupSettings, accountId, medOrdGroup, retrieveUtcTime
+                patientInIcu, shiftSettings, medOrdGroupSettings, accountId, medOrdGroup, retrieveUtcTime, dischargeTime
             ));
         }
         return recordsList;
@@ -85,10 +85,10 @@ public class OrderExecutor {
 
     public List<MedicationExecutionRecord> retrieveExeRecords(
         Boolean patientInIcu, ShiftSettingsPB shiftSettings, MedOrderGroupSettingsPB medOrdGroupSettings,
-        String accountId, MedicationOrderGroup medOrdGroup, LocalDateTime retrieveUtcTime
+        String accountId, MedicationOrderGroup medOrdGroup, LocalDateTime retrieveUtcTime, LocalDateTime dischargeTime
     ) {
         return retrieveExeRecords(
-            patientInIcu, shiftSettings, medOrdGroupSettings, accountId, medOrdGroup, false, retrieveUtcTime
+            patientInIcu, shiftSettings, medOrdGroupSettings, accountId, medOrdGroup, false, retrieveUtcTime, dischargeTime
         );
     }
 
@@ -101,7 +101,7 @@ public class OrderExecutor {
     public List<MedicationExecutionRecord> retrieveExeRecords(
         Boolean patientInIcu, ShiftSettingsPB shiftSettings, MedOrderGroupSettingsPB medOrdGroupSettings,
         String accountId, MedicationOrderGroup medOrdGroup, Boolean isPersonalMedications,
-        LocalDateTime retrieveUtcTime
+        LocalDateTime retrieveUtcTime, LocalDateTime dischargeTime
     ) {
         final LocalDateTime retrieveShiftTime = shiftUtils.getShiftStartTime(shiftSettings, retrieveUtcTime, ZONE_ID);
 
@@ -148,6 +148,12 @@ public class OrderExecutor {
             durationType, isCanceled, cancelShiftTime, stopShiftTime, orderShiftTime,
             planTime, orderValidity, freqSpec, curShiftTime, retrieveShiftTime
         );
+        if (dischargeTime != null) {
+            LocalDateTime dischargeTimeLocal = TimeUtils.getLocalDateTimeFromUtc(dischargeTime, ZONE_ID);
+            exeTimeList = exeTimeList.stream()
+                .filter(exeTime -> !exeTime.isAfter(dischargeTimeLocal))
+                .collect(Collectors.toList());
+        }
 
         final Long medGroupId = medOrdGroup.getId();
         final String hisGroupId = medOrdGroup.getGroupId();

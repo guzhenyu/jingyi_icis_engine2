@@ -77,15 +77,15 @@ insert into medical_orders (
 );
 
 -- 清理医嘱
-delete from medication_execution_actions;
-delete from medication_execution_record_stats;
-delete from medication_execution_records;
-delete from medication_order_groups;
+-- delete from medication_execution_actions;
+-- delete from medication_execution_record_stats;
+-- delete from medication_execution_records;
+-- delete from medication_order_groups;
 
 -- 调试
-select * from medication_execution_record_stats;
-select * from patient_monitoring_records where monitoring_param_code in ('hourly_intake', 'intravenous_intake');
-select * from patient_monitoring_record_stats_daily;
+-- select * from medication_execution_record_stats;
+-- select * from patient_monitoring_records where monitoring_param_code in ('hourly_intake', 'intravenous_intake');
+-- select * from patient_monitoring_record_stats_daily;
 
-select pid, effective_time_midnight, last_processed_at, latest_data_time from patient_nursing_reports where effective_time_midnight>'20250923' and pid = 1 order by effective_time_midnight;
-delete from patient_nursing_reports where effective_time_midnight>'20250923';
+-- select pid, effective_time_midnight, last_processed_at, latest_data_time from patient_nursing_reports where effective_time_midnight>'20250923' and pid = 1 order by effective_time_midnight;
+-- delete from patient_nursing_reports where effective_time_midnight>'20250923';

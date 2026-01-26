@@ -152,7 +152,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, medOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, medOgSettings, accountId, ordGroup, retrieveAt, null);
 
         // 校验结果
         assertThat(retrievedExeRecs).hasSize(1);
@@ -228,7 +228,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, medOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, medOgSettings, accountId, ordGroup, retrieveAt, null);
 
         // 校验结果
         assertThat(retrievedExeRecs).hasSize(1);
@@ -308,7 +308,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, medOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, medOgSettings, accountId, ordGroup, retrieveAt, null);
 
         // 校验结果
         assertThat(retrievedExeRecs).hasSize(1);
@@ -374,7 +374,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, medOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, medOgSettings, accountId, ordGroup, retrieveAt, null);
 
         // 校验结果
         assertThat(retrievedExeRecs).hasSize(0);
@@ -434,7 +434,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录0条
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(0);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(1);
@@ -492,7 +492,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录0条
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(0);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(0);
@@ -545,7 +545,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt, null);
 
         // 校验结果
         assertThat(retrievedExeRecs).hasSize(1);
@@ -569,7 +569,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 医嘱状态变成"取消", 对应的未更改的执行记录也变成取消
         retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(0);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(1);
@@ -624,7 +624,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录0条
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(0);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).isEmpty();
@@ -680,7 +680,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录0条
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(1);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(1);
@@ -739,7 +739,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建一条未被干预的执行记录
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(1);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(1);
@@ -756,7 +756,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 更新执行记录
         retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(0);
 
         // 检查执行记录的状态，从正常变成删除
@@ -815,7 +815,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(0);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(1);
@@ -871,7 +871,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(2);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(3);
@@ -933,7 +933,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(1);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(1);
@@ -983,7 +983,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, medOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, medOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(1);
         assertThat(retrievedExeRecs.get(0).getMedicationOrderGroupId()).isEqualTo(ordGroupId);
 
@@ -996,7 +996,7 @@ public class OrderExecutorTests extends TestsBase {
         retrieveAt = TimeUtils.getUtcFromLocalDateTime(
             TimeUtils.getLocalTime(2024, 10, 3, 16, 0), ZONE_ID);
         retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, medOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, medOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(1);
         assertThat(retrievedExeRecs.get(0).getMedicationOrderGroupId()).isEqualTo(ordGroupId);
 
@@ -1009,7 +1009,7 @@ public class OrderExecutorTests extends TestsBase {
         retrieveAt = TimeUtils.getUtcFromLocalDateTime(
             TimeUtils.getLocalTime(2024, 10, 4, 8, 0), ZONE_ID);
         retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, medOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, medOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(0);
         exeRecords = exeRecordRepo.findByMedGroupId(ordGroupId);
         assertThat(exeRecords).hasSize(1);
@@ -1064,7 +1064,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(0);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(0);
@@ -1113,7 +1113,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, medOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, medOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(0);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(0);
@@ -1165,7 +1165,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(0);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(1);
@@ -1174,7 +1174,7 @@ public class OrderExecutorTests extends TestsBase {
         final LocalDateTime retrieveAt2 = TimeUtils.getUtcFromLocalDateTime(
             TimeUtils.getLocalTime(2024, 10, 4, 8, 10), ZONE_ID);
         retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt2);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt2, null);
         assertThat(retrievedExeRecs).hasSize(1);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(2);
@@ -1232,7 +1232,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(1);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(1);
@@ -1252,7 +1252,7 @@ public class OrderExecutorTests extends TestsBase {
         assertThat(exeRecords).isEmpty();
 
         retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(2);
         retrievedExeRecs.sort(Comparator.comparing(MedicationExecutionRecord::getPlanTime));
         assertThat(retrievedExeRecs.get(0).getPlanTime().getHour()).isEqualTo(8);  // UTC 8:00 -> Shanghai 16:00
@@ -1312,7 +1312,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(1);
         assertThat(retrievedExeRecs.get(0).getIsDeleted()).isFalse();
         assertThat(retrievedExeRecs.get(0).getPlanTime().getHour()).isEqualTo(14);  // UTC 14:00 -> Shanghai 22:00
@@ -1374,7 +1374,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(3);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(3);
@@ -1434,7 +1434,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(1);
         assertThat(retrievedExeRecs.get(0).getIsDeleted()).isFalse();
         assertThat(retrievedExeRecs.get(0).getPlanTime().getHour()).isEqualTo(14);  // UTC 14:00 -> Shanghai 22:00
@@ -1496,7 +1496,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(3);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(3);
@@ -1557,7 +1557,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(1);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(3);
@@ -1618,7 +1618,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(0);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(3);
@@ -1679,7 +1679,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(0);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(3);
@@ -1740,7 +1740,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(3);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(3);
@@ -1801,7 +1801,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录0
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(0);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(0);
@@ -1854,7 +1854,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(3);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(3);
@@ -1907,7 +1907,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(3);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(3);
@@ -1916,7 +1916,7 @@ public class OrderExecutorTests extends TestsBase {
         final LocalDateTime retrieveAt2 = TimeUtils.getUtcFromLocalDateTime(
             TimeUtils.getLocalTime(2024, 10, 3, 8, 10), ZONE_ID);
         retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt2);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt2, null);
         assertThat(retrievedExeRecs).hasSize(0);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(3);
@@ -1925,7 +1925,7 @@ public class OrderExecutorTests extends TestsBase {
         final LocalDateTime retrieveAt3 = TimeUtils.getUtcFromLocalDateTime(
             TimeUtils.getLocalTime(2024, 10, 4, 8, 10), ZONE_ID);
         retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt3);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt3, null);
         assertThat(retrievedExeRecs).hasSize(0);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(3);
@@ -1934,7 +1934,7 @@ public class OrderExecutorTests extends TestsBase {
         final LocalDateTime retrieveAt4 = TimeUtils.getUtcFromLocalDateTime(
             TimeUtils.getLocalTime(2024, 10, 5, 8, 10), ZONE_ID);
         retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt4);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt4, null);
         assertThat(retrievedExeRecs).hasSize(3);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(6);
@@ -1987,7 +1987,7 @@ public class OrderExecutorTests extends TestsBase {
 
         // 创建执行记录
         List<MedicationExecutionRecord> retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt, null);
         assertThat(retrievedExeRecs).hasSize(3);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(3);
@@ -1996,7 +1996,7 @@ public class OrderExecutorTests extends TestsBase {
         final LocalDateTime retrieveAt2 = TimeUtils.getUtcFromLocalDateTime(
             TimeUtils.getLocalTime(2024, 10, 4, 8, 10), ZONE_ID);
         retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt2);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt2, null);
         assertThat(retrievedExeRecs).hasSize(0);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(3);
@@ -2005,7 +2005,7 @@ public class OrderExecutorTests extends TestsBase {
         final LocalDateTime retrieveAt3 = TimeUtils.getUtcFromLocalDateTime(
             TimeUtils.getLocalTime(2024, 10, 5, 8, 10), ZONE_ID);
         retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt3);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt3, null);
         assertThat(retrievedExeRecs).hasSize(0);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(3);
@@ -2014,7 +2014,7 @@ public class OrderExecutorTests extends TestsBase {
         final LocalDateTime retrieveAt4 = TimeUtils.getUtcFromLocalDateTime(
             TimeUtils.getLocalTime(2024, 10, 6, 8, 10), ZONE_ID);
         retrievedExeRecs = orderExecutor.retrieveExeRecords(
-            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt4);
+            true, shiftSettings, localMedOgSettings, accountId, ordGroup, retrieveAt4, null);
         assertThat(retrievedExeRecs).hasSize(3);
         exeRecords = exeRecordRepo.findByHisGroupId(ordGroup.getGroupId());
         assertThat(exeRecords).hasSize(6);

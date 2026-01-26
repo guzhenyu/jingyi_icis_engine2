@@ -1914,7 +1914,7 @@ medication {
         function_id: 6
         function_name: "医嘱分解设置"
         type: BY_FREQUENCY
-        allow_order_type: "0"
+        allow_order_type: "西药"
         deny_status: "未审核"
         deny_status: "待确认"
         deny_status: "待确定"

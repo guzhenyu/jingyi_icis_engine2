@@ -996,17 +996,17 @@ public class Ah2ReportData {
             scMap.put(score.getScoreGroupCode(), scoreStr);
         }
 
-        List<VTECapriniScore> vteScores = vteCapriniScoreRepo.findByPidAndScoreTimeBetweenAndIsDeletedFalse(
-            pid, startUtc.plusMinutes(1), endUtc
-        );
-        for (VTECapriniScore vteScore : vteScores) {
-            if (vteScore.getScoreTime() == null || vteScore.getTotalScore() == null) continue;
-            LocalDateTime scoreTime = vteScore.getScoreTime();
-            Map<String, String> scMap = scoreMap.computeIfAbsent(
-                scoreTime, k -> new HashMap<>()
-            );
-            scMap.put(PS_VTE_CAPRINI, vteScore.getTotalScore().toString());
-        }
+        // List<VTECapriniScore> vteScores = vteCapriniScoreRepo.findByPidAndScoreTimeBetweenAndIsDeletedFalse(
+        //     pid, startUtc.plusMinutes(1), endUtc
+        // );
+        // for (VTECapriniScore vteScore : vteScores) {
+        //     if (vteScore.getScoreTime() == null || vteScore.getTotalScore() == null) continue;
+        //     LocalDateTime scoreTime = vteScore.getScoreTime();
+        //     Map<String, String> scMap = scoreMap.computeIfAbsent(
+        //         scoreTime, k -> new HashMap<>()
+        //     );
+        //     scMap.put(PS_VTE_CAPRINI, vteScore.getTotalScore().toString());
+        // }
 
         // 填充PatientData
         for (Map.Entry<LocalDateTime, Map<String, String>> entry : scoreMap.entrySet()) {
@@ -2442,7 +2442,7 @@ public class Ah2ReportData {
     public static final String PS_BRADEN = "braden";
     public static final String PS_MORSE = "morse";
     public static final String PS_AODLS = "activities_of_daily_living_assessment";
-    public static final String PS_VTE_CAPRINI = "vte_caprini";
+    public static final String PS_VTE_CAPRINI = "ah2vte";
     public static final String PS_CATHETER_SLIPPAGE = "catheter_slippage";
     public static final String PS_RASS = "rass";
     public static final String PS_FRS_V2 = "frs_v2";
