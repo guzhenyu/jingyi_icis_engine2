@@ -51,10 +51,22 @@ public class MedicationDictionary {
                 return dose * Double.parseDouble(matcher.group(1)) /* xx ml */;
             } else if (doseUnit.equals("g") || doseUnit.equals("mg")) {
                 return dose * getWeightMultiplier(matcher.group(1), matcher.group(4), matcher.group(6), doseUnit);
+            }
+        }
+
+        // spec: 0.2g:20ml(10%)/支
+        Pattern pattern4 = Pattern.compile("(\\d+(\\.\\d+)?)?(g|mg)(:|/)(\\d+(\\.\\d+)?)ml(\\(\\d+(\\.\\d+)?\\%\\))?(\\*|/|:)(\\d+)?(支|瓶)");;
+        matcher = pattern4.matcher(spec);
+        if (matcher.matches()) {
+            if (doseUnit.equals(matcher.group(11))) {
+                return dose * Double.parseDouble(matcher.group(5)) /* xx ml */;
+            } else if (doseUnit.equals("g") || doseUnit.equals("mg")) {
+                return dose * getWeightMultiplier(matcher.group(5), matcher.group(1), matcher.group(3), doseUnit);
             } else {
                 return 0.0;
             }
         }
+
         return 0.0;
     }
 

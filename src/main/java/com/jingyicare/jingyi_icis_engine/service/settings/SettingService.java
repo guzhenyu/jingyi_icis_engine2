@@ -99,6 +99,7 @@ public class SettingService {
             generalSettingsPb = AppGeneralSettingsPB.newBuilder()
                 .setJfkUseNativePrint(false)
                 .setPrintAgentIpPort("127.0.0.1:9123")
+                .setCheckFutureTime(false)
                 .build();
         }
 
@@ -112,6 +113,7 @@ public class SettingService {
                 .setScoreAllowEditRecordedBy(allowEditRecordedBy)
                 .setJfkUseNativePrint(generalSettingsPb.getJfkUseNativePrint())
                 .setPrintAgentIpPort(generalSettingsPb.getPrintAgentIpPort())
+                .setCheckFutureTime(generalSettingsPb.getCheckFutureTime())
                 .build()
             )
             .build();
@@ -204,6 +206,7 @@ public class SettingService {
             AppGeneralSettingsPB generalSettingsPb = AppGeneralSettingsPB.newBuilder()
                 .setJfkUseNativePrint(appSettingsPb.getJfkUseNativePrint())
                 .setPrintAgentIpPort(appSettingsPb.getPrintAgentIpPort())
+                .setCheckFutureTime(appSettingsPb.getCheckFutureTime())
                 .build();
 
             DeptSystemSettingsId settingsId = new DeptSystemSettingsId(

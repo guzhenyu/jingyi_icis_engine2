@@ -1945,8 +1945,9 @@ message UpdatePatientTubeAttrReq {
     string inserted_by = 2;                    // 插管人
     string inserted_at_iso8601 = 3;            // 插管时间
     string planned_removal_at_iso8601 = 4;     // 计划拔管时间，非必填
-    string note = 5;                           // 备注，非必填
-    repeated TubeAttributePB attrs = 6;  // 更新的管道属性记录
+    string removed_at_iso8601 = 5;             // 拔管时间，非必填
+    string note = 6;                           // 备注，非必填
+    repeated TubeAttributePB attrs = 7;  // 更新的管道属性记录
 }
 
 /*

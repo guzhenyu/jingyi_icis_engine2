@@ -271,7 +271,13 @@ public class MedicationDictionaryTests extends TestsBase {
             new LiquidVolumeTestCase("10ml:1g(5%):12瓶", 1.0, "g", 10.0),
             new LiquidVolumeTestCase("10ml/1g*12支", 0.5, "g", 5.0),
 
-            // E. invalid spec
+            // E: pattern4 （0.2g:20ml/支）
+            new LiquidVolumeTestCase("0.2g:20ml/支", 1.0, "g", 100.0),
+            new LiquidVolumeTestCase("500mg:10ml/瓶", 250.0, "mg", 5.0),
+            new LiquidVolumeTestCase("0.2g:20ml/支", 500.0, "mg", 50.0),
+            new LiquidVolumeTestCase("1g:100ml/瓶", 0.0, "g", 0.0),
+
+            // F. invalid spec
             new LiquidVolumeTestCase("abc", 5.0, "g", 0.0),
             new LiquidVolumeTestCase("10 m l/支", 1.0, "支", 0.0),
             new LiquidVolumeTestCase("10ml/支  ", 1.0, "支", 0.0)

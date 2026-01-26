@@ -431,7 +431,9 @@ public class PatientTubeService {
             updatedByAccountName = userService.getNameByAutoId(updatedBy);
         }
         patientTubeImpl.updatePatientTubeRecord(
-            record, updatedBy, updatedByAccountName, req.getInsertedAtIso8601(), req.getPlannedRemovalAtIso8601(), req.getNote()
+            record, updatedBy, updatedByAccountName, req.getInsertedAtIso8601(),
+            req.getPlannedRemovalAtIso8601(), req.getRemovedAtIso8601(),
+            req.getNote()
         );
         patientTubeImpl.updatePatientTubeAttr(req, record, accountId);
 
@@ -639,9 +641,11 @@ public class PatientTubeService {
     private int getDurationDays(PatientTubeRecord record) {
         LocalDateTime insertedAtLocal = TimeUtils.getLocalDateTimeFromUtc(record.getInsertedAt(), ZONE_ID);
         LocalDateTime nowLocal = TimeUtils.getLocalDateTimeFromUtc(TimeUtils.getNowUtc(), ZONE_ID);
+        LocalDateTime removedAt = TimeUtils.getLocalDateTimeFromUtc(record.getRemovedAt(), ZONE_ID);
+        LocalDateTime durationEnd = (removedAt != null) ? removedAt : nowLocal;
 
         // 计算插入时间和当前时间的天数差，算头算尾
-        long daysBetween = Duration.between(insertedAtLocal.toLocalDate().atStartOfDay(), nowLocal.toLocalDate().atStartOfDay().plusDays(1)).toDays();
+        long daysBetween = Duration.between(insertedAtLocal.toLocalDate().atStartOfDay(), durationEnd.toLocalDate().atStartOfDay().plusDays(1)).toDays();
 
         // 直接返回天数差
         return (int) daysBetween;

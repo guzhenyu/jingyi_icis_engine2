@@ -159,7 +159,8 @@ public class PatientTubeImpl {
     @Transactional
     public void updatePatientTubeRecord(
         PatientTubeRecord record, String insertedBy, String insertedByAccountName,
-        String insertedAtIso8601, String plannedRemovalAtIso8601, String note
+        String insertedAtIso8601, String plannedRemovalAtIso8601, String removedAtIso8601,
+        String note
     ) {
         if (!StrUtils.isBlank(insertedBy)) {
             record.setInsertedBy(insertedBy);
@@ -171,6 +172,9 @@ public class PatientTubeImpl {
 
         LocalDateTime plannedRemovalAt = TimeUtils.fromIso8601String(plannedRemovalAtIso8601, "UTC");
         if (plannedRemovalAt != null) record.setPlannedRemovalAt(plannedRemovalAt);
+
+        LocalDateTime removedAt = TimeUtils.fromIso8601String(removedAtIso8601, "UTC");
+        if (removedAt != null) record.setRemovedAt(removedAt);
 
         if (!StrUtils.isBlank(note)) record.setNote(note);
 
