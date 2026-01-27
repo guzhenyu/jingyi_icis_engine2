@@ -178,7 +178,7 @@ public class PatientTubeService {
         final String deptId = patientRecord.getDeptId();
         LocalDateTime insertedAt = TimeUtils.fromIso8601String(req.getInsertedAtIso8601(), "UTC");
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
-        if (insertedAt == null || insertedAt.isAfter(nowUtc)) {
+        if (insertedAt == null || !protoService.checkFutureTime(deptId, insertedAt)) {
             log.warn("Failed to add a tube type, insertedAt invalid {}", req.getInsertedAtIso8601());
             return NewPatientTubeResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.INVALID_TIME_FORMAT))
@@ -556,7 +556,7 @@ public class PatientTubeService {
         final String deptId = patientRecord.getDeptId();
         LocalDateTime recordedAt = TimeUtils.fromIso8601String(req.getTimeStatus().getRecordedAtIso8601(), "UTC");
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
-        if (recordedAt == null || recordedAt.isAfter(nowUtc)) {
+        if (recordedAt == null || !protoService.checkFutureTime(deptId, recordedAt)) {
             log.warn("Failed to add a tube status, recordedAt invalid {}", req.getTimeStatus().getRecordedAtIso8601());
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.INVALID_TIME_FORMAT))

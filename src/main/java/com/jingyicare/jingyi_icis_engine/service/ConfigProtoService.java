@@ -1,5 +1,6 @@
 package com.jingyicare.jingyi_icis_engine.service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -11,6 +12,7 @@ import java.io.FileReader;
 import java.io.InputStreamReader;
 import java.io.IOException;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.io.Resource;
@@ -27,9 +29,13 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisCommon.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisCustomHospital.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisText.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
+
+import com.jingyicare.jingyi_icis_engine.entity.settings.*;
+import com.jingyicare.jingyi_icis_engine.repository.settings.*;
 
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -37,14 +43,16 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 @Slf4j
 public class ConfigProtoService {
     public ConfigProtoService(
-            ConfigurableApplicationContext context,
-            @Value("${config_pb_txt}") String configPbTxtPath,
-            @Value("${jingyi.textresources.icis_config}") Resource configResource,
-            @Value("${hospital_pb_txt}") Resource hospitalPbResource,
-            @Value("${jingyi.textresources.common_config}") Resource commonConfigResource,
-            @Value("${jingyi.textresources.freq_config}") Resource freqConfigResource,
-            @Value("${jingyi.textresources.engine_config}") Resource engineConfigResource,
-            @Value("${jingyi.textresources.charset}") String charsetName) {
+        ConfigurableApplicationContext context,
+        @Value("${config_pb_txt}") String configPbTxtPath,
+        @Value("${jingyi.textresources.icis_config}") Resource configResource,
+        @Value("${hospital_pb_txt}") Resource hospitalPbResource,
+        @Value("${jingyi.textresources.common_config}") Resource commonConfigResource,
+        @Value("${jingyi.textresources.freq_config}") Resource freqConfigResource,
+        @Value("${jingyi.textresources.engine_config}") Resource engineConfigResource,
+        @Value("${jingyi.textresources.charset}") String charsetName,
+        @Autowired DeptSystemSettingsRepository deptSettingsRepo
+    ) {
         BufferedReader reader = null;
         try {
             if (!StrUtils.isBlank(configPbTxtPath)) {
@@ -149,6 +157,8 @@ public class ConfigProtoService {
                 config.getCommon().getEnums().getMaritalStatusList().stream()
                     .collect(Collectors.toMap(EnumValue::getId, EnumValue::getName));
         }
+
+        this.deptSettingsRepo = deptSettingsRepo;
     }
 
     public ReturnCode getReturnCode(StatusCode code) {
@@ -214,6 +224,27 @@ public class ConfigProtoService {
             .build();
     }
 
+    public Boolean checkFutureTime(String deptId, LocalDateTime utcToCheck) {
+        boolean checkFutureTime = false;
+
+        DeptSystemSettingsId settingsId = new DeptSystemSettingsId(
+            deptId, SystemSettingFunctionId.GET_DEPT_APP_SETTINGS.getNumber());
+        DeptSystemSettings settingsEntity = deptSettingsRepo.findById(settingsId).orElse(null);
+        AppGeneralSettingsPB generalSettingsPb = null;
+        if (settingsEntity != null) {
+            generalSettingsPb = ProtoUtils.decodeAppGeneralSettings(settingsEntity.getSettingsPb());
+            checkFutureTime = generalSettingsPb.getCheckFutureTime();
+        }
+
+        if (!checkFutureTime) return true;
+
+        LocalDateTime nowUtc = TimeUtils.getNowUtc();
+        if (checkFutureTime && utcToCheck.isAfter(nowUtc)) {
+            return false;
+        }
+        return true;
+    }
+
     @Getter
     private Config config;
 
@@ -222,4 +253,6 @@ public class ConfigProtoService {
 
     private final Map<Integer, String> genderMap;
     private final Map<Integer, String> maritalStatusMap;
+
+    private final DeptSystemSettingsRepository deptSettingsRepo;
 }

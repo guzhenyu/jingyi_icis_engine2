@@ -28,7 +28,7 @@ public class MedicationDictionary {
         if (doseUnit.equals("ml")) return dose;
 
         // spec: 0.5g/支
-        Pattern pattern1 = Pattern.compile("(\\d+(\\.\\d+)?)ml(:|/)(支|瓶)");
+        Pattern pattern1 = Pattern.compile("(\\d+(\\.\\d+)?)ml(:|/)(支|瓶|支/盒)");
         Matcher matcher = pattern1.matcher(spec);
         if (matcher.matches()) {
             if (!doseUnit.equals(matcher.group(4))) return 0.0;
@@ -44,7 +44,7 @@ public class MedicationDictionary {
         }
 
         // spec: 10ml:1g(10%)/支
-        Pattern pattern3 = Pattern.compile("(\\d+(\\.\\d+)?)ml(:|/)(\\d+(\\.\\d+)?)?(g|mg)(\\(\\d+(\\.\\d+)?\\%\\))?(\\*|/|:)(\\d+)?(支|瓶)");
+        Pattern pattern3 = Pattern.compile("(\\d+(\\.\\d+)?)ml(:|/)(\\d+(\\.\\d+)?)?(g|mg)(\\(\\d+(\\.\\d+)?\\%\\))?(\\*|/|:)(\\d+)?(支|瓶|支/盒)");
         matcher = pattern3.matcher(spec);
         if (matcher.matches()) {
             if (doseUnit.equals(matcher.group(11))) {
@@ -55,7 +55,7 @@ public class MedicationDictionary {
         }
 
         // spec: 0.2g:20ml(10%)/支
-        Pattern pattern4 = Pattern.compile("(\\d+(\\.\\d+)?)?(g|mg)(:|/)(\\d+(\\.\\d+)?)ml(\\(\\d+(\\.\\d+)?\\%\\))?(\\*|/|:)(\\d+)?(支|瓶)");;
+        Pattern pattern4 = Pattern.compile("(\\d+(\\.\\d+)?)?(g|mg)(:|/)(\\d+(\\.\\d+)?)ml(\\(\\d+(\\.\\d+)?\\%\\))?(\\*|/|:)(\\d+)?(支|瓶|支/盒)");;
         matcher = pattern4.matcher(spec);
         if (matcher.matches()) {
             if (doseUnit.equals(matcher.group(11))) {
