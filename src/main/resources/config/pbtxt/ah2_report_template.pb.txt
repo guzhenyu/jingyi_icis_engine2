@@ -122,14 +122,14 @@ page {
                         content: "CVP"
                         content: "mmHg"
                         param_code: "AH2P_CVP"
-                        width: 23.25
+                        width: 18.4
                     }
                     children {
                         content: "ICP"
                         content: "mmHg"
                         param_code: "AH2P_ICP"
                     }
-                    width: 302.644
+                    width: 297.794
                     height_rows: 1
                 }
                 top_level_cell {
@@ -143,7 +143,7 @@ page {
                     children {
                         content: "执行用药"
                         param_code: "AH2P_MED_EXEC"
-                        width: 170
+                        width: 155
                     }
                     children {
                         content: "液体量"
@@ -154,7 +154,7 @@ page {
                     children {
                         content: "饮食/鼻饲"
                         param_code: "AH2P_NASOGASTRIC"
-                        width: 85.156
+                        width: 105.006
                     }
                     children {
                         content: "饮食/鼻饲量"
@@ -173,7 +173,7 @@ page {
                         content: "ml"
                         param_code: "AH2P_TOTAL_INTAKE"
                     }
-                    width: 354.556
+                    width: 359.406
                     height_rows: 1
                 }
                 top_level_cell {
