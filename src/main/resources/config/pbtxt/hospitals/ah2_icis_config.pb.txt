@@ -273,6 +273,7 @@ text {
     status_code_msg: "计算药品给药速度失败"
     status_code_msg: "该病人的护理记录单正在生成中"
     status_code_msg: "JFK数据源缺少必填输入字段"
+    status_code_msg: "医嘱计划时间在出科时间之后"
     units {
         unit: {
             id: 1

@@ -303,7 +303,8 @@ enum StatusCode {
     CALC_MED_RATE_FAILED = 267; // 计算药品给药速度失败
     AH2_NURSING_REPORT_IS_IN_PROGRESS = 268; // 该病人的护理记录单正在生成中
     JFK_MISSING_REQUIRED_FIELD = 269; // JFK数据源缺少必填输入字段
-    LAST_CODE = 270;
+    EXE_RECORD_PLAN_TIME_IS_AFTER_DISCHARGE_TIME = 270; // 医嘱计划时间在出科时间之后
+    LAST_CODE = 271;
 }
 
 /*****************************************************************************

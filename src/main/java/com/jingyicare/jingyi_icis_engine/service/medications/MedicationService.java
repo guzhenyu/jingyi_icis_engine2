@@ -299,23 +299,26 @@ public class MedicationService {
         final MedOrderGroupSettingsPB medOgSettings = medConfig.getMedOrderGroupSettings(deptId);
 
         // 检查病人是否在ICU
-        if (medOgSettings.getDenyDischargedOrders() &&
-            (patientRecord.getAdmissionStatus() == patientService.getAdmissionStatusDischargedId() ||
-             patientRecord.getAdmissionStatus() == patientService.getAdmissionStatusPendingDischargedId())
+        if (patientRecord.getAdmissionStatus() == patientService.getAdmissionStatusDischargedId() ||
+             patientRecord.getAdmissionStatus() == patientService.getAdmissionStatusPendingDischargedId()
         ) {
-            log.error("Patient is discharged: ", req.getPatientId());
-            return NewOrderGroupResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_IN_ICU))
-                .build();
+            if (medOgSettings.getDenyDischargedOrders()) {
+                log.error("Patient is discharged: ", req.getPatientId());
+                return NewOrderGroupResp.newBuilder()
+                    .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_IN_ICU))
+                    .build();
+            }
+            LocalDateTime dischargeTime = patientRecord.getDischargeTime();
+            LocalDateTime planTime = TimeUtils.fromIso8601String(req.getPlanTimeIso8601(), "UTC");
+            if (dischargeTime != null && planTime.isAfter(dischargeTime)) {
+                log.error("Order plan time is after discharge time: ", planTime, dischargeTime);
+                return NewOrderGroupResp.newBuilder()
+                    .setRt(protoService.getReturnCode(StatusCode.EXE_RECORD_PLAN_TIME_IS_AFTER_DISCHARGE_TIME))
+                    .build();
+            }
+                
         }
 
-        // final PatientRecord patientRecord = patientService.getPatientRecordInIcu(req.getPatientId());
-        // if (patientRecord == null) {
-        //     log.error("PatientRecord not found: ", req.getPatientId());
-        //     return NewOrderGroupResp.newBuilder()
-        //         .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_IN_ICU))
-        //         .build();
-        // }
         
         final Map<String, RouteDetails> routeDetailsMap = routeRepo.findRouteDetailsByDeptId(deptId).stream()
             .collect(Collectors.toMap(RouteDetails::getCode, rd -> rd));
