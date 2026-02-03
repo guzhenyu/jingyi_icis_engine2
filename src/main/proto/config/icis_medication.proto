@@ -164,6 +164,7 @@ message DosageGroupExtPB {
     string dose_rate_unit = 8;  // 药速单位，如 mg/kg/min
 }
 
+// next id: 21
 message MedOrderGroupSettingsPB {
     // GET_MEDICAL_ORDER_SETTINGS
     SystemSettingFunctionId function_id = 1;
@@ -246,6 +247,11 @@ message MedOrderGroupSettingsPB {
         repeated string administration_route_code = 3;  // 医嘱分解方法适用的给药途径编码，["defaults"]表示其他所有的给药途径
     }
     repeated MedOrderExpansionPB med_order_expansion = 19;
+
+    /*
+     * 新增医嘱规则
+     */
+    bool deny_discharged_orders = 20;  // 不允许为已出院患者新增医嘱分组
 }
 
 // 医嘱入量类型

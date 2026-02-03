@@ -48,6 +48,7 @@ message AppGeneralSettingsPB {
     bool check_future_time = 3;  // 限制提前录入
 }
 
+// next id: 11
 message AppSettingsPB {
     // 执行用药
     bool enable_medication_speed = 1;  // 是否启用'药速'

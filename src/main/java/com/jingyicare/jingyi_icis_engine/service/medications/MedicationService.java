@@ -285,16 +285,38 @@ public class MedicationService {
         }
 
         // 获取当前病人
-        final PatientRecord patientRecord = patientService.getPatientRecordInIcu(req.getPatientId());
+        final PatientRecord patientRecord = patientService.getPatientRecord(req.getPatientId());
         if (patientRecord == null) {
             log.error("PatientRecord not found: ", req.getPatientId());
+            return NewOrderGroupResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
+                .build();
+        }
+
+        // 获取部门配置
+        final String deptId = patientRecord.getDeptId();
+        ShiftSettingsPB shiftSettings = shiftUtils.getShiftByDeptId(deptId);
+        final MedOrderGroupSettingsPB medOgSettings = medConfig.getMedOrderGroupSettings(deptId);
+
+        // 检查病人是否在ICU
+        if (medOgSettings.getDenyDischargedOrders() &&
+            (patientRecord.getAdmissionStatus() == patientService.getAdmissionStatusDischargedId() ||
+             patientRecord.getAdmissionStatus() == patientService.getAdmissionStatusPendingDischargedId())
+        ) {
+            log.error("Patient is discharged: ", req.getPatientId());
             return NewOrderGroupResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_IN_ICU))
                 .build();
         }
-        final String deptId = patientRecord.getDeptId();
-        ShiftSettingsPB shiftSettings = shiftUtils.getShiftByDeptId(deptId);
-        final MedOrderGroupSettingsPB medOgSettings = medConfig.getMedOrderGroupSettings(deptId);
+
+        // final PatientRecord patientRecord = patientService.getPatientRecordInIcu(req.getPatientId());
+        // if (patientRecord == null) {
+        //     log.error("PatientRecord not found: ", req.getPatientId());
+        //     return NewOrderGroupResp.newBuilder()
+        //         .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_IN_ICU))
+        //         .build();
+        // }
+        
         final Map<String, RouteDetails> routeDetailsMap = routeRepo.findRouteDetailsByDeptId(deptId).stream()
             .collect(Collectors.toMap(RouteDetails::getCode, rd -> rd));
 
@@ -2014,18 +2036,33 @@ public class MedicationService {
         }
 
         if (isComplete) {
+            Map<LocalDateTime, MedicationExecutionRecordStat> existingERStatMap =
+                exeRecordStatRepo.findByExeRecordId(exeRecPb.getMedExeRec().getId())
+                    .stream()
+                    .collect(Collectors.toMap(MedicationExecutionRecordStat::getStatsTime, stat -> stat));
+
             FluidIntakePB fluidIntake = exeRecPb.getIntake();
             List<MedicationExecutionRecordStat> statList = new ArrayList<>();
             for (FluidIntakePB.IntakeRecord intakeRecord : fluidIntake.getIntakeRecordList()) {
-                statList.add(MedicationExecutionRecordStat.builder()
-                    .groupId(exeRecPb.getMedExeRec().getMedicationOrderGroupId())
-                    .exeRecordId(exeRecPb.getMedExeRec().getId())
-                    .statsTime(TimeUtils.fromIso8601String(intakeRecord.getTimeIso8601(), "UTC"))
-                    .consumedMl(intakeRecord.getMl())
-                    .isFinal(false)
-                    .remainMl(0.0)
-                    .build()
-                );
+                LocalDateTime statsTime = TimeUtils.fromIso8601String(intakeRecord.getTimeIso8601(), "UTC");
+                MedicationExecutionRecordStat medExeRecStat = existingERStatMap.get(statsTime);
+                if (medExeRecStat != null) {
+                    // 已存在，更新
+                    medExeRecStat.setConsumedMl(intakeRecord.getMl());
+                    medExeRecStat.setIsFinal(false);
+                    medExeRecStat.setRemainMl(0.0);
+                } else {
+                    // 新增
+                    medExeRecStat = MedicationExecutionRecordStat.builder()
+                        .groupId(exeRecPb.getMedExeRec().getMedicationOrderGroupId())
+                        .exeRecordId(exeRecPb.getMedExeRec().getId())
+                        .statsTime(TimeUtils.fromIso8601String(intakeRecord.getTimeIso8601(), "UTC"))
+                        .consumedMl(intakeRecord.getMl())
+                        .isFinal(false)
+                        .remainMl(0.0)
+                        .build();
+                }
+                statList.add(medExeRecStat);
             }
             if (!statList.isEmpty()) {
                 MedicationExecutionRecordStat stat = statList.get(statList.size() - 1);

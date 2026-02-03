@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface MedicationExecutionRecordStatRepository extends JpaRepository<MedicationExecutionRecordStat, Long> {
     List<MedicationExecutionRecordStat> findByGroupIdAndExeRecordId(Long groupId, Long exeRecordId);
+    List<MedicationExecutionRecordStat> findByExeRecordId(Long exeRecordId);
 
     void deleteByExeRecordId(Long exeRecordId);
 
