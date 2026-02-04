@@ -316,7 +316,6 @@ public class MedicationService {
                     .setRt(protoService.getReturnCode(StatusCode.EXE_RECORD_PLAN_TIME_IS_AFTER_DISCHARGE_TIME))
                     .build();
             }
-                
         }
 
         
@@ -325,7 +324,6 @@ public class MedicationService {
 
         Pair<StatusCode, OrderGroupPB> resPair = newOrderGroupImpl(
             req, patientRecord, medOgSettings, shiftSettings, routeDetailsMap, accountId, accountName, deptId
-            
         );
         StatusCode statusCode = resPair.getFirst();
         OrderGroupPB orderGroupPB = resPair.getSecond();
@@ -370,7 +368,7 @@ public class MedicationService {
             true, shiftSettings, medOgSettings, accountId, orderGroup, isPersonalMedications,
             shiftUtils.getShiftStartTimeUtc(shiftSettings, orderTime, ZONE_ID), patientRecord.getDischargeTime()
         );
-        
+
         // 必须有且仅有 1 条执行记录
         if (records.size() != 1) {
             return new Pair<>(StatusCode.EXECUTION_RECORD_COUNT_NOT_ONE, null);

@@ -2807,16 +2807,6 @@ message GetNursingRecordShortcuts2Req {
     string shift_start_iso8601 = 2;
 }
 
-message NrShortcutBasicMonitoringsPB {
-    string effective_time_iso8601 = 1;
-    string respiratory_rate = 2;  // 呼吸率
-    string hr = 3;  // 心率
-    string cvp = 4;  // 中心静脉压
-    string ibp_s = 5;  // 有创收缩压
-    string ibp_d = 6;  // 有创舒张压
-    string spo2 = 7;  // 血氧饱和度
-}
-
 message NrShortcutBalancesPB {
     string effective_time_iso8601 = 1;
     string in_ml = 2;  // 入量总量
@@ -2836,8 +2826,7 @@ message NrShortcutBalancesPB {
 
 message GetNursingRecordShortcuts2Resp {
     shared.ReturnCode rt = 1;
-    repeated NrShortcutBasicMonitoringsPB mon = 2;
-    repeated NrShortcutBalancesPB balance = 3;
+    repeated NrShortcutBalancesPB balance = 2;
 }
 
 /******************************************************************************

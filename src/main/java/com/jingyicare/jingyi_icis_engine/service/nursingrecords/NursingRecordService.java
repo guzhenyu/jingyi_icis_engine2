@@ -898,7 +898,6 @@ public class NursingRecordService {
         shiftStartUtc = midnightUtc.plusHours(shiftStartHour);
         final LocalDateTime shiftEndUtc = shiftStartUtc.plusDays(1);
 
-        List<NrShortcutBasicMonitoringsPB> monList = buildShortcutMonitorings(pid, deptId, shiftStartUtc, shiftEndUtc);
         Pair<StatusCode, List<NrShortcutBalancesPB>> balancePair = buildShortcutBalances(
             pid, deptId, shiftStartUtc, shiftEndUtc, accountId);
         if (balancePair.getFirst() != StatusCode.OK) {
@@ -910,56 +909,8 @@ public class NursingRecordService {
 
         return GetNursingRecordShortcuts2Resp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
-            .addAllMon(monList)
             .addAllBalance(balanceList)
             .build();
-    }
-
-    private List<NrShortcutBasicMonitoringsPB> buildShortcutMonitorings(
-        Long pid, String deptId, LocalDateTime shiftStartUtc, LocalDateTime shiftEndUtc
-    ) {
-        List<String> paramCodes = List.of("hr", "cvp", "ibp_s", "ibp_d", "spo2", "respiratory_rate");
-        List<PatientMonitoringRecord> monRecords = monitoringRecordRepo
-            .findByPidAndParamCodesAndEffectiveTimeRange(pid, paramCodes, shiftStartUtc, shiftEndUtc)
-            .stream()
-            .sorted(Comparator.comparing(PatientMonitoringRecord::getEffectiveTime))
-            .toList();
-        Map<LocalDateTime, List<PatientMonitoringRecord>> recordsByTime = monRecords.stream()
-            .collect(Collectors.groupingBy(
-                PatientMonitoringRecord::getEffectiveTime,
-                LinkedHashMap::new,
-                Collectors.toList()
-            ));
-
-        List<NrShortcutBasicMonitoringsPB> monList = new ArrayList<>();
-        for (Map.Entry<LocalDateTime, List<PatientMonitoringRecord>> entry : recordsByTime.entrySet()) {
-            LocalDateTime recordedAtUtc = entry.getKey();
-            NrShortcutBasicMonitoringsPB.Builder builder = NrShortcutBasicMonitoringsPB.newBuilder()
-                .setEffectiveTimeIso8601(TimeUtils.toIso8601String(recordedAtUtc, ZONE_ID));
-            boolean hasValue = false;
-            for (PatientMonitoringRecord record : entry.getValue()) {
-                String code = record.getMonitoringParamCode();
-                String valueStr = formatMonitoringValue(record, deptId);
-                String unit = StrUtils.isBlank(record.getUnit()) ? "" : record.getUnit();
-                if ("respiratory_rate".equals(code)) {
-                    valueStr = (valueStr == null ? "" : valueStr) + unit;
-                }
-                if (StrUtils.isBlank(valueStr)) continue;
-
-                switch (code) {
-                    case "hr" -> builder.setHr(valueStr);
-                    case "cvp" -> builder.setCvp(valueStr);
-                    case "ibp_s" -> builder.setIbpS(valueStr);
-                    case "ibp_d" -> builder.setIbpD(valueStr);
-                    case "spo2" -> builder.setSpo2(valueStr);
-                    case "respiratory_rate" -> builder.setRespiratoryRate(valueStr);
-                    default -> {}
-                }
-                hasValue = true;
-            }
-            if (hasValue) monList.add(builder.build());
-        }
-        return monList;
     }
 
     private Pair<StatusCode, List<NrShortcutBalancesPB>> buildShortcutBalances(
