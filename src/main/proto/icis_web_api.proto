@@ -3250,10 +3250,11 @@ message WardPatientCountPB {
 
 message WardPatientStatsPB {
     int64 pid = 1;
-    string diagnosis = 2;  // 诊断 
-    string day_shift_handover_note = 3;  // 交班记录
-    string evening_shift_handover_note = 4;  // 交班记录
-    string night_shift_handover_note = 5;  // 交班记录
+    string patient_name = 2;
+    string diagnosis = 3;  // 诊断 
+    string day_shift_handover_note = 4;  // 交班记录
+    string evening_shift_handover_note = 5;  // 交班记录
+    string night_shift_handover_note = 6;  // 交班记录
 }
 
 message WardReportPB {

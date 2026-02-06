@@ -666,8 +666,16 @@ public class ReportService {
             .setExists(true)
             .setDayShiftCount(wardReportPb.getDayShiftCount())
             .setEveningShiftCount(wardReportPb.getEveningShiftCount())
-            .setNightShiftCount(wardReportPb.getNightShiftCount())
-            .addAllPatientStats(wardReportPb.getPatientStatsList());
+            .setNightShiftCount(wardReportPb.getNightShiftCount());
+        for (WardPatientStatsPB statsPB : wardReportPb.getPatientStatsList()) {
+            String patientName = "";
+            PatientRecord patientRecord = patientService.getPatientRecord(statsPB.getPid());
+            if (patientRecord != null && !StrUtils.isBlank(patientRecord.getIcuName())) {
+                patientName = patientRecord.getIcuName();
+            }
+            WardPatientStatsPB newStatsPB = statsPB.toBuilder().setPatientName(patientName).build();
+            respBuilder.addPatientStats(newStatsPB);
+        }
 
         return respBuilder.build();
     }
