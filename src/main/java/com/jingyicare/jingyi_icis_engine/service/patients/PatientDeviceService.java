@@ -103,10 +103,15 @@ public class PatientDeviceService {
         final String deptId = req.getDeptId();
 
         // 查找在线病人
-        final Map<String/*his_bed_number*/, PatientRecord> patientMap = patientRepo
-            .findByDeptIdAndAdmissionStatus(deptId, IN_ICU_VAL)
-            .stream()
-            .collect(Collectors.toMap(PatientRecord::getHisBedNumber, Function.identity()));
+        Map<String/*his_bed_number*/, PatientRecord> patientMap = new HashMap<>();
+        for (PatientRecord patient : patientRepo.findByDeptIdAndAdmissionStatus(deptId, IN_ICU_VAL)) {
+            if (patientMap.containsKey(patient.getHisBedNumber())) {
+                log.error("Duplicate his bed number found for patients: {}, {}",
+                    patientMap.get(patient.getHisBedNumber()).getId(), patient.getId()
+                );
+            }
+            patientMap.put(patient.getHisBedNumber(), patient);
+        }
 
         // 查找床位配置
         List<BedConfig> bedConfigs = StrUtils.isBlank(deptId) ?
