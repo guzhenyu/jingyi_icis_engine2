@@ -1,9 +1,6 @@
 package com.jingyicare.jingyi_icis_engine.service.users;
 
 import jakarta.transaction.Transactional;
-import java.util.List;
-import java.util.Optional;
-import java.util.stream.Collectors;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,7 +11,6 @@ import org.springframework.stereotype.Service;
 
 import com.jingyicare.jingyi_icis_engine.entity.users.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
-import com.jingyicare.jingyi_icis_engine.utils.OperationRecorder;
 
 @Service
 @Slf4j
@@ -25,11 +21,12 @@ public class RbacUserDetailsService implements UserDetailsService {
 
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        RbacAccount account = accountRepository.findById(username).orElse(null);
+        String normalizedUsername = username == null ? "" : username.trim();
+        RbacAccount account = accountRepository.findById(normalizedUsername).orElse(null);
         if (account != null) {
             return new RbacUserDetails(account.getAccountId(), account.getPasswordHash());
         } else {
-            log.warn("RBAC - user " + username + " not found\n");
+            log.warn("RBAC user not found: {}", normalizedUsername);
             throw new UsernameNotFoundException("User not found");
         }
     }

@@ -383,12 +383,23 @@ public class UserBasicOperator {
             return StatusCode.ACCOUNT_NOT_FOUND;
         }
 
-        if (!encoder.matches(oldPassword, account.getPasswordHash())) {
+        String oldPasswordHash = account.getPasswordHash();
+        boolean matchesEncodedInput = encoder.matches(oldPassword, oldPasswordHash);
+        boolean matchesRawInput = false;
+        if (!matchesEncodedInput) {
+            // Compatibility: some historical callers passed raw password, while current clients pass encoded password.
+            matchesRawInput = encoder.matches(RsaUtils.encodePassword(oldPassword), oldPasswordHash);
+        }
+
+        if (!matchesEncodedInput && !matchesRawInput) {
             log.error("RbacAccount password mismatch: {}", accountId);
             return StatusCode.WRONG_PASSWORD;
         }
 
-        account.setPasswordHash(RsaUtils.encodePassword(newPassword, encoder));
+        String newPasswordHash = matchesRawInput
+            ? RsaUtils.encodePassword(newPassword, encoder)
+            : encoder.encode(newPassword);
+        account.setPasswordHash(newPasswordHash);
         accountRepo.save(account);
 
         log.info("RbacAccount password changed: {}", accountId);
