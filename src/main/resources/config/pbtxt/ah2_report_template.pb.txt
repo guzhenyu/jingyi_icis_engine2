@@ -15,8 +15,8 @@ page {
             color_b: 0
         }
         line_style {
-            width: 0.1
-            gray_value: 0.3
+            width: 0.2
+            gray_value: 0.1
         }
         summary_row_hotizontal_padding: 3.0
     }
@@ -107,7 +107,8 @@ page {
                         width: 16.03
                     }
                     children {
-                        content: "无创/有创血压"
+                        content: "无创/有创"
+                        content: "血压"
                         content: "mmHg"
                         param_code: "AH2P_NIBP_IBP"
                         width: 36.08
@@ -120,30 +121,26 @@ page {
                     }
                     children {
                         content: "CVP"
-                        content: "mmHg"
+                        content: "mm"
+                        content: "Hg"
                         param_code: "AH2P_CVP"
                         width: 18.4
                     }
                     children {
                         content: "ICP"
-                        content: "mmHg"
+                        content: "mm"
+                        content: "Hg"
                         param_code: "AH2P_ICP"
                     }
                     width: 297.794
                     height_rows: 1
                 }
                 top_level_cell {
-                    content: "血糖"
-                    content: "mmol/L"
-                    param_code: "AH2P_BLOOD_GLUCOSE"
-                    width: 24.05
-                }
-                top_level_cell {
                     content: "入量"
                     children {
                         content: "执行用药"
                         param_code: "AH2P_MED_EXEC"
-                        width: 155
+                        width: 165
                     }
                     children {
                         content: "液体量"
@@ -154,7 +151,7 @@ page {
                     children {
                         content: "饮食/鼻饲"
                         param_code: "AH2P_NASOGASTRIC"
-                        width: 105.006
+                        width: 115.006
                     }
                     children {
                         content: "饮食/鼻饲量"
@@ -173,19 +170,21 @@ page {
                         content: "ml"
                         param_code: "AH2P_TOTAL_INTAKE"
                     }
-                    width: 359.406
+                    width: 379.406
                     height_rows: 1
                 }
                 top_level_cell {
                     content: "出量"
                     children {
-                        content: "每小时尿量"
+                        content: "每小时尿"
+                        content: "量"
                         content: "ml"
                         param_code: "AH2P_URINE_OUTPUT"
                         width: 18.44
                     }
                     children {
-                        content: "累计尿量"
+                        content: "累计尿"
+                        content: "量"
                         content: "ml"
                         param_code: "AH2P_ACCUMULATED_URINE_OUTPUT"
                         width: 24.85
@@ -197,7 +196,8 @@ page {
                         width: 18.44
                     }
                     children {
-                        content: "大便量"
+                        content: "大便"
+                        content: "量"
                         content: "ml"
                         param_code: "AH2P_STOOL_VOLUME"
                         width: 18.44
@@ -207,7 +207,7 @@ page {
                         children {
                             content: "名称"
                             param_code: "AH2P_OTHER_OUTPUT_NAME"
-                            width: 62
+                            width: 66.05
                         }
                         children {
                             content: "量ml"
@@ -222,7 +222,8 @@ page {
                         height_rows: 1
                     }
                     children {
-                        content: "超滤量"
+                        content: "超滤"
+                        content: "量"
                         content: "ml"
                         param_code: "AH2P_CRRT_UF"
                         width: 18.44
@@ -232,7 +233,7 @@ page {
                         content: "ml"
                         param_code: "AH2P_ACCUMULATED_OUTPUT"
                     }
-                    width: 217.9
+                    width: 221.95
                     height_rows: 1
                 }
                 top_level_cell {
@@ -433,7 +434,7 @@ page {
                 top_level_cell {
                     content: "吸氧方式"
                     param_code: "AH2P_OXYGEN_DELIVERY_METHOD"
-                    width: 46.1
+                    width: 41.05
                 }
                 top_level_cell {
                     content: "插管深度cm"
@@ -441,14 +442,16 @@ page {
                     width: 16.03
                 }
                 top_level_cell {
-                    content: "氧浓度(%)/氧流量(L/min)"
-                    param_code: "AH2P_OXYGEN_CONCENTRATION_FLOW"
-                    width: 30.1
-                }
-                top_level_cell {
-                    content: "气囊压力(cmH2O)"
+                    content: "气囊压力(cmH"
+                    content: "2O)"
                     param_code: "AH2P_VENT_CUFF_PRESSURE"
                     width: 20.04
+                }
+                top_level_cell {
+                    content: "氧浓度(%)/氧流量(L/mi"
+                    content: "n)"
+                    param_code: "AH2P_OXYGEN_CONCENTRATION_FLOW"
+                    width: 30.1
                 }
                 top_level_cell {
                     content: "机械通气"
@@ -458,17 +461,20 @@ page {
                         width: 24.05
                     }
                     children {
-                        content: "呼吸频率f"
+                        content: "呼吸频率"
+                        content: "f"
                         param_code: "AH2P_RESPIRATORY_RATE_VENT"
                         width: 16.03
                     }
                     children {
-                        content: "VT(set)"
+                        content: "VT(s"
+                        content: "et)"
                         param_code: "AH2P_SET_TIDAL_VOLUME"
                         width: 20.04
                     }
                     children {
-                        content: "FiO2%"
+                        content: "FiO2"
+                        content: "%"
                         param_code: "AH2P_FIO2"
                         width: 20.04
                     }
@@ -479,7 +485,8 @@ page {
                     }
                     children {
                         content: "PEEP"
-                        content: "cmH2O"
+                        content: "cmH"
+                        content: "2O"
                         param_code: "AH2P_PEEP"
                         width: 20.04
                     }
@@ -531,12 +538,14 @@ page {
                 top_level_cell {
                     content: "评分"
                     children {
-                        content: "Braden评分"
+                        content: "Braden评"
+                        content: "分"
                         param_code: "AH2P_BRADEN"
                         width: 20.04
                     }
                     children {
-                        content: "Morse跌倒评估"
+                        content: "Morse跌倒"
+                        content: "评估"
                         param_code: "AH2P_MORSE"
                         width: 20.04
                     }
@@ -556,12 +565,14 @@ page {
                         width: 20.04
                     }
                     children {
-                        content: "RASS镇静评估"
+                        content: "RASS镇静"
+                        content: "评估"
                         param_code: "AH2P_RASS"
                         width: 20.04
                     }
                     children {
-                        content: "CPOT/NRS"
+                        content: "CPOT/NR"
+                        content: "S"
                         param_code: "AH2P_CPOT_NRS"
                     }
                     width: 140.28
@@ -572,7 +583,7 @@ page {
                     children {
                         content: "名称"
                         param_code: "AH2P_TUBE_NAME"
-                        width: 128.3
+                        width: 109.3
                     }
                     children {
                         content: "置管深度"
@@ -598,7 +609,7 @@ page {
                         }
                         height_rows: 2
                     }
-                    width: 196.45
+                    width: 177.45
                     height_rows: 1
                 }
                 top_level_cell {
@@ -670,13 +681,15 @@ page {
                     }
                     children {
                         content: "PO2"
-                        content: "mmHg"
+                        content: "mmH"
+                        content: "g"
                         param_code: "AH2P_BGA_PO2"
                         width: 21.14
                     }
                     children {
                         content: "Po2/FiO2"
-                        content: "mmHg/%"
+                        content: "mmH"
+                        content: "g/%"
                         param_code: "AH2P_BGA_PO2_FIO2"
                         width: 21.14
                     }
@@ -688,12 +701,14 @@ page {
                     }
                     children {
                         content: "HCO3-"
-                        content: "mmol/L"
+                        content: "mmo"
+                        content: "l/L"
                         param_code: "AH2P_BGA_HCO3"
                         width: 21.14
                     }
                     children {
-                        content: "SpO2%"
+                        content: "SpO2"
+                        content: "%"
                         param_code: "AH2P_BGA_SPO2"
                         width: 21.14
                     }
@@ -705,22 +720,32 @@ page {
                     }
                     children {
                         content: "Na+"
-                        content: "mmol/L"
+                        content: "mmo"
+                        content: "l/L"
                         param_code: "AH2P_BGA_NA"
                         width: 21.14
                     }
                     children {
                         content: "Cl-"
-                        content: "mmol/L"
+                        content: "mmo"
+                        content: "l/L"
                         param_code: "AH2P_BGA_CL"
                         width: 21.14
                     }
                     children {
                         content: "Lac"
-                        content: "mmol/L"
+                        content: "mmol"
+                        content: "/L"
                         param_code: "AH2P_BGA_LAC"
                     }
                     height_rows: 1
+                    width: 240.7
+                }
+                top_level_cell {
+                    content: "血糖"
+                    content: "mmol"
+                    content: "/L"
+                    param_code: "AH2P_BLOOD_GLUCOSE"
                 }
             }
         }
