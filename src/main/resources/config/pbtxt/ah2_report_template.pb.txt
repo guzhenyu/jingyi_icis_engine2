@@ -67,16 +67,16 @@ page {
                             children {
                                 content: "左"
                                 param_code: "AH2P_LEFT_PUPIL_REFLEX"
-                                width: 24.05
+                                width: 18.05
                             }
                             children {
                                 content: "右"
                                 param_code: "AH2P_RIGHT_PUPIL_REFLEX"
                             }
-                            width: 48.1
+                            width: 36.1
                             height_rows: 1
                         }
-                        width: 84.18
+                        width: 72.18
                         height_rows: 1
                     }
                     children {
@@ -132,7 +132,7 @@ page {
                         content: "Hg"
                         param_code: "AH2P_ICP"
                     }
-                    width: 297.794
+                    width: 285.794
                     height_rows: 1
                 }
                 top_level_cell {
@@ -140,7 +140,7 @@ page {
                     children {
                         content: "执行用药"
                         param_code: "AH2P_MED_EXEC"
-                        width: 165
+                        width: 157
                     }
                     children {
                         content: "液体量"
@@ -151,7 +151,7 @@ page {
                     children {
                         content: "饮食/鼻饲"
                         param_code: "AH2P_NASOGASTRIC"
-                        width: 115.006
+                        width: 105.006
                     }
                     children {
                         content: "饮食/鼻饲量"
@@ -170,7 +170,7 @@ page {
                         content: "ml"
                         param_code: "AH2P_TOTAL_INTAKE"
                     }
-                    width: 379.406
+                    width: 361.406
                     height_rows: 1
                 }
                 top_level_cell {
@@ -239,7 +239,7 @@ page {
                 top_level_cell {
                     content: "病情观察及处理"
                     param_code: "AH2P_NURSING_RECORD"
-                    width: 150.27
+                    width: 185.27
                 }
                 top_level_cell {
                     content: "签名"
