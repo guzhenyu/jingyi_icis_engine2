@@ -1373,6 +1373,12 @@ public class Ah2ReportData {
         return null;
     }
 
+    private float getBodyTextWidth(Ah2PdfContext ctx, float colWidth) {
+        if (ctx == null || ctx.tblTxtStyle == null) return colWidth;
+        float padding = Math.max(0f, ctx.tblTxtStyle.getPadding());
+        return (padding > 0f && colWidth > 2f * padding) ? (colWidth - 2f * padding) : colWidth;
+    }
+
     private int setMonitoringItem(
         String mpCode, String ah2pCode,
         Ah2PdfContext ctx,
@@ -1401,7 +1407,7 @@ public class Ah2ReportData {
         }
         try {
             List<String> wrappedLines = JfkPdfUtils.getWrappedLines(
-                ctx.font, ctx.tblTxtStyle.getFontSize(), colMeta.getWidth(),
+                ctx.font, ctx.tblTxtStyle.getFontSize(), getBodyTextWidth(ctx, colMeta.getWidth()),
                 ctx.tblTxtStyle.getCharSpacing(), new ArrayList<>(List.of(strVal))
             );
             if (wrappedLines != null && !wrappedLines.isEmpty()) {
@@ -1457,7 +1463,7 @@ public class Ah2ReportData {
             bpsStrVal + "/" + bpdStrVal;
         try {
             List<String> wrappedLines = JfkPdfUtils.getWrappedLines(
-                ctx.font, ctx.tblTxtStyle.getFontSize(), colMeta.getWidth(),
+                ctx.font, ctx.tblTxtStyle.getFontSize(), getBodyTextWidth(ctx, colMeta.getWidth()),
                 ctx.tblTxtStyle.getCharSpacing(), new ArrayList<>(List.of(strVal))
             );
             if (wrappedLines != null && !wrappedLines.isEmpty()) {
@@ -1500,7 +1506,7 @@ public class Ah2ReportData {
                 String descStr = exeSum.getDosageGroupDisplayName() + "(" +
                     exeSum.getAdminName() + exeSum.getRateStr() + ")";
                 List<String> wrappedLines = JfkPdfUtils.getWrappedLines(
-                    ctx.font, ctx.tblTxtStyle.getFontSize(), medColMeta.getWidth(),
+                    ctx.font, ctx.tblTxtStyle.getFontSize(), getBodyTextWidth(ctx, medColMeta.getWidth()),
                     ctx.tblTxtStyle.getCharSpacing(), new ArrayList<>(List.of(descStr))
                 );
                 if (wrappedLines == null || wrappedLines.isEmpty()) continue;
@@ -1530,7 +1536,7 @@ public class Ah2ReportData {
             for (MedExeRecordSummaryPB exeSum : patientData.dietExeList) {
                 String descStr = exeSum.getDosageGroupDisplayName();
                 List<String> wrappedLines = JfkPdfUtils.getWrappedLines(
-                    ctx.font, ctx.tblTxtStyle.getFontSize(), dietColMeta.getWidth(),
+                    ctx.font, ctx.tblTxtStyle.getFontSize(), getBodyTextWidth(ctx, dietColMeta.getWidth()),
                     ctx.tblTxtStyle.getCharSpacing(), new ArrayList<>(List.of(descStr))
                 );
                 if (wrappedLines == null || wrappedLines.isEmpty()) continue;
@@ -1586,7 +1592,7 @@ public class Ah2ReportData {
                 String tubeName = tubeData.tubeName;
                 if (StrUtils.isBlank(tubeName)) continue;
                 List<String> wrappedLines = JfkPdfUtils.getWrappedLines(
-                    ctx.font, ctx.tblTxtStyle.getFontSize(), nameColMeta.getWidth(),
+                    ctx.font, ctx.tblTxtStyle.getFontSize(), getBodyTextWidth(ctx, nameColMeta.getWidth()),
                     ctx.tblTxtStyle.getCharSpacing(), new ArrayList<>(List.of(tubeName))
                 );
                 List<String> wrappedVolLines = new ArrayList<>();
@@ -1647,7 +1653,7 @@ public class Ah2ReportData {
                 Long nurseAccountId = record.getSecond();
                 if (StrUtils.isBlank(content)) continue;
                 List<String> wrappedLines = JfkPdfUtils.getWrappedLines(
-                    ctx.font, ctx.tblTxtStyle.getFontSize(), colMeta.getWidth(),
+                    ctx.font, ctx.tblTxtStyle.getFontSize(), getBodyTextWidth(ctx, colMeta.getWidth()),
                     ctx.tblTxtStyle.getCharSpacing(), new ArrayList<>(List.of(content))
                 );
                 if (wrappedLines == null || wrappedLines.isEmpty()) continue;
@@ -1761,7 +1767,7 @@ public class Ah2ReportData {
 
         try {
             List<String> wrappedLines = JfkPdfUtils.getWrappedLines(
-                ctx.font, ctx.tblTxtStyle.getFontSize(), colMeta.getWidth(),
+                ctx.font, ctx.tblTxtStyle.getFontSize(), getBodyTextWidth(ctx, colMeta.getWidth()),
                 ctx.tblTxtStyle.getCharSpacing(), new ArrayList<>(List.of(strVal))
             );
             if (wrappedLines != null && !wrappedLines.isEmpty()) {
@@ -1810,7 +1816,7 @@ public class Ah2ReportData {
         }
         try {
             List<String> wrappedLines = JfkPdfUtils.getWrappedLines(
-                ctx.font, ctx.tblTxtStyle.getFontSize(), colMeta.getWidth(),
+                ctx.font, ctx.tblTxtStyle.getFontSize(), getBodyTextWidth(ctx, colMeta.getWidth()),
                 ctx.tblTxtStyle.getCharSpacing(), new ArrayList<>(List.of(strVal))
             );
             if (wrappedLines != null && !wrappedLines.isEmpty()) {
@@ -1851,7 +1857,7 @@ public class Ah2ReportData {
             // 管道名称
             try {
                 List<String> wrappedLines = JfkPdfUtils.getWrappedLines(
-                    ctx.font, ctx.tblTxtStyle.getFontSize(), tubeNameColMeta.getWidth(),
+                    ctx.font, ctx.tblTxtStyle.getFontSize(), getBodyTextWidth(ctx, tubeNameColMeta.getWidth()),
                     ctx.tblTxtStyle.getCharSpacing(), new ArrayList<>(List.of(tubeName))
                 );
                 if (wrappedLines != null && !wrappedLines.isEmpty()) {
