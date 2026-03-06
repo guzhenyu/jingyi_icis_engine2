@@ -2234,11 +2234,19 @@ public class Ah2ReportData {
                         hAlign = HorizontalAlign.LEFT;
                     }
 
+                    float textLeft = colMeta.getLeft();
+                    float textWidth = colMeta.getWidth();
+                    float padding = Math.max(0f, ctx.tblTxtStyle.getPadding());
+                    if (padding > 0f && colMeta.getWidth() > 2f * padding) {
+                        textLeft = colMeta.getLeft() + padding;
+                        textWidth = colMeta.getWidth() - 2f * padding;
+                    }
+
                     PdfTextRenderer.drawTxt(
                         ctx.contentStream,
                         ctx.font, ctx.tblTxtStyle.getFontSize(), Color.BLACK,
                         ctx.tblTxtStyle.getCharSpacing(), ctx.tblCommon.getRowHeight(), hAlign,
-                        colMeta.getLeft(), cellBottom, colMeta.getWidth(), nLines * ctx.tblCommon.getRowHeight(),
+                        textLeft, cellBottom, textWidth, nLines * ctx.tblCommon.getRowHeight(),
                         wrappedLines
                     );
                 }
