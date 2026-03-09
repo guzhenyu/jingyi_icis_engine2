@@ -128,6 +128,20 @@ public class Ah2ReportService {
         return ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.OK);
     }
 
+    public float calcCellTextWidthPt(String str) {
+        if (template == null || fontDataBytes == null) return 0f;
+        try (PDDocument document = new PDDocument()) {
+            PDFont font = PDType0Font.load(document, new ByteArrayInputStream(fontDataBytes));
+            TextStylePB txtStyle = template.getPage().getTblCommon().getTextStyle();
+            return ah2ReportData.calcCellTextWidthPt(
+                font, txtStyle.getFontSize(), txtStyle.getCharSpacing(), str
+            );
+        } catch (IOException e) {
+            log.error("Failed to calc AH2 cell text width for [{}]: {}", str, e.getMessage(), e);
+            return 0f;
+        }
+    }
+
     private static class TableCommonContext {
         // 表格属性
         public TextStylePB tableTextStyle;

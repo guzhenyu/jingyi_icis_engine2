@@ -17,6 +17,7 @@ import com.google.protobuf.TextFormat;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
+import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.*;
@@ -1377,6 +1378,16 @@ public class Ah2ReportData {
         if (ctx == null || ctx.tblTxtStyle == null) return colWidth;
         float padding = Math.max(0f, ctx.tblTxtStyle.getPadding());
         return (padding > 0f && colWidth > 2f * padding) ? (colWidth - 2f * padding) : colWidth;
+    }
+
+    public float calcCellTextWidthPt(PDFont font, float fontSize, float charSpacing, String str) {
+        if (font == null || fontSize <= 0f) return 0f;
+        try {
+            return JfkPdfUtils.textWidth(font, fontSize, str == null ? "" : str, charSpacing);
+        } catch (IOException e) {
+            log.error("Failed to calc cell text width for [{}]: {}", str, e.getMessage(), e);
+            return 0f;
+        }
     }
 
     private int setMonitoringItem(

@@ -67,6 +67,7 @@ public class WebApiService {
         @Autowired QualityControlService qualityControlService,
         @Autowired SettingService settingService,
         @Autowired ReportService reportService,
+        @Autowired Ah2ReportService ah2ReportService,
         @Autowired EngineExtClient engineExtClient,
         @Autowired PrometheusMetricService metricService
     ) {
@@ -99,6 +100,7 @@ public class WebApiService {
         this.settingService = settingService;
 
         this.reportService = reportService;
+        this.ah2ReportService = ah2ReportService;
         this.engineExtClient = engineExtClient;
 
         this.metricService = metricService;
@@ -1843,6 +1845,14 @@ public class WebApiService {
     }
 
     public GenericResp test() {
+        String str = "灵敏";
+        float pt = ah2ReportService.calcCellTextWidthPt(str);
+        System.out.println("AH2 cell text width pt, str=\"" + str + "\": " + pt);
+        log.info("AH2 cell text width pt, str=\"{}\": {}", str, pt);
+        return GenericResp.newBuilder().setRt(ReturnCode.newBuilder().setCode(0).build()).build();
+    }
+
+    public GenericResp test2() {
         // com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.SyncHisPatientReq req = com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.SyncHisPatientReq.newBuilder()
         //     .setForceSync(false)
         //     .build();
@@ -1899,6 +1909,7 @@ public class WebApiService {
     private SettingService settingService;
 
     private ReportService reportService;
+    private Ah2ReportService ah2ReportService;
     private EngineExtClient engineExtClient;
 
     private PrometheusMetricService metricService;

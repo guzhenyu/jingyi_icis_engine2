@@ -9,7 +9,7 @@ page {
         text_style {
             font_size: 7
             char_spacing: 0.5
-            padding: 4
+            padding: 2
             color_r: 0
             color_g: 0
             color_b: 0
@@ -67,16 +67,16 @@ page {
                             children {
                                 content: "左"
                                 param_code: "AH2P_LEFT_PUPIL_REFLEX"
-                                width: 18.05
+                                width: 20.05
                             }
                             children {
                                 content: "右"
                                 param_code: "AH2P_RIGHT_PUPIL_REFLEX"
                             }
-                            width: 36.1
+                            width: 40.1
                             height_rows: 1
                         }
-                        width: 72.18
+                        width: 76.18
                         height_rows: 1
                     }
                     children {
@@ -132,7 +132,7 @@ page {
                         content: "Hg"
                         param_code: "AH2P_ICP"
                     }
-                    width: 285.794
+                    width: 289.794
                     height_rows: 1
                 }
                 top_level_cell {
@@ -239,7 +239,7 @@ page {
                 top_level_cell {
                     content: "病情观察及处理"
                     param_code: "AH2P_NURSING_RECORD"
-                    width: 185.27
+                    width: 181.27
                 }
                 top_level_cell {
                     content: "签名"
