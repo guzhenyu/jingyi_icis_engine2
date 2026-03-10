@@ -1,8 +1,8 @@
 page {
     tbl_common {
-        left: 29.76
+        left: 21.76
         bottom: 36.28
-        width: 1131
+        width: 1147
         row_height: 13.39
         header_rows: 6
         body_rows: 48

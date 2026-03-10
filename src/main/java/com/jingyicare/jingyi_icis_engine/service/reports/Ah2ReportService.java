@@ -411,7 +411,17 @@ public class Ah2ReportService {
 
             // 画表头
             setLineStyle(contentStream, ctx.tblLineStyle);
-            TableCommonPB tblCommonPb = this.template.getPage().getTblCommon();
+            TableCommonPB baseTblCommonPb = this.template.getPage().getTblCommon();
+            int effectiveBodyRows = getEffectiveBodyRows(ctx.pageData, baseTblCommonPb.getBodyRows());
+            float tableTop = baseTblCommonPb.getBottom() + baseTblCommonPb.getHeight();
+            float tableHeight = baseTblCommonPb.getRowHeight() * (baseTblCommonPb.getHeaderRows() + effectiveBodyRows);
+            float tableBottom = tableTop - tableHeight;
+            TableCommonPB tblCommonPb = baseTblCommonPb.toBuilder()
+                .setBodyRows(effectiveBodyRows)
+                .setBottom(tableBottom)
+                .setHeight(tableHeight)
+                .build();
+            ctx.tblCommon = tblCommonPb;
             contentStream.addRect(tblCommonPb.getLeft(), tblCommonPb.getBottom(), tblCommonPb.getWidth(), tblCommonPb.getHeight());
             float tableHeaderBottom = tblCommonPb.getBottom() + tblCommonPb.getHeight() - tblCommonPb.getRowHeight() * tblCommonPb.getHeaderRows();
             ctx.tableHeaderBottom = tableHeaderBottom;
@@ -470,6 +480,19 @@ public class Ah2ReportService {
         } catch (IOException e) {
             log.error("Error drawing subpage: " + e.getMessage());
         }
+    }
+
+    private int getEffectiveBodyRows(Ah2PageData pageData, int maxBodyRows) {
+        if (pageData == null || pageData.rowBlocks == null || pageData.rowBlocks.isEmpty()) {
+            return maxBodyRows;
+        }
+        int usedRows = 0;
+        for (Ah2PageData.RowBlock rowBlock : pageData.rowBlocks) {
+            if (rowBlock == null) continue;
+            usedRows = Math.max(usedRows, rowBlock.startRow + Math.max(0, rowBlock.totalRows));
+        }
+        if (usedRows <= 0) return 0;
+        return Math.min(maxBodyRows, usedRows);
     }
 
     private void setLineStyle(PDPageContentStream stream, LineStylePB style) throws IOException {

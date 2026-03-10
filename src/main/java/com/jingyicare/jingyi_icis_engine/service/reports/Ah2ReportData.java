@@ -330,22 +330,56 @@ public class Ah2ReportData {
             }
         }
 
+        final LocalDateTime finalQueryStartUtc = queryStartUtc;
+        final LocalDateTime finalQueryEndUtc = queryEndUtc;
+
+        // 先计算“仅查询范围数据”时应返回的页数，用于后续补齐时限制不扩页。
+        List<Ah2PageData> queryOnlyPageDataList = paginateData(
+            dailyDataList, dailyDataStartMidnightUtc, admissionTimeUtc, ctx.tblCommon.getBodyRows(),
+            nursingReportStartId
+        );
+        int expectedPagesInQueryRange = (int) queryOnlyPageDataList.stream().filter(p -> (
+            p.pageStartTs != null && p.pageEndTs != null &&
+            !p.pageEndTs.isBefore(finalQueryStartUtc) && !p.pageStartTs.isAfter(finalQueryEndUtc)
+        )).count();
+
+        // 追加 queryEnd 之后已缓存（patient_nursing_reports）数据：
+        // 仅用于填充查询范围最后一页剩余行，不触发 fetchDailyData。
+        List<LocalDateTime> cachedFutureMidnights = dailyDataMap.keySet().stream()
+            .filter(midnightUtc -> midnightUtc != null && midnightUtc.isAfter(dailyDataEndMidnightUtc))
+            .sorted()
+            .toList();
+        for (LocalDateTime midnightUtc : cachedFutureMidnights) {
+            Ah2PageData cachedDailyData = dailyDataMap.get(midnightUtc);
+            if (cachedDailyData == null || cachedDailyData.rowBlocks == null || cachedDailyData.rowBlocks.isEmpty()) {
+                continue;
+            }
+            dailyDataList.add(cachedDailyData);
+        }
+        log.info(
+            "\n\n(debug) AH2 append cached future dailyData pid={}, futureDays={}, dailyDataTotal={}",
+            pid, cachedFutureMidnights.size(), dailyDataList.size()
+        );
+
         // 转化成分页数据，过滤掉无效页
         List<Ah2PageData> pageDataList = paginateData(
             dailyDataList, dailyDataStartMidnightUtc, admissionTimeUtc, ctx.tblCommon.getBodyRows(),
             nursingReportStartId
         );
         int pagesBeforeFilter = pageDataList == null ? 0 : pageDataList.size();
-        final LocalDateTime finalQueryStartUtc = queryStartUtc;
-        final LocalDateTime finalQueryEndUtc = queryEndUtc;
         pageDataList = pageDataList.stream().filter(p -> (
             p.pageStartTs != null && p.pageEndTs != null &&
             !p.pageEndTs.isBefore(finalQueryStartUtc) && !p.pageStartTs.isAfter(finalQueryEndUtc)
         )).toList();
         int pagesAfterFilter = pageDataList == null ? 0 : pageDataList.size();
+        if (expectedPagesInQueryRange > 0 && pageDataList.size() > expectedPagesInQueryRange) {
+            pageDataList = new ArrayList<>(pageDataList.subList(0, expectedPagesInQueryRange));
+        }
+        int pagesAfterLimit = pageDataList == null ? 0 : pageDataList.size();
         log.info(
-            "\n\n(debug) AH2 paginate result pid={}, pagesBeforeFilter={}, pagesAfterFilter={}, queryStartUtc={}, queryEndUtc={}",
-            pid, pagesBeforeFilter, pagesAfterFilter, finalQueryStartUtc, finalQueryEndUtc
+            "\n\n(debug) AH2 paginate result pid={}, pagesBeforeFilter={}, pagesAfterFilter={}, pagesAfterLimit={}, expectedPagesInQueryRange={}, queryStartUtc={}, queryEndUtc={}",
+            pid, pagesBeforeFilter, pagesAfterFilter, pagesAfterLimit, expectedPagesInQueryRange,
+            finalQueryStartUtc, finalQueryEndUtc
         );
         release(pid);
         log.info(
