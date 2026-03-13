@@ -83,6 +83,7 @@ message JfkTableColumnMetaPB {
     repeated string static_vals = 4;  // 静态内容列表，长度为rows
 }
 
+// next_id: 27
 message JfkTablePB {
     string id = 1;
     string custom_name = 2;  // 自定义名称
@@ -99,6 +100,9 @@ message JfkTablePB {
     // 每个单元格的宽度和高度可以不同
     repeated float cell_widths = 9;  // 单元格宽度列表，长度为cols，单位为pt； cell_widths.length 必须等于 cols
     repeated float cell_heights = 10;  // 单元格高度列表，长度为rows，单位为pt； cell_heights.length 必须等于 rows
+
+    float line_width = 25;  // 线宽
+    string line_color = 26;  // 线颜色
 
     // 文本属性
     int32 v_align_id = 11;  // 垂直对齐方式， JfkEnumsPB.v_align.id
