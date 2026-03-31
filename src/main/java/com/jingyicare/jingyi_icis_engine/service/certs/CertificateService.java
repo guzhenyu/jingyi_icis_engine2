@@ -256,7 +256,7 @@ public class CertificateService {
     private BedConfigRepository bedConfigRepository;
 
     // test only
-    private Boolean isTest = false;
+    private Boolean isTest = true;
     public void setTest(Boolean test) {
         this.isTest = test;
     }
