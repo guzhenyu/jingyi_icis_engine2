@@ -62,6 +62,7 @@ public class SecurityConfig {
                     .requestMatchers((request) -> request.getServletPath().startsWith("/main")).permitAll()
                     .requestMatchers((request) -> request.getServletPath().startsWith("/react-vendor")).permitAll()
                     .requestMatchers((request) -> request.getServletPath().startsWith("/vendors")).permitAll()
+                    .requestMatchers((request) -> request.getServletPath().startsWith("/assets/images/")).permitAll()
                     .requestMatchers((request) -> request.getServletPath().startsWith("/api/user/getusername")).permitAll()
                     .requestMatchers((request) -> request.getServletPath().matches("^/\\d+/[^/]+\\.pdf$")).permitAll()
                     .requestMatchers("/actuator/prometheus").permitAll()
