@@ -92,7 +92,7 @@ public class ProtoUtils {
         try {
             return GenericValuePB.parseFrom(Base64.getDecoder().decode(base64));
         } catch (Exception e) {
-            log.error("Failed to decode GenericValuePB from base64 string ", e);
+            log.debug("Failed to decode GenericValuePB from base64 string ", base64);
             return null;
         }
     }

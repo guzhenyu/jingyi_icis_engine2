@@ -45,7 +45,7 @@ public class MedicalOrder {
     @Column(name = "ordering_doctor_id")
     private String orderingDoctorId;  // 下嘱医生id
 
-    @Column(name = "deptId", nullable = false)
+    @Column(name = "dept_id", nullable = false)
     private String deptId;  // 科室id/编码
 
     @Column(name = "order_type")
