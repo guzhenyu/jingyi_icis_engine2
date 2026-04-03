@@ -4244,6 +4244,7 @@ message BgaParamPB {
     int32 display_order = 2;
     bool enabled = 3; // 是否启用
     config.MonitoringParamPB param = 4; // 监测参数
+    string lis_result_code = 5; // 检验结果编码映射
 }
 
 message GetBgaParamsResp {
@@ -4252,14 +4253,38 @@ message GetBgaParamsResp {
 }
 
 /*
- * /api/bga/enableparam
- * input: EnableBgaParamReq
+ * /api/bga/savebgaparam
+ * input: SaveBgaParamReq
  * output: GenericResp
  */
-message EnableBgaParamReq {
+message SaveBgaParamReq {
     string dept_id = 1; // 科室ID
     string param_code = 2; // 监测参数代码
-    bool enabled = 3; // 是否启用
+    string lis_result_code = 3; // 检验映射代码: 用户可配置任意值，将被用于搜索patient_lis_results表; 也可以为空，从设备取
+    bool enabled = 4; // 是否启用
+}
+
+/*
+ * /api/bga/getbgacategory
+ * input: GetBgaCategoryReq
+ * output: GetBgaCategoryResp
+ */
+message GetBgaCategoryReq {
+    string dept_id = 1; // 科室ID
+}
+
+message GetBgaCategoryResp {
+    shared.ReturnCode rt = 1;
+    repeated config.BgaCategoryMappingPB mapping = 2; // 血气类别映射列表
+}
+
+/*
+ * /api/bga/savebgacategory
+ * input: SaveBgaCategoryReq
+ * output: GenericResp
+ */
+message SaveBgaCategoryReq {
+    config.BgaCategoryMappingPB bga_category_mapping = 1;
 }
 
 /*

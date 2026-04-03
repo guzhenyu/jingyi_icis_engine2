@@ -7,6 +7,7 @@ import com.jingyicare.jingyi_icis_engine.entity.monitorings.BgaParam;
 
 public interface BgaParamRepository extends JpaRepository<BgaParam, Long> {
     List<BgaParam> findAll();
+    List<BgaParam> findByDeptIdOrderByDisplayOrder(String deptId);
     List<BgaParam> findByDeptIdAndIsDeletedFalseOrderByDisplayOrder(String deptId);
     Optional<BgaParam> findByIdAndIsDeletedFalse(Long id);
     Optional<BgaParam> findByDeptIdAndMonitoringParamCodeAndIsDeletedFalse(String deptId, String paramCode);

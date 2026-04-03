@@ -29,8 +29,8 @@ public class PatientBgaRecord {
     @Column(name = "bga_category_name")
     private String bgaCategoryName;
 
-    @Column(name = "lis_category_code")
-    private String lisCategoryCode;
+    @Column(name = "lis_item_code")
+    private String lisItemCode;
 
     @Column(name = "recorded_by")
     private String recordedBy;

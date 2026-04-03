@@ -1230,9 +1230,19 @@ public class IcisController {
         return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getBgaParams(getBgaParamsReqJson)));
     }
 
-    @PostMapping("/bga/enableparam")
-    public ResponseEntity<String> enableBgaParam(@RequestBody String enableBgaParamReqJson) {
-        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.enableBgaParam(enableBgaParamReqJson)));
+    @PostMapping("/bga/savebgaparam")
+    public ResponseEntity<String> saveBgaParam(@RequestBody String saveBgaParamReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.saveBgaParam(saveBgaParamReqJson)));
+    }
+
+    @PostMapping("/bga/getbgacategory")
+    public ResponseEntity<String> getBgaCategory(@RequestBody String getBgaCategoryReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getBgaCategory(getBgaCategoryReqJson)));
+    }
+
+    @PostMapping("/bga/savebgacategory")
+    public ResponseEntity<String> saveBgaCategory(@RequestBody String saveBgaCategoryReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.saveBgaCategory(saveBgaCategoryReqJson)));
     }
 
     @PostMapping("/bga/reorderbgaparams")

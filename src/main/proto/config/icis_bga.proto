@@ -16,6 +16,13 @@ message BgaResultPB {
     string value_str = 4;
 }
 
+message BgaCategoryMappingPB {
+    int64 id = 1;
+    string dept_id = 2;
+    int32 bga_category_id = 3;
+    string lis_item_code = 4;
+}
+
 message PatientBgaRecordPB {
     int64 id = 1;  // patient_bga_records.id
 

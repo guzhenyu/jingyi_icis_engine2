@@ -11,7 +11,7 @@ import lombok.*;
 @Entity
 @Table(name = "bga_category_mappings",
        indexes = @Index(name = "idx_bga_category_mappings_dept_bga_lis",
-                        columnList = "dept_id, bga_category_id, lis_category_code"))
+                        columnList = "dept_id, bga_category_id"))
 public class BgaCategoryMapping {
 
     @Id
@@ -24,8 +24,8 @@ public class BgaCategoryMapping {
     @Column(name = "bga_category_id", nullable = false)
     private Integer bgaCategoryId;
 
-    @Column(name = "lis_category_code")
-    private String lisCategoryCode;
+    @Column(name = "lis_item_code")
+    private String lisItemCode;
 
     @Column(name = "is_deleted", nullable = false)
     private Boolean isDeleted;

@@ -22,6 +22,7 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
 import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
+import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.*;
@@ -38,7 +39,9 @@ public class BgaService {
         @Autowired PatientDeviceService patientDeviceService,
         @Autowired MonitoringConfig monitoringConfig,
         @Autowired PatientNursingReportUtils pnrUtils,
+        @Autowired RbacDepartmentRepository departmentRepo,
         @Autowired BgaParamRepository bgaParamRepo,
+        @Autowired BgaCategoryMappingRepository bgaCategoryMappingRepo,
         @Autowired PatientBgaRecordRepository recordRepo,
         @Autowired PatientBgaRecordDetailRepository recordDetailRepo,
         @Autowired RawBgaRecordRepository rawBgaRecordRepo,
@@ -47,15 +50,20 @@ public class BgaService {
         this.ZONE_ID = protoService.getConfig().getZoneId();
         this.statusCodeMsgs = protoService.getConfig().getText().getStatusCodeMsgList();
         this.protoService = protoService;
-        this.bgaCategoryMap = protoService.getConfig().getBga().getEnums().getBgaCategoryList()
-            .stream().collect(Collectors.toMap(EnumValue::getId, EnumValue::getName));
+        List<EnumValue> bgaCategories = protoService.getConfig().getBga().getEnums().getBgaCategoryList();
+        this.bgaCategoryIds = bgaCategories.stream().map(EnumValue::getId).toList();
+        this.bgaCategoryMap = bgaCategories.stream().collect(Collectors.toMap(
+            EnumValue::getId, EnumValue::getName, (left, right) -> left, LinkedHashMap::new
+        ));
         this.userService = userService;
         this.patientService = patientService;
         this.patientDeviceService = patientDeviceService;
         this.monitoringConfig = monitoringConfig;
         this.pnrUtils = pnrUtils;
+        this.departmentRepository = departmentRepo;
 
         this.bgaParamRepository = bgaParamRepo;
+        this.bgaCategoryMappingRepository = bgaCategoryMappingRepo;
         this.recordRepository = recordRepo;
         this.recordDetailRepository = recordDetailRepo;
         this.rawBgaRecordRepository = rawBgaRecordRepo;
@@ -90,6 +98,7 @@ public class BgaService {
                 .setParamCode(bgaParam.getMonitoringParamCode())
                 .setDisplayOrder(bgaParam.getDisplayOrder())
                 .setEnabled(bgaParam.getEnabled())
+                .setLisResultCode(StrUtils.getStringOrDefault(bgaParam.getLisResultCode(), ""))
                 .setParam(monitoringParamPb)
                 .build()
             );
@@ -103,11 +112,11 @@ public class BgaService {
     }
 
     @Transactional
-    public GenericResp enableBgaParam(String enableBgaParamReqJson) {
-        final EnableBgaParamReq req;
+    public GenericResp saveBgaParam(String saveBgaParamReqJson) {
+        final SaveBgaParamReq req;
         try {
-            EnableBgaParamReq.Builder builder = EnableBgaParamReq.newBuilder();
-            JsonFormat.parser().merge(enableBgaParamReqJson, builder);
+            SaveBgaParamReq.Builder builder = SaveBgaParamReq.newBuilder();
+            JsonFormat.parser().merge(saveBgaParamReqJson, builder);
             req = builder.build();
         } catch (Exception e) {
             log.error("Failed to convert string to proto: ", e);
@@ -124,7 +133,6 @@ public class BgaService {
                 .build();
         }
         final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 获取参数信息
         BgaParam bgaParam = bgaParamRepository.findByDeptIdAndMonitoringParamCodeAndIsDeletedFalse(
@@ -138,9 +146,95 @@ public class BgaService {
 
         // 更新参数信息
         bgaParam.setEnabled(req.getEnabled());
+        bgaParam.setLisResultCode(normalizeNullableString(req.getLisResultCode()));
         bgaParam.setModifiedBy(accountId);
         bgaParam.setModifiedAt(TimeUtils.getNowUtc());
         bgaParamRepository.save(bgaParam);
+
+        return GenericResp.newBuilder()
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.OK))
+            .build();
+    }
+
+    @Transactional
+    public GetBgaCategoryResp getBgaCategory(String getBgaCategoryReqJson) {
+        final GetBgaCategoryReq req;
+        try {
+            GetBgaCategoryReq.Builder builder = GetBgaCategoryReq.newBuilder();
+            JsonFormat.parser().merge(getBgaCategoryReqJson, builder);
+            req = builder.build();
+        } catch (Exception e) {
+            log.error("Failed to convert string to proto: ", e);
+            return GetBgaCategoryResp.newBuilder()
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.PARSE_JSON_FAILED))
+                .build();
+        }
+
+        List<BgaCategoryMappingPB> mappingPbs = getOrCreateBgaCategoryMappings(req.getDeptId()).stream()
+            .map(mapping -> BgaCategoryMappingPB.newBuilder()
+                .setId(mapping.getId())
+                .setDeptId(mapping.getDeptId())
+                .setBgaCategoryId(mapping.getBgaCategoryId())
+                .setLisItemCode(StrUtils.getStringOrDefault(mapping.getLisItemCode(), ""))
+                .build()
+            )
+            .toList();
+
+        return GetBgaCategoryResp.newBuilder()
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.OK))
+            .addAllMapping(mappingPbs)
+            .build();
+    }
+
+    @Transactional
+    public GenericResp saveBgaCategory(String saveBgaCategoryReqJson) {
+        final BgaCategoryMappingPB req;
+        try {
+            SaveBgaCategoryReq.Builder builder = SaveBgaCategoryReq.newBuilder();
+            JsonFormat.parser().merge(saveBgaCategoryReqJson, builder);
+            req = builder.build().getBgaCategoryMapping();
+        } catch (Exception e) {
+            log.error("Failed to convert string to proto: ", e);
+            return GenericResp.newBuilder()
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.PARSE_JSON_FAILED))
+                .build();
+        }
+
+        Pair<String, String> account = userService.getAccountWithAutoId();
+        if (account == null) {
+            return GenericResp.newBuilder()
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.ACCOUNT_NOT_FOUND))
+                .build();
+        }
+
+        final String accountId = account.getFirst();
+        final String deptId = req.getDeptId();
+        final Integer bgaCategoryId = req.getBgaCategoryId();
+        final LocalDateTime nowUtc = TimeUtils.getNowUtc();
+
+        BgaCategoryMapping mapping = req.getId() > 0
+            ? bgaCategoryMappingRepository.findByIdAndIsDeletedFalse(req.getId()).orElse(null)
+            : null;
+        if (mapping == null) {
+            mapping = getOrCreateBgaCategoryMappings(deptId).stream()
+                .filter(item -> Objects.equals(item.getBgaCategoryId(), bgaCategoryId))
+                .findFirst()
+                .orElse(null);
+        }
+        if (mapping == null) {
+            mapping = BgaCategoryMapping.builder()
+                .deptId(deptId)
+                .bgaCategoryId(bgaCategoryId)
+                .isDeleted(false)
+                .build();
+        }
+
+        mapping.setDeptId(deptId);
+        mapping.setBgaCategoryId(bgaCategoryId);
+        mapping.setLisItemCode(normalizeNullableString(req.getLisItemCode()));
+        mapping.setModifiedBy(accountId);
+        mapping.setModifiedAt(nowUtc);
+        bgaCategoryMappingRepository.save(mapping);
 
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.OK))
@@ -928,18 +1022,104 @@ log.info("\n\n\nSyncing raw BGA records for patient {}, from {} to {}",
         return recordDetailRepository.saveAll(newDetails);
     }
 
+    private List<BgaCategoryMapping> getOrCreateBgaCategoryMappings(String deptId) {
+        Map<Integer, BgaCategoryMapping> activeMappings = bgaCategoryMappingRepository
+            .findByDeptIdAndIsDeletedFalseOrderByBgaCategoryId(deptId)
+            .stream()
+            .filter(mapping -> bgaCategoryIds.contains(mapping.getBgaCategoryId()))
+            .collect(Collectors.toMap(
+                BgaCategoryMapping::getBgaCategoryId,
+                mapping -> mapping,
+                this::selectPreferredBgaCategoryMapping,
+                LinkedHashMap::new
+            ));
+        if (activeMappings.size() == bgaCategoryIds.size()) return new ArrayList<>(activeMappings.values());
+
+        departmentRepository.findByDeptIdForUpdate(deptId);
+        List<BgaCategoryMapping> existingMappings = bgaCategoryMappingRepository.findByDeptIdOrderByBgaCategoryId(deptId);
+        Map<Integer, BgaCategoryMapping> activeMappingMap = existingMappings.stream()
+            .filter(mapping -> !Boolean.TRUE.equals(mapping.getIsDeleted()))
+            .filter(mapping -> bgaCategoryIds.contains(mapping.getBgaCategoryId()))
+            .collect(Collectors.toMap(
+                BgaCategoryMapping::getBgaCategoryId,
+                mapping -> mapping,
+                this::selectPreferredBgaCategoryMapping,
+                LinkedHashMap::new
+            ));
+        Map<Integer, BgaCategoryMapping> deletedMappingMap = existingMappings.stream()
+            .filter(mapping -> Boolean.TRUE.equals(mapping.getIsDeleted()))
+            .filter(mapping -> bgaCategoryIds.contains(mapping.getBgaCategoryId()))
+            .collect(Collectors.toMap(
+                BgaCategoryMapping::getBgaCategoryId,
+                mapping -> mapping,
+                this::selectPreferredBgaCategoryMapping,
+                LinkedHashMap::new
+            ));
+
+        LocalDateTime nowUtc = TimeUtils.getNowUtc();
+        List<BgaCategoryMapping> mappingsToSave = new ArrayList<>();
+        for (Integer bgaCategoryId : bgaCategoryIds) {
+            if (activeMappingMap.containsKey(bgaCategoryId)) continue;
+
+            BgaCategoryMapping mapping = deletedMappingMap.get(bgaCategoryId);
+            if (mapping == null) {
+                mapping = BgaCategoryMapping.builder()
+                    .deptId(deptId)
+                    .bgaCategoryId(bgaCategoryId)
+                    .isDeleted(false)
+                    .build();
+            } else {
+                mapping.setIsDeleted(false);
+                mapping.setDeletedBy(null);
+                mapping.setDeletedByAccountName(null);
+                mapping.setDeletedAt(null);
+            }
+
+            mapping.setDeptId(deptId);
+            mapping.setBgaCategoryId(bgaCategoryId);
+            mapping.setModifiedBy("system");
+            mapping.setModifiedAt(nowUtc);
+            mappingsToSave.add(mapping);
+            activeMappingMap.put(bgaCategoryId, mapping);
+        }
+        if (!mappingsToSave.isEmpty()) bgaCategoryMappingRepository.saveAll(mappingsToSave);
+        return bgaCategoryIds.stream()
+            .map(activeMappingMap::get)
+            .filter(Objects::nonNull)
+            .toList();
+    }
+
+    private BgaCategoryMapping selectPreferredBgaCategoryMapping(
+        BgaCategoryMapping left, BgaCategoryMapping right
+    ) {
+        if (Boolean.TRUE.equals(left.getIsDeleted()) != Boolean.TRUE.equals(right.getIsDeleted())) {
+            return Boolean.TRUE.equals(left.getIsDeleted()) ? right : left;
+        }
+        if (left.getModifiedAt() == null) return right;
+        if (right.getModifiedAt() == null) return left;
+        return right.getModifiedAt().isAfter(left.getModifiedAt()) ? right : left;
+    }
+
+    private String normalizeNullableString(String value) {
+        if (StrUtils.isBlank(value)) return null;
+        return value.trim();
+    }
+
     private final String ZONE_ID;
     private final List<String> statusCodeMsgs;
 
     private final ConfigProtoService protoService;
+    private final List<Integer> bgaCategoryIds;
     private final Map<Integer, String> bgaCategoryMap;
     private final UserService userService;
     private final PatientService patientService;
     private final PatientDeviceService patientDeviceService;
     private final MonitoringConfig monitoringConfig;
     private final PatientNursingReportUtils pnrUtils;
+    private final RbacDepartmentRepository departmentRepository;
 
     private final BgaParamRepository bgaParamRepository;
+    private final BgaCategoryMappingRepository bgaCategoryMappingRepository;
     private final PatientBgaRecordRepository recordRepository;
     private final PatientBgaRecordDetailRepository recordDetailRepository;
     private final RawBgaRecordRepository rawBgaRecordRepository;

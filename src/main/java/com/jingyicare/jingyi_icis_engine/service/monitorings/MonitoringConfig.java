@@ -278,25 +278,72 @@ public class MonitoringConfig {
     @Transactional
     public List<BgaParam> getBgaParamList(String deptId) {
         List<BgaParam> params = bgaParamRepository.findByDeptIdAndIsDeletedFalseOrderByDisplayOrder(deptId);
-        if (params.isEmpty()) {
-            List<BgaParam> defaultParams = new ArrayList<>();
-            Integer displayOrder = 1;
-            for (String bgaParamCode : protoService.getConfig().getBga().getBgaParamCodeList()) {
-                BgaParam param = BgaParam.builder()
+        Set<String> configuredCodes = new LinkedHashSet<>(protoService.getConfig().getBga().getBgaParamCodeList());
+        Set<String> existingConfiguredCodes = params.stream()
+            .map(BgaParam::getMonitoringParamCode)
+            .filter(configuredCodes::contains)
+            .collect(Collectors.toSet());
+        if (existingConfiguredCodes.containsAll(configuredCodes)) return params;
+
+        departmentRepository.findByDeptIdForUpdate(deptId);
+        List<BgaParam> existingParams = bgaParamRepository.findByDeptIdOrderByDisplayOrder(deptId);
+        Map<String, BgaParam> activeParams = existingParams.stream()
+            .filter(param -> !Boolean.TRUE.equals(param.getIsDeleted()))
+            .collect(Collectors.toMap(
+                BgaParam::getMonitoringParamCode,
+                param -> param,
+                this::selectPreferredBgaParam
+            ));
+        Map<String, BgaParam> deletedParams = existingParams.stream()
+            .filter(param -> Boolean.TRUE.equals(param.getIsDeleted()))
+            .collect(Collectors.toMap(
+                BgaParam::getMonitoringParamCode,
+                param -> param,
+                this::selectPreferredBgaParam
+            ));
+
+        int nextDisplayOrder = activeParams.values().stream()
+            .map(BgaParam::getDisplayOrder)
+            .filter(Objects::nonNull)
+            .max(Integer::compareTo)
+            .orElse(0);
+        LocalDateTime nowUtc = TimeUtils.getNowUtc();
+        List<BgaParam> paramsToSave = new ArrayList<>();
+        for (String bgaParamCode : configuredCodes) {
+            if (activeParams.containsKey(bgaParamCode)) continue;
+
+            BgaParam param = deletedParams.get(bgaParamCode);
+            if (param == null) {
+                param = BgaParam.builder()
                     .deptId(deptId)
                     .monitoringParamCode(bgaParamCode)
-                    .displayOrder(displayOrder++)
                     .enabled(false)
                     .isDeleted(false)
-                    .modifiedBy("system")
-                    .modifiedAt(TimeUtils.getNowUtc())
                     .build();
-                defaultParams.add(param);
+            } else {
+                param.setIsDeleted(false);
+                param.setDeletedBy(null);
+                param.setDeletedByAccountName(null);
+                param.setDeletedAt(null);
+                if (param.getEnabled() == null) param.setEnabled(false);
             }
-            bgaParamRepository.saveAll(defaultParams);
-            params = bgaParamRepository.findByDeptIdAndIsDeletedFalseOrderByDisplayOrder(deptId);
+
+            param.setDisplayOrder(++nextDisplayOrder);
+            param.setModifiedBy("system");
+            param.setModifiedAt(nowUtc);
+            paramsToSave.add(param);
         }
-        return params;
+        if (!paramsToSave.isEmpty()) bgaParamRepository.saveAll(paramsToSave);
+        return bgaParamRepository.findByDeptIdAndIsDeletedFalseOrderByDisplayOrder(deptId);
+    }
+
+    private BgaParam selectPreferredBgaParam(BgaParam left, BgaParam right) {
+        if (Boolean.TRUE.equals(left.getIsDeleted()) != Boolean.TRUE.equals(right.getIsDeleted())) {
+            return Boolean.TRUE.equals(left.getIsDeleted()) ? right : left;
+        }
+        if (left.getModifiedAt() == null) return right;
+        if (right.getModifiedAt() == null) return left;
+        return right.getModifiedAt().isAfter(left.getModifiedAt()) ? right : left;
     }
 
     @Transactional

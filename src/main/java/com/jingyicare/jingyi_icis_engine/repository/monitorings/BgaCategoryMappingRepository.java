@@ -7,7 +7,9 @@ import com.jingyicare.jingyi_icis_engine.entity.monitorings.BgaCategoryMapping;
 
 public interface BgaCategoryMappingRepository extends JpaRepository<BgaCategoryMapping, Long> {
     List<BgaCategoryMapping> findAll();
-    List<BgaCategoryMapping> findByDeptIdAndIsDeletedFalse(String deptId);
-    Optional<BgaCategoryMapping> findByDeptIdAndBgaCategoryIdAndLisCategoryCodeAndIsDeletedFalse(
-            String deptId, Integer bgaCategoryId, String lisCategoryCode);
+    List<BgaCategoryMapping> findByDeptIdOrderByBgaCategoryId(String deptId);
+    List<BgaCategoryMapping> findByDeptIdAndIsDeletedFalseOrderByBgaCategoryId(String deptId);
+    Optional<BgaCategoryMapping> findByIdAndIsDeletedFalse(Long id);
+    Optional<BgaCategoryMapping> findByDeptIdAndBgaCategoryIdAndIsDeletedFalse(
+            String deptId, Integer bgaCategoryId);
 }

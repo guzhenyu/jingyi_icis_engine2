@@ -1552,8 +1552,20 @@ public class WebApiService {
         return resp;
     }
 
-    public GenericResp enableBgaParam(String enableBgaParamReqJson) {
-        GenericResp resp = bgaService.enableBgaParam(enableBgaParamReqJson);
+    public GenericResp saveBgaParam(String saveBgaParamReqJson) {
+        GenericResp resp = bgaService.saveBgaParam(saveBgaParamReqJson);
+        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
+        return resp;
+    }
+
+    public GetBgaCategoryResp getBgaCategory(String getBgaCategoryReqJson) {
+        GetBgaCategoryResp resp = bgaService.getBgaCategory(getBgaCategoryReqJson);
+        resp = metricService.recordApiMetrics(resp, GetBgaCategoryResp::getRt);
+        return resp;
+    }
+
+    public GenericResp saveBgaCategory(String saveBgaCategoryReqJson) {
+        GenericResp resp = bgaService.saveBgaCategory(saveBgaCategoryReqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }

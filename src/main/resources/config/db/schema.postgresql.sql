@@ -3133,6 +3133,7 @@ CREATE TABLE bga_params (
     monitoring_param_code VARCHAR(255) NOT NULL,
     display_order INT NOT NULL,
     enabled BOOLEAN NOT NULL DEFAULT false,
+    lis_result_code VARCHAR(255), -- 检验结果编码
 
     is_deleted BOOLEAN NOT NULL DEFAULT false,
     deleted_by VARCHAR(255),
@@ -3147,6 +3148,7 @@ COMMENT ON COLUMN bga_params.dept_id IS '科室ID';
 COMMENT ON COLUMN bga_params.monitoring_param_code IS '监测参数编码，关联到monitoring_params.code';
 COMMENT ON COLUMN bga_params.display_order IS '显示顺序';
 COMMENT ON COLUMN bga_params.enabled IS '是否启用';
+COMMENT ON COLUMN bga_params.lis_result_code IS '检验结果编码';
 COMMENT ON COLUMN bga_params.is_deleted IS '是否已删除';
 COMMENT ON COLUMN bga_params.deleted_by IS '删除人账号';
 COMMENT ON COLUMN bga_params.deleted_by_account_name IS '删除人姓名';
@@ -3161,7 +3163,7 @@ CREATE TABLE bga_category_mappings (
     id BIGSERIAL PRIMARY KEY, -- 自增ID
     dept_id VARCHAR(255) NOT NULL, -- 科室ID
     bga_category_id INT NOT NULL, -- 血气类别ID
-    lis_category_code VARCHAR(255), -- 检验类别编码
+    lis_item_code VARCHAR(255), -- 检验项目编码
 
     is_deleted BOOLEAN NOT NULL DEFAULT false, -- 是否已删除
     deleted_by VARCHAR(255), -- 删除人账号
@@ -3174,7 +3176,7 @@ CREATE TABLE bga_category_mappings (
 COMMENT ON TABLE bga_category_mappings IS '血气检验类别映射表';
 COMMENT ON COLUMN bga_category_mappings.dept_id IS '科室ID';
 COMMENT ON COLUMN bga_category_mappings.bga_category_id IS '血气类别ID';
-COMMENT ON COLUMN bga_category_mappings.lis_category_code IS '检验类别编码';
+COMMENT ON COLUMN bga_category_mappings.lis_item_code IS '检验项目编码';
 COMMENT ON COLUMN bga_category_mappings.is_deleted IS '是否已删除';
 COMMENT ON COLUMN bga_category_mappings.deleted_by IS '删除人账号';
 COMMENT ON COLUMN bga_category_mappings.deleted_by_account_name IS '删除人姓名';
@@ -3183,36 +3185,7 @@ COMMENT ON COLUMN bga_category_mappings.modified_by IS '最后修改人账号';
 COMMENT ON COLUMN bga_category_mappings.modified_at IS '最后修改时间';
 
 CREATE UNIQUE INDEX idx_bga_category_mappings_dept_bga_lis 
-    ON bga_category_mappings (dept_id, bga_category_id, lis_category_code) 
-    WHERE is_deleted = false;
-
-CREATE TABLE bga_param_mappings (
-    id BIGSERIAL PRIMARY KEY, -- 自增ID
-    dept_id VARCHAR(255) NOT NULL, -- 科室ID
-    bga_code VARCHAR(255) NOT NULL, -- 血气参数编码，和bga_params.monitoring_param_code相同
-    lis_result_code VARCHAR(255), -- LIS结果编码
-
-    is_deleted BOOLEAN NOT NULL DEFAULT false, -- 是否已删除
-    deleted_by VARCHAR(255), -- 删除人账号
-    deleted_by_account_name VARCHAR(255), -- 删除人姓名
-    deleted_at TIMESTAMP, -- 删除时间
-    modified_by VARCHAR(255), -- 最后修改人账号
-    modified_at TIMESTAMP NOT NULL -- 最后修改时间
-);
-
-COMMENT ON TABLE bga_param_mappings IS '血气参数映射表';
-COMMENT ON COLUMN bga_param_mappings.dept_id IS '科室ID';
-COMMENT ON COLUMN bga_param_mappings.bga_code IS '血气参数编码，和bga_params.monitoring_param_code相同';
-COMMENT ON COLUMN bga_param_mappings.lis_result_code IS 'LIS结果编码';
-COMMENT ON COLUMN bga_param_mappings.is_deleted IS '是否已删除';
-COMMENT ON COLUMN bga_param_mappings.deleted_by IS '删除人账号';
-COMMENT ON COLUMN bga_param_mappings.deleted_by_account_name IS '删除人姓名';
-COMMENT ON COLUMN bga_param_mappings.deleted_at IS '删除时间';
-COMMENT ON COLUMN bga_param_mappings.modified_by IS '最后修改人账号';
-COMMENT ON COLUMN bga_param_mappings.modified_at IS '最后修改时间';
-
-CREATE UNIQUE INDEX idx_bga_param_mappings_dept_bga_lis 
-    ON bga_param_mappings (dept_id, bga_code, lis_result_code) 
+    ON bga_category_mappings (dept_id, bga_category_id) 
     WHERE is_deleted = false;
 
 CREATE TABLE patient_bga_records (
@@ -3222,7 +3195,7 @@ CREATE TABLE patient_bga_records (
     dept_id VARCHAR(255) NOT NULL, -- 科室ID
     bga_category_id INT NOT NULL, -- 血气类别ID
     bga_category_name VARCHAR(255), -- 血气类别名称
-    lis_category_code VARCHAR(255), -- LIS类别编码
+    lis_item_code VARCHAR(255), -- LIS项目编码
 
     recorded_by VARCHAR(255), -- 首次记录人账号
     recorded_by_account_name VARCHAR(255), -- 首次记录人姓名
@@ -3252,7 +3225,7 @@ COMMENT ON COLUMN patient_bga_records.pid IS '病人ID';
 COMMENT ON COLUMN patient_bga_records.dept_id IS '科室ID';
 COMMENT ON COLUMN patient_bga_records.bga_category_id IS '血气类别ID';
 COMMENT ON COLUMN patient_bga_records.bga_category_name IS '血气类别名称';
-COMMENT ON COLUMN patient_bga_records.lis_category_code IS 'LIS类别编码';
+COMMENT ON COLUMN patient_bga_records.lis_item_code IS 'LIS项目编码';
 
 COMMENT ON COLUMN patient_bga_records.recorded_by IS '记录人账号';
 COMMENT ON COLUMN patient_bga_records.recorded_by_account_name IS '记录人姓名';
@@ -3973,7 +3946,6 @@ COMMENT ON COLUMN patient_settings.modified_by IS '最后修改人';
 -- drop table if exists raw_bga_records;
 -- drop table if exists patient_bga_record_details;
 -- drop table if exists patient_bga_records;
--- drop table if exists bga_param_mappings;
 -- drop table if exists bga_category_mappings;
 -- drop table if exists bga_params;
 -- drop table if exists padua_bleeding_risk_assessments;

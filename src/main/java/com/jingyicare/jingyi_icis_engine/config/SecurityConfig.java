@@ -58,6 +58,8 @@ public class SecurityConfig {
                     .requestMatchers((request) -> request.getServletPath().startsWith("/favicon")).permitAll()
                     .requestMatchers((request) -> request.getServletPath().startsWith("/login")).permitAll()
                     .requestMatchers((request) -> request.getServletPath().startsWith("/access")).permitAll()
+                    .requestMatchers((request) -> request.getServletPath().matches("^/[^/]+\\.(js|css|png|ico|txt)$")).permitAll()
+                    .requestMatchers((request) -> request.getServletPath().startsWith("/assets/")).permitAll()
                     .requestMatchers((request) -> request.getServletPath().startsWith("/common")).permitAll()
                     .requestMatchers((request) -> request.getServletPath().startsWith("/main")).permitAll()
                     .requestMatchers((request) -> request.getServletPath().startsWith("/react-vendor")).permitAll()

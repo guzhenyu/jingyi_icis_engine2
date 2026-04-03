@@ -28,6 +28,9 @@ public class BgaParam {
     @Column(name = "enabled", nullable = false)
     private Boolean enabled;            // 是否启用
 
+    @Column(name = "lis_result_code")
+    private String lisResultCode;       // 检验结果编码
+
     @Column(name = "is_deleted", nullable = false)
     private Boolean isDeleted;          // 是否已删除
 
