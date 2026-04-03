@@ -178,10 +178,26 @@ public class NursingRecordServiceTests extends TestsBase {
         assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         Integer templateId2 = addResp.getId();
 
+        UpdateNursingRecordTemplateReq duplicateNameReq = UpdateNursingRecordTemplateReq.newBuilder()
+            .setTemplate(NursingRecordTemplatePB.newBuilder()
+                .setId(templateId1)
+                .setName("NursingRecordServiceTests-g4-template2")
+                .setContent("NursingRecordServiceTests-g4-template1-updated")
+                .setDisplayOrder(2)
+                .setIsCommon(0)
+                .setGroupId(groupId4)
+                .build()
+            ).build();
+        String duplicateNameReqJson = ProtoUtils.protoToJson(duplicateNameReq);
+        GenericResp duplicateNameResp = recordService.updateNursingRecordTemplate(duplicateNameReqJson);
+        assertThat(duplicateNameResp.getRt().getCode())
+            .isEqualTo(StatusCode.NURSING_RECORD_TEMPLATE_GROUP_ALREADY_EXISTS.ordinal());
+
         // 更新科室模板
         UpdateNursingRecordTemplateReq updateDeptReq = UpdateNursingRecordTemplateReq.newBuilder()
             .setTemplate(NursingRecordTemplatePB.newBuilder()
                 .setId(templateId1)
+                .setName("NursingRecordServiceTests-g4-template1-renamed")
                 .setContent("NursingRecordServiceTests-g4-template1-updated")
                 .setDisplayOrder(2)
                 .setIsCommon(0)
@@ -190,6 +206,7 @@ public class NursingRecordServiceTests extends TestsBase {
             ).build();
         String updateDeptReqJson = ProtoUtils.protoToJson(updateDeptReq);
         GenericResp updateDeptResp = recordService.updateNursingRecordTemplate(updateDeptReqJson);
+        assertThat(updateDeptResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
         // 删除科室模板
         DeleteNursingRecordTemplateReq deleteReq = DeleteNursingRecordTemplateReq.newBuilder()
@@ -203,7 +220,8 @@ public class NursingRecordServiceTests extends TestsBase {
         assertThat(getResp.getDeptTemplateList()).hasSize(3);
         assertThat(getResp.getDeptTemplate(2).getName()).isEqualTo("NursingRecordServiceTests-admin-group4");
         assertThat(getResp.getDeptTemplate(2).getNursingRecordTemplateList()).hasSize(1);
-        assertThat(getResp.getDeptTemplate(2).getNursingRecordTemplate(0).getName()).isEqualTo("NursingRecordServiceTests-g4-template1");
+        assertThat(getResp.getDeptTemplate(2).getNursingRecordTemplate(0).getName())
+            .isEqualTo("NursingRecordServiceTests-g4-template1-renamed");
         assertThat(getResp.getDeptTemplate(2).getNursingRecordTemplate(0).getContent()).isEqualTo("NursingRecordServiceTests-g4-template1-updated");
     }
 

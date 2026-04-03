@@ -3144,6 +3144,23 @@ monitoring {
     }
 
     monitoring_param {
+        code: "vent_set_respiratory_rate"
+        name: "设置呼吸频率"
+        value_meta {
+            value_type: FLOAT
+            tooltip: "呼吸机设置的呼吸频率"
+            decimal_places: 0
+            unit: "bpm"
+            upper_limit: {
+                float_val: 40.0
+            }
+            lower_limit: {
+                float_val: 5.0
+            }
+        }
+    }
+
+    monitoring_param {
         code: "vent_set_tidal_volume"
         name: "sVt"
         value_meta {
@@ -8842,6 +8859,129 @@ score {
             option { code: "aware_voice_pain" name: "对声音和疼痛都有反应" score { int32_val: 1 } }
             option { code: "aware_pain_only" name: "只对疼痛刺激有反应" score { int32_val: 2 } }
             option { code: "aware_none" name: "无反应" score { int32_val: 3 } }
+        }
+    }
+    group {
+        code: "fall_bed_assessment"
+        name: "跌倒/坠床评估"
+        description: ""
+        score_group_aggregator: 0
+        value_meta {
+            value_type: INT32
+            unit: "分"
+        }
+        item {
+            code: "age_over_65"
+            name: "1.年龄>65岁"
+            option { code: "no" name: "否" score { int32_val: 0 } }
+            option { code: "yes" name: "是" score { int32_val: 1 } }
+        }
+        item {
+            code: "consciousness_state"
+            name: "2.意识状态"
+            option { code: "clear_or_deep_coma" name: "清醒或深昏迷" score { int32_val: 0 } }
+            option { code: "consciousness_disorder" name: "有意识障碍" score { int32_val: 1 } }
+        }
+        item {
+            code: "mobility"
+            name: "3.行动能力"
+            option { code: "stable_or_immobile" name: "稳定自主或完全无法移动" score { int32_val: 0 } }
+            option { code: "unable_to_walk_stably" name: "无法稳定行走" score { int32_val: 1 } }
+        }
+        item {
+            code: "sleep_status"
+            name: "4.睡眠情况"
+            option { code: "no_special" name: "无特殊" score { int32_val: 0 } }
+            option { code: "sleep_disorder_or_sedative" name: "睡眠紊乱或使用镇静安眠药物" score { int32_val: 1 } }
+        }
+        item {
+            code: "vision_or_balance_impairment"
+            name: "5.视觉或平衡功能障碍"
+            option { code: "no" name: "无" score { int32_val: 0 } }
+            option { code: "yes" name: "有" score { int32_val: 1 } }
+        }
+        item {
+            code: "fall_history"
+            name: "6.在家或住院跌倒病史"
+            option { code: "no" name: "无" score { int32_val: 0 } }
+            option { code: "yes" name: "有" score { int32_val: 1 } }
+        }
+        item {
+            code: "limited_activity_without_help"
+            name: "7.自身活动受限，但不接受工作人员或家人协助"
+            option { code: "no" name: "无" score { int32_val: 0 } }
+            option { code: "yes" name: "有" score { int32_val: 1 } }
+        }
+        item {
+            code: "drowsiness_dizziness_anemia_bleeding_or_orthostatic_hypotension"
+            name: "8.嗜睡，头昏，贫血，大出血及体位性低血压"
+            option { code: "no" name: "无" score { int32_val: 0 } }
+            option { code: "yes" name: "有" score { int32_val: 1 } }
+        }
+        notes: "备注：1. 超过一分为高风险患者，必须进行跌倒/坠床告知及预防。2. 跌倒/坠床分级：1~2 低度风险，3~5 中度风险，≥5 高度危险。3. 评定规则：评分≥5 每周评定2次。"
+    }
+    group {
+        code: "sedation_assessment"
+        name: "镇静评估"
+        description: ""
+        score_group_aggregator: 0
+        value_meta {
+            value_type: INT32
+            unit: "分"
+        }
+        item {
+            code: "surgical_patient"
+            name: "手术患者"
+            option { code: "yes" name: "是" score { int32_val: 1 } }
+            option { code: "no" name: "否" score { int32_val: 0 } }
+            score_item_type: 0
+        }
+        item {
+            code: "consciousness_level"
+            name: "清醒程度"
+            option { code: "fully_awake" name: "完全苏醒" score { int32_val: 2 } }
+            option { code: "responsive_to_stimuli" name: "对刺激有反应" score { int32_val: 1 } }
+            option { code: "no_response_to_stimuli" name: "对刺激无反应" score { int32_val: 0 } }
+            score_item_type: 0
+        }
+        item {
+            code: "airway_patency"
+            name: "呼吸道通畅程度"
+            option { code: "cough_on_command" name: "可按医师吩咐咳嗽" score { int32_val: 2 } }
+            option { code: "maintain_airway_without_support" name: "不支持可维持呼吸道通畅" score { int32_val: 1 } }
+            option { code: "airway_requires_support" name: "呼吸道需要予以支持" score { int32_val: 0 } }
+            score_item_type: 0
+        }
+        item {
+            code: "limb_activity"
+            name: "肢体活动度"
+            option { code: "purposeful_movement" name: "肢体能做有意识的活动" score { int32_val: 2 } }
+            option { code: "nonpurposeful_movement" name: "肢体无意识活动" score { int32_val: 1 } }
+            option { code: "no_movement" name: "肢体无活动" score { int32_val: 0 } }
+            score_item_type: 0
+        }
+        item {
+            code: "steward_score_status"
+            name: "SteWard得分情况"
+            option { code: "lt_4_waited_4h" name: "以上三项合计分数小于4但已等待4小时" score { int32_val: 2 } }
+            option { code: "ge_4" name: "以上三项合计分数大于等于4" score { int32_val: 1 } }
+            option { code: "lt_4" name: "以上三项合计分数小于4" score { int32_val: 0 } }
+            score_item_type: 0
+        }
+        item {
+            code: "rass_score"
+            name: "RASS得分"
+            option { code: "aggressive" name: "4分-有攻击性" score { int32_val: 4 } }
+            option { code: "very_agitated" name: "3分-非常躁动" score { int32_val: 3 } }
+            option { code: "agitated" name: "2分-躁动焦虑" score { int32_val: 2 } }
+            option { code: "restless" name: "1分-不安焦虑" score { int32_val: 1 } }
+            option { code: "alert_and_calm" name: "0分-清醒平静" score { int32_val: 0 } }
+            option { code: "drowsy" name: "-1分-昏昏欲睡" score { int32_val: -1 } }
+            option { code: "light_sedation" name: "-2分-轻度镇静" score { int32_val: -2 } }
+            option { code: "moderate_sedation" name: "-3分-中度镇静" score { int32_val: -3 } }
+            option { code: "deep_sedation" name: "-4分-重度镇静" score { int32_val: -4 } }
+            option { code: "coma" name: "-5分-昏迷" score { int32_val: -5 } }
+            score_item_type: 0
         }
     }
     default_score_group_code: "gcs"

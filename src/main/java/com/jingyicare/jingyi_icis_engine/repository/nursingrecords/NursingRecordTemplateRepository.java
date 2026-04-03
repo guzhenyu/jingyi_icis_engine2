@@ -1,6 +1,7 @@
 package com.jingyicare.jingyi_icis_engine.repository.nursingrecords;
 
 import java.util.List;
+import java.util.Optional;
 
 import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.NursingRecordTemplate;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -15,6 +16,9 @@ public interface NursingRecordTemplateRepository extends JpaRepository<NursingRe
 
     List<NursingRecordTemplate> findByEntityTypeAndEntityIdAndGroupIdAndIsDeletedFalse(
         Integer entityType, String entityId, Integer groupId);
+
+    Optional<NursingRecordTemplate> findByEntityTypeAndEntityIdAndNameAndIsDeletedFalse(
+        Integer entityType, String entityId, String name);
 
     // 根据 名称 查询是否存在该模板
     boolean existsByEntityTypeAndEntityIdAndNameAndIsDeletedFalse(

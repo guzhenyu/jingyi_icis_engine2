@@ -423,6 +423,20 @@ public class NursingRecordService {
                 .build();
         }
 
+        final String templateName = req.getTemplate().getName();
+        if (!StrUtils.isBlank(templateName)) {
+            Optional<NursingRecordTemplate> dupTemplate = templateRepo
+                .findByEntityTypeAndEntityIdAndNameAndIsDeletedFalse(
+                    templateToUpdate.getEntityType(), templateToUpdate.getEntityId(), templateName);
+            if (dupTemplate.isPresent() && !Objects.equals(dupTemplate.get().getId(), templateToUpdate.getId())) {
+                log.error("Template already exists: {}", templateName);
+                return GenericResp.newBuilder()
+                    .setRt(protoService.getReturnCode(StatusCode.NURSING_RECORD_TEMPLATE_GROUP_ALREADY_EXISTS))
+                    .build();
+            }
+            templateToUpdate.setName(templateName);
+        }
+
         // 更新
         templateToUpdate.setContent(req.getTemplate().getContent());
         templateToUpdate.setDisplayOrder(req.getTemplate().getDisplayOrder());
