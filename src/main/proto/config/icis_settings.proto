@@ -18,6 +18,7 @@ enum SystemSettingFunctionId {
     GET_DEPT_NURSING_RECORD_SETTINGS = 9;   // NursingRecordSettingsPB 科室护理记录设置
     GET_DEPT_NURSING_SCORE_SETTINGS = 10;   // ScoreSettingsPB 科室评分配置
     GET_DEPT_APP_SETTINGS = 11;             // 科室级别的全局设置设置，包含打印配置
+    GET_APP_LOGO = 12;                      // 系统级别应用Logo配置，settings_pb直接存custom_logo_b64
 }
 
 // next id: 6

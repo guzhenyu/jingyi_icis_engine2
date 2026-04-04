@@ -1846,8 +1846,20 @@ public class WebApiService {
         return resp;
     }
 
+    public GetLogoResp getLogo(String getLogoReqJson) {
+        GetLogoResp resp = settingService.getLogo(getLogoReqJson);
+        resp = metricService.recordApiMetrics(resp, GetLogoResp::getRt);
+        return resp;
+    }
+
     public GenericResp updateAppSettings(String updateAppSettingsReqJson) {
         GenericResp resp = settingService.updateAppSettings(updateAppSettingsReqJson);
+        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
+        return resp;
+    }
+
+    public GenericResp updateLogo(String updateLogoReqJson) {
+        GenericResp resp = settingService.updateLogo(updateLogoReqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }

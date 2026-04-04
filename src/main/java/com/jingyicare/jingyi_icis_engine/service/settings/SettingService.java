@@ -40,7 +40,8 @@ public class SettingService {
         @Autowired MonitoringConfig monitoringConfig,
         @Autowired NursingRecordConfig nursingRecordConfig,
         @Autowired ScoreConfig scoreConfig,  // nursing score
-        @Autowired DeptSystemSettingsRepository settingsRepo
+        @Autowired DeptSystemSettingsRepository deptSettingsRepo,
+        @Autowired SystemSettingsRepository systemSettingsRepo
     ) {
         this.statusCodeMsgList = protoService.getConfig().getText().getStatusCodeMsgList();
 
@@ -50,7 +51,8 @@ public class SettingService {
         this.monitoringConfig = monitoringConfig;
         this.nursingRecordConfig = nursingRecordConfig;
         this.scoreConfig = scoreConfig;
-        this.settingsRepo = settingsRepo;
+        this.deptSettingsRepo = deptSettingsRepo;
+        this.systemSettingsRepo = systemSettingsRepo;
     }
 
     @Transactional
@@ -90,7 +92,7 @@ public class SettingService {
         // 获取通用设置信息
         DeptSystemSettingsId settingsId = new DeptSystemSettingsId(
             deptId, SystemSettingFunctionId.GET_DEPT_APP_SETTINGS.getNumber());
-        DeptSystemSettings settingsEntity = settingsRepo.findById(settingsId).orElse(null);
+        DeptSystemSettings settingsEntity = deptSettingsRepo.findById(settingsId).orElse(null);
         AppGeneralSettingsPB generalSettingsPb = null;
         if (settingsEntity != null) {
             generalSettingsPb = ProtoUtils.decodeAppGeneralSettings(settingsEntity.getSettingsPb());
@@ -211,7 +213,7 @@ public class SettingService {
 
             DeptSystemSettingsId settingsId = new DeptSystemSettingsId(
                 deptId, SystemSettingFunctionId.GET_DEPT_APP_SETTINGS.getNumber());
-            DeptSystemSettings entity = settingsRepo.findById(settingsId).orElse(null);
+            DeptSystemSettings entity = deptSettingsRepo.findById(settingsId).orElse(null);
             String settingsStr = ProtoUtils.encodeAppGeneralSettings(generalSettingsPb);
 
             LocalDateTime nowUtc = TimeUtils.getNowUtc();
@@ -221,8 +223,77 @@ public class SettingService {
                 entity.setModifiedAt(nowUtc);
                 entity.setModifiedBy(accountId);
             }
-            settingsRepo.save(entity);
+            deptSettingsRepo.save(entity);
         }
+
+        return GenericResp.newBuilder()
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
+            .build();
+    }
+
+    @Transactional(readOnly = true)
+    public GetLogoResp getLogo(String getLogoReqJson) {
+        try {
+            GetLogoReq.Builder builder = GetLogoReq.newBuilder();
+            JsonFormat.parser().merge(getLogoReqJson, builder);
+        } catch (Exception e) {
+            log.error("Failed to convert string to proto: ", e, "\n", e.getStackTrace());
+            return GetLogoResp.newBuilder()
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
+                .build();
+        }
+
+        SystemSettings settingsEntity = systemSettingsRepo
+            .findById(SystemSettingFunctionId.GET_APP_LOGO.getNumber())
+            .orElse(null);
+
+        return GetLogoResp.newBuilder()
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
+            .setCustomLogoB64(settingsEntity == null ? "" : settingsEntity.getSettingsPb())
+            .build();
+    }
+
+    @Transactional
+    public GenericResp updateLogo(String updateLogoReqJson) {
+        final UpdateLogoReq req;
+        try {
+            UpdateLogoReq.Builder builder = UpdateLogoReq.newBuilder();
+            JsonFormat.parser().merge(updateLogoReqJson, builder);
+            req = builder.build();
+        } catch (Exception e) {
+            log.error("Failed to convert string to proto: ", e, "\n", e.getStackTrace());
+            return GenericResp.newBuilder()
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
+                .build();
+        }
+
+        Pair<String, String> account = userService.getAccountWithAutoId();
+        if (account == null) {
+            return GenericResp.newBuilder()
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
+                .build();
+        }
+        final String accountId = account.getFirst();
+        final Integer functionId = SystemSettingFunctionId.GET_APP_LOGO.getNumber();
+        final LocalDateTime nowUtc = TimeUtils.getNowUtc();
+        final String customLogoB64 = req.getCustomLogoB64().trim();
+
+        SystemSettings entity = systemSettingsRepo.findById(functionId).orElse(null);
+        if (entity == null) {
+            entity = SystemSettings.builder()
+                .functionId(functionId)
+                .functionName(SystemSettingFunctionId.GET_APP_LOGO.name())
+                .settingsPb(customLogoB64)
+                .modifiedAt(nowUtc)
+                .modifiedBy(accountId)
+                .build();
+        } else {
+            entity.setFunctionName(SystemSettingFunctionId.GET_APP_LOGO.name());
+            entity.setSettingsPb(customLogoB64);
+            entity.setModifiedAt(nowUtc);
+            entity.setModifiedBy(accountId);
+        }
+        systemSettingsRepo.save(entity);
 
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
@@ -237,5 +308,6 @@ public class SettingService {
     private final MonitoringConfig monitoringConfig;
     private final NursingRecordConfig nursingRecordConfig;
     private final ScoreConfig scoreConfig;
-    private final DeptSystemSettingsRepository settingsRepo;
+    private final DeptSystemSettingsRepository deptSettingsRepo;
+    private final SystemSettingsRepository systemSettingsRepo;
 }

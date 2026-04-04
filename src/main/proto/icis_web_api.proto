@@ -4929,6 +4929,19 @@ message GetAppSettingsResp {
 }
 
 /*
+ * /api/settings/getlogo
+ * input: GetLogoReq
+ * output: GetLogoResp
+ */
+message GetLogoReq {
+}
+
+message GetLogoResp {
+    shared.ReturnCode rt = 1;  // 返回码
+    string custom_logo_b64 = 2;  // 图片内容的base64编码
+}
+
+/*
  * /api/settings/updateappsettings
  * input: UpdateAppSettingsReq
  * output: GenericResp
@@ -4938,4 +4951,13 @@ message UpdateAppSettingsReq {
 
     repeated config.AppSettingTypeEnum changed_type = 2; // 变更的设置类型列表(AST_GENERAL对应通用打印配置)
     config.AppSettingsPB settings = 3; // 应用设置
+}
+
+/*
+ * /api/settings/updatelogo
+ * input: UpdateLogoReq
+ * output: GenericResp
+ */
+message UpdateLogoReq {
+    string custom_logo_b64 = 3;
 }
