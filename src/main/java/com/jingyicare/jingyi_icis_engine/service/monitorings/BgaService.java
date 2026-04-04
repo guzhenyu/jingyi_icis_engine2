@@ -19,8 +19,10 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
 
+import com.jingyicare.jingyi_icis_engine.entity.lis.*;
 import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.*;
+import com.jingyicare.jingyi_icis_engine.repository.lis.*;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
@@ -42,6 +44,8 @@ public class BgaService {
         @Autowired RbacDepartmentRepository departmentRepo,
         @Autowired BgaParamRepository bgaParamRepo,
         @Autowired BgaCategoryMappingRepository bgaCategoryMappingRepo,
+        @Autowired PatientLisItemRepository lisItemRepo,
+        @Autowired PatientLisResultRepository lisResultRepo,
         @Autowired PatientBgaRecordRepository recordRepo,
         @Autowired PatientBgaRecordDetailRepository recordDetailRepo,
         @Autowired RawBgaRecordRepository rawBgaRecordRepo,
@@ -64,6 +68,8 @@ public class BgaService {
 
         this.bgaParamRepository = bgaParamRepo;
         this.bgaCategoryMappingRepository = bgaCategoryMappingRepo;
+        this.patientLisItemRepository = lisItemRepo;
+        this.patientLisResultRepository = lisResultRepo;
         this.recordRepository = recordRepo;
         this.recordDetailRepository = recordDetailRepo;
         this.rawBgaRecordRepository = rawBgaRecordRepo;
@@ -336,23 +342,21 @@ public class BgaService {
         }
         String deptId = patientRecord.getDeptId();
 
-        // 获取血气记录
-        List<PatientBgaRecord> records = recordRepository.findByPidAndEffectiveTimeBetweenAndIsDeletedFalse(
-            req.getPid(), queryStartUtc, queryEndUtc
-        );
-        List<Long> recordIds = records.stream().map(PatientBgaRecord::getId).collect(Collectors.toList());
-        Map<Long, List<PatientBgaRecordDetail>> recordDetails = recordDetailRepository
-            .findByRecordIdInAndIsDeletedFalse(recordIds)
-            .stream().collect(Collectors.groupingBy(PatientBgaRecordDetail::getRecordId));
         if (forceSync) {
-            syncRawBgaRecords(
-                patientRecord, records, recordDetails, queryStartUtc, queryEndUtc,
+            syncPatientBgaRecords(
+                patientRecord, queryStartUtc, queryEndUtc,
                 accountId, accountName, nowUtc
             );
 
             // 更新护理单的处理时间（为 打印从首页到尾页都一致的护理单 提效，省二院）
             pnrUtils.updateLatestDataTime(pid, deptId, queryStartUtc, queryEndUtc, nowUtc);
         }
+
+        // 获取血气记录
+        List<PatientBgaRecord> records = recordRepository.findByPidAndEffectiveTimeBetweenAndIsDeletedFalse(
+            req.getPid(), queryStartUtc, queryEndUtc
+        );
+        Map<Long, List<PatientBgaRecordDetail>> recordDetails = getRecordDetailsMap(records);
         records = records.stream().sorted(
             Comparator.comparing(PatientBgaRecord::getEffectiveTime).reversed()).toList();
 
@@ -865,35 +869,379 @@ public class BgaService {
         return new Pair<>(meta, timedValues);
     }
 
-    private void syncRawBgaRecords(
+    private Map<Long, List<PatientBgaRecordDetail>> getRecordDetailsMap(List<PatientBgaRecord> records) {
+        List<Long> recordIds = records.stream().map(PatientBgaRecord::getId).toList();
+        if (recordIds.isEmpty()) return new HashMap<>();
+        return recordDetailRepository.findByRecordIdInAndIsDeletedFalse(recordIds)
+            .stream()
+            .collect(Collectors.groupingBy(PatientBgaRecordDetail::getRecordId));
+    }
+
+    private void syncPatientBgaRecords(
         PatientRecord patientRecord,
-        List<PatientBgaRecord> records,
-        Map<Long, List<PatientBgaRecordDetail>> recordDetails,
         LocalDateTime queryStartUtc, LocalDateTime queryEndUtc,
         String accountId, String accountName, LocalDateTime nowUtc
     ) {
-        final Long pid = patientRecord.getId();
-        final String deptId = patientRecord.getDeptId();
-log.info("\n\n\nSyncing raw BGA records for patient {}, from {} to {}",
-    pid, queryStartUtc, queryEndUtc);
-        // 根据MRN和床位历史查询对应的原始血气记录
-        List<RawBgaRecord> rawBgaRecords = collectRawBgaRecords(patientRecord, queryStartUtc, queryEndUtc);
+        String deptId = patientRecord.getDeptId();
+        Map<Integer, String> cateItemMap = new LinkedHashMap<>();
+        for (BgaCategoryMapping mapping : getOrCreateBgaCategoryMappings(deptId)) {
+            cateItemMap.putIfAbsent(mapping.getBgaCategoryId(), normalizeNullableString(mapping.getLisItemCode()));
+        }
 
-        // 将原始血气记录转化成病人的血气记录，并返回原始血气到病人血气记录的映射
-        List<PatientBgaRecord> savedRecords = createNewPatientRecords(
-            rawBgaRecords, pid, deptId, accountId, accountName, nowUtc);
-        records.addAll(savedRecords);
+        List<BgaSyncRecordCandidate> candidates = new ArrayList<>();
+        candidates.addAll(collectRawBgaCandidates(patientRecord, cateItemMap, queryStartUtc, queryEndUtc, nowUtc));
+        candidates.addAll(collectLisBgaCandidates(patientRecord, cateItemMap, queryStartUtc, queryEndUtc));
 
-        // 将原始血气记录明细转化成病人的血气记录明细，返回病人的血气记录明细
-        List<PatientBgaRecordDetail> newDetails = createNewRecordDetails(
-            savedRecords, deptId, accountId, accountName, nowUtc
+        upsertSyncedBgaRecords(
+            patientRecord.getId(), deptId, cateItemMap, candidates,
+            accountId, accountName, nowUtc, queryStartUtc, queryEndUtc
+        );
+    }
+
+    private List<BgaSyncRecordCandidate> collectRawBgaCandidates(
+        PatientRecord patientRecord, Map<Integer, String> cateItemMap,
+        LocalDateTime queryStartUtc, LocalDateTime queryEndUtc, LocalDateTime nowUtc
+    ) {
+        String deptId = patientRecord.getDeptId();
+        List<RawBgaRecord> rawRecords = collectRawBgaRecords(patientRecord, queryStartUtc, queryEndUtc).stream()
+            .filter(raw -> StrUtils.isBlank(cateItemMap.get(raw.getBgaCategoryId())))
+            .sorted(Comparator.comparing(RawBgaRecord::getId).reversed())
+            .toList();
+        if (rawRecords.isEmpty()) return Collections.emptyList();
+
+        Map<String, RawBgaRecord> uniqueRawRecordMap = new LinkedHashMap<>();
+        for (RawBgaRecord rawRecord : rawRecords) {
+            uniqueRawRecordMap.putIfAbsent(buildRawRecordDedupKey(rawRecord), rawRecord);
+        }
+
+        List<RawBgaRecord> uniqueRawRecords = new ArrayList<>(uniqueRawRecordMap.values());
+        List<Long> rawRecordIds = uniqueRawRecords.stream().map(RawBgaRecord::getId).toList();
+        Map<Long, List<RawBgaRecordDetail>> rawDetailMap = rawRecordIds.isEmpty()
+            ? Collections.emptyMap()
+            : rawBgaRecordDetailRepository.findByRecordIdIn(rawRecordIds).stream()
+                .collect(Collectors.groupingBy(RawBgaRecordDetail::getRecordId));
+
+        List<BgaSyncRecordCandidate> candidates = new ArrayList<>();
+        for (RawBgaRecord rawRecord : uniqueRawRecords) {
+            candidates.add(new BgaSyncRecordCandidate(
+                BgaRecordSource.RAW,
+                rawRecord.getBgaCategoryId(),
+                bgaCategoryMap.getOrDefault(rawRecord.getBgaCategoryId(), ""),
+                rawRecord.getEffectiveTime(),
+                null,
+                rawRecord.getId(),
+                nowUtc,
+                buildRawDetailCandidates(
+                    rawDetailMap.getOrDefault(rawRecord.getId(), Collections.emptyList()),
+                    deptId
+                )
+            ));
+        }
+        return candidates;
+    }
+
+    private List<BgaSyncRecordCandidate> collectLisBgaCandidates(
+        PatientRecord patientRecord, Map<Integer, String> cateItemMap,
+        LocalDateTime queryStartUtc, LocalDateTime queryEndUtc
+    ) {
+        String hisPid = patientRecord.getHisPatientId();
+        if (StrUtils.isBlank(hisPid)) return Collections.emptyList();
+
+        Map<String, List<Integer>> itemCodeToCategoryIds = new LinkedHashMap<>();
+        for (Map.Entry<Integer, String> entry : cateItemMap.entrySet()) {
+            String lisItemCode = normalizeNullableString(entry.getValue());
+            if (StrUtils.isBlank(lisItemCode)) continue;
+            itemCodeToCategoryIds.computeIfAbsent(lisItemCode, key -> new ArrayList<>()).add(entry.getKey());
+        }
+        if (itemCodeToCategoryIds.isEmpty()) return Collections.emptyList();
+
+        Map<String, List<String>> lisResultCodeToParamCodes = getLisResultCodeToMonitoringParamCodes(
+            patientRecord.getDeptId()
+        );
+        if (lisResultCodeToParamCodes.isEmpty()) return Collections.emptyList();
+
+        List<PatientLisItem> lisItems = collectPatientLisItems(
+            hisPid, new ArrayList<>(itemCodeToCategoryIds.keySet()), queryStartUtc, queryEndUtc
+        );
+        if (lisItems.isEmpty()) return Collections.emptyList();
+
+        Map<String, PatientLisItem> reportIdToItemMap = lisItems.stream()
+            .collect(Collectors.toMap(
+                PatientLisItem::getReportId,
+                item -> item,
+                this::selectPreferredLisItem,
+                LinkedHashMap::new
+            ));
+        List<String> reportIds = lisItems.stream()
+            .map(PatientLisItem::getReportId)
+            .distinct()
+            .toList();
+        List<String> externalParamCodes = new ArrayList<>(lisResultCodeToParamCodes.keySet());
+        Map<String, Map<String, PatientLisResult>> latestResultMap = buildLatestLisResultMap(
+            reportIdToItemMap, reportIds, externalParamCodes
         );
 
-        for (PatientBgaRecordDetail newDetail : newDetails) {
-            recordDetails
-                .computeIfAbsent(newDetail.getRecordId(), k -> new ArrayList<>())
-                .add(newDetail);
+        List<BgaSyncRecordCandidate> candidates = new ArrayList<>();
+        for (PatientLisItem lisItem : lisItems) {
+            String lisItemCode = normalizeNullableString(lisItem.getLisItemCode());
+            List<Integer> categoryIds = itemCodeToCategoryIds.get(lisItemCode);
+            LocalDateTime effectiveTime = resolveLisItemAuthTime(lisItem);
+            if (categoryIds == null || effectiveTime == null) continue;
+
+            List<BgaSyncDetailCandidate> detailCandidates = buildLisDetailCandidates(
+                latestResultMap.getOrDefault(lisItem.getReportId(), Collections.emptyMap()),
+                lisResultCodeToParamCodes,
+                patientRecord.getDeptId(),
+                lisItem
+            );
+            if (detailCandidates.isEmpty()) continue;
+
+            for (Integer categoryId : categoryIds) {
+                candidates.add(new BgaSyncRecordCandidate(
+                    BgaRecordSource.LIS,
+                    categoryId,
+                    bgaCategoryMap.getOrDefault(categoryId, ""),
+                    effectiveTime,
+                    lisItemCode,
+                    null,
+                    effectiveTime,
+                    detailCandidates
+                ));
+            }
         }
+        return candidates;
+    }
+
+    private List<PatientLisItem> collectPatientLisItems(
+        String hisPid, List<String> lisItemCodes, LocalDateTime queryStartUtc, LocalDateTime queryEndUtc
+    ) {
+        List<PatientLisItem> lisItems = new ArrayList<>(
+            patientLisItemRepository.findByHisPidAndLisItemCodeInAndAuthTimeBetween(
+                hisPid, lisItemCodes, queryStartUtc, queryEndUtc
+            )
+        );
+
+        for (PatientLisItem item : patientLisItemRepository.findByHisPidAndLisItemCodeInAndAuthTimeIsNull(
+            hisPid, lisItemCodes
+        )) {
+            LocalDateTime authTime = resolveLisItemAuthTime(item);
+            if (authTime == null || authTime.isBefore(queryStartUtc) || authTime.isAfter(queryEndUtc)) continue;
+            item.setAuthTime(authTime);
+            lisItems.add(item);
+        }
+        return lisItems;
+    }
+
+    private Map<String, Map<String, PatientLisResult>> buildLatestLisResultMap(
+        Map<String, PatientLisItem> reportIdToItemMap, List<String> reportIds, List<String> externalParamCodes
+    ) {
+        if (reportIds.isEmpty() || externalParamCodes.isEmpty()) return Collections.emptyMap();
+
+        Map<String, Map<String, PatientLisResult>> latestResultMap = new HashMap<>();
+        for (PatientLisResult result : patientLisResultRepository
+            .findByReportIdInAndExternalParamCodeInAndIsDeletedFalse(reportIds, externalParamCodes)
+        ) {
+            PatientLisItem lisItem = reportIdToItemMap.get(result.getReportId());
+            if (lisItem == null) continue;
+
+            LocalDateTime authTime = resolveLisResultAuthTime(result, lisItem);
+            if (authTime == null) continue;
+
+            result.setAuthTime(authTime);
+            latestResultMap.computeIfAbsent(result.getReportId(), key -> new HashMap<>())
+                .merge(
+                    result.getExternalParamCode(),
+                    result,
+                    (left, right) -> right.getAuthTime().isAfter(left.getAuthTime()) ? right : left
+                );
+        }
+        return latestResultMap;
+    }
+
+    private void upsertSyncedBgaRecords(
+        Long pid, String deptId, Map<Integer, String> cateItemMap, List<BgaSyncRecordCandidate> candidates,
+        String accountId, String accountName, LocalDateTime nowUtc,
+        LocalDateTime queryStartUtc, LocalDateTime queryEndUtc
+    ) {
+        Map<Integer, BgaRecordSource> managedSourceMap = new LinkedHashMap<>();
+        for (Integer bgaCategoryId : bgaCategoryIds) {
+            managedSourceMap.put(
+                bgaCategoryId,
+                StrUtils.isBlank(cateItemMap.get(bgaCategoryId)) ? BgaRecordSource.RAW : BgaRecordSource.LIS
+            );
+        }
+
+        Map<BgaRecordKey, BgaSyncRecordCandidate> candidateMap = new LinkedHashMap<>();
+        for (BgaSyncRecordCandidate candidate : candidates) {
+            candidateMap.merge(getRecordKey(candidate.bgaCategoryId(), candidate.effectiveTime()), candidate,
+                this::selectPreferredSyncCandidate);
+        }
+
+        List<PatientBgaRecord> existingRecords = recordRepository.findByPidAndEffectiveTimeBetweenAndIsDeletedFalse(
+            pid, queryStartUtc, queryEndUtc
+        );
+        Map<BgaRecordKey, PatientBgaRecord> existingRecordMap = existingRecords.stream()
+            .collect(Collectors.toMap(
+                record -> getRecordKey(record.getBgaCategoryId(), record.getEffectiveTime()),
+                record -> record,
+                (left, right) -> left,
+                LinkedHashMap::new
+            ));
+        Set<BgaRecordKey> syncedKeys = new HashSet<>();
+
+        for (Map.Entry<BgaRecordKey, BgaSyncRecordCandidate> entry : candidateMap.entrySet()) {
+            PatientBgaRecord syncedRecord = upsertSyncedBgaRecord(
+                existingRecordMap.get(entry.getKey()), pid, deptId, entry.getValue(), accountId, accountName, nowUtc
+            );
+            if (syncedRecord == null) continue;
+            syncPatientBgaRecordDetails(syncedRecord.getId(), entry.getValue().details(), accountId, nowUtc);
+            existingRecordMap.put(entry.getKey(), syncedRecord);
+            syncedKeys.add(entry.getKey());
+        }
+
+        cleanupStaleSyncedRecords(
+            recordRepository.findByPidAndEffectiveTimeBetweenAndIsDeletedFalse(pid, queryStartUtc, queryEndUtc),
+            managedSourceMap, syncedKeys, accountId, accountName, nowUtc
+        );
+    }
+
+    private PatientBgaRecord upsertSyncedBgaRecord(
+        PatientBgaRecord existingRecord, Long pid, String deptId, BgaSyncRecordCandidate candidate,
+        String accountId, String accountName, LocalDateTime nowUtc
+    ) {
+        BgaRecordSource existingSource = existingRecord == null ? null : classifyRecordSource(existingRecord);
+        if (existingSource == BgaRecordSource.MANUAL) {
+            log.info(
+                "Skip syncing BGA record because a manual record already exists. pid={}, cateId={}, effectiveTime={}",
+                pid, candidate.bgaCategoryId(), candidate.effectiveTime()
+            );
+            return null;
+        }
+
+        boolean isNewRecord = existingRecord == null;
+        PatientBgaRecord record = isNewRecord ? new PatientBgaRecord() : existingRecord;
+        String nextLisItemCode = candidate.source() == BgaRecordSource.LIS ? candidate.lisItemCode() : null;
+        Long nextRawRecordId = candidate.source() == BgaRecordSource.RAW ? candidate.rawRecordId() : null;
+        boolean shouldResetRecordedInfo = isNewRecord ||
+            existingSource != candidate.source() ||
+            !Objects.equals(record.getRawRecordId(), nextRawRecordId) ||
+            !Objects.equals(normalizeNullableString(record.getLisItemCode()), nextLisItemCode) ||
+            record.getRecordedAt() == null;
+
+        record.setPid(pid);
+        record.setDeptId(deptId);
+        record.setBgaCategoryId(candidate.bgaCategoryId());
+        record.setBgaCategoryName(candidate.bgaCategoryName());
+        record.setLisItemCode(nextLisItemCode);
+        record.setEffectiveTime(candidate.effectiveTime());
+        record.setRawRecordId(nextRawRecordId);
+        if (shouldResetRecordedInfo) {
+            record.setRecordedBy(accountId);
+            record.setRecordedByAccountName(accountName);
+            record.setRecordedAt(candidate.recordedAt());
+            if (!isNewRecord) {
+                record.setReviewedBy(null);
+                record.setReviewedByAccountName(null);
+                record.setReviewedAt(null);
+            }
+        }
+        record.setIsDeleted(false);
+        record.setModifiedBy(accountId);
+        record.setModifiedByAccountName(accountName);
+        record.setModifiedAt(nowUtc);
+        return recordRepository.save(record);
+    }
+
+    private void syncPatientBgaRecordDetails(
+        Long recordId, List<BgaSyncDetailCandidate> detailCandidates, String accountId, LocalDateTime nowUtc
+    ) {
+        List<PatientBgaRecordDetail> existingDetails = recordDetailRepository.findByRecordIdAndIsDeletedFalse(recordId);
+        Map<String, PatientBgaRecordDetail> existingDetailMap = existingDetails.stream()
+            .collect(Collectors.toMap(
+                PatientBgaRecordDetail::getMonitoringParamCode,
+                detail -> detail,
+                (left, right) -> left,
+                LinkedHashMap::new
+            ));
+        Map<String, BgaSyncDetailCandidate> desiredDetailMap = new LinkedHashMap<>();
+        for (BgaSyncDetailCandidate candidate : detailCandidates) {
+            desiredDetailMap.put(candidate.monitoringParamCode(), candidate);
+        }
+
+        List<PatientBgaRecordDetail> detailsToSave = new ArrayList<>();
+        for (BgaSyncDetailCandidate detailCandidate : desiredDetailMap.values()) {
+            PatientBgaRecordDetail existingDetail = existingDetailMap.remove(detailCandidate.monitoringParamCode());
+            if (existingDetail == null) {
+                detailsToSave.add(PatientBgaRecordDetail.builder()
+                    .recordId(recordId)
+                    .monitoringParamCode(detailCandidate.monitoringParamCode())
+                    .paramValue(detailCandidate.paramValue())
+                    .paramValueStr(detailCandidate.paramValueStr())
+                    .isDeleted(false)
+                    .modifiedBy(accountId)
+                    .modifiedAt(nowUtc)
+                    .build());
+                continue;
+            }
+
+            if (Objects.equals(existingDetail.getParamValue(), detailCandidate.paramValue()) &&
+                Objects.equals(existingDetail.getParamValueStr(), detailCandidate.paramValueStr())
+            ) {
+                continue;
+            }
+
+            existingDetail.setParamValue(detailCandidate.paramValue());
+            existingDetail.setParamValueStr(detailCandidate.paramValueStr());
+            existingDetail.setModifiedBy(accountId);
+            existingDetail.setModifiedAt(nowUtc);
+            detailsToSave.add(existingDetail);
+        }
+
+        for (PatientBgaRecordDetail staleDetail : existingDetailMap.values()) {
+            staleDetail.setIsDeleted(true);
+            staleDetail.setDeletedBy(accountId);
+            staleDetail.setDeletedAt(nowUtc);
+            detailsToSave.add(staleDetail);
+        }
+
+        if (!detailsToSave.isEmpty()) recordDetailRepository.saveAll(detailsToSave);
+    }
+
+    private void cleanupStaleSyncedRecords(
+        List<PatientBgaRecord> activeRecords,
+        Map<Integer, BgaRecordSource> managedSourceMap,
+        Set<BgaRecordKey> syncedKeys,
+        String accountId, String accountName, LocalDateTime nowUtc
+    ) {
+        List<PatientBgaRecord> recordsToDelete = activeRecords.stream()
+            .filter(record -> {
+                BgaRecordSource recordSource = classifyRecordSource(record);
+                if (recordSource == BgaRecordSource.MANUAL) return false;
+                BgaRecordSource managedSource = managedSourceMap.get(record.getBgaCategoryId());
+                if (managedSource == null) return false;
+                if (recordSource != managedSource) return true;
+                return !syncedKeys.contains(getRecordKey(record.getBgaCategoryId(), record.getEffectiveTime()));
+            })
+            .toList();
+        if (recordsToDelete.isEmpty()) return;
+
+        List<Long> recordIds = recordsToDelete.stream().map(PatientBgaRecord::getId).toList();
+        List<PatientBgaRecordDetail> detailsToDelete = recordDetailRepository.findByRecordIdInAndIsDeletedFalse(recordIds);
+
+        for (PatientBgaRecord record : recordsToDelete) {
+            record.setIsDeleted(true);
+            record.setDeletedBy(accountId);
+            record.setDeletedByAccountName(accountName);
+            record.setDeletedAt(nowUtc);
+        }
+        for (PatientBgaRecordDetail detail : detailsToDelete) {
+            detail.setIsDeleted(true);
+            detail.setDeletedBy(accountId);
+            detail.setDeletedAt(nowUtc);
+        }
+
+        recordRepository.saveAll(recordsToDelete);
+        if (!detailsToDelete.isEmpty()) recordDetailRepository.saveAll(detailsToDelete);
     }
 
     private List<RawBgaRecord> collectRawBgaRecords(
@@ -933,93 +1281,126 @@ log.info("\n\n\nSyncing raw BGA records for patient {}, from {} to {}",
         return result;
     }
 
-    private List<PatientBgaRecord> createNewPatientRecords(
-        List<RawBgaRecord> rawRecords, Long pid, String deptId,
-        String accountId, String accountName, LocalDateTime nowUtc
-    ) {
-        // 将rawRecords按照mrn_bednum, effective_time去重，保留id最大的记录
-        rawRecords.sort(Comparator.comparing(RawBgaRecord::getId).reversed());
-        Map<String, Set<LocalDateTime>> seen = new HashMap<>();
-        List<RawBgaRecord> uniqueRecords = new ArrayList<>();
-        for (RawBgaRecord raw : rawRecords) {
-            String mrnOrBedNum = raw.getMrnBednum();
-            LocalDateTime effectiveTime = raw.getEffectiveTime();
-            if (!seen.containsKey(mrnOrBedNum) || !seen.get(mrnOrBedNum).contains(effectiveTime)) {
-                seen.computeIfAbsent(mrnOrBedNum, k -> new HashSet<>()).add(effectiveTime);
-                uniqueRecords.add(raw);
-            }
-        }
-        rawRecords = uniqueRecords;
-
-        // 将原始血气记录转化成病人的血气记录
-        List<PatientBgaRecord> toSave = new ArrayList<>();
-
-        for (RawBgaRecord raw : rawRecords) {
-            boolean exists = recordRepository.existsByPidAndRawRecordId(pid, raw.getId());
-            if (exists) continue;
-
-            PatientBgaRecord rec = PatientBgaRecord.builder()
-                .pid(pid)
-                .deptId(deptId)
-                .bgaCategoryId(raw.getBgaCategoryId())
-                .bgaCategoryName(bgaCategoryMap.getOrDefault(raw.getBgaCategoryId(), ""))
-                .effectiveTime(raw.getEffectiveTime())
-                .rawRecordId(raw.getId())
-                .isDeleted(false)
-                .recordedBy(accountId)
-                .recordedByAccountName(accountName)
-                .recordedAt(nowUtc)
-                .modifiedBy(accountId)
-                .modifiedByAccountName(accountName)
-                .modifiedAt(nowUtc)
-                .build();
-            toSave.add(rec);
-        }
-
-        return recordRepository.saveAll(toSave);
+    private String buildRawRecordDedupKey(RawBgaRecord rawRecord) {
+        return rawRecord.getMrnBednum() + "|" + rawRecord.getBgaCategoryId() + "|" + rawRecord.getEffectiveTime();
     }
 
-    private List<PatientBgaRecordDetail> createNewRecordDetails(
-        List<PatientBgaRecord> bgaRecords, String deptId,
-        String accountId, String accountName, LocalDateTime nowUtc
+    private List<BgaSyncDetailCandidate> buildRawDetailCandidates(
+        List<RawBgaRecordDetail> rawDetails, String deptId
     ) {
-        List<Long> rawIds = bgaRecords.stream().map(PatientBgaRecord::getRawRecordId).toList();
-        Map<Long, Long> rawToRecordMap = bgaRecords.stream()
-            .collect(Collectors.toMap(PatientBgaRecord::getRawRecordId, PatientBgaRecord::getId));
-        List<RawBgaRecordDetail> rawDetails = rawBgaRecordDetailRepository.findByRecordIdIn(rawIds);
-        List<PatientBgaRecordDetail> newDetails = new ArrayList<>();
-
-        for (RawBgaRecordDetail raw : rawDetails) {
-            Long recordId = rawToRecordMap.get(raw.getRecordId());
-            if (recordId == null) {
-                log.error("No matching record for raw detail: {}", raw.getRecordId());
-                continue;
-            }
-
-            ValueMetaPB meta = monitoringConfig.getMonitoringParamMeta(deptId, raw.getMonitoringParamCode());
+        List<BgaSyncDetailCandidate> detailCandidates = new ArrayList<>();
+        for (RawBgaRecordDetail rawDetail : rawDetails) {
+            ValueMetaPB meta = monitoringConfig.getMonitoringParamMeta(deptId, rawDetail.getMonitoringParamCode());
             if (meta == null) {
-                log.error("Missing meta for param: {}", raw.getMonitoringParamCode());
+                log.error("Missing meta for param: {}", rawDetail.getMonitoringParamCode());
                 continue;
             }
 
-            GenericValuePB value = ValueMetaUtils.toGenericValue(raw.getParamValueStr(), meta);
+            GenericValuePB value = ValueMetaUtils.toGenericValue(rawDetail.getParamValueStr(), meta);
             if (value == null) {
-                log.error("Invalid value: {}", raw.getParamValueStr());
+                log.error("Invalid raw BGA value: {}", rawDetail.getParamValueStr());
                 continue;
             }
 
-            newDetails.add(PatientBgaRecordDetail.builder()
-                .recordId(recordId)
-                .monitoringParamCode(raw.getMonitoringParamCode())
-                .paramValue(ProtoUtils.encodeGenericValue(value))
-                .paramValueStr(raw.getParamValueStr())
-                .isDeleted(false)
-                .modifiedBy(accountId)
-                .modifiedAt(nowUtc)
-                .build());
+            detailCandidates.add(new BgaSyncDetailCandidate(
+                rawDetail.getMonitoringParamCode(),
+                ProtoUtils.encodeGenericValue(value),
+                rawDetail.getParamValueStr()
+            ));
         }
+        return detailCandidates;
+    }
 
-        return recordDetailRepository.saveAll(newDetails);
+    private List<BgaSyncDetailCandidate> buildLisDetailCandidates(
+        Map<String, PatientLisResult> latestResults,
+        Map<String, List<String>> lisResultCodeToParamCodes,
+        String deptId,
+        PatientLisItem lisItem
+    ) {
+        Map<String, BgaSyncDetailCandidate> detailCandidateMap = new LinkedHashMap<>();
+        for (PatientLisResult lisResult : latestResults.values()) {
+            List<String> monitoringParamCodes = lisResultCodeToParamCodes.get(lisResult.getExternalParamCode());
+            if (monitoringParamCodes == null || monitoringParamCodes.isEmpty()) continue;
+
+            for (String monitoringParamCode : monitoringParamCodes) {
+                ValueMetaPB meta = monitoringConfig.getMonitoringParamMeta(deptId, monitoringParamCode);
+                if (meta == null) {
+                    log.error("Missing meta for LIS mapped param: {}", monitoringParamCode);
+                    continue;
+                }
+
+                GenericValuePB value = ValueMetaUtils.toGenericValue(lisResult.getResultStr(), meta);
+                if (value == null) {
+                    log.error(
+                        "Invalid LIS result value. reportId={}, lisItemCode={}, externalParamCode={}, result={}",
+                        lisItem.getReportId(), lisItem.getLisItemCode(),
+                        lisResult.getExternalParamCode(), lisResult.getResultStr()
+                    );
+                    continue;
+                }
+
+                detailCandidateMap.put(monitoringParamCode, new BgaSyncDetailCandidate(
+                    monitoringParamCode,
+                    ProtoUtils.encodeGenericValue(value),
+                    lisResult.getResultStr()
+                ));
+            }
+        }
+        return new ArrayList<>(detailCandidateMap.values());
+    }
+
+    private Map<String, List<String>> getLisResultCodeToMonitoringParamCodes(String deptId) {
+        Map<String, List<String>> resultCodeMap = new LinkedHashMap<>();
+        for (BgaParam bgaParam : monitoringConfig.getBgaParamList(deptId)) {
+            String lisResultCode = normalizeNullableString(bgaParam.getLisResultCode());
+            if (StrUtils.isBlank(lisResultCode)) continue;
+            resultCodeMap.computeIfAbsent(lisResultCode, key -> new ArrayList<>())
+                .add(bgaParam.getMonitoringParamCode());
+        }
+        return resultCodeMap;
+    }
+
+    private LocalDateTime resolveLisItemAuthTime(PatientLisItem lisItem) {
+        if (lisItem == null) return null;
+        if (lisItem.getAuthTime() != null) return lisItem.getAuthTime();
+        return lisItem.getCollectTime();
+    }
+
+    private PatientLisItem selectPreferredLisItem(PatientLisItem left, PatientLisItem right) {
+        LocalDateTime leftTime = resolveLisItemAuthTime(left);
+        LocalDateTime rightTime = resolveLisItemAuthTime(right);
+        if (leftTime == null) return right;
+        if (rightTime == null) return left;
+        return rightTime.isAfter(leftTime) ? right : left;
+    }
+
+    private LocalDateTime resolveLisResultAuthTime(PatientLisResult lisResult, PatientLisItem lisItem) {
+        if (lisResult == null) return null;
+        if (lisResult.getAuthTime() != null) return lisResult.getAuthTime();
+        return resolveLisItemAuthTime(lisItem);
+    }
+
+    private BgaRecordSource classifyRecordSource(PatientBgaRecord record) {
+        if (record == null) return BgaRecordSource.MANUAL;
+        if (record.getRawRecordId() != null) return BgaRecordSource.RAW;
+        if (!StrUtils.isBlank(record.getLisItemCode())) return BgaRecordSource.LIS;
+        return BgaRecordSource.MANUAL;
+    }
+
+    private BgaRecordKey getRecordKey(Integer bgaCategoryId, LocalDateTime effectiveTime) {
+        return new BgaRecordKey(bgaCategoryId, effectiveTime);
+    }
+
+    private BgaSyncRecordCandidate selectPreferredSyncCandidate(
+        BgaSyncRecordCandidate left, BgaSyncRecordCandidate right
+    ) {
+        if (right.details().size() != left.details().size()) {
+            return right.details().size() > left.details().size() ? right : left;
+        }
+        if (right.rawRecordId() != null && left.rawRecordId() != null) {
+            return right.rawRecordId() > left.rawRecordId() ? right : left;
+        }
+        return right;
     }
 
     private List<BgaCategoryMapping> getOrCreateBgaCategoryMappings(String deptId) {
@@ -1105,6 +1486,34 @@ log.info("\n\n\nSyncing raw BGA records for patient {}, from {} to {}",
         return value.trim();
     }
 
+    private enum BgaRecordSource {
+        RAW,
+        LIS,
+        MANUAL
+    }
+
+    private record BgaRecordKey(Integer bgaCategoryId, LocalDateTime effectiveTime) {
+    }
+
+    private record BgaSyncDetailCandidate(
+        String monitoringParamCode,
+        String paramValue,
+        String paramValueStr
+    ) {
+    }
+
+    private record BgaSyncRecordCandidate(
+        BgaRecordSource source,
+        Integer bgaCategoryId,
+        String bgaCategoryName,
+        LocalDateTime effectiveTime,
+        String lisItemCode,
+        Long rawRecordId,
+        LocalDateTime recordedAt,
+        List<BgaSyncDetailCandidate> details
+    ) {
+    }
+
     private final String ZONE_ID;
     private final List<String> statusCodeMsgs;
 
@@ -1120,6 +1529,8 @@ log.info("\n\n\nSyncing raw BGA records for patient {}, from {} to {}",
 
     private final BgaParamRepository bgaParamRepository;
     private final BgaCategoryMappingRepository bgaCategoryMappingRepository;
+    private final PatientLisItemRepository patientLisItemRepository;
+    private final PatientLisResultRepository patientLisResultRepository;
     private final PatientBgaRecordRepository recordRepository;
     private final PatientBgaRecordDetailRepository recordDetailRepository;
     private final RawBgaRecordRepository rawBgaRecordRepository;

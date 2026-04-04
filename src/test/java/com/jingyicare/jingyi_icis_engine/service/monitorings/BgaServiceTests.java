@@ -2,6 +2,7 @@ package com.jingyicare.jingyi_icis_engine.service.monitorings;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -13,19 +14,34 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import com.jingyicare.jingyi_icis_engine.entity.lis.PatientLisItem;
+import com.jingyicare.jingyi_icis_engine.entity.lis.PatientLisResult;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.BgaCategoryMapping;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.BgaParam;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.MonitoringParam;
+import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientBgaRecord;
+import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientBgaRecordDetail;
+import com.jingyicare.jingyi_icis_engine.entity.monitorings.RawBgaRecord;
+import com.jingyicare.jingyi_icis_engine.entity.monitorings.RawBgaRecordDetail;
+import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
 import com.jingyicare.jingyi_icis_engine.entity.users.RbacDepartment;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisBga.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
+import com.jingyicare.jingyi_icis_engine.repository.lis.PatientLisItemRepository;
+import com.jingyicare.jingyi_icis_engine.repository.lis.PatientLisResultRepository;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.BgaCategoryMappingRepository;
+import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientBgaRecordDetailRepository;
+import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientBgaRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.BgaParamRepository;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.MonitoringParamRepository;
+import com.jingyicare.jingyi_icis_engine.repository.monitorings.RawBgaRecordDetailRepository;
+import com.jingyicare.jingyi_icis_engine.repository.monitorings.RawBgaRecordRepository;
+import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.testutils.PatientTestUtils;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.testutils.ValueMetaTestUtils;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
@@ -38,6 +54,13 @@ public class BgaServiceTests extends TestsBase {
         @Autowired BgaService bgaService,
         @Autowired BgaParamRepository bgaParamRepository,
         @Autowired BgaCategoryMappingRepository bgaCategoryMappingRepository,
+        @Autowired PatientBgaRecordRepository patientBgaRecordRepository,
+        @Autowired PatientBgaRecordDetailRepository patientBgaRecordDetailRepository,
+        @Autowired RawBgaRecordRepository rawBgaRecordRepository,
+        @Autowired RawBgaRecordDetailRepository rawBgaRecordDetailRepository,
+        @Autowired PatientLisItemRepository patientLisItemRepository,
+        @Autowired PatientLisResultRepository patientLisResultRepository,
+        @Autowired PatientRecordRepository patientRecordRepository,
         @Autowired MonitoringParamRepository monitoringParamRepository,
         @Autowired RbacDepartmentRepository deptRepository
     ) {
@@ -47,6 +70,13 @@ public class BgaServiceTests extends TestsBase {
         this.bgaService = bgaService;
         this.bgaParamRepository = bgaParamRepository;
         this.bgaCategoryMappingRepository = bgaCategoryMappingRepository;
+        this.patientBgaRecordRepository = patientBgaRecordRepository;
+        this.patientBgaRecordDetailRepository = patientBgaRecordDetailRepository;
+        this.rawBgaRecordRepository = rawBgaRecordRepository;
+        this.rawBgaRecordDetailRepository = rawBgaRecordDetailRepository;
+        this.patientLisItemRepository = patientLisItemRepository;
+        this.patientLisResultRepository = patientLisResultRepository;
+        this.patientRecordRepository = patientRecordRepository;
         this.monitoringParamRepository = monitoringParamRepository;
         this.deptRepository = deptRepository;
     }
@@ -272,6 +302,128 @@ public class BgaServiceTests extends TestsBase {
         assertThat(restoredMapping.getLisItemCode()).isEqualTo("RESTORE_CATEGORY");
     }
 
+    @Test
+    public void testGetPatientBgaRecordsForceSyncUsesLisForMappedCategory() {
+        setCurrentUser();
+        String deptId = initDepartment("force-sync-lis");
+        LocalDateTime queryStart = TimeUtils.getNowUtc().minusHours(6).withNano(0);
+        PatientRecord patient = initPatient(deptId, "force-sync-lis", queryStart.minusHours(1));
+
+        String lisParamCode = createBgaParam(deptId, "lis-sync", "ph_result_code");
+        String rawParamCode = createBgaParam(deptId, "raw-sync", null);
+        saveBgaCategoryMapping(deptId, 1, "BGA_PANEL");
+
+        LocalDateTime lisAuthTime = queryStart.plusHours(1);
+        LocalDateTime rawEffectiveTime = queryStart.plusHours(2);
+        String lisReportId = "report-" + UUID.randomUUID();
+        createLisItem(patient.getHisPatientId(), lisReportId, "BGA_PANEL", lisAuthTime);
+        createLisResult(lisReportId, "ph_result_code", "7.35", lisAuthTime);
+
+        createRawBgaRecord(patient.getHisMrn(), 1, lisAuthTime, rawParamCode, "99.9");
+        RawBgaRecord rawCategory2 = createRawBgaRecord(patient.getHisMrn(), 2, rawEffectiveTime, rawParamCode, "36.6");
+
+        GetPatientBgaRecordsResp resp = bgaService.getPatientBgaRecords(ProtoUtils.protoToJson(
+            GetPatientBgaRecordsReq.newBuilder()
+                .setPid(patient.getId())
+                .setQueryStartIso8601(TimeUtils.toIso8601String(queryStart, "UTC"))
+                .setQueryEndIso8601(TimeUtils.toIso8601String(rawEffectiveTime.plusHours(1), "UTC"))
+                .setForceSync(true)
+                .build()
+        ));
+
+        assertThat(resp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        assertThat(resp.getRecordList()).hasSize(2);
+
+        List<PatientBgaRecord> savedRecords = patientBgaRecordRepository.findByPidAndEffectiveTimeBetweenAndIsDeletedFalse(
+            patient.getId(), queryStart, rawEffectiveTime.plusHours(1)
+        );
+        PatientBgaRecord lisRecord = savedRecords.stream()
+            .filter(record -> record.getBgaCategoryId().equals(1))
+            .findFirst()
+            .orElseThrow();
+        assertThat(lisRecord.getRawRecordId()).isNull();
+        assertThat(lisRecord.getLisItemCode()).isEqualTo("BGA_PANEL");
+        assertThat(lisRecord.getRecordedBy()).isNotBlank();
+        assertThat(lisRecord.getRecordedByAccountName()).isNotBlank();
+        assertThat(lisRecord.getRecordedAt()).isEqualTo(lisAuthTime);
+
+        List<PatientBgaRecordDetail> lisDetails = patientBgaRecordDetailRepository.findByRecordIdAndIsDeletedFalse(
+            lisRecord.getId()
+        );
+        assertThat(lisDetails).extracting(PatientBgaRecordDetail::getMonitoringParamCode)
+            .containsExactly(lisParamCode);
+        assertThat(lisDetails).extracting(PatientBgaRecordDetail::getParamValueStr)
+            .containsExactly("7.35");
+
+        PatientBgaRecord rawRecord = savedRecords.stream()
+            .filter(record -> record.getBgaCategoryId().equals(2))
+            .findFirst()
+            .orElseThrow();
+        assertThat(rawRecord.getRawRecordId()).isEqualTo(rawCategory2.getId());
+        assertThat(rawRecord.getLisItemCode()).isNull();
+        List<PatientBgaRecordDetail> rawDetails = patientBgaRecordDetailRepository.findByRecordIdAndIsDeletedFalse(
+            rawRecord.getId()
+        );
+        assertThat(rawDetails).extracting(PatientBgaRecordDetail::getMonitoringParamCode)
+            .containsExactly(rawParamCode);
+        assertThat(rawDetails).extracting(PatientBgaRecordDetail::getParamValueStr)
+            .containsExactly("36.6");
+    }
+
+    @Test
+    public void testGetPatientBgaRecordsForceSyncReplacesRawRecordWhenCategoryMappedToLis() {
+        setCurrentUser();
+        String deptId = initDepartment("switch-to-lis");
+        LocalDateTime queryStart = TimeUtils.getNowUtc().minusHours(8).withNano(0);
+        LocalDateTime effectiveTime = queryStart.plusHours(1);
+        PatientRecord patient = initPatient(deptId, "switch-to-lis", queryStart.minusHours(1));
+
+        String rawParamCode = createBgaParam(deptId, "raw-before-switch", null);
+        String lisParamCode = createBgaParam(deptId, "lis-after-switch", "pco2_result_code");
+        createRawBgaRecord(patient.getHisMrn(), 1, effectiveTime, rawParamCode, "10.1");
+
+        GetPatientBgaRecordsReq syncReq = GetPatientBgaRecordsReq.newBuilder()
+            .setPid(patient.getId())
+            .setQueryStartIso8601(TimeUtils.toIso8601String(queryStart, "UTC"))
+            .setQueryEndIso8601(TimeUtils.toIso8601String(effectiveTime.plusHours(1), "UTC"))
+            .setForceSync(true)
+            .build();
+
+        GetPatientBgaRecordsResp initialResp = bgaService.getPatientBgaRecords(ProtoUtils.protoToJson(syncReq));
+        assertThat(initialResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+
+        PatientBgaRecord initialRecord = patientBgaRecordRepository.findByPidAndBgaCategoryIdAndEffectiveTimeAndIsDeletedFalse(
+            patient.getId(), 1, effectiveTime
+        ).orElseThrow();
+        assertThat(initialRecord.getRawRecordId()).isNotNull();
+        Long recordId = initialRecord.getId();
+
+        saveBgaCategoryMapping(deptId, 1, "ABL90_PANEL");
+        String lisReportId = "report-" + UUID.randomUUID();
+        createLisItem(patient.getHisPatientId(), lisReportId, "ABL90_PANEL", effectiveTime);
+        createLisResult(lisReportId, "pco2_result_code", "40.0", effectiveTime);
+
+        GetPatientBgaRecordsResp switchedResp = bgaService.getPatientBgaRecords(ProtoUtils.protoToJson(syncReq));
+        assertThat(switchedResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+
+        PatientBgaRecord switchedRecord = patientBgaRecordRepository.findByPidAndBgaCategoryIdAndEffectiveTimeAndIsDeletedFalse(
+            patient.getId(), 1, effectiveTime
+        ).orElseThrow();
+        assertThat(switchedRecord.getId()).isEqualTo(recordId);
+        assertThat(switchedRecord.getRawRecordId()).isNull();
+        assertThat(switchedRecord.getLisItemCode()).isEqualTo("ABL90_PANEL");
+        assertThat(switchedRecord.getRecordedAt()).isEqualTo(effectiveTime);
+
+        List<PatientBgaRecordDetail> activeDetails = patientBgaRecordDetailRepository.findByRecordIdAndIsDeletedFalse(recordId);
+        assertThat(activeDetails).extracting(PatientBgaRecordDetail::getMonitoringParamCode)
+            .containsExactly(lisParamCode);
+        assertThat(activeDetails).extracting(PatientBgaRecordDetail::getParamValueStr)
+            .containsExactly("40.0");
+        assertThat(patientBgaRecordDetailRepository.findAll().stream()
+            .filter(detail -> detail.getRecordId().equals(recordId)))
+            .hasSize(2);
+    }
+
     private void setCurrentUser() {
         List<GrantedAuthority> authorities = AuthorityUtils.createAuthorityList("ROLE_1");
         UsernamePasswordAuthenticationToken authentication =
@@ -290,7 +442,11 @@ public class BgaServiceTests extends TestsBase {
     }
 
     private String createBgaParam(String deptId) {
-        String paramCode = "test_bga_param_" + UUID.randomUUID().toString().substring(0, 8);
+        return createBgaParam(deptId, "default", null);
+    }
+
+    private String createBgaParam(String deptId, String scenario, String lisResultCode) {
+        String paramCode = "test_bga_param_" + scenario + "_" + UUID.randomUUID().toString().substring(0, 8);
         ValueMetaPB valueMeta = ValueMetaTestUtils.newValueMetaFloat(1, false);
 
         monitoringParamRepository.save(MonitoringParam.builder()
@@ -306,11 +462,86 @@ public class BgaServiceTests extends TestsBase {
             .monitoringParamCode(paramCode)
             .displayOrder(1)
             .enabled(false)
+            .lisResultCode(lisResultCode)
             .isDeleted(false)
             .modifiedBy("system")
             .modifiedAt(TimeUtils.getNowUtc())
             .build());
         return paramCode;
+    }
+
+    private PatientRecord initPatient(String deptId, String scenario, LocalDateTime admissionTime) {
+        PatientRecord patient = PatientTestUtils.newPatientRecord(
+            Long.parseLong(String.valueOf(Math.abs(UUID.randomUUID().hashCode()))),
+            1,
+            deptId
+        );
+        patient.setId(null);
+        patient.setHisMrn("bga-mrn-" + scenario + "-" + UUID.randomUUID().toString().substring(0, 8));
+        patient.setHisPatientId("bga-his-pid-" + scenario + "-" + UUID.randomUUID().toString().substring(0, 8));
+        patient.setAdmissionTime(admissionTime);
+        patient.setHisAdmissionTime(admissionTime);
+        patient.setDischargeTime(null);
+        patient.setDischargeEditTime(null);
+        return patientRecordRepository.save(patient);
+    }
+
+    private void saveBgaCategoryMapping(String deptId, Integer bgaCategoryId, String lisItemCode) {
+        GenericResp resp = bgaService.saveBgaCategory(ProtoUtils.protoToJson(
+            SaveBgaCategoryReq.newBuilder()
+                .setBgaCategoryMapping(BgaCategoryMappingPB.newBuilder()
+                    .setDeptId(deptId)
+                    .setBgaCategoryId(bgaCategoryId)
+                    .setLisItemCode(lisItemCode)
+                    .build())
+                .build()
+        ));
+        assertThat(resp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+    }
+
+    private RawBgaRecord createRawBgaRecord(
+        String mrnBednum, Integer bgaCategoryId, LocalDateTime effectiveTime,
+        String paramCode, String paramValueStr
+    ) {
+        RawBgaRecord rawRecord = rawBgaRecordRepository.save(RawBgaRecord.builder()
+            .mrnBednum(mrnBednum)
+            .bgaCategoryId(bgaCategoryId)
+            .effectiveTime(effectiveTime)
+            .build());
+        rawBgaRecordDetailRepository.save(RawBgaRecordDetail.builder()
+            .recordId(rawRecord.getId())
+            .monitoringParamCode(paramCode)
+            .paramValueStr(paramValueStr)
+            .build());
+        return rawRecord;
+    }
+
+    private void createLisItem(String hisPid, String reportId, String lisItemCode, LocalDateTime authTime) {
+        patientLisItemRepository.save(PatientLisItem.builder()
+            .reportId(reportId)
+            .hisPid(hisPid)
+            .lisItemCode(lisItemCode)
+            .lisItemName("血气检验")
+            .lisItemShortName("血气")
+            .collectTime(authTime)
+            .authTime(authTime)
+            .status("已审核")
+            .build());
+    }
+
+    private void createLisResult(
+        String reportId, String externalParamCode, String resultStr, LocalDateTime authTime
+    ) {
+        patientLisResultRepository.save(PatientLisResult.builder()
+            .reportId(reportId)
+            .externalParamCode(externalParamCode)
+            .externalParamName(externalParamCode)
+            .resultStr(resultStr)
+            .authTime(authTime)
+            .isDeleted(false)
+            .modifiedBy("system")
+            .modifiedAt(TimeUtils.getNowUtc())
+            .build());
     }
 
     private void softDelete(BgaParam param) {
@@ -338,6 +569,13 @@ public class BgaServiceTests extends TestsBase {
     private final BgaService bgaService;
     private final BgaParamRepository bgaParamRepository;
     private final BgaCategoryMappingRepository bgaCategoryMappingRepository;
+    private final PatientBgaRecordRepository patientBgaRecordRepository;
+    private final PatientBgaRecordDetailRepository patientBgaRecordDetailRepository;
+    private final RawBgaRecordRepository rawBgaRecordRepository;
+    private final RawBgaRecordDetailRepository rawBgaRecordDetailRepository;
+    private final PatientLisItemRepository patientLisItemRepository;
+    private final PatientLisResultRepository patientLisResultRepository;
+    private final PatientRecordRepository patientRecordRepository;
     private final MonitoringParamRepository monitoringParamRepository;
     private final RbacDepartmentRepository deptRepository;
 }

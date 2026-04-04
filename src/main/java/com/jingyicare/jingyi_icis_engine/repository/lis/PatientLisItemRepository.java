@@ -12,6 +12,10 @@ public interface PatientLisItemRepository extends JpaRepository<PatientLisItem, 
 
     List<PatientLisItem> findByHisPid(String hisPid);
 
+    List<PatientLisItem> findByHisPidAndLisItemCodeInAndAuthTimeBetween(
+        String hisPid, List<String> lisItemCodes, LocalDateTime start, LocalDateTime end
+    );
+    List<PatientLisItem> findByHisPidAndLisItemCodeInAndAuthTimeIsNull(String hisPid, List<String> lisItemCodes);
     List<PatientLisItem> findByHisPidAndAuthTimeBetween(String hisPid, LocalDateTime start, LocalDateTime end);
     List<PatientLisItem> findByHisPidAndAuthTimeIsNull(String hisPid);
 }
