@@ -221,6 +221,7 @@ public class ConfigProtoService {
             .addAllDoctorScoreType(config.getDoctorScore().getDoctorScoreTypeList())
             .addAllPredefinedParamValue(config.getUrl().getPredefinedParamValueList())
             .addAllPredefinedParamEncoder(config.getUrl().getPredefinedParamEncoderList())
+            .addAllSkincareCategory(config.getSkincare().getSkincareCategoryList())
             .build();
     }
 

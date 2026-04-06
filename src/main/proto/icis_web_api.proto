@@ -16,6 +16,7 @@ import "config/icis_nursing_score.proto";
 import "config/icis_overview.proto";
 import "config/icis_patient.proto";
 import "config/icis_quality_control.proto";
+import "config/icis_skincare.proto";
 import "config/icis_settings.proto";
 import "config/icis_shift.proto";
 import "config/icis_text.proto";
@@ -304,7 +305,20 @@ enum StatusCode {
     AH2_NURSING_REPORT_IS_IN_PROGRESS = 268; // 该病人的护理记录单正在生成中
     JFK_MISSING_REQUIRED_FIELD = 269; // JFK数据源缺少必填输入字段
     EXE_RECORD_PLAN_TIME_IS_AFTER_DISCHARGE_TIME = 270; // 医嘱计划时间在出科时间之后
-    LAST_CODE = 271;
+    SKINCARE_TYPE_ALREADY_EXISTS = 271; // 皮肤护理类型已存在
+    SKINCARE_TYPE_NOT_FOUND = 272; // 皮肤护理类型不存在
+    SKINCARE_TYPE_ID_NOT_MATCH = 273; // (皮肤护理类型ID)与(科室ID+类型+名称)不匹配
+    SKINCARE_TYPE_ATTR_ALREADY_EXISTS = 274; // 皮肤护理类型属性已存在
+    SKINCARE_TYPE_ATTR_NOT_FOUND = 275; // 皮肤护理类型属性不存在
+    SKINCARE_TYPE_ATTR_ID_NOT_MATCH = 276; // (皮肤护理类型属性ID)与(皮肤护理类型ID+属性编码)不匹配
+    PATIENT_SKINCARE_PLAN_NOT_FOUND = 277; // 病人皮肤护理计划不存在
+    PATIENT_SKINCARE_PLAN_ATTR_ALREADY_EXISTS = 278; // 病人皮肤护理计划属性已存在
+    PATIENT_SKINCARE_PLAN_ATTR_NOT_FOUND = 279; // 病人皮肤护理计划属性不存在
+    PATIENT_SKINCARE_RECORD_NOT_FOUND = 280; // 病人皮肤护理记录不存在
+    PATIENT_SKINCARE_RECORD_ATTR_ALREADY_EXISTS = 281; // 病人皮肤护理记录属性已存在
+    PATIENT_SKINCARE_RECORD_ATTR_NOT_FOUND = 282; // 病人皮肤护理记录属性不存在
+    INVALID_SKINCARE_CATEGORY_ID = 283; // 无效的皮肤护理分类ID
+    LAST_CODE = 284;
 }
 
 /*****************************************************************************
@@ -372,6 +386,9 @@ message GetConfigResp {
     // 外部URL列表
     repeated shared.EnumValue predefined_param_value = 30;
     repeated shared.EnumValue predefined_param_encoder = 31;
+
+    // 皮肤护理分类
+    repeated shared.IntStrKvPB skincare_category = 32;
 }
 
 /*
@@ -4657,6 +4674,334 @@ message GetOverviewDataReq {
 message GetOverviewDataResp {
     shared.ReturnCode rt = 1; // 返回码
     config.OverviewDataPB data = 2; // 概览数据，包含分组和参数的时间序列值
+}
+
+/******************************************************************************
+ * /api/skincare/                                                             *
+ ******************************************************************************/
+
+/*
+ * /api/skincare/getskincaretypes
+ * input: GetSkincareTypesReq
+ * output: GetSkincareTypesResp
+ */
+message GetSkincareTypesReq {
+    int32 id = 1; // <= 0 则不限制
+    string dept_id = 2; // 为空则不限制
+    string type = 3; // 为空则不限制
+    string name = 4; // 为空则不限制
+    int32 is_deleted = 5; // < 0 则不限制；0-未删除；1-已删除
+}
+
+message GetSkincareTypesResp {
+    shared.ReturnCode rt = 1;
+    repeated config.SkincareTypePB skincare_type = 2;
+}
+
+/*
+ * /api/skincare/addskincaretype
+ * input: AddSkincareTypeReq
+ * output: AddSkincareTypeResp
+ */
+message AddSkincareTypeReq {
+    // 新增时不填 skincare_type.id
+    // skincare_type.attr 不在当前接口内维护
+    config.SkincareTypePB skincare_type = 1;
+}
+
+message AddSkincareTypeResp {
+    shared.ReturnCode rt = 1;
+    int32 id = 2;
+}
+
+/*
+ * /api/skincare/updateskincaretype
+ * input: UpdateSkincareTypeReq
+ * output: GenericResp
+ */
+message UpdateSkincareTypeReq {
+    // 修改时必填 skincare_type.id
+    // skincare_type.attr 不在当前接口内维护
+    config.SkincareTypePB skincare_type = 1;
+}
+
+/*
+ * /api/skincare/deleteskincaretype
+ * input: DeleteSkincareTypeReq
+ * output: GenericResp
+ */
+message DeleteSkincareTypeReq {
+    int32 id = 1;
+}
+
+/*
+ * /api/skincare/getskincaretypeattributes
+ * input: GetSkincareTypeAttributesReq
+ * output: GetSkincareTypeAttributesResp
+ */
+message GetSkincareTypeAttributesReq {
+    int32 id = 1; // <= 0 则不限制
+    int32 skincare_type_id = 2; // <= 0 则不限制
+    string attr_code = 3; // 为空则不限制
+    string attr_name = 4; // 为空则不限制
+    int32 category_id = 5; // <= 0 则不限制
+    int32 is_initial = 6; // < 0 则不限制；0-否；1-是
+    int32 is_maintenance = 7; // < 0 则不限制；0-否；1-是
+    int32 show_in_table = 8; // < 0 则不限制；0-否；1-是
+    int32 is_deleted = 9; // < 0 则不限制；0-未删除；1-已删除
+}
+
+message GetSkincareTypeAttributesResp {
+    shared.ReturnCode rt = 1;
+    repeated config.SkincareTypeAttributePB attr = 2;
+}
+
+/*
+ * /api/skincare/addskincaretypeattribute
+ * input: AddSkincareTypeAttributeReq
+ * output: AddSkincareTypeAttributeResp
+ */
+message AddSkincareTypeAttributeReq {
+    // 新增时不填 attr.id
+    config.SkincareTypeAttributePB attr = 1;
+}
+
+message AddSkincareTypeAttributeResp {
+    shared.ReturnCode rt = 1;
+    int32 id = 2;
+}
+
+/*
+ * /api/skincare/updateskincaretypeattribute
+ * input: UpdateSkincareTypeAttributeReq
+ * output: GenericResp
+ */
+message UpdateSkincareTypeAttributeReq {
+    // 修改时必填 attr.id
+    config.SkincareTypeAttributePB attr = 1;
+}
+
+/*
+ * /api/skincare/deleteskincaretypeattribute
+ * input: DeleteSkincareTypeAttributeReq
+ * output: GenericResp
+ */
+message DeleteSkincareTypeAttributeReq {
+    int32 id = 1;
+}
+
+/*
+ * /api/skincare/getpatientskincareplans
+ * input: GetPatientSkincarePlansReq
+ * output: GetPatientSkincarePlansResp
+ */
+message GetPatientSkincarePlansReq {
+    int64 id = 1; // <= 0 则不限制
+    string dept_id = 2; // 为空则不限制
+    int64 pid = 3; // <= 0 则不限制
+    int32 skincare_type_id = 4; // <= 0 则不限制
+    string query_start_iso8601 = 5; // 为空则不限制 created_at 下限
+    string query_end_iso8601 = 6; // 为空则不限制 created_at 上限
+    int32 is_deleted = 7; // < 0 则不限制；0-未删除；1-已删除
+}
+
+message GetPatientSkincarePlansResp {
+    shared.ReturnCode rt = 1;
+    repeated config.PatientSkincarePlanPB plan = 2;
+}
+
+/*
+ * /api/skincare/addpatientskincareplan
+ * input: AddPatientSkincarePlanReq
+ * output: AddPatientSkincarePlanResp
+ */
+message AddPatientSkincarePlanReq {
+    // 新增时不填 plan.id
+    // 新增时不填 plan.created_at_iso8601
+    config.PatientSkincarePlanPB plan = 1;
+}
+
+message AddPatientSkincarePlanResp {
+    shared.ReturnCode rt = 1;
+    int64 id = 2;
+}
+
+/*
+ * /api/skincare/updatepatientskincareplan
+ * input: UpdatePatientSkincarePlanReq
+ * output: GenericResp
+ */
+message UpdatePatientSkincarePlanReq {
+    // 修改时必填 plan.id
+    // plan.attr 不在当前接口内维护
+    config.PatientSkincarePlanPB plan = 1;
+}
+
+/*
+ * /api/skincare/deletepatientskincareplan
+ * input: DeletePatientSkincarePlanReq
+ * output: GenericResp
+ */
+message DeletePatientSkincarePlanReq {
+    int64 id = 1;
+}
+
+/*
+ * /api/skincare/getpatientskincareplanattrs
+ * input: GetPatientSkincarePlanAttrsReq
+ * output: GetPatientSkincarePlanAttrsResp
+ */
+message GetPatientSkincarePlanAttrsReq {
+    int64 id = 1; // <= 0 则不限制
+    int64 patient_skincare_plan_id = 2; // <= 0 则不限制
+    int32 skincare_attr_id = 3; // <= 0 则不限制
+    int32 is_deleted = 4; // < 0 则不限制；0-未删除；1-已删除
+}
+
+message GetPatientSkincarePlanAttrsResp {
+    shared.ReturnCode rt = 1;
+    repeated config.PatientSkincarePlanAttrPB attr = 2;
+}
+
+/*
+ * /api/skincare/addpatientskincareplanattr
+ * input: AddPatientSkincarePlanAttrReq
+ * output: AddPatientSkincarePlanAttrResp
+ */
+message AddPatientSkincarePlanAttrReq {
+    // 新增时不填 attr.id
+    config.PatientSkincarePlanAttrPB attr = 1;
+}
+
+message AddPatientSkincarePlanAttrResp {
+    shared.ReturnCode rt = 1;
+    int64 id = 2;
+}
+
+/*
+ * /api/skincare/updatepatientskincareplanattr
+ * input: UpdatePatientSkincarePlanAttrReq
+ * output: GenericResp
+ */
+message UpdatePatientSkincarePlanAttrReq {
+    // 修改时必填 attr.id
+    config.PatientSkincarePlanAttrPB attr = 1;
+}
+
+/*
+ * /api/skincare/deletepatientskincareplanattr
+ * input: DeletePatientSkincarePlanAttrReq
+ * output: GenericResp
+ */
+message DeletePatientSkincarePlanAttrReq {
+    int64 id = 1;
+}
+
+/*
+ * /api/skincare/getpatientskincarerecords
+ * input: GetPatientSkincareRecordsReq
+ * output: GetPatientSkincareRecordsResp
+ */
+message GetPatientSkincareRecordsReq {
+    int64 id = 1; // <= 0 则不限制
+    string dept_id = 2; // 为空则不限制
+    int64 pid = 3; // <= 0 则不限制
+    int64 patient_skincare_plan_id = 4; // <= 0 则不限制
+    string query_start_iso8601 = 5; // 为空则不限制 created_at 下限
+    string query_end_iso8601 = 6; // 为空则不限制 created_at 上限
+    int32 is_deleted = 7; // < 0 则不限制；0-未删除；1-已删除
+}
+
+message GetPatientSkincareRecordsResp {
+    shared.ReturnCode rt = 1;
+    repeated config.PatientSkincareRecordPB record = 2;
+}
+
+/*
+ * /api/skincare/addpatientskincarerecord
+ * input: AddPatientSkincareRecordReq
+ * output: AddPatientSkincareRecordResp
+ */
+message AddPatientSkincareRecordReq {
+    // 新增时不填 record.id
+    // 新增时不填 record.created_at_iso8601
+    config.PatientSkincareRecordPB record = 1;
+}
+
+message AddPatientSkincareRecordResp {
+    shared.ReturnCode rt = 1;
+    int64 id = 2;
+}
+
+/*
+ * /api/skincare/updatepatientskincarerecord
+ * input: UpdatePatientSkincareRecordReq
+ * output: GenericResp
+ */
+message UpdatePatientSkincareRecordReq {
+    // 修改时必填 record.id
+    // record.attr 不在当前接口内维护
+    config.PatientSkincareRecordPB record = 1;
+}
+
+/*
+ * /api/skincare/deletepatientskincarerecord
+ * input: DeletePatientSkincareRecordReq
+ * output: GenericResp
+ */
+message DeletePatientSkincareRecordReq {
+    int64 id = 1;
+}
+
+/*
+ * /api/skincare/getpatientskincarerecordattrs
+ * input: GetPatientSkincareRecordAttrsReq
+ * output: GetPatientSkincareRecordAttrsResp
+ */
+message GetPatientSkincareRecordAttrsReq {
+    int64 id = 1; // <= 0 则不限制
+    int64 patient_skincare_record_id = 2; // <= 0 则不限制
+    int32 skincare_attr_id = 3; // <= 0 则不限制
+    int32 is_deleted = 4; // < 0 则不限制；0-未删除；1-已删除
+}
+
+message GetPatientSkincareRecordAttrsResp {
+    shared.ReturnCode rt = 1;
+    repeated config.PatientSkincareRecordAttrPB attr = 2;
+}
+
+/*
+ * /api/skincare/addpatientskincarerecordattr
+ * input: AddPatientSkincareRecordAttrReq
+ * output: AddPatientSkincareRecordAttrResp
+ */
+message AddPatientSkincareRecordAttrReq {
+    // 新增时不填 attr.id
+    config.PatientSkincareRecordAttrPB attr = 1;
+}
+
+message AddPatientSkincareRecordAttrResp {
+    shared.ReturnCode rt = 1;
+    int64 id = 2;
+}
+
+/*
+ * /api/skincare/updatepatientskincarerecordattr
+ * input: UpdatePatientSkincareRecordAttrReq
+ * output: GenericResp
+ */
+message UpdatePatientSkincareRecordAttrReq {
+    // 修改时必填 attr.id
+    config.PatientSkincareRecordAttrPB attr = 1;
+}
+
+/*
+ * /api/skincare/deletepatientskincarerecordattr
+ * input: DeletePatientSkincareRecordAttrReq
+ * output: GenericResp
+ */
+message DeletePatientSkincareRecordAttrReq {
+    int64 id = 1;
 }
 
 /******************************************************************************

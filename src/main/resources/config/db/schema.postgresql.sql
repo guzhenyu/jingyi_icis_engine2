@@ -1254,6 +1254,192 @@ COMMENT ON COLUMN patient_tube_status_records.delete_reason IS '删除理由';
 COMMENT ON COLUMN patient_tube_status_records.created_at IS '创建时间';
 CREATE UNIQUE INDEX idx_pt_status_records_record_status ON patient_tube_status_records (patient_tube_record_id, tube_status_id, recorded_at) WHERE is_deleted = false;
 
+-- 皮肤护理
+CREATE TABLE skincare_types (
+    id SERIAL PRIMARY KEY,
+    dept_id VARCHAR(255) NOT NULL,
+    type VARCHAR(255) NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    deleted_by VARCHAR(255),
+    deleted_at TIMESTAMP,
+    modified_by VARCHAR(255),
+    modified_at TIMESTAMP
+);
+COMMENT ON TABLE skincare_types IS '皮肤护理类型表';
+COMMENT ON COLUMN skincare_types.id IS '自增ID';
+COMMENT ON COLUMN skincare_types.dept_id IS '科室ID';
+COMMENT ON COLUMN skincare_types.type IS '皮肤护理分类编码';
+COMMENT ON COLUMN skincare_types.name IS '皮肤护理名称';
+COMMENT ON COLUMN skincare_types.is_deleted IS '是否已删除';
+COMMENT ON COLUMN skincare_types.deleted_by IS '删除人账号';
+COMMENT ON COLUMN skincare_types.deleted_at IS '删除时间';
+COMMENT ON COLUMN skincare_types.modified_by IS '最后修改人账号';
+COMMENT ON COLUMN skincare_types.modified_at IS '最后修改时间';
+CREATE UNIQUE INDEX idx_skincare_types_dept_type_name
+    ON skincare_types (dept_id, type, name)
+    WHERE is_deleted = FALSE;
+CREATE INDEX idx_skincare_types_dept_type
+    ON skincare_types (dept_id, type)
+    WHERE is_deleted = FALSE;
+
+CREATE TABLE skincare_type_attributes (
+    id SERIAL PRIMARY KEY,
+    skincare_type_id INT NOT NULL,
+    attr_code VARCHAR(255) NOT NULL,
+    attr_name VARCHAR(255) NOT NULL,
+    category_id INT,
+    attr_type_pb TEXT NOT NULL,
+    is_initial BOOLEAN NOT NULL DEFAULT FALSE,
+    is_maintenance BOOLEAN NOT NULL DEFAULT FALSE,
+    show_in_table BOOLEAN NOT NULL DEFAULT FALSE,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    deleted_by VARCHAR(255),
+    deleted_at TIMESTAMP,
+    modified_by VARCHAR(255),
+    modified_at TIMESTAMP,
+    FOREIGN KEY (skincare_type_id) REFERENCES skincare_types(id)
+);
+COMMENT ON TABLE skincare_type_attributes IS '皮肤护理类型属性表';
+COMMENT ON COLUMN skincare_type_attributes.id IS '自增ID';
+COMMENT ON COLUMN skincare_type_attributes.skincare_type_id IS '外键 skincare_types.id';
+COMMENT ON COLUMN skincare_type_attributes.attr_code IS '属性编码';
+COMMENT ON COLUMN skincare_type_attributes.attr_name IS '属性名称';
+COMMENT ON COLUMN skincare_type_attributes.category_id IS '分类ID，对应 GetConfigResp.skincare_category.key';
+COMMENT ON COLUMN skincare_type_attributes.attr_type_pb IS 'proto消息ValueMetaPB实例序列化后的base64编码';
+COMMENT ON COLUMN skincare_type_attributes.is_initial IS '是否在创建病人皮肤护理计划时填写';
+COMMENT ON COLUMN skincare_type_attributes.is_maintenance IS '是否属于维护项';
+COMMENT ON COLUMN skincare_type_attributes.show_in_table IS '是否在皮肤护理记录表中显示';
+COMMENT ON COLUMN skincare_type_attributes.is_deleted IS '是否已删除';
+COMMENT ON COLUMN skincare_type_attributes.deleted_by IS '删除人账号';
+COMMENT ON COLUMN skincare_type_attributes.deleted_at IS '删除时间';
+COMMENT ON COLUMN skincare_type_attributes.modified_by IS '最后修改人账号';
+COMMENT ON COLUMN skincare_type_attributes.modified_at IS '最后修改时间';
+CREATE UNIQUE INDEX idx_skincare_type_attrs_type_attr_code
+    ON skincare_type_attributes (skincare_type_id, attr_code)
+    WHERE is_deleted = FALSE;
+CREATE UNIQUE INDEX idx_skincare_type_attrs_type_attr_name
+    ON skincare_type_attributes (skincare_type_id, attr_name)
+    WHERE is_deleted = FALSE;
+
+CREATE TABLE patient_skincare_plans (
+    id BIGSERIAL PRIMARY KEY,
+    dept_id VARCHAR(255) NOT NULL,
+    pid BIGINT NOT NULL,
+    skincare_type_id INT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    deleted_by VARCHAR(255),
+    deleted_at TIMESTAMP,
+    modified_by VARCHAR(255),
+    modified_at TIMESTAMP,
+    FOREIGN KEY (pid) REFERENCES patient_records(id),
+    FOREIGN KEY (skincare_type_id) REFERENCES skincare_types(id)
+);
+COMMENT ON TABLE patient_skincare_plans IS '病人皮肤护理计划表';
+COMMENT ON COLUMN patient_skincare_plans.id IS '自增ID';
+COMMENT ON COLUMN patient_skincare_plans.dept_id IS '科室ID';
+COMMENT ON COLUMN patient_skincare_plans.pid IS '病人ID，外键 patient_records.id';
+COMMENT ON COLUMN patient_skincare_plans.skincare_type_id IS '皮肤护理类型ID，外键 skincare_types.id';
+COMMENT ON COLUMN patient_skincare_plans.created_at IS '创建时间';
+COMMENT ON COLUMN patient_skincare_plans.is_deleted IS '是否已删除';
+COMMENT ON COLUMN patient_skincare_plans.deleted_by IS '删除人账号';
+COMMENT ON COLUMN patient_skincare_plans.deleted_at IS '删除时间';
+COMMENT ON COLUMN patient_skincare_plans.modified_by IS '最后修改人账号';
+COMMENT ON COLUMN patient_skincare_plans.modified_at IS '最后修改时间';
+CREATE INDEX idx_patient_skincare_plans_pid_type_created
+    ON patient_skincare_plans (pid, skincare_type_id, created_at)
+    WHERE is_deleted = FALSE;
+CREATE INDEX idx_patient_skincare_plans_dept_pid
+    ON patient_skincare_plans (dept_id, pid)
+    WHERE is_deleted = FALSE;
+
+CREATE TABLE patient_skincare_plan_attrs (
+    id BIGSERIAL PRIMARY KEY,
+    patient_skincare_plan_id BIGINT NOT NULL,
+    skincare_attr_id INT NOT NULL,
+    value TEXT NOT NULL,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    deleted_by VARCHAR(255),
+    deleted_at TIMESTAMP,
+    modified_by VARCHAR(255),
+    modified_at TIMESTAMP,
+    FOREIGN KEY (patient_skincare_plan_id) REFERENCES patient_skincare_plans(id),
+    FOREIGN KEY (skincare_attr_id) REFERENCES skincare_type_attributes(id)
+);
+COMMENT ON TABLE patient_skincare_plan_attrs IS '病人皮肤护理计划属性值表';
+COMMENT ON COLUMN patient_skincare_plan_attrs.id IS '自增ID';
+COMMENT ON COLUMN patient_skincare_plan_attrs.patient_skincare_plan_id IS '外键 patient_skincare_plans.id';
+COMMENT ON COLUMN patient_skincare_plan_attrs.skincare_attr_id IS '外键 skincare_type_attributes.id';
+COMMENT ON COLUMN patient_skincare_plan_attrs.value IS 'proto消息GenericValuePB实例序列化后的base64编码';
+COMMENT ON COLUMN patient_skincare_plan_attrs.is_deleted IS '是否已删除';
+COMMENT ON COLUMN patient_skincare_plan_attrs.deleted_by IS '删除人账号';
+COMMENT ON COLUMN patient_skincare_plan_attrs.deleted_at IS '删除时间';
+COMMENT ON COLUMN patient_skincare_plan_attrs.modified_by IS '最后修改人账号';
+COMMENT ON COLUMN patient_skincare_plan_attrs.modified_at IS '最后修改时间';
+CREATE UNIQUE INDEX idx_patient_skincare_plan_attrs_plan_attr
+    ON patient_skincare_plan_attrs (patient_skincare_plan_id, skincare_attr_id)
+    WHERE is_deleted = FALSE;
+
+CREATE TABLE patient_skincare_records (
+    id BIGSERIAL PRIMARY KEY,
+    dept_id VARCHAR(255) NOT NULL,
+    pid BIGINT NOT NULL,
+    patient_skincare_plan_id BIGINT NOT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    deleted_by VARCHAR(255),
+    deleted_at TIMESTAMP,
+    modified_by VARCHAR(255),
+    modified_at TIMESTAMP,
+    FOREIGN KEY (pid) REFERENCES patient_records(id),
+    FOREIGN KEY (patient_skincare_plan_id) REFERENCES patient_skincare_plans(id)
+);
+COMMENT ON TABLE patient_skincare_records IS '病人皮肤护理记录表';
+COMMENT ON COLUMN patient_skincare_records.id IS '自增ID';
+COMMENT ON COLUMN patient_skincare_records.dept_id IS '科室ID';
+COMMENT ON COLUMN patient_skincare_records.pid IS '病人ID，外键 patient_records.id';
+COMMENT ON COLUMN patient_skincare_records.patient_skincare_plan_id IS '外键 patient_skincare_plans.id';
+COMMENT ON COLUMN patient_skincare_records.created_at IS '创建时间';
+COMMENT ON COLUMN patient_skincare_records.is_deleted IS '是否已删除';
+COMMENT ON COLUMN patient_skincare_records.deleted_by IS '删除人账号';
+COMMENT ON COLUMN patient_skincare_records.deleted_at IS '删除时间';
+COMMENT ON COLUMN patient_skincare_records.modified_by IS '最后修改人账号';
+COMMENT ON COLUMN patient_skincare_records.modified_at IS '最后修改时间';
+CREATE INDEX idx_patient_skincare_records_pid_plan_created
+    ON patient_skincare_records (pid, patient_skincare_plan_id, created_at)
+    WHERE is_deleted = FALSE;
+CREATE INDEX idx_patient_skincare_records_dept_pid
+    ON patient_skincare_records (dept_id, pid)
+    WHERE is_deleted = FALSE;
+
+CREATE TABLE patient_skincare_record_attrs (
+    id BIGSERIAL PRIMARY KEY,
+    patient_skincare_record_id BIGINT NOT NULL,
+    skincare_attr_id INT NOT NULL,
+    value TEXT NOT NULL,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    deleted_by VARCHAR(255),
+    deleted_at TIMESTAMP,
+    modified_by VARCHAR(255),
+    modified_at TIMESTAMP,
+    FOREIGN KEY (patient_skincare_record_id) REFERENCES patient_skincare_records(id),
+    FOREIGN KEY (skincare_attr_id) REFERENCES skincare_type_attributes(id)
+);
+COMMENT ON TABLE patient_skincare_record_attrs IS '病人皮肤护理记录属性值表';
+COMMENT ON COLUMN patient_skincare_record_attrs.id IS '自增ID';
+COMMENT ON COLUMN patient_skincare_record_attrs.patient_skincare_record_id IS '外键 patient_skincare_records.id';
+COMMENT ON COLUMN patient_skincare_record_attrs.skincare_attr_id IS '外键 skincare_type_attributes.id';
+COMMENT ON COLUMN patient_skincare_record_attrs.value IS 'proto消息GenericValuePB实例序列化后的base64编码';
+COMMENT ON COLUMN patient_skincare_record_attrs.is_deleted IS '是否已删除';
+COMMENT ON COLUMN patient_skincare_record_attrs.deleted_by IS '删除人账号';
+COMMENT ON COLUMN patient_skincare_record_attrs.deleted_at IS '删除时间';
+COMMENT ON COLUMN patient_skincare_record_attrs.modified_by IS '最后修改人账号';
+COMMENT ON COLUMN patient_skincare_record_attrs.modified_at IS '最后修改时间';
+CREATE UNIQUE INDEX idx_patient_skincare_record_attrs_record_attr
+    ON patient_skincare_record_attrs (patient_skincare_record_id, skincare_attr_id)
+    WHERE is_deleted = FALSE;
+
 -- 全局观察参数表
 CREATE TABLE monitoring_params (
     code VARCHAR(255) PRIMARY KEY,

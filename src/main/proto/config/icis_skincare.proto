@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+import "shared/shared.proto";
+import "shared/value_meta.proto";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+message SkincareTypePB {
+    int32 id = 1;
+    string dept_id = 2;
+    string type = 3;
+    string name = 4;
+
+    repeated SkincareTypeAttributePB attr = 5;
+}
+
+message SkincareTypeAttributePB {
+    int32 id = 1;
+    int32 skincare_type_id = 2;
+    string attr_code = 3;
+    string attr_name = 4;
+    int32 category_id = 5;
+    shared.ValueMetaPB attr_type = 6;
+    bool is_initial = 7;
+    bool is_maintenance = 8;
+    bool show_in_table = 9;
+}
+
+message PatientSkincarePlanPB {
+    int64 id = 1;
+    string dept_id = 2;
+    int64 pid = 3;
+    int32 skincare_type_id = 4;
+    string created_at_iso8601 = 5;
+
+    repeated PatientSkincarePlanAttrPB attr = 6;
+}
+
+message PatientSkincarePlanAttrPB {
+    int64 id = 1;
+    int64 patient_skincare_plan_id = 2;
+    int32 skincare_attr_id = 3;
+    shared.GenericValuePB value = 4;
+}
+
+message PatientSkincareRecordPB {
+    int64 id = 1;
+    string dept_id = 2;
+    int64 pid = 3;
+    int64 patient_skincare_plan_id = 4;
+    string created_at_iso8601 = 5;
+
+    repeated PatientSkincareRecordAttrPB attr = 6;
+}
+
+message PatientSkincareRecordAttrPB {
+    int64 id = 1;
+    int64 patient_skincare_record_id = 2;
+    int32 skincare_attr_id = 3;
+    shared.GenericValuePB value = 4;
+}
+
+message SkinCareConfigPB {
+    repeated shared.IntStrKvPB skincare_category = 1;
+}

@@ -271,6 +271,19 @@ text {
     status_code_msg: "该病人的护理记录单正在生成中"
     status_code_msg: "JFK数据源缺少必填输入字段"
     status_code_msg: "医嘱计划时间在出科时间之后"
+    status_code_msg: "皮肤护理类型已存在"
+    status_code_msg: "皮肤护理类型不存在"
+    status_code_msg: "(皮肤护理类型ID)与(科室ID+类型+名称)不匹配"
+    status_code_msg: "皮肤护理类型属性已存在"
+    status_code_msg: "皮肤护理类型属性不存在"
+    status_code_msg: "(皮肤护理类型属性ID)与(皮肤护理类型ID+属性编码)不匹配"
+    status_code_msg: "病人皮肤护理计划不存在"
+    status_code_msg: "病人皮肤护理计划属性已存在"
+    status_code_msg: "病人皮肤护理计划属性不存在"
+    status_code_msg: "病人皮肤护理记录不存在"
+    status_code_msg: "病人皮肤护理记录属性已存在"
+    status_code_msg: "病人皮肤护理记录属性不存在"
+    status_code_msg: "无效的皮肤护理分类ID"
     units {
         unit: {
             id: 1
@@ -711,6 +724,7 @@ text {
 user {
     admin_account_id: "admin"
     admin_role_id: 1
+    # next function_id: 51
     menu {
         group {
             group_id: 1
@@ -800,6 +814,10 @@ user {
                 items {
                     function_id: 33
                     name: "护理记录"
+                }
+                items {
+                    function_id: 49
+                    name: "皮肤护理"
                 }
                 items {
                     function_id: 44
@@ -922,6 +940,10 @@ user {
             items {
                 function_id: 28
                 name: "管道配置"
+            }
+            items {
+                function_id: 50
+                name: "皮肤护理配置"
             }
             items {
                 function_id: 31
@@ -14194,6 +14216,20 @@ url {
     predefined_param_encoder {
         id: 3
         name: "md5"
+    }
+}
+skincare {
+    skincare_category {
+        key: 1
+        val: "伤口评估"
+    }
+    skincare_category {
+        key: 2
+        val: "周围环境"
+    }
+    skincare_category {
+        key: 3
+        val: "护理措施"
     }
 }
 ui_modal {

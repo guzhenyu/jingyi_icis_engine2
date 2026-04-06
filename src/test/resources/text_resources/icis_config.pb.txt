@@ -271,6 +271,19 @@ text {
     status_code_msg: "该病人的护理记录单正在生成中"
     status_code_msg: "JFK数据源缺少必填输入字段"
     status_code_msg: "医嘱计划时间在出科时间之后"
+    status_code_msg: "皮肤护理类型已存在"
+    status_code_msg: "皮肤护理类型不存在"
+    status_code_msg: "(皮肤护理类型ID)与(科室ID+类型+名称)不匹配"
+    status_code_msg: "皮肤护理类型属性已存在"
+    status_code_msg: "皮肤护理类型属性不存在"
+    status_code_msg: "(皮肤护理类型属性ID)与(皮肤护理类型ID+属性编码)不匹配"
+    status_code_msg: "病人皮肤护理计划不存在"
+    status_code_msg: "病人皮肤护理计划属性已存在"
+    status_code_msg: "病人皮肤护理计划属性不存在"
+    status_code_msg: "病人皮肤护理记录不存在"
+    status_code_msg: "病人皮肤护理记录属性已存在"
+    status_code_msg: "病人皮肤护理记录属性不存在"
+    status_code_msg: "无效的皮肤护理分类ID"
     units {
         unit: {
             id: 1
@@ -7169,4 +7182,18 @@ overview {
     vital_sign_blocked_param: "total_intake"
     vital_sign_blocked_param: "total_output"
     vital_sign_blocked_param: "total_balance"
+}
+skincare {
+    skincare_category {
+        key: 1
+        val: "伤口评估"
+    }
+    skincare_category {
+        key: 2
+        val: "周围环境"
+    }
+    skincare_category {
+        key: 3
+        val: "护理措施"
+    }
 }

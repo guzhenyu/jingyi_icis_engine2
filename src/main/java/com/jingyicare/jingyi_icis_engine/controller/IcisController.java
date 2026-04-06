@@ -1385,6 +1385,126 @@ public class IcisController {
         return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getOverviewData(getOverviewDataReqJson)));
     }
 
+    @PostMapping("/skincare/getskincaretypes")
+    public ResponseEntity<String> getSkincareTypes(@RequestBody String getSkincareTypesReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getSkincareTypes(getSkincareTypesReqJson)));
+    }
+
+    @PostMapping("/skincare/addskincaretype")
+    public ResponseEntity<String> addSkincareType(@RequestBody String addSkincareTypeReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.addSkincareType(addSkincareTypeReqJson)));
+    }
+
+    @PostMapping("/skincare/updateskincaretype")
+    public ResponseEntity<String> updateSkincareType(@RequestBody String updateSkincareTypeReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.updateSkincareType(updateSkincareTypeReqJson)));
+    }
+
+    @PostMapping("/skincare/deleteskincaretype")
+    public ResponseEntity<String> deleteSkincareType(@RequestBody String deleteSkincareTypeReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.deleteSkincareType(deleteSkincareTypeReqJson)));
+    }
+
+    @PostMapping("/skincare/getskincaretypeattributes")
+    public ResponseEntity<String> getSkincareTypeAttributes(@RequestBody String getSkincareTypeAttributesReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getSkincareTypeAttributes(getSkincareTypeAttributesReqJson)));
+    }
+
+    @PostMapping("/skincare/addskincaretypeattribute")
+    public ResponseEntity<String> addSkincareTypeAttribute(@RequestBody String addSkincareTypeAttributeReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.addSkincareTypeAttribute(addSkincareTypeAttributeReqJson)));
+    }
+
+    @PostMapping("/skincare/updateskincaretypeattribute")
+    public ResponseEntity<String> updateSkincareTypeAttribute(@RequestBody String updateSkincareTypeAttributeReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.updateSkincareTypeAttribute(updateSkincareTypeAttributeReqJson)));
+    }
+
+    @PostMapping("/skincare/deleteskincaretypeattribute")
+    public ResponseEntity<String> deleteSkincareTypeAttribute(@RequestBody String deleteSkincareTypeAttributeReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.deleteSkincareTypeAttribute(deleteSkincareTypeAttributeReqJson)));
+    }
+
+    @PostMapping("/skincare/getpatientskincareplans")
+    public ResponseEntity<String> getPatientSkincarePlans(@RequestBody String getPatientSkincarePlansReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getPatientSkincarePlans(getPatientSkincarePlansReqJson)));
+    }
+
+    @PostMapping("/skincare/addpatientskincareplan")
+    public ResponseEntity<String> addPatientSkincarePlan(@RequestBody String addPatientSkincarePlanReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.addPatientSkincarePlan(addPatientSkincarePlanReqJson)));
+    }
+
+    @PostMapping("/skincare/updatepatientskincareplan")
+    public ResponseEntity<String> updatePatientSkincarePlan(@RequestBody String updatePatientSkincarePlanReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.updatePatientSkincarePlan(updatePatientSkincarePlanReqJson)));
+    }
+
+    @PostMapping("/skincare/deletepatientskincareplan")
+    public ResponseEntity<String> deletePatientSkincarePlan(@RequestBody String deletePatientSkincarePlanReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.deletePatientSkincarePlan(deletePatientSkincarePlanReqJson)));
+    }
+
+    @PostMapping("/skincare/getpatientskincareplanattrs")
+    public ResponseEntity<String> getPatientSkincarePlanAttrs(@RequestBody String getPatientSkincarePlanAttrsReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getPatientSkincarePlanAttrs(getPatientSkincarePlanAttrsReqJson)));
+    }
+
+    @PostMapping("/skincare/addpatientskincareplanattr")
+    public ResponseEntity<String> addPatientSkincarePlanAttr(@RequestBody String addPatientSkincarePlanAttrReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.addPatientSkincarePlanAttr(addPatientSkincarePlanAttrReqJson)));
+    }
+
+    @PostMapping("/skincare/updatepatientskincareplanattr")
+    public ResponseEntity<String> updatePatientSkincarePlanAttr(@RequestBody String updatePatientSkincarePlanAttrReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.updatePatientSkincarePlanAttr(updatePatientSkincarePlanAttrReqJson)));
+    }
+
+    @PostMapping("/skincare/deletepatientskincareplanattr")
+    public ResponseEntity<String> deletePatientSkincarePlanAttr(@RequestBody String deletePatientSkincarePlanAttrReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.deletePatientSkincarePlanAttr(deletePatientSkincarePlanAttrReqJson)));
+    }
+
+    @PostMapping("/skincare/getpatientskincarerecords")
+    public ResponseEntity<String> getPatientSkincareRecords(@RequestBody String getPatientSkincareRecordsReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getPatientSkincareRecords(getPatientSkincareRecordsReqJson)));
+    }
+
+    @PostMapping("/skincare/addpatientskincarerecord")
+    public ResponseEntity<String> addPatientSkincareRecord(@RequestBody String addPatientSkincareRecordReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.addPatientSkincareRecord(addPatientSkincareRecordReqJson)));
+    }
+
+    @PostMapping("/skincare/updatepatientskincarerecord")
+    public ResponseEntity<String> updatePatientSkincareRecord(@RequestBody String updatePatientSkincareRecordReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.updatePatientSkincareRecord(updatePatientSkincareRecordReqJson)));
+    }
+
+    @PostMapping("/skincare/deletepatientskincarerecord")
+    public ResponseEntity<String> deletePatientSkincareRecord(@RequestBody String deletePatientSkincareRecordReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.deletePatientSkincareRecord(deletePatientSkincareRecordReqJson)));
+    }
+
+    @PostMapping("/skincare/getpatientskincarerecordattrs")
+    public ResponseEntity<String> getPatientSkincareRecordAttrs(@RequestBody String getPatientSkincareRecordAttrsReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getPatientSkincareRecordAttrs(getPatientSkincareRecordAttrsReqJson)));
+    }
+
+    @PostMapping("/skincare/addpatientskincarerecordattr")
+    public ResponseEntity<String> addPatientSkincareRecordAttr(@RequestBody String addPatientSkincareRecordAttrReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.addPatientSkincareRecordAttr(addPatientSkincareRecordAttrReqJson)));
+    }
+
+    @PostMapping("/skincare/updatepatientskincarerecordattr")
+    public ResponseEntity<String> updatePatientSkincareRecordAttr(@RequestBody String updatePatientSkincareRecordAttrReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.updatePatientSkincareRecordAttr(updatePatientSkincareRecordAttrReqJson)));
+    }
+
+    @PostMapping("/skincare/deletepatientskincarerecordattr")
+    public ResponseEntity<String> deletePatientSkincareRecordAttr(@RequestBody String deletePatientSkincareRecordAttrReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.deletePatientSkincareRecordAttr(deletePatientSkincareRecordAttrReqJson)));
+    }
+
     @PostMapping("/checklist/getdeptchecklistgroups")
     public ResponseEntity<String> getDeptChecklistGroups(@RequestBody String getDeptChecklistGroupsReqJson) {
         return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getDeptChecklistGroups(getDeptChecklistGroupsReqJson)));

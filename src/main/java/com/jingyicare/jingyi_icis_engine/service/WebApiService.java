@@ -32,6 +32,7 @@ import com.jingyicare.jingyi_icis_engine.service.qcs.*;
 import com.jingyicare.jingyi_icis_engine.service.scores.ScoreService;
 import com.jingyicare.jingyi_icis_engine.service.settings.*;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
+import com.jingyicare.jingyi_icis_engine.service.skincares.*;
 import com.jingyicare.jingyi_icis_engine.service.tubes.*;
 import com.jingyicare.jingyi_icis_engine.service.users.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -63,6 +64,7 @@ public class WebApiService {
         @Autowired NursingOrderService nursingOrderService,
         @Autowired PatientShiftService patientShiftService,
         @Autowired ChecklistService checklistService,
+        @Autowired SkincareService skincareService,
         @Autowired ExtUrlService extUrlService,
         @Autowired QualityControlService qualityControlService,
         @Autowired SettingService settingService,
@@ -95,6 +97,7 @@ public class WebApiService {
         this.nursingOrderService = nursingOrderService;
         this.patientShiftService = patientShiftService;
         this.checklistService = checklistService;
+        this.skincareService = skincareService;
         this.extUrlService = extUrlService;
         this.qualityControlService = qualityControlService;
         this.settingService = settingService;
@@ -1738,6 +1741,150 @@ public class WebApiService {
         return resp;
     }
 
+    public GetSkincareTypesResp getSkincareTypes(String getSkincareTypesReqJson) {
+        GetSkincareTypesResp resp = skincareService.getSkincareTypes(getSkincareTypesReqJson);
+        resp = metricService.recordApiMetrics(resp, GetSkincareTypesResp::getRt);
+        return resp;
+    }
+
+    public AddSkincareTypeResp addSkincareType(String addSkincareTypeReqJson) {
+        AddSkincareTypeResp resp = skincareService.addSkincareType(addSkincareTypeReqJson);
+        resp = metricService.recordApiMetrics(resp, AddSkincareTypeResp::getRt);
+        return resp;
+    }
+
+    public GenericResp updateSkincareType(String updateSkincareTypeReqJson) {
+        GenericResp resp = skincareService.updateSkincareType(updateSkincareTypeReqJson);
+        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
+        return resp;
+    }
+
+    public GenericResp deleteSkincareType(String deleteSkincareTypeReqJson) {
+        GenericResp resp = skincareService.deleteSkincareType(deleteSkincareTypeReqJson);
+        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
+        return resp;
+    }
+
+    public GetSkincareTypeAttributesResp getSkincareTypeAttributes(String getSkincareTypeAttributesReqJson) {
+        GetSkincareTypeAttributesResp resp = skincareService.getSkincareTypeAttributes(getSkincareTypeAttributesReqJson);
+        resp = metricService.recordApiMetrics(resp, GetSkincareTypeAttributesResp::getRt);
+        return resp;
+    }
+
+    public AddSkincareTypeAttributeResp addSkincareTypeAttribute(String addSkincareTypeAttributeReqJson) {
+        AddSkincareTypeAttributeResp resp = skincareService.addSkincareTypeAttribute(addSkincareTypeAttributeReqJson);
+        resp = metricService.recordApiMetrics(resp, AddSkincareTypeAttributeResp::getRt);
+        return resp;
+    }
+
+    public GenericResp updateSkincareTypeAttribute(String updateSkincareTypeAttributeReqJson) {
+        GenericResp resp = skincareService.updateSkincareTypeAttribute(updateSkincareTypeAttributeReqJson);
+        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
+        return resp;
+    }
+
+    public GenericResp deleteSkincareTypeAttribute(String deleteSkincareTypeAttributeReqJson) {
+        GenericResp resp = skincareService.deleteSkincareTypeAttribute(deleteSkincareTypeAttributeReqJson);
+        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
+        return resp;
+    }
+
+    public GetPatientSkincarePlansResp getPatientSkincarePlans(String getPatientSkincarePlansReqJson) {
+        GetPatientSkincarePlansResp resp = skincareService.getPatientSkincarePlans(getPatientSkincarePlansReqJson);
+        resp = metricService.recordApiMetrics(resp, GetPatientSkincarePlansResp::getRt);
+        return resp;
+    }
+
+    public AddPatientSkincarePlanResp addPatientSkincarePlan(String addPatientSkincarePlanReqJson) {
+        AddPatientSkincarePlanResp resp = skincareService.addPatientSkincarePlan(addPatientSkincarePlanReqJson);
+        resp = metricService.recordApiMetrics(resp, AddPatientSkincarePlanResp::getRt);
+        return resp;
+    }
+
+    public GenericResp updatePatientSkincarePlan(String updatePatientSkincarePlanReqJson) {
+        GenericResp resp = skincareService.updatePatientSkincarePlan(updatePatientSkincarePlanReqJson);
+        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
+        return resp;
+    }
+
+    public GenericResp deletePatientSkincarePlan(String deletePatientSkincarePlanReqJson) {
+        GenericResp resp = skincareService.deletePatientSkincarePlan(deletePatientSkincarePlanReqJson);
+        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
+        return resp;
+    }
+
+    public GetPatientSkincarePlanAttrsResp getPatientSkincarePlanAttrs(String getPatientSkincarePlanAttrsReqJson) {
+        GetPatientSkincarePlanAttrsResp resp = skincareService.getPatientSkincarePlanAttrs(getPatientSkincarePlanAttrsReqJson);
+        resp = metricService.recordApiMetrics(resp, GetPatientSkincarePlanAttrsResp::getRt);
+        return resp;
+    }
+
+    public AddPatientSkincarePlanAttrResp addPatientSkincarePlanAttr(String addPatientSkincarePlanAttrReqJson) {
+        AddPatientSkincarePlanAttrResp resp = skincareService.addPatientSkincarePlanAttr(addPatientSkincarePlanAttrReqJson);
+        resp = metricService.recordApiMetrics(resp, AddPatientSkincarePlanAttrResp::getRt);
+        return resp;
+    }
+
+    public GenericResp updatePatientSkincarePlanAttr(String updatePatientSkincarePlanAttrReqJson) {
+        GenericResp resp = skincareService.updatePatientSkincarePlanAttr(updatePatientSkincarePlanAttrReqJson);
+        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
+        return resp;
+    }
+
+    public GenericResp deletePatientSkincarePlanAttr(String deletePatientSkincarePlanAttrReqJson) {
+        GenericResp resp = skincareService.deletePatientSkincarePlanAttr(deletePatientSkincarePlanAttrReqJson);
+        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
+        return resp;
+    }
+
+    public GetPatientSkincareRecordsResp getPatientSkincareRecords(String getPatientSkincareRecordsReqJson) {
+        GetPatientSkincareRecordsResp resp = skincareService.getPatientSkincareRecords(getPatientSkincareRecordsReqJson);
+        resp = metricService.recordApiMetrics(resp, GetPatientSkincareRecordsResp::getRt);
+        return resp;
+    }
+
+    public AddPatientSkincareRecordResp addPatientSkincareRecord(String addPatientSkincareRecordReqJson) {
+        AddPatientSkincareRecordResp resp = skincareService.addPatientSkincareRecord(addPatientSkincareRecordReqJson);
+        resp = metricService.recordApiMetrics(resp, AddPatientSkincareRecordResp::getRt);
+        return resp;
+    }
+
+    public GenericResp updatePatientSkincareRecord(String updatePatientSkincareRecordReqJson) {
+        GenericResp resp = skincareService.updatePatientSkincareRecord(updatePatientSkincareRecordReqJson);
+        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
+        return resp;
+    }
+
+    public GenericResp deletePatientSkincareRecord(String deletePatientSkincareRecordReqJson) {
+        GenericResp resp = skincareService.deletePatientSkincareRecord(deletePatientSkincareRecordReqJson);
+        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
+        return resp;
+    }
+
+    public GetPatientSkincareRecordAttrsResp getPatientSkincareRecordAttrs(String getPatientSkincareRecordAttrsReqJson) {
+        GetPatientSkincareRecordAttrsResp resp = skincareService.getPatientSkincareRecordAttrs(getPatientSkincareRecordAttrsReqJson);
+        resp = metricService.recordApiMetrics(resp, GetPatientSkincareRecordAttrsResp::getRt);
+        return resp;
+    }
+
+    public AddPatientSkincareRecordAttrResp addPatientSkincareRecordAttr(String addPatientSkincareRecordAttrReqJson) {
+        AddPatientSkincareRecordAttrResp resp = skincareService.addPatientSkincareRecordAttr(addPatientSkincareRecordAttrReqJson);
+        resp = metricService.recordApiMetrics(resp, AddPatientSkincareRecordAttrResp::getRt);
+        return resp;
+    }
+
+    public GenericResp updatePatientSkincareRecordAttr(String updatePatientSkincareRecordAttrReqJson) {
+        GenericResp resp = skincareService.updatePatientSkincareRecordAttr(updatePatientSkincareRecordAttrReqJson);
+        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
+        return resp;
+    }
+
+    public GenericResp deletePatientSkincareRecordAttr(String deletePatientSkincareRecordAttrReqJson) {
+        GenericResp resp = skincareService.deletePatientSkincareRecordAttr(deletePatientSkincareRecordAttrReqJson);
+        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
+        return resp;
+    }
+
     public GetDeptChecklistGroupsResp getDeptChecklistGroups(String getDeptChecklistGroupsReqJson) {
         GetDeptChecklistGroupsResp resp = checklistService.getDeptChecklistGroups(getDeptChecklistGroupsReqJson);
         resp = metricService.recordApiMetrics(resp, GetDeptChecklistGroupsResp::getRt);
@@ -1928,6 +2075,7 @@ public class WebApiService {
     private NursingOrderService nursingOrderService;
     private PatientShiftService patientShiftService;
     private ChecklistService checklistService;
+    private SkincareService skincareService;
     private ExtUrlService extUrlService;
     private QualityControlService qualityControlService;
     private SettingService settingService;
