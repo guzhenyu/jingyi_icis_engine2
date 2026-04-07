@@ -23,6 +23,8 @@ java -jar ./target/jingyi_icis_engine-0.0.1-SNAPSHOT.jar --cert_pb_txt="C:\Users
 java -jar ./target/jingyi_icis_engine-0.0.1-SNAPSHOT.jar --jingyi.textresources.icis_config="classpath:/config/pbtxt/icis_config.pb.txt"  --spring.datasource.url=jdbc:postgresql://192.168.0.223:5432/jingyi_icis_db
 java -jar ./target/jingyi_icis_engine-0.0.1-SNAPSHOT.jar --jingyi.textresources.icis_config="classpath:/config/pbtxt/hospitals/ah2_icis_config.pb.txt"  --spring.datasource.url=jdbc:postgresql://192.168.0.223:5432/jingyi_icis_db
 
+java -jar ./target/jingyi_icis_engine-0.0.1-SNAPSHOT.jar --spring.datasource.url=jdbc:postgresql://192.168.0.8:5432/jingyi_icis_db
+
 # lsof -i :8082
 nohup java -jar ./icis_bridge-0.0.1-SNAPSHOT.jar 1>>/jydata/log/output/nohup_bridge.txt 2>>/jydata/log/output/nohup_bridge.txt &
 nohup java -jar ./icis_bridge-0.0.1-SNAPSHOT.jar --spring.datasource.url=jdbc:postgresql://192.168.0.49:5432/jingyi_icis_db 1>>/jydata/log/output/nohup_bridge.txt 2>>/jydata/log/output/nohup_bridge.txt --server.port=8082 --rpc.port=50003 &
