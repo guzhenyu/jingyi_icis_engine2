@@ -90,6 +90,23 @@ public class SkincareServiceTests extends TestsBase {
         assertThat(addAttrResp2.getRt().getCode()).isEqualTo(StatusCode.OK.getNumber());
         int attrId2 = addAttrResp2.getId();
 
+        AddSkincareTypeAttributeResp addAttrResp3 = skincareService.addSkincareTypeAttribute(ProtoUtils.protoToJson(
+            AddSkincareTypeAttributeReq.newBuilder()
+                .setAttr(SkincareTypeAttributePB.newBuilder()
+                    .setSkincareTypeId(typeId)
+                    .setAttrCode("attr_duplicate_order")
+                    .setAttrName("attr_duplicate_order_name")
+                    .setCategoryId(2)
+                    .setDisplayOrder(1)
+                    .setAttrType(newStringMeta("duplicate_tip"))
+                    .setIsInitial(false)
+                    .setIsMaintenance(true)
+                    .setShowInTable(false)
+                    .build())
+                .build()));
+        assertThat(addAttrResp3.getRt().getCode()).isEqualTo(StatusCode.OK.getNumber());
+        int attrId3 = addAttrResp3.getId();
+
         GetSkincareTypesResp getTypesResp = skincareService.getSkincareTypes(ProtoUtils.protoToJson(
             GetSkincareTypesReq.newBuilder()
                 .setDeptId(deptId)
@@ -98,7 +115,7 @@ public class SkincareServiceTests extends TestsBase {
         assertThat(getTypesResp.getRt().getCode()).isEqualTo(StatusCode.OK.getNumber());
         assertThat(getTypesResp.getSkincareTypeCount()).isEqualTo(1);
         assertThat(getTypesResp.getSkincareType(0).getId()).isEqualTo(typeId);
-        assertThat(getTypesResp.getSkincareType(0).getAttrCount()).isEqualTo(2);
+        assertThat(getTypesResp.getSkincareType(0).getAttrCount()).isEqualTo(3);
 
         GetSkincareTypeAttributesResp getAttrsResp = skincareService.getSkincareTypeAttributes(ProtoUtils.protoToJson(
             GetSkincareTypeAttributesReq.newBuilder()
@@ -108,7 +125,13 @@ public class SkincareServiceTests extends TestsBase {
                 .setShowInTable(-1)
                 .build()));
         assertThat(getAttrsResp.getRt().getCode()).isEqualTo(StatusCode.OK.getNumber());
-        assertThat(getAttrsResp.getAttrCount()).isEqualTo(2);
+        assertThat(getAttrsResp.getAttrCount()).isEqualTo(3);
+        assertThat(getAttrsResp.getAttr(0).getId()).isEqualTo(attrId1);
+        assertThat(getAttrsResp.getAttr(0).getDisplayOrder()).isEqualTo(1);
+        assertThat(getAttrsResp.getAttr(1).getId()).isEqualTo(attrId3);
+        assertThat(getAttrsResp.getAttr(1).getDisplayOrder()).isEqualTo(1);
+        assertThat(getAttrsResp.getAttr(2).getId()).isEqualTo(attrId2);
+        assertThat(getAttrsResp.getAttr(2).getDisplayOrder()).isEqualTo(2);
 
         GenericResp updateTypeResp = skincareService.updateSkincareType(ProtoUtils.protoToJson(
             UpdateSkincareTypeReq.newBuilder()
@@ -129,6 +152,7 @@ public class SkincareServiceTests extends TestsBase {
                     .setAttrCode("attr_assessment")
                     .setAttrName("attr_assessment_name_updated")
                     .setCategoryId(2)
+                    .setDisplayOrder(3)
                     .setAttrType(newStringMeta("assessment_tip_updated"))
                     .setIsInitial(true)
                     .setIsMaintenance(false)
@@ -149,6 +173,7 @@ public class SkincareServiceTests extends TestsBase {
         SkincareTypeAttributePB updatedAttr = getUpdatedAttrResp.getAttr(0);
         assertThat(updatedAttr.getAttrName()).isEqualTo("attr_assessment_name_updated");
         assertThat(updatedAttr.getCategoryId()).isEqualTo(2);
+        assertThat(updatedAttr.getDisplayOrder()).isEqualTo(3);
         assertThat(updatedAttr.getShowInTable()).isFalse();
         assertThat(updatedAttr.getAttrType().getTooltip()).isEqualTo("assessment_tip_updated");
 
@@ -179,7 +204,7 @@ public class SkincareServiceTests extends TestsBase {
         assertThat(getDeletedTypeResp.getRt().getCode()).isEqualTo(StatusCode.OK.getNumber());
         assertThat(getDeletedTypeResp.getSkincareTypeCount()).isEqualTo(1);
         assertThat(getDeletedTypeResp.getSkincareType(0).getName()).isEqualTo("type_crud_case_updated");
-        assertThat(getDeletedTypeResp.getSkincareType(0).getAttrCount()).isEqualTo(2);
+        assertThat(getDeletedTypeResp.getSkincareType(0).getAttrCount()).isEqualTo(3);
     }
 
     @Test
@@ -248,15 +273,31 @@ public class SkincareServiceTests extends TestsBase {
         assertThat(addPlanResp.getRt().getCode()).isEqualTo(StatusCode.OK.getNumber());
         long planId = addPlanResp.getId();
 
+        AddPatientSkincarePlanResp addPlanResp2 = skincareService.addPatientSkincarePlan(ProtoUtils.protoToJson(
+            AddPatientSkincarePlanReq.newBuilder()
+                .setPlan(PatientSkincarePlanPB.newBuilder()
+                    .setDeptId(deptId)
+                    .setPid(pid)
+                    .setSkincareTypeId(typeId)
+                    .addAttr(PatientSkincarePlanAttrPB.newBuilder()
+                        .setSkincareAttrId(attrId1)
+                        .setValue(newStringValue("initial_value_2"))
+                        .build())
+                    .build())
+                .build()));
+        assertThat(addPlanResp2.getRt().getCode()).isEqualTo(StatusCode.OK.getNumber());
+        long planId2 = addPlanResp2.getId();
+
         GetPatientSkincarePlansResp getPlansResp = skincareService.getPatientSkincarePlans(ProtoUtils.protoToJson(
             GetPatientSkincarePlansReq.newBuilder()
                 .setPid(pid)
                 .build()));
         assertThat(getPlansResp.getRt().getCode()).isEqualTo(StatusCode.OK.getNumber());
-        assertThat(getPlansResp.getPlanCount()).isEqualTo(1);
-        assertThat(getPlansResp.getPlan(0).getId()).isEqualTo(planId);
+        assertThat(getPlansResp.getPlanCount()).isEqualTo(2);
+        assertThat(getPlansResp.getPlan(0).getId()).isEqualTo(planId2);
+        assertThat(getPlansResp.getPlan(1).getId()).isEqualTo(planId);
         assertThat(getPlansResp.getPlan(0).getAttrCount()).isEqualTo(1);
-        assertThat(getPlansResp.getPlan(0).getAttr(0).getValue().getStrVal()).isEqualTo("initial_value");
+        assertThat(getPlansResp.getPlan(1).getAttr(0).getValue().getStrVal()).isEqualTo("initial_value");
 
         GenericResp updatePlanResp = skincareService.updatePatientSkincarePlan(ProtoUtils.protoToJson(
             UpdatePatientSkincarePlanReq.newBuilder()
@@ -320,15 +361,31 @@ public class SkincareServiceTests extends TestsBase {
         assertThat(addRecordResp.getRt().getCode()).isEqualTo(StatusCode.OK.getNumber());
         long recordId = addRecordResp.getId();
 
+        AddPatientSkincareRecordResp addRecordResp2 = skincareService.addPatientSkincareRecord(ProtoUtils.protoToJson(
+            AddPatientSkincareRecordReq.newBuilder()
+                .setRecord(PatientSkincareRecordPB.newBuilder()
+                    .setDeptId(deptId)
+                    .setPid(pid)
+                    .setPatientSkincarePlanId(planId)
+                    .addAttr(PatientSkincareRecordAttrPB.newBuilder()
+                        .setSkincareAttrId(attrId1)
+                        .setValue(newStringValue("record_initial_value_2"))
+                        .build())
+                    .build())
+                .build()));
+        assertThat(addRecordResp2.getRt().getCode()).isEqualTo(StatusCode.OK.getNumber());
+        long recordId2 = addRecordResp2.getId();
+
         GetPatientSkincareRecordsResp getRecordsResp = skincareService.getPatientSkincareRecords(ProtoUtils.protoToJson(
             GetPatientSkincareRecordsReq.newBuilder()
                 .setPid(pid)
                 .build()));
         assertThat(getRecordsResp.getRt().getCode()).isEqualTo(StatusCode.OK.getNumber());
-        assertThat(getRecordsResp.getRecordCount()).isEqualTo(1);
-        assertThat(getRecordsResp.getRecord(0).getId()).isEqualTo(recordId);
+        assertThat(getRecordsResp.getRecordCount()).isEqualTo(2);
+        assertThat(getRecordsResp.getRecord(0).getId()).isEqualTo(recordId2);
+        assertThat(getRecordsResp.getRecord(1).getId()).isEqualTo(recordId);
         assertThat(getRecordsResp.getRecord(0).getAttrCount()).isEqualTo(1);
-        assertThat(getRecordsResp.getRecord(0).getAttr(0).getValue().getStrVal()).isEqualTo("record_initial_value");
+        assertThat(getRecordsResp.getRecord(1).getAttr(0).getValue().getStrVal()).isEqualTo("record_initial_value");
 
         GenericResp updateRecordResp = skincareService.updatePatientSkincareRecord(ProtoUtils.protoToJson(
             UpdatePatientSkincareRecordReq.newBuilder()

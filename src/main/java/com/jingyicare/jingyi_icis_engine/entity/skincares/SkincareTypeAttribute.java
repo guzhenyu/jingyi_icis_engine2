@@ -32,6 +32,9 @@ public class SkincareTypeAttribute {
     @Column(name = "category_id")
     private Integer categoryId;
 
+    @Column(name = "display_order", nullable = false)
+    private Integer displayOrder;
+
     @Column(name = "attr_type_pb", nullable = false, columnDefinition = "TEXT")
     private String attrTypePb;
 

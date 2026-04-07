@@ -1289,6 +1289,7 @@ CREATE TABLE skincare_type_attributes (
     attr_code VARCHAR(255) NOT NULL,
     attr_name VARCHAR(255) NOT NULL,
     category_id INT,
+    display_order INT NOT NULL DEFAULT 1,
     attr_type_pb TEXT NOT NULL,
     is_initial BOOLEAN NOT NULL DEFAULT FALSE,
     is_maintenance BOOLEAN NOT NULL DEFAULT FALSE,
@@ -1306,6 +1307,7 @@ COMMENT ON COLUMN skincare_type_attributes.skincare_type_id IS '外键 skincare_
 COMMENT ON COLUMN skincare_type_attributes.attr_code IS '属性编码';
 COMMENT ON COLUMN skincare_type_attributes.attr_name IS '属性名称';
 COMMENT ON COLUMN skincare_type_attributes.category_id IS '分类ID，对应 GetConfigResp.skincare_category.key';
+COMMENT ON COLUMN skincare_type_attributes.display_order IS '属性显示顺序，同顺序时按id升序';
 COMMENT ON COLUMN skincare_type_attributes.attr_type_pb IS 'proto消息ValueMetaPB实例序列化后的base64编码';
 COMMENT ON COLUMN skincare_type_attributes.is_initial IS '是否在创建病人皮肤护理计划时填写';
 COMMENT ON COLUMN skincare_type_attributes.is_maintenance IS '是否属于维护项';
@@ -1320,6 +1322,9 @@ CREATE UNIQUE INDEX idx_skincare_type_attrs_type_attr_code
     WHERE is_deleted = FALSE;
 CREATE UNIQUE INDEX idx_skincare_type_attrs_type_attr_name
     ON skincare_type_attributes (skincare_type_id, attr_name)
+    WHERE is_deleted = FALSE;
+CREATE INDEX idx_skincare_type_attrs_type_display_order
+    ON skincare_type_attributes (skincare_type_id, display_order, id)
     WHERE is_deleted = FALSE;
 
 CREATE TABLE patient_skincare_plans (

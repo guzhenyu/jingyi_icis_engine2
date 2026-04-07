@@ -257,9 +257,7 @@ public class SkincareService {
             .filter(attr -> matchesBoolean(attr.getShowInTable(), req.getShowInTable()))
             .filter(attr -> matchesDeleted(attr.getIsDeleted(), req.getIsDeleted()))
             .sorted(Comparator.comparing(SkincareTypeAttribute::getSkincareTypeId)
-                .thenComparing(SkincareTypeAttribute::getCategoryId, Comparator.nullsLast(Integer::compareTo))
-                .thenComparing(SkincareTypeAttribute::getAttrName, Comparator.nullsLast(String::compareTo))
-                .thenComparing(SkincareTypeAttribute::getId))
+                .thenComparing(this::compareSkincareTypeAttribute))
             .map(this::toProto)
             .toList();
 
@@ -329,7 +327,13 @@ public class SkincareService {
 
         LocalDateTime now = TimeUtils.getNowUtc();
         SkincareTypeAttribute attr = deletedAttr == null ? new SkincareTypeAttribute() : deletedAttr;
-        fillTypeAttrEntity(attr, attrPb, accountId, now);
+        fillTypeAttrEntity(
+            attr,
+            attrPb,
+            resolveTypeAttrDisplayOrderForCreate(attrPb.getSkincareTypeId(), attrPb.getDisplayOrder()),
+            accountId,
+            now
+        );
         attr = skincareTypeAttrRepo.save(attr);
 
         return AddSkincareTypeAttributeResp.newBuilder()
@@ -395,7 +399,13 @@ public class SkincareService {
                 .build();
         }
 
-        fillTypeAttrEntity(attr, attrPb, accountId, TimeUtils.getNowUtc());
+        fillTypeAttrEntity(
+            attr,
+            attrPb,
+            resolveTypeAttrDisplayOrderForUpdate(attrPb.getDisplayOrder(), attr.getDisplayOrder(), attrPb.getSkincareTypeId()),
+            accountId,
+            TimeUtils.getNowUtc()
+        );
         skincareTypeAttrRepo.save(attr);
 
         return GenericResp.newBuilder()
@@ -479,8 +489,8 @@ public class SkincareService {
             .filter(plan -> req.getSkincareTypeId() <= 0 || Objects.equals(plan.getSkincareTypeId(), req.getSkincareTypeId()))
             .filter(plan -> !plan.getCreatedAt().isBefore(timeRange.start) && !plan.getCreatedAt().isAfter(timeRange.end))
             .filter(plan -> matchesDeleted(plan.getIsDeleted(), req.getIsDeleted()))
-            .sorted(Comparator.comparing(PatientSkincarePlan::getCreatedAt)
-                .thenComparing(PatientSkincarePlan::getId))
+            .sorted(Comparator.comparing(PatientSkincarePlan::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(PatientSkincarePlan::getId, Comparator.nullsLast(Comparator.reverseOrder())))
             .toList();
 
         int childDeletedFilter = req.getIsDeleted() >= 0 ? req.getIsDeleted() : 0;
@@ -937,8 +947,8 @@ public class SkincareService {
                 || Objects.equals(record.getPatientSkincarePlanId(), req.getPatientSkincarePlanId()))
             .filter(record -> !record.getCreatedAt().isBefore(timeRange.start) && !record.getCreatedAt().isAfter(timeRange.end))
             .filter(record -> matchesDeleted(record.getIsDeleted(), req.getIsDeleted()))
-            .sorted(Comparator.comparing(PatientSkincareRecord::getCreatedAt)
-                .thenComparing(PatientSkincareRecord::getId))
+            .sorted(Comparator.comparing(PatientSkincareRecord::getCreatedAt, Comparator.nullsLast(Comparator.reverseOrder()))
+                .thenComparing(PatientSkincareRecord::getId, Comparator.nullsLast(Comparator.reverseOrder())))
             .toList();
 
         int childDeletedFilter = req.getIsDeleted() >= 0 ? req.getIsDeleted() : 0;
@@ -1392,7 +1402,8 @@ public class SkincareService {
             .setAttrType(attrType)
             .setIsInitial(Boolean.TRUE.equals(attr.getIsInitial()))
             .setIsMaintenance(Boolean.TRUE.equals(attr.getIsMaintenance()))
-            .setShowInTable(Boolean.TRUE.equals(attr.getShowInTable()));
+            .setShowInTable(Boolean.TRUE.equals(attr.getShowInTable()))
+            .setDisplayOrder(attr.getDisplayOrder() == null ? 0 : attr.getDisplayOrder());
         if (attr.getCategoryId() != null) {
             builder.setCategoryId(attr.getCategoryId());
         }
@@ -1444,12 +1455,13 @@ public class SkincareService {
     }
 
     private void fillTypeAttrEntity(
-        SkincareTypeAttribute attr, SkincareTypeAttributePB attrPb, String accountId, LocalDateTime now
+        SkincareTypeAttribute attr, SkincareTypeAttributePB attrPb, Integer displayOrder, String accountId, LocalDateTime now
     ) {
         attr.setSkincareTypeId(attrPb.getSkincareTypeId());
         attr.setAttrCode(attrPb.getAttrCode());
         attr.setAttrName(attrPb.getAttrName());
         attr.setCategoryId(attrPb.getCategoryId() > 0 ? attrPb.getCategoryId() : null);
+        attr.setDisplayOrder(displayOrder);
         attr.setAttrTypePb(ProtoUtils.encodeValueMeta(attrPb.getAttrType()));
         attr.setIsInitial(attrPb.getIsInitial());
         attr.setIsMaintenance(attrPb.getIsMaintenance());
@@ -1501,9 +1513,7 @@ public class SkincareService {
                 .toList();
         }
         return attrs.stream()
-            .sorted(Comparator.comparing(SkincareTypeAttribute::getCategoryId, Comparator.nullsLast(Integer::compareTo))
-                .thenComparing(SkincareTypeAttribute::getAttrName, Comparator.nullsLast(String::compareTo))
-                .thenComparing(SkincareTypeAttribute::getId))
+            .sorted(this::compareSkincareTypeAttribute)
             .collect(Collectors.groupingBy(
                 SkincareTypeAttribute::getSkincareTypeId,
                 LinkedHashMap::new,
@@ -1591,6 +1601,34 @@ public class SkincareService {
             return StatusCode.SKINCARE_TYPE_ATTR_ID_NOT_MATCH;
         }
         return null;
+    }
+
+    private int compareSkincareTypeAttribute(SkincareTypeAttribute left, SkincareTypeAttribute right) {
+        return Comparator
+            .comparing(SkincareTypeAttribute::getDisplayOrder, Comparator.nullsLast(Integer::compareTo))
+            .thenComparing(SkincareTypeAttribute::getId)
+            .compare(left, right);
+    }
+
+    private Integer resolveTypeAttrDisplayOrderForCreate(Integer skincareTypeId, int requestedDisplayOrder) {
+        if (requestedDisplayOrder > 0) return requestedDisplayOrder;
+        return getNextTypeAttrDisplayOrder(skincareTypeId);
+    }
+
+    private Integer resolveTypeAttrDisplayOrderForUpdate(
+        int requestedDisplayOrder, Integer currentDisplayOrder, Integer skincareTypeId
+    ) {
+        if (requestedDisplayOrder > 0) return requestedDisplayOrder;
+        if (currentDisplayOrder != null && currentDisplayOrder > 0) return currentDisplayOrder;
+        return getNextTypeAttrDisplayOrder(skincareTypeId);
+    }
+
+    private Integer getNextTypeAttrDisplayOrder(Integer skincareTypeId) {
+        return skincareTypeAttrRepo.findBySkincareTypeIdAndIsDeletedFalse(skincareTypeId).stream()
+            .map(SkincareTypeAttribute::getDisplayOrder)
+            .filter(Objects::nonNull)
+            .max(Integer::compareTo)
+            .orElse(0) + 1;
     }
 
     private String resolvePatientDeptId(String requestedDeptId, PatientRecord patient) {

@@ -24,6 +24,7 @@ message SkincareTypeAttributePB {
     bool is_initial = 7;
     bool is_maintenance = 8;
     bool show_in_table = 9;
+    int32 display_order = 10;
 }
 
 message PatientSkincarePlanPB {
