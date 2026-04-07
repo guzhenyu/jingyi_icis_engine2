@@ -4108,6 +4108,12 @@ COMMENT ON COLUMN patient_settings.modified_at IS '最后修改时间';
 COMMENT ON COLUMN patient_settings.modified_by IS '最后修改人';
 
 -- 按建表逆序删除表
+-- drop table if exists patient_skincare_record_attrs;
+-- drop table if exists patient_skincare_records;
+-- drop table if exists patient_skincare_plan_attrs;
+-- drop table if exists patient_skincare_plans;
+-- drop table if exists skincare_type_attributes;
+-- drop table if exists skincare_types;
 -- drop table if exists patient_settings;
 -- drop table if exists dept_system_settings;
 -- drop table if exists system_settings;
