@@ -28,6 +28,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoringReportAh2.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 
 import com.jingyicare.jingyi_icis_engine.service.*;
+import com.jingyicare.jingyi_icis_engine.service.reports.jfkdatasources.JfkPatientInfo;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Component
@@ -396,9 +397,9 @@ public class Ah2ReportService {
         if (shiftTimeStart == null) {
             shiftTimeStart = TimeUtils.getNowUtc();
         }
-        Pair<ReturnCode, JfkDataService.JfkPatientInfo> patientInfoPair =
+        Pair<ReturnCode, JfkPatientInfo> patientInfoPair =
             jfkDataService.getJfkPatientInfo(ctx.pid, shiftTimeStart);
-        JfkDataService.JfkPatientInfo patientInfo = patientInfoPair.getFirst().getCode() == 0 ?
+        JfkPatientInfo patientInfo = patientInfoPair.getFirst().getCode() == 0 ?
             patientInfoPair.getSecond() : null;
         if (patientInfo == null) {
             log.error("Failed to get patient info for pid {}; shiftTimeStart {}", ctx.pid, shiftTimeStart);
@@ -561,7 +562,7 @@ public class Ah2ReportService {
         }
     }
 
-    private String getTextContent(JfkDataService.JfkPatientInfo jfkPatInfo, int pageNumber, JfkTextPB textPb) {
+    private String getTextContent(JfkPatientInfo jfkPatInfo, int pageNumber, JfkTextPB textPb) {
         if (textPb.getId().equals("ah2:page_number")) {
             return "第 " + pageNumber + " 页";
         }

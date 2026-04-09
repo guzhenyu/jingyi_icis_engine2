@@ -238,58 +238,13 @@ public class ReportService {
 
         List<JfkDataSourcePB> outputList = new ArrayList<>();
         for (JfkDataSourcePB inputDataSource : req.getInputList()) {
-            if (inputDataSource.getMetaId().equals("patient_info")) {
-                Pair<ReturnCode, JfkDataSourcePB> result = jfkDataService.getPatientInfo(inputDataSource);
-                if (result.getFirst().getCode() != 0) {
-                    return GetJfkDataResp.newBuilder()
-                        .setRt(result.getFirst())
-                        .build();
-                }
-                outputList.add(result.getSecond());
+            Pair<ReturnCode, JfkDataSourcePB> result = jfkDataService.getDataSource(inputDataSource);
+            if (result.getFirst().getCode() != 0) {
+                return GetJfkDataResp.newBuilder()
+                    .setRt(result.getFirst())
+                    .build();
             }
-            if (inputDataSource.getMetaId().equals("test_data_source1")) {
-                Pair<ReturnCode, JfkDataSourcePB> result = jfkDataService.getTestDataSource1(inputDataSource);
-                if (result.getFirst().getCode() != 0) {
-                    return GetJfkDataResp.newBuilder()
-                        .setRt(result.getFirst())
-                        .build();
-                }
-                outputList.add(result.getSecond());
-            }
-            if (inputDataSource.getMetaId().equals("rass")) {
-                Pair<ReturnCode, JfkDataSourcePB> result = jfkDataService.getRassDataSource(inputDataSource);
-                if (result.getFirst().getCode() != 0) {
-                    return GetJfkDataResp.newBuilder()
-                        .setRt(result.getFirst())
-                        .build();
-                }
-                outputList.add(result.getSecond());
-            }
-            if (inputDataSource.getMetaId().equals("cpot")) {
-                Pair<ReturnCode, JfkDataSourcePB> result = jfkDataService.getCpotDataSource(inputDataSource);
-                if (result.getFirst().getCode() != 0) {
-                    return GetJfkDataResp.newBuilder()
-                        .setRt(result.getFirst())
-                        .build();
-                }
-                outputList.add(result.getSecond());
-            }
-            if (inputDataSource.getMetaId().equals("ward_report_summary")) {
-                Pair<ReturnCode, JfkDataSourcePB> result = jfkDataService.getWardReportSummary(inputDataSource);
-                if (result.getFirst().getCode() != 0) {
-                    return GetJfkDataResp.newBuilder()
-                        .setRt(result.getFirst())
-                        .build();
-                }
-                outputList.add(result.getSecond());
-            }
-            if (inputDataSource.getMetaId().equals("ward_report_patients")) {
-                Pair<ReturnCode, JfkDataSourcePB> result = jfkDataService.getWardReportPatients(inputDataSource);
-                if (result.getFirst().getCode() != 0) {
-                    return GetJfkDataResp.newBuilder()
-                        .setRt(result.getFirst())
-                        .build();
-                }
+            if (result.getSecond() != null) {
                 outputList.add(result.getSecond());
             }
         }

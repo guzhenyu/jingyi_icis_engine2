@@ -35,6 +35,7 @@ enum JfkPageElementDataTypePB {
     JFK_DATA_SOURCE = 4;  // 数据由数据源提供，对应 JfkDataSourcePB(id + output_fields[i].id)
     JFK_CUR_PAGE_ID = 5;  // 当前页码，从1开始
     JFK_TOTAL_PAGES = 6;  // 总页数
+    JFK_CUR_SUB_PAGE_ID = 7;  // 当前子页码，从1开始
 }
 
 message JfkElementMetaPB {
@@ -142,11 +143,7 @@ message JfkLinePB {
     float next_page_x2 = 11; // 跨页延伸时的终点X坐标
     float next_page_y2 = 12; // 跨页延伸时的终点Y坐标
 
-    // unused: to be deleted from both FE and BE
-    float x = 13;
-    float y = 14;
-    float width = 15;
-    float height = 16;
+    reserved 13, 14, 15, 16;
 }
 
 message JfkEnumsPB {
