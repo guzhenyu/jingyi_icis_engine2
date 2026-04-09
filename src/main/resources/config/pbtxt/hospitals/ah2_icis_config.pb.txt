@@ -9166,6 +9166,113 @@ score {
             score_item_type: 1
         }
     }
+    group {
+        code: "pain_assessment"
+        name: "镇痛评估"
+        description: ""
+        score_group_aggregator: 0
+        value_meta {
+            value_type: INT32
+            unit: "分"
+        }
+        item {
+            code: "surgical_patient"
+            name: "手术患者"
+            option { code: "yes" name: "是" score { int32_val: 1 } }
+            option { code: "no" name: "否" score { int32_val: 0 } }
+            score_item_type: 0
+        }
+        item {
+            code: "consciousness_level"
+            name: "清醒程度"
+            option { code: "fully_awake" name: "完全苏醒" score { int32_val: 2 } }
+            option { code: "responsive_to_stimuli" name: "对刺激有反应" score { int32_val: 1 } }
+            option { code: "no_response_to_stimuli" name: "对刺激无反应" score { int32_val: 0 } }
+            score_item_type: 0
+        }
+        item {
+            code: "airway_patency"
+            name: "呼吸道通畅程度"
+            option { code: "cough_on_command" name: "可按医师吩咐咳嗽" score { int32_val: 2 } }
+            option { code: "maintain_airway_without_support" name: "不支持可维持呼吸道通畅" score { int32_val: 1 } }
+            option { code: "airway_requires_support" name: "呼吸道需要予以支持" score { int32_val: 0 } }
+            score_item_type: 0
+        }
+        item {
+            code: "limb_activity"
+            name: "肢体活动度"
+            option { code: "purposeful_movement" name: "肢体能做有意识的活动" score { int32_val: 2 } }
+            option { code: "nonpurposeful_movement" name: "肢体无意识活动" score { int32_val: 1 } }
+            option { code: "no_movement" name: "肢体无活动" score { int32_val: 0 } }
+            score_item_type: 0
+        }
+        item {
+            code: "steward_score_status"
+            name: "SteWard得分情况"
+            option { code: "lt_4_waited_4h" name: "以上三项合计分数小于4但已等待4小时" score { int32_val: 2 } }
+            option { code: "ge_4" name: "以上三项合计分数大于等于4" score { int32_val: 1 } }
+            option { code: "lt_4" name: "以上三项合计分数小于4" score { int32_val: 0 } }
+            score_item_type: 0
+        }
+        item {
+            code: "self_reporting_ability"
+            name: "能否自述"
+            option { code: "yes" name: "是" score { int32_val: 1 } }
+            option { code: "no" name: "否" score { int32_val: 0 } }
+            score_item_type: 0
+        }
+        item {
+            code: "nrs_pain_score"
+            name: "NRS疼痛得分"
+            option { code: "nrs_0_no_pain" name: "0分-无痛" score { int32_val: 0 } }
+            option { code: "nrs_1" name: "1分" score { int32_val: 1 } }
+            option { code: "nrs_2_slight_pain" name: "2分-有点痛" score { int32_val: 2 } }
+            option { code: "nrs_3" name: "3分" score { int32_val: 3 } }
+            option { code: "nrs_4_mild_pain" name: "4分-轻微疼痛" score { int32_val: 4 } }
+            option { code: "nrs_5" name: "5分" score { int32_val: 5 } }
+            option { code: "nrs_6_obvious_pain" name: "6分-疼痛明显" score { int32_val: 6 } }
+            option { code: "nrs_7" name: "7分" score { int32_val: 7 } }
+            option { code: "nrs_8_severe_pain" name: "8分-疼痛严重" score { int32_val: 8 } }
+            option { code: "nrs_9" name: "9分" score { int32_val: 9 } }
+            option { code: "nrs_10_excruciating_pain" name: "10分-剧烈痛" score { int32_val: 10 } }
+            score_item_type: 0
+        }
+        item {
+            code: "facial_expression"
+            name: "面部表情"
+            option { code: "painful_grimace" name: "痛苦面容：完全紧张（如脸眼紧闭等）" score { int32_val: 2 } }
+            option { code: "tense_brow" name: "紧张-皱眉，眼轮匝肌紧闭" score { int32_val: 1 } }
+            option { code: "relaxed_calm" name: "放松平静-无肌肉紧张表现" score { int32_val: 0 } }
+            score_item_type: 0
+        }
+        item {
+            code: "body_movement"
+            name: "身体运动"
+            option { code: "restlessness" name: "烦躁不安：拽管、试图坐起、挥打不遵循，撞击床栏，试图下床" score { int32_val: 2 } }
+            option { code: "protective_movement" name: "保护性运动：谨慎缓慢运动，触摸或摩擦痛点，运动寻求关注" score { int32_val: 1 } }
+            option { code: "no_movement" name: "无运动" score { int32_val: 0 } }
+            score_item_type: 0
+        }
+        item {
+            code: "muscle_tension"
+            name: "肌张力(对上肢被动伸屈的评估)"
+            option { code: "extremely_tense_rigid" name: "非常紧张、僵硬：对被动运动抵抗强烈并不能停止" score { int32_val: 2 } }
+            option { code: "tense_rigid" name: "紧张、僵硬：对被动运动有抵抗" score { int32_val: 1 } }
+            option { code: "relaxed_no_resistance" name: "放松：对被动运动无抵抗" score { int32_val: 0 } }
+            score_item_type: 0
+        }
+        item {
+            code: "ventilator_compliance_or_vocalization"
+            name: "机械通气顺应性(气管插管患者)和发声(拔管患者)"
+            option { code: "intubated_tolerates_ventilation" name: "0分-气管插管患者-可耐受机械通气或移动：未报警，机械通气顺畅" score { int32_val: 0 } }
+            option { code: "intubated_coughs_but_tolerates" name: "1分-气管插管患者-呛咳但可耐受：自主呼吸警报" score { int32_val: 1 } }
+            option { code: "intubated_against_ventilator" name: "2分-气管插管患者-抵抗机械通气：与呼吸机不同步，抵抗机械通气，频繁报警" score { int32_val: 2 } }
+            option { code: "extubated_normal_or_silent" name: "0分-拔管患者-言语正常或不发声" score { int32_val: 0 } }
+            option { code: "extubated_sigh_groan" name: "1分-叹气、呻吟" score { int32_val: 1 } }
+            option { code: "extubated_shout_sob" name: "2分-喊叫、啜泣" score { int32_val: 2 } }
+            score_item_type: 0
+        }
+    }
     default_score_group_code: "gcs"
 }
 nursing_record {
@@ -14345,6 +14452,7 @@ quality_control {
     pain_score_group_code: "cpot"
     pain_score_group_code: "bps"
     pain_score_group_code: "nrs"
+    pain_score_group_code: "pain_assessment"
     sedation_score_group_code: "rass"
     sedation_score_group_code: "sas_sedation_agitation_assessment"
 }

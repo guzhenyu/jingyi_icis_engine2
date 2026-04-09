@@ -64,6 +64,12 @@ public class PatientDeviceService {
         this.SWITCH_TYPE_NORMAL = devEnums.getSwitchTypeNormal().getId();
         this.SWITCH_TYPE_READMISSION_DISCHARGE = devEnums.getSwitchTypeReadmissionDischarge().getId();
         this.SWITCH_TYPE_READMISSION_ADMIT = devEnums.getSwitchTypeReadmissionAdmit().getId();
+        this.CENTRAL_STATION_DEVICE_TYPE = protoService.getConfig().getDevice().getDeviceCascade().getEntryList()
+            .stream()
+            .filter(entry -> entry.getDeviceTypeName().equals("中央站"))
+            .map(DeviceTypeEntryPB::getDeviceTypeId)
+            .findFirst()
+            .orElse(0);
 
         this.protoService = protoService;
         this.patientConfig = patientConfig;
@@ -591,6 +597,12 @@ public class PatientDeviceService {
                 .setRt(protoService.getReturnCode(StatusCode.DEVICE_IP_ALREADY_USED))
                 .build();
         }
+        StatusCode upstreamStatus = validateUpstreamDevice(req.getDeviceInfo(), null);
+        if (upstreamStatus != StatusCode.OK) {
+            return AddDeviceInfoResp.newBuilder()
+                .setRt(protoService.getReturnCode(upstreamStatus))
+                .build();
+        }
 
         // 新增设备信息
         devInfo = patientConfig.toDeviceInfo(req.getDeviceInfo());
@@ -642,6 +654,20 @@ public class PatientDeviceService {
         if (devInfoWithSameName != null && devInfoWithSameName.getId() != devInfo.getId()) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.DEVICE_INFO_ALREADY_EXISTS))
+                .build();
+        }
+        List<DeviceInfo> devInfoWithSameIp = devRepo.findByDeviceIpAndIsDeletedFalseAndIdNot(
+            req.getDeviceInfo().getDeviceIp(), devInfo.getId()
+        );
+        if (!devInfoWithSameIp.isEmpty()) {
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.DEVICE_IP_ALREADY_USED))
+                .build();
+        }
+        StatusCode upstreamStatus = validateUpstreamDevice(req.getDeviceInfo(), devInfo.getId());
+        if (upstreamStatus != StatusCode.OK) {
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(upstreamStatus))
                 .build();
         }
 
@@ -1128,11 +1154,51 @@ public class PatientDeviceService {
         return bedConfig;
     }
 
+    private StatusCode validateUpstreamDevice(DeviceInfoPB devInfoPB, Integer selfDeviceId) {
+        boolean enabledAsSource = devInfoPB.getEnabledAsSource();
+        Integer upstreamDeviceId = devInfoPB.getUpstreamDeviceId();
+        if (enabledAsSource) {
+            if (upstreamDeviceId != null && upstreamDeviceId > 0) {
+                log.error("Direct source device cannot have upstream device: {}", upstreamDeviceId);
+                return StatusCode.DEVICE_INFO_NOT_EXISTS;
+            }
+            return StatusCode.OK;
+        }
+        if (upstreamDeviceId == null || upstreamDeviceId <= 0) {
+            return StatusCode.OK;
+        }
+        if (selfDeviceId != null && upstreamDeviceId.equals(selfDeviceId)) {
+            log.error("Device cannot use itself as upstream device: {}", selfDeviceId);
+            return StatusCode.DEVICE_INFO_NOT_EXISTS;
+        }
+
+        DeviceInfo upstreamDevice = devRepo.findById(upstreamDeviceId).orElse(null);
+        if (upstreamDevice == null || Boolean.TRUE.equals(upstreamDevice.getIsDeleted())) {
+            log.error("Upstream device not found: {}", upstreamDeviceId);
+            return StatusCode.DEVICE_INFO_NOT_EXISTS;
+        }
+        if (!Objects.equals(upstreamDevice.getDepartmentId(), devInfoPB.getDepartmentId())) {
+            log.error("Upstream device department mismatch: upstream {}, current {}",
+                upstreamDevice.getDepartmentId(), devInfoPB.getDepartmentId());
+            return StatusCode.DEVICE_INFO_NOT_EXISTS;
+        }
+        if (!Boolean.TRUE.equals(upstreamDevice.getEnabledAsSource())) {
+            log.error("Upstream device must be enabled as source: {}", upstreamDeviceId);
+            return StatusCode.DEVICE_INFO_NOT_EXISTS;
+        }
+        if (!Objects.equals(upstreamDevice.getDeviceType(), CENTRAL_STATION_DEVICE_TYPE)) {
+            log.error("Upstream device is not a central station: {}", upstreamDeviceId);
+            return StatusCode.DEVICE_INFO_NOT_EXISTS;
+        }
+        return StatusCode.OK;
+    }
+
     private final String ZONE_ID;
     private final Integer IN_ICU_VAL;
     private final Integer SWITCH_TYPE_NORMAL;
     private final Integer SWITCH_TYPE_READMISSION_DISCHARGE;
     private final Integer SWITCH_TYPE_READMISSION_ADMIT;
+    private final Integer CENTRAL_STATION_DEVICE_TYPE;
 
     private final ConfigProtoService protoService;
     private final PatientConfig patientConfig;

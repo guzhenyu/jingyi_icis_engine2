@@ -12,6 +12,7 @@ public interface DeviceInfoRepository extends JpaRepository<DeviceInfo, Integer>
     List<DeviceInfo> findAll();
     List<DeviceInfo> findAllByIsDeletedFalse();
     List<DeviceInfo> findByDeviceIpAndIsDeletedFalse(String deviceIp);
+    List<DeviceInfo> findByDeviceIpAndIsDeletedFalseAndIdNot(String deviceIp, Integer id);
     List<DeviceInfo> findByDepartmentIdAndDeviceBedNumberAndIsDeletedFalse(String departmentId, String deviceBedNumber);
     Optional<DeviceInfo> findByDeviceSnAndIsDeletedFalse(String deviceSn);
     Optional<DeviceInfo> findByDepartmentIdAndDeviceNameAndIsDeletedFalse(String departmentId, String deviceName);

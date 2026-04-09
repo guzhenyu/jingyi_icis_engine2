@@ -59,6 +59,20 @@ public class DeviceInfo {
     @Column(name = "manufacturer")
     private String manufacturer;  // 生产厂家
 
+    @Column(name = "source_mode")
+    private Integer sourceMode;  // 数据来源模式，icis_device.proto:DeviceEnums.source_mode
+
+    @Column(name = "source_topology")
+    private Integer sourceTopology;  // 数据来源拓扑，icis_device.proto:DeviceEnums.source_topology
+
+    @Builder.Default
+    @Column(name = "enabled_as_source", nullable = false)
+    private Boolean enabledAsSource = false;  // 是否参与 jd2 source/runtime
+
+    @Builder.Default
+    @Column(name = "upstream_device_id", nullable = false)
+    private Integer upstreamDeviceId = 0;  // 上游设备id，0表示无上游
+
     @Column(name = "is_deleted", nullable = false)
     private Boolean isDeleted;  // 是否已删除
 
@@ -76,4 +90,15 @@ public class DeviceInfo {
 
     @Column(name = "modified_at")
     private LocalDateTime modifiedAt;  // 最后修改时间
+
+    @PrePersist
+    @PreUpdate
+    private void applyDefaults() {
+        if (enabledAsSource == null) {
+            enabledAsSource = false;
+        }
+        if (upstreamDeviceId == null) {
+            upstreamDeviceId = 0;
+        }
+    }
 }

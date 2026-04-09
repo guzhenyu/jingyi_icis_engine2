@@ -3547,6 +3547,22 @@ device {
             id: 2
             name: "RS485"
         }
+        source_mode {
+            id: 1
+            name: "采集程序作为服务端"
+        }
+        source_mode {
+            id: 2
+            name: "采集程序作为客户端"
+        }
+        source_topology {
+            id: 1
+            name: "单设备直连"
+        }
+        source_topology {
+            id: 2
+            name: "中央站扇出分发"
+        }
         bed_type {
             id: 1
             name: "固定授权"

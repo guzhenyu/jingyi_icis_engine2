@@ -15,6 +15,11 @@ message DeviceEnums {
     shared.EnumValue switch_type_normal = 4;  // 普通换床
     shared.EnumValue switch_type_readmission_discharge = 5;  // 24h重返-出科 (重返： 先出后入)
     shared.EnumValue switch_type_readmission_admit = 6;  // 24h重返-入科 (重返： 先出后入)
+
+    // 1: INBOUND_SERVER, 2: OUTBOUND_CLIENT
+    repeated shared.EnumValue source_mode = 7;
+    // 1: SINGLE_DEVICE, 2: CENTRAL_STATION_FANOUT
+    repeated shared.EnumValue source_topology = 8;
 }
 
 message BedConfigPB {
@@ -56,6 +61,10 @@ message DeviceInfoPB {
     int32 serial_protocol = 12;
     string model = 13;
     string manufacturer = 14;
+    int32 source_mode = 15;  // 1: INBOUND_SERVER, 2: OUTBOUND_CLIENT
+    int32 source_topology = 16;  // 1: SINGLE_DEVICE, 2: CENTRAL_STATION_FANOUT
+    bool enabled_as_source = 17; // 是否参与 jd2 source/runtime
+    int32 upstream_device_id = 18; // 0=无上游；PDS target 指向所属中央站
 }
 
 message DeviceBindingPB {

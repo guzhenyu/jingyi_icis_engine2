@@ -59,6 +59,12 @@ public class PatientDeviceServiceTests extends TestsBase {
         this.BED_TYPE_TEMP = 2;
         this.MONITOR_DEVICE_TYPE = 1;
         this.VENTILATOR_DEVICE_TYPE = 2;
+        this.CENTRAL_STATION_DEVICE_TYPE = protoService.getConfig().getDevice().getDeviceCascade().getEntryList()
+            .stream()
+            .filter(entry -> entry.getDeviceTypeName().equals("中央站"))
+            .map(DeviceTypeEntryPB::getDeviceTypeId)
+            .findFirst()
+            .orElse(0);
 
         this.protoService = protoService;
         this.patientService = patientService;
@@ -490,6 +496,67 @@ public class PatientDeviceServiceTests extends TestsBase {
         assertThat(getPatResp.getBindingList().get(1).getBindingList().get(0).getUnbindingTimeIso8601()).isEqualTo("");
     }
 
+    @Test
+    public void testDeviceInfoUpstreamRules() {
+        List<GrantedAuthority> authorities = AuthorityUtils.createAuthorityList("ROLE_1");
+        UsernamePasswordAuthenticationToken authentication =
+            new UsernamePasswordAuthenticationToken(accountId, null, authorities);
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        final String upstreamRuleDeptId = "10099";
+
+        DeviceInfoPB directCentral = newDevInfoPB(upstreamRuleDeptId, 301, CENTRAL_STATION_DEVICE_TYPE)
+            .toBuilder()
+            .setEnabledAsSource(true)
+            .setUpstreamDeviceId(0)
+            .build();
+        AddDeviceInfoResp addResp = patientDeviceService.addDeviceInfo(
+            ProtoUtils.protoToJson(AddDeviceInfoReq.newBuilder().setDeviceInfo(directCentral).build())
+        );
+        assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        int directCentralId = addResp.getId();
+
+        DeviceInfoPB indirectCentral = newDevInfoPB(upstreamRuleDeptId, 302, CENTRAL_STATION_DEVICE_TYPE)
+            .toBuilder()
+            .setEnabledAsSource(false)
+            .setUpstreamDeviceId(directCentralId)
+            .build();
+        addResp = patientDeviceService.addDeviceInfo(
+            ProtoUtils.protoToJson(AddDeviceInfoReq.newBuilder().setDeviceInfo(indirectCentral).build())
+        );
+        assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        int indirectCentralId = addResp.getId();
+
+        DeviceInfoPB downstreamDevice = newDevInfoPB(upstreamRuleDeptId, 303, MONITOR_DEVICE_TYPE)
+            .toBuilder()
+            .setEnabledAsSource(false)
+            .setUpstreamDeviceId(directCentralId)
+            .build();
+        addResp = patientDeviceService.addDeviceInfo(
+            ProtoUtils.protoToJson(AddDeviceInfoReq.newBuilder().setDeviceInfo(downstreamDevice).build())
+        );
+        assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+
+        DeviceInfoPB directWithUpstream = newDevInfoPB(upstreamRuleDeptId, 304, MONITOR_DEVICE_TYPE)
+            .toBuilder()
+            .setEnabledAsSource(true)
+            .setUpstreamDeviceId(directCentralId)
+            .build();
+        addResp = patientDeviceService.addDeviceInfo(
+            ProtoUtils.protoToJson(AddDeviceInfoReq.newBuilder().setDeviceInfo(directWithUpstream).build())
+        );
+        assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.DEVICE_INFO_NOT_EXISTS.ordinal());
+
+        DeviceInfoPB upstreamNotSource = newDevInfoPB(upstreamRuleDeptId, 305, MONITOR_DEVICE_TYPE)
+            .toBuilder()
+            .setEnabledAsSource(false)
+            .setUpstreamDeviceId(indirectCentralId)
+            .build();
+        addResp = patientDeviceService.addDeviceInfo(
+            ProtoUtils.protoToJson(AddDeviceInfoReq.newBuilder().setDeviceInfo(upstreamNotSource).build())
+        );
+        assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.DEVICE_INFO_NOT_EXISTS.ordinal());
+    }
+
     private DeviceInfoPB newDevInfoPB(String deptId, Integer devId, Integer devType) {
         return DeviceInfoPB.newBuilder()
             .setDepartmentId(deptId)
@@ -531,6 +598,7 @@ public class PatientDeviceServiceTests extends TestsBase {
     private final Integer BED_TYPE_TEMP;
     private final Integer MONITOR_DEVICE_TYPE;
     private final Integer VENTILATOR_DEVICE_TYPE;
+    private final Integer CENTRAL_STATION_DEVICE_TYPE;
 
     private final ConfigProtoService protoService;
     private final PatientEnumsV2 enums;
