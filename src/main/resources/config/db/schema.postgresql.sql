@@ -1333,6 +1333,8 @@ CREATE TABLE patient_skincare_plans (
     pid BIGINT NOT NULL,
     skincare_type_id INT NOT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(255),
+    audited_by VARCHAR(255),
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     deleted_by VARCHAR(255),
     deleted_at TIMESTAMP,
@@ -1347,6 +1349,8 @@ COMMENT ON COLUMN patient_skincare_plans.dept_id IS '科室ID';
 COMMENT ON COLUMN patient_skincare_plans.pid IS '病人ID，外键 patient_records.id';
 COMMENT ON COLUMN patient_skincare_plans.skincare_type_id IS '皮肤护理类型ID，外键 skincare_types.id';
 COMMENT ON COLUMN patient_skincare_plans.created_at IS '创建时间';
+COMMENT ON COLUMN patient_skincare_plans.created_by IS '创建人账号';
+COMMENT ON COLUMN patient_skincare_plans.audited_by IS '康复确认人账号';
 COMMENT ON COLUMN patient_skincare_plans.is_deleted IS '是否已删除';
 COMMENT ON COLUMN patient_skincare_plans.deleted_by IS '删除人账号';
 COMMENT ON COLUMN patient_skincare_plans.deleted_at IS '删除时间';

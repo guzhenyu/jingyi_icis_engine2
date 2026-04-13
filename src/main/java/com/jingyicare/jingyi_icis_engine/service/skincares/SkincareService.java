@@ -555,11 +555,19 @@ public class SkincareService {
         }
 
         LocalDateTime now = TimeUtils.getNowUtc();
+        LocalDateTime createdAt = resolveOptionalIso8601(planPb.getCreatedAtIso8601(), now);
+        if (createdAt == null) {
+            return AddPatientSkincarePlanResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.INVALID_TIME_FORMAT))
+                .build();
+        }
         PatientSkincarePlan plan = PatientSkincarePlan.builder()
             .deptId(deptId)
             .pid(planPb.getPid())
             .skincareTypeId(type.getId())
-            .createdAt(now)
+            .createdAt(createdAt)
+            .createdBy(StrUtils.isBlank(planPb.getCreatedBy()) ? accountId : planPb.getCreatedBy())
+            .auditedBy(blankToNull(planPb.getAuditedBy()))
             .isDeleted(false)
             .modifiedBy(accountId)
             .modifiedAt(now)
@@ -630,9 +638,21 @@ public class SkincareService {
                 .build();
         }
 
+        LocalDateTime createdAt = resolveOptionalIso8601(planPb.getCreatedAtIso8601(), plan.getCreatedAt());
+        if (createdAt == null) {
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.INVALID_TIME_FORMAT))
+                .build();
+        }
+
         plan.setDeptId(deptId);
         plan.setPid(planPb.getPid());
         plan.setSkincareTypeId(type.getId());
+        plan.setCreatedAt(createdAt);
+        if (!StrUtils.isBlank(planPb.getCreatedBy())) {
+            plan.setCreatedBy(planPb.getCreatedBy());
+        }
+        plan.setAuditedBy(blankToNull(planPb.getAuditedBy()));
         plan.setModifiedBy(accountId);
         plan.setModifiedAt(TimeUtils.getNowUtc());
         patientSkincarePlanRepo.save(plan);
@@ -1019,11 +1039,17 @@ public class SkincareService {
         }
 
         LocalDateTime now = TimeUtils.getNowUtc();
+        LocalDateTime createdAt = resolveOptionalIso8601(recordPb.getCreatedAtIso8601(), now);
+        if (createdAt == null) {
+            return AddPatientSkincareRecordResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.INVALID_TIME_FORMAT))
+                .build();
+        }
         PatientSkincareRecord record = PatientSkincareRecord.builder()
             .deptId(deptId)
             .pid(recordPb.getPid())
             .patientSkincarePlanId(plan.getId())
-            .createdAt(now)
+            .createdAt(createdAt)
             .isDeleted(false)
             .modifiedBy(accountId)
             .modifiedAt(now)
@@ -1100,9 +1126,17 @@ public class SkincareService {
                 .build();
         }
 
+        LocalDateTime createdAt = resolveOptionalIso8601(recordPb.getCreatedAtIso8601(), record.getCreatedAt());
+        if (createdAt == null) {
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.INVALID_TIME_FORMAT))
+                .build();
+        }
+
         record.setDeptId(deptId);
         record.setPid(recordPb.getPid());
         record.setPatientSkincarePlanId(plan.getId());
+        record.setCreatedAt(createdAt);
         record.setModifiedBy(accountId);
         record.setModifiedAt(TimeUtils.getNowUtc());
         patientSkincareRecordRepo.save(record);
@@ -1416,7 +1450,9 @@ public class SkincareService {
             .setDeptId(defaultStr(plan.getDeptId()))
             .setPid(plan.getPid())
             .setSkincareTypeId(plan.getSkincareTypeId())
-            .setCreatedAtIso8601(TimeUtils.toIso8601String(plan.getCreatedAt(), ZONE_ID));
+            .setCreatedAtIso8601(TimeUtils.toIso8601String(plan.getCreatedAt(), ZONE_ID))
+            .setCreatedBy(defaultStr(plan.getCreatedBy()))
+            .setAuditedBy(defaultStr(plan.getAuditedBy()));
         builder.addAllAttr(attrs.stream().map(this::toProto).toList());
         return builder.build();
     }
@@ -1653,6 +1689,15 @@ public class SkincareService {
             return new TimeRangeResult(null, null, StatusCode.INVALID_TIME_RANGE);
         }
         return new TimeRangeResult(start, end, null);
+    }
+
+    private LocalDateTime resolveOptionalIso8601(String iso8601, LocalDateTime fallback) {
+        if (StrUtils.isBlank(iso8601)) return fallback;
+        return TimeUtils.fromIso8601String(iso8601, "UTC");
+    }
+
+    private String blankToNull(String value) {
+        return StrUtils.isBlank(value) ? null : value;
     }
 
     private boolean matchesDeleted(Boolean isDeleted, int deletedFilter) {

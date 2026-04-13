@@ -258,12 +258,20 @@ public class SkincareServiceTests extends TestsBase {
         assertThat(addAttrResp2.getRt().getCode()).isEqualTo(StatusCode.OK.getNumber());
         int attrId2 = addAttrResp2.getId();
 
+        String planCreatedAt = "2026-04-07T08:30+08:00";
+        String planUpdatedAt = "2026-04-07T10:15+08:00";
+        String recordCreatedAt = "2026-04-07T09:10+08:00";
+        String recordUpdatedAt = "2026-04-07T11:20+08:00";
+
         AddPatientSkincarePlanResp addPlanResp = skincareService.addPatientSkincarePlan(ProtoUtils.protoToJson(
             AddPatientSkincarePlanReq.newBuilder()
                 .setPlan(PatientSkincarePlanPB.newBuilder()
                     .setDeptId(deptId)
                     .setPid(pid)
                     .setSkincareTypeId(typeId)
+                    .setCreatedAtIso8601(planCreatedAt)
+                    .setCreatedBy("creator_admin")
+                    .setAuditedBy("rehab_auditor_1")
                     .addAttr(PatientSkincarePlanAttrPB.newBuilder()
                         .setSkincareAttrId(attrId1)
                         .setValue(newStringValue("initial_value"))
@@ -298,6 +306,9 @@ public class SkincareServiceTests extends TestsBase {
         assertThat(getPlansResp.getPlan(1).getId()).isEqualTo(planId);
         assertThat(getPlansResp.getPlan(0).getAttrCount()).isEqualTo(1);
         assertThat(getPlansResp.getPlan(1).getAttr(0).getValue().getStrVal()).isEqualTo("initial_value");
+        assertThat(getPlansResp.getPlan(1).getCreatedAtIso8601()).isEqualTo(planCreatedAt);
+        assertThat(getPlansResp.getPlan(1).getCreatedBy()).isEqualTo("creator_admin");
+        assertThat(getPlansResp.getPlan(1).getAuditedBy()).isEqualTo("rehab_auditor_1");
 
         GenericResp updatePlanResp = skincareService.updatePatientSkincarePlan(ProtoUtils.protoToJson(
             UpdatePatientSkincarePlanReq.newBuilder()
@@ -306,9 +317,22 @@ public class SkincareServiceTests extends TestsBase {
                     .setDeptId(deptId)
                     .setPid(pid)
                     .setSkincareTypeId(typeId)
+                    .setCreatedAtIso8601(planUpdatedAt)
+                    .setCreatedBy("creator_admin")
+                    .setAuditedBy("rehab_auditor_2")
                     .build())
                 .build()));
         assertThat(updatePlanResp.getRt().getCode()).isEqualTo(StatusCode.OK.getNumber());
+
+        GetPatientSkincarePlansResp getUpdatedPlanResp = skincareService.getPatientSkincarePlans(ProtoUtils.protoToJson(
+            GetPatientSkincarePlansReq.newBuilder()
+                .setId(planId)
+                .build()));
+        assertThat(getUpdatedPlanResp.getRt().getCode()).isEqualTo(StatusCode.OK.getNumber());
+        assertThat(getUpdatedPlanResp.getPlanCount()).isEqualTo(1);
+        assertThat(getUpdatedPlanResp.getPlan(0).getCreatedAtIso8601()).isEqualTo(planUpdatedAt);
+        assertThat(getUpdatedPlanResp.getPlan(0).getCreatedBy()).isEqualTo("creator_admin");
+        assertThat(getUpdatedPlanResp.getPlan(0).getAuditedBy()).isEqualTo("rehab_auditor_2");
 
         AddPatientSkincarePlanAttrResp addPlanAttrResp = skincareService.addPatientSkincarePlanAttr(ProtoUtils.protoToJson(
             AddPatientSkincarePlanAttrReq.newBuilder()
@@ -352,6 +376,7 @@ public class SkincareServiceTests extends TestsBase {
                     .setDeptId(deptId)
                     .setPid(pid)
                     .setPatientSkincarePlanId(planId)
+                    .setCreatedAtIso8601(recordCreatedAt)
                     .addAttr(PatientSkincareRecordAttrPB.newBuilder()
                         .setSkincareAttrId(attrId1)
                         .setValue(newStringValue("record_initial_value"))
@@ -386,6 +411,7 @@ public class SkincareServiceTests extends TestsBase {
         assertThat(getRecordsResp.getRecord(1).getId()).isEqualTo(recordId);
         assertThat(getRecordsResp.getRecord(0).getAttrCount()).isEqualTo(1);
         assertThat(getRecordsResp.getRecord(1).getAttr(0).getValue().getStrVal()).isEqualTo("record_initial_value");
+        assertThat(getRecordsResp.getRecord(1).getCreatedAtIso8601()).isEqualTo(recordCreatedAt);
 
         GenericResp updateRecordResp = skincareService.updatePatientSkincareRecord(ProtoUtils.protoToJson(
             UpdatePatientSkincareRecordReq.newBuilder()
@@ -394,9 +420,18 @@ public class SkincareServiceTests extends TestsBase {
                     .setDeptId(deptId)
                     .setPid(pid)
                     .setPatientSkincarePlanId(planId)
+                    .setCreatedAtIso8601(recordUpdatedAt)
                     .build())
                 .build()));
         assertThat(updateRecordResp.getRt().getCode()).isEqualTo(StatusCode.OK.getNumber());
+
+        GetPatientSkincareRecordsResp getUpdatedRecordResp = skincareService.getPatientSkincareRecords(ProtoUtils.protoToJson(
+            GetPatientSkincareRecordsReq.newBuilder()
+                .setId(recordId)
+                .build()));
+        assertThat(getUpdatedRecordResp.getRt().getCode()).isEqualTo(StatusCode.OK.getNumber());
+        assertThat(getUpdatedRecordResp.getRecordCount()).isEqualTo(1);
+        assertThat(getUpdatedRecordResp.getRecord(0).getCreatedAtIso8601()).isEqualTo(recordUpdatedAt);
 
         AddPatientSkincareRecordAttrResp addRecordAttrResp = skincareService.addPatientSkincareRecordAttr(ProtoUtils.protoToJson(
             AddPatientSkincareRecordAttrReq.newBuilder()

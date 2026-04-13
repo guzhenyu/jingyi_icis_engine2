@@ -35,6 +35,8 @@ message PatientSkincarePlanPB {
     string created_at_iso8601 = 5;
 
     repeated PatientSkincarePlanAttrPB attr = 6;
+    string created_by = 7;
+    string audited_by = 8;
 }
 
 message PatientSkincarePlanAttrPB {

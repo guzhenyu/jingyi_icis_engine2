@@ -32,6 +32,12 @@ public class PatientSkincarePlan {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "created_by")
+    private String createdBy;
+
+    @Column(name = "audited_by")
+    private String auditedBy;
+
     @Column(name = "is_deleted", nullable = false)
     private Boolean isDeleted;
 
