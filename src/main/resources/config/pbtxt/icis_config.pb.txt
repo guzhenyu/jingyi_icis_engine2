@@ -2113,6 +2113,18 @@ tube {
             name: "动脉导管"
         }
         tube_type {
+            type: "胃肠管"
+            name: "胃肠管"
+        }
+        tube_type {
+            type: "血滤管"
+            name: "血滤管"
+        }
+        tube_type {
+            type: "传感器"
+            name: "传感器"
+        }
+        tube_type {
             type: "其他"
             name: "其他"
         }
