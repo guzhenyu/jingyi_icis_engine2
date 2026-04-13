@@ -561,6 +561,11 @@ public class SkincareService {
                 .setRt(protoService.getReturnCode(StatusCode.INVALID_TIME_FORMAT))
                 .build();
         }
+        if (!isValidOptionalIso8601(planPb.getAuditedAtIso8601())) {
+            return AddPatientSkincarePlanResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.INVALID_TIME_FORMAT))
+                .build();
+        }
         PatientSkincarePlan plan = PatientSkincarePlan.builder()
             .deptId(deptId)
             .pid(planPb.getPid())
@@ -568,6 +573,7 @@ public class SkincareService {
             .createdAt(createdAt)
             .createdBy(StrUtils.isBlank(planPb.getCreatedBy()) ? accountId : planPb.getCreatedBy())
             .auditedBy(blankToNull(planPb.getAuditedBy()))
+            .auditedAt(parseNullableIso8601(planPb.getAuditedAtIso8601()))
             .isDeleted(false)
             .modifiedBy(accountId)
             .modifiedAt(now)
@@ -644,6 +650,11 @@ public class SkincareService {
                 .setRt(protoService.getReturnCode(StatusCode.INVALID_TIME_FORMAT))
                 .build();
         }
+        if (!isValidOptionalIso8601(planPb.getAuditedAtIso8601())) {
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.INVALID_TIME_FORMAT))
+                .build();
+        }
 
         plan.setDeptId(deptId);
         plan.setPid(planPb.getPid());
@@ -653,6 +664,7 @@ public class SkincareService {
             plan.setCreatedBy(planPb.getCreatedBy());
         }
         plan.setAuditedBy(blankToNull(planPb.getAuditedBy()));
+        plan.setAuditedAt(parseNullableIso8601(planPb.getAuditedAtIso8601()));
         plan.setModifiedBy(accountId);
         plan.setModifiedAt(TimeUtils.getNowUtc());
         patientSkincarePlanRepo.save(plan);
@@ -1452,7 +1464,8 @@ public class SkincareService {
             .setSkincareTypeId(plan.getSkincareTypeId())
             .setCreatedAtIso8601(TimeUtils.toIso8601String(plan.getCreatedAt(), ZONE_ID))
             .setCreatedBy(defaultStr(plan.getCreatedBy()))
-            .setAuditedBy(defaultStr(plan.getAuditedBy()));
+            .setAuditedBy(defaultStr(plan.getAuditedBy()))
+            .setAuditedAtIso8601(TimeUtils.toIso8601String(plan.getAuditedAt(), ZONE_ID));
         builder.addAllAttr(attrs.stream().map(this::toProto).toList());
         return builder.build();
     }
@@ -1694,6 +1707,15 @@ public class SkincareService {
     private LocalDateTime resolveOptionalIso8601(String iso8601, LocalDateTime fallback) {
         if (StrUtils.isBlank(iso8601)) return fallback;
         return TimeUtils.fromIso8601String(iso8601, "UTC");
+    }
+
+    private LocalDateTime parseNullableIso8601(String iso8601) {
+        if (StrUtils.isBlank(iso8601)) return null;
+        return TimeUtils.fromIso8601String(iso8601, "UTC");
+    }
+
+    private boolean isValidOptionalIso8601(String iso8601) {
+        return StrUtils.isBlank(iso8601) || TimeUtils.fromIso8601String(iso8601, "UTC") != null;
     }
 
     private String blankToNull(String value) {

@@ -38,6 +38,9 @@ public class PatientSkincarePlan {
     @Column(name = "audited_by")
     private String auditedBy;
 
+    @Column(name = "audited_at")
+    private LocalDateTime auditedAt;
+
     @Column(name = "is_deleted", nullable = false)
     private Boolean isDeleted;
 
