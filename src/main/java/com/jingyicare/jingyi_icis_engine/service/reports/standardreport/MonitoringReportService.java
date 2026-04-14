@@ -1,4 +1,4 @@
-package com.jingyicare.jingyi_icis_engine.service.reports;
+package com.jingyicare.jingyi_icis_engine.service.reports.standardreport;
 
 import java.awt.geom.AffineTransform;
 import java.io.*;
@@ -6,9 +6,9 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 
 import lombok.*;
@@ -20,7 +20,7 @@ import org.apache.pdfbox.util.*;
 
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoringReport.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisReport.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
 
 import com.jingyicare.jingyi_icis_engine.entity.patients.*;
@@ -29,6 +29,7 @@ import com.jingyicare.jingyi_icis_engine.entity.users.*;
 import com.jingyicare.jingyi_icis_engine.repository.patientshifts.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Service
@@ -36,11 +37,13 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class MonitoringReportService {
     public MonitoringReportService(
         ConfigurableApplicationContext context,
-        @Value("${jingyi.textresources.font}") Resource fontResource,
+        @Autowired ReportProperties reportProperties,
+        @Autowired ResourceLoader resourceLoader,
         @Autowired ConfigProtoService protoService,
         @Autowired DepartmentRepository deptRepo,
         @Autowired PatientShiftRecordRepository shiftRecordRepo
     ) {
+        Resource fontResource = resourceLoader.getResource(reportProperties.getFont());
         try (InputStream is = fontResource.getInputStream()) {
             cachedFontBytes = is.readAllBytes();
         } catch (IOException e) {
@@ -51,7 +54,6 @@ public class MonitoringReportService {
         this.ZONE_ID = protoService.getConfig().getZoneId();
         this.PARAM_CODE_SUM = protoService.getConfig().getMonitoring().getParamCodeSummary();
         this.PARAM_CODE_SUM_TXT = protoService.getConfig().getMonitoring().getParamCodeSummaryTxt();
-        this.ROTATION_DEGREE = -90;
 
         this.protoService = protoService;
         reportTemplate = protoService.getConfig().getMonitoringReport().getMonitoringTemplate();
@@ -848,12 +850,12 @@ public class MonitoringReportService {
 
     private static final int HOURS_PER_DAY = 24;
     private static final String DEFAULT_CHART_SIGN = "●";
+    private static final int ROTATION_DEGREE = -90;
 
     private final String ZONE_ID;
     private final String PARAM_CODE_SUM;
     private final String PARAM_CODE_SUM_TXT;
     private final String SIGNATURE_CODE;
-    private final int ROTATION_DEGREE;
 
     // report specs.
     private final float pageX;

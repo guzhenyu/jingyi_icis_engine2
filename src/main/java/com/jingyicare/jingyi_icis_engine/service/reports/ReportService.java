@@ -37,15 +37,12 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 @Slf4j
 public class ReportService {
     public ReportService(
-        @Value("${report_root_path}") String reportRootPath,
+        @Autowired ReportProperties reportProperties,
         @Autowired ConfigProtoService protoService,
         @Autowired ConfigShiftUtils shiftUtils,
         @Autowired UserService userService,
         @Autowired PatientService patientService,
-        @Autowired MonitoringService monitoringService,
-        @Autowired PatientMonitoringService patientMonitoringService,
-        @Autowired MonitoringReportService monitoringReportService,
-        @Autowired Ah2ReportService ah2ReportService,
+        @Autowired List<MonitoringReportGenerator> monitoringReportGenerators,
         @Autowired JfkDataService jfkDataService,
         @Autowired RbacDepartmentAccountRepository rbacDepartmentAccountRepo,
         @Autowired AccountRepository accountRepo,
@@ -53,11 +50,11 @@ public class ReportService {
         @Autowired DragableFormRepository dragableFormRepo,
         @Autowired WardReportRepository wardReportRepo
     ) {
-        this.REPORT_ROOT = !StrUtils.isBlank(reportRootPath) ? reportRootPath : "./reports/";
+        this.REPORT_ROOT = reportProperties.getRootPath();
+        this.MONITORING_REPORT_VERSION = reportProperties.getMonitoringVersion();
         this.ZONE_ID = protoService.getConfig().getZoneId();
         this.GROUP_TYPE_BALANCE_ID = protoService.getConfig().getMonitoring()
             .getEnums().getGroupTypeBalance().getId();
-        this.MONITORING_REPORT_TEMPLATE_NAME = protoService.getConfig().getMonitoringReport().getTemplateName();
 
         this.statusCodeMsgs = protoService.getConfig().getText().getStatusCodeMsgList();
         this.nursingRoleIdSet = new HashSet<>(protoService.getConfig().getJfk().getNursingRoleIdsList());
@@ -67,11 +64,17 @@ public class ReportService {
         this.shiftUtils = shiftUtils;
         this.userService = userService;
         this.patientService = patientService;
-        this.monitoringService = monitoringService;
-        this.patientMonitoringService = patientMonitoringService;
 
-        this.monitoringReportService = monitoringReportService;
-        this.ah2ReportService = ah2ReportService;
+        Map<String, MonitoringReportGenerator> generatorMap = new HashMap<>();
+        for (MonitoringReportGenerator generator : monitoringReportGenerators) {
+            String version = generator.version();
+            if (StrUtils.isBlank(version)) continue;
+            MonitoringReportGenerator previous = generatorMap.put(version.trim().toLowerCase(), generator);
+            if (previous != null) {
+                throw new IllegalStateException("Duplicate monitoring report generator: " + version);
+            }
+        }
+        this.monitoringReportGenerators = Collections.unmodifiableMap(generatorMap);
         this.jfkDataService = jfkDataService;
 
         this.rbacDepartmentAccountRepo = rbacDepartmentAccountRepo;
@@ -521,21 +524,6 @@ public class ReportService {
         }
         final LocalDateTime shiftStartTime = shiftStartPair.getSecond();
 
-        // 获取监测组报表数据
-        GetPatientMonitoringGroupsResp groupsResp = monitoringService.getPatientMonitoringGroups(getMonitoringReportReqJson);
-        if (groupsResp.getRt().getCode() != StatusCode.OK.ordinal()) {
-            return GetMonitoringReportResp.newBuilder()
-                .setRt(groupsResp.getRt())
-                .build();
-        }
-
-        GetPatientMonitoringRecordsResp recordsResp = patientMonitoringService.getPatientMonitoringRecords(getMonitoringReportReqJson);
-        if (recordsResp.getRt().getCode() != StatusCode.OK.ordinal()) {
-            return GetMonitoringReportResp.newBuilder()
-                .setRt(recordsResp.getRt())
-                .build();
-        }
-
         // 生成报表路径 ./reports/yyyymm/{$pid}_${patient_name}_{$yyyymmdd}_(monitoring|balance)_report.pdf
         final Boolean isBalanceReport = groupType == GROUP_TYPE_BALANCE_ID;
         Pair<StatusCode, Pair<String, String>> reportPaths = getReportPath(
@@ -549,31 +537,35 @@ public class ReportService {
         final String urlPath = reportPaths.getSecond().getSecond();
 
         // 生成报表
-        if (!isBalanceReport && MONITORING_REPORT_TEMPLATE_NAME.equals(Consts.REPORT_TEMPLATE_AH2)) {
-            GetMonitoringReportResp.Builder respBuilder = GetMonitoringReportResp.newBuilder();
-            ReturnCode returnCode = ah2ReportService.drawPdf(
-                pid, deptId, queryStartUtc, queryEndUtc, accountId, reportPath
-            );
-            respBuilder.setRt(returnCode);
-            if (returnCode.getCode() == StatusCode.OK.ordinal()) {
-                respBuilder.setPdfUrl(urlPath).setRotationDegree(0);
-            }
-            return respBuilder.build();
-        }
-
-        Pair<StatusCode, Integer> reportStatus = monitoringReportService.generateMonitoringReport(
-            reportPath, shiftStartTime, isBalanceReport, patientShift.patient, groupsResp, recordsResp);
-        if (reportStatus.getFirst() != StatusCode.OK) {
+        MonitoringReportGenerator generator = monitoringReportGenerators.get(MONITORING_REPORT_VERSION);
+        if (generator == null) {
+            log.error("Unsupported monitoring report version: {}", MONITORING_REPORT_VERSION);
             return GetMonitoringReportResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, reportStatus.getFirst()))
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.INVALID_PARAM_VALUE))
                 .build();
         }
 
-        return GetMonitoringReportResp.newBuilder()
-            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.OK))
-            .setPdfUrl(urlPath)
-            .setRotationDegree(reportStatus.getSecond())
+        MonitoringReportRequest reportRequest = MonitoringReportRequest.builder()
+            .rawRequestJson(getMonitoringReportReqJson)
+            .pid(pid)
+            .deptId(deptId)
+            .groupType(groupType)
+            .queryStartUtc(queryStartUtc)
+            .queryEndUtc(queryEndUtc)
+            .accountId(accountId)
+            .shiftStartTime(shiftStartTime)
+            .balanceReport(isBalanceReport)
+            .patientRecord(patientShift.patient)
+            .reportPath(reportPath)
+            .urlPath(urlPath)
             .build();
+        MonitoringReportResult reportResult = generator.generate(reportRequest);
+        ReturnCode returnCode = reportResult.getReturnCode();
+        GetMonitoringReportResp.Builder respBuilder = GetMonitoringReportResp.newBuilder().setRt(returnCode);
+        if (returnCode.getCode() == StatusCode.OK.ordinal()) {
+            respBuilder.setPdfUrl(urlPath).setRotationDegree(reportResult.getRotationDegree());
+        }
+        return respBuilder.build();
     }
 
     @Transactional
@@ -799,9 +791,9 @@ public class ReportService {
     }
 
     private final String REPORT_ROOT;
+    private final String MONITORING_REPORT_VERSION;
     private final String ZONE_ID;
     private final Integer GROUP_TYPE_BALANCE_ID;
-    private final String MONITORING_REPORT_TEMPLATE_NAME;
 
     private final List<String> statusCodeMsgs;
     private final Set<Integer> nursingRoleIdSet;
@@ -811,11 +803,8 @@ public class ReportService {
     private final ConfigShiftUtils shiftUtils;
     private final UserService userService;
     private final PatientService patientService;
-    private final MonitoringService monitoringService;
-    private final PatientMonitoringService patientMonitoringService;
 
-    private final MonitoringReportService monitoringReportService;
-    private final Ah2ReportService ah2ReportService;
+    private final Map<String, MonitoringReportGenerator> monitoringReportGenerators;
     private final JfkDataService jfkDataService;
 
     private final RbacDepartmentAccountRepository rbacDepartmentAccountRepo;

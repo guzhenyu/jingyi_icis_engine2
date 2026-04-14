@@ -25,6 +25,7 @@ import com.jingyicare.jingyi_icis_engine.repository.nursingrecords.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.*;
+import com.jingyicare.jingyi_icis_engine.service.reports.common.PatientNursingReportInvalidationService;
 import com.jingyicare.jingyi_icis_engine.service.users.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -37,7 +38,7 @@ public class PatientCriticalLisHandlingService {
         @Autowired PatientService patientService,
         @Autowired NursingRecordConfig nursingRecordConfig,
         @Autowired NursingRecordUtils nursingRecordUtils,
-        @Autowired PatientNursingReportUtils pnrUtils,
+        @Autowired PatientNursingReportInvalidationService pnrUtils,
         @Autowired NursingRecordRepository recordRepo,
         @Autowired PatientLisItemRepository lisItemRepo,
         @Autowired PatientLisResultRepository lisResultRepo,
@@ -480,7 +481,7 @@ public class PatientCriticalLisHandlingService {
     private final PatientService patientService;
     private final NursingRecordConfig nursingRecordConfig;
     private final NursingRecordUtils nursingRecordUtils;
-    private final PatientNursingReportUtils pnrUtils;
+    private final PatientNursingReportInvalidationService pnrUtils;
 
     private final NursingRecordRepository recordRepo;
     private final PatientLisItemRepository lisItemRepo;

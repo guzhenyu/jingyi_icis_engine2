@@ -1,4 +1,4 @@
-package com.jingyicare.jingyi_icis_engine.service.reports;
+package com.jingyicare.jingyi_icis_engine.service.reports.common;
 
 import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -8,8 +8,8 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoringReport.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoringReportAh2.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisReport.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisReportAh2.*;
 
 /**
  * PDF 文本渲染工具：

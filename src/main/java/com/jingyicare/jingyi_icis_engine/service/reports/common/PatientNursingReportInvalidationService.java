@@ -1,4 +1,4 @@
-package com.jingyicare.jingyi_icis_engine.service.reports;
+package com.jingyicare.jingyi_icis_engine.service.reports.common;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -10,8 +10,6 @@ import org.springframework.transaction.annotation.Transactional;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoringReportAh2.*;
-
 import com.jingyicare.jingyi_icis_engine.entity.reports.*;
 import com.jingyicare.jingyi_icis_engine.repository.reports.*;
 import com.jingyicare.jingyi_icis_engine.service.*;
@@ -20,8 +18,8 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Component
 @Slf4j
-public class PatientNursingReportUtils {
-    public PatientNursingReportUtils(
+public class PatientNursingReportInvalidationService {
+    public PatientNursingReportInvalidationService(
         @Autowired ConfigProtoService protoService,
         @Autowired ConfigShiftUtils configShiftUtils,
         @Autowired PatientNursingReportRepository pnrRepo
@@ -63,22 +61,6 @@ public class PatientNursingReportUtils {
         }
 
         pnrRepo.saveAll(pnrList);
-    }
-
-    @Transactional
-    public void updateLastProcessedAt(
-        Long pid, LocalDateTime effectiveTimeMidnight, Ah2PageDataPB dataPb, LocalDateTime lastProcessedAt
-    ) {
-        PatientNursingReport pnr = pnrRepo.findByPidAndEffectiveTimeMidnight(pid, effectiveTimeMidnight).orElse(null);
-        if (pnr == null) {
-            pnr = new PatientNursingReport();
-            pnr.setPid(pid);
-            pnr.setEffectiveTimeMidnight(effectiveTimeMidnight);
-        }
-        String dataPbStr = ProtoUtils.encodeAh2PageData(dataPb);
-        pnr.setDataPb(dataPbStr);
-        pnr.setLastProcessedAt(lastProcessedAt);
-        pnrRepo.save(pnr);
     }
 
     public LocalDateTime getMidnightUtc(List<LocalDateTime> deptBalanceStatsUtcs, LocalDateTime inputUtc) {

@@ -11,8 +11,8 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
 
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +36,7 @@ import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentReposito
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientDeviceService;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
+import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.shifts.ConfigShiftUtils;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ReturnCodeUtils;
@@ -55,7 +56,8 @@ public class JfkDataSourceSupport {
         @Autowired AccountRepository accountRepo,
         @Autowired DeptScoreGroupRepository deptScoreGroupRepo,
         @Autowired PatientScoreRepository patientScoreRepo,
-        @Value("${report_ah2_ward_report_font}") Resource wardReportFontResource
+        @Autowired ReportProperties reportProperties,
+        @Autowired ResourceLoader resourceLoader
     ) {
         this.patientService = patientService;
         this.patientDevService = patientDevService;
@@ -77,6 +79,7 @@ public class JfkDataSourceSupport {
             ));
 
         byte[] fontBytes = null;
+        Resource wardReportFontResource = resourceLoader.getResource(reportProperties.getAh2().getWardReportFont());
         try (InputStream is = wardReportFontResource.getInputStream()) {
             fontBytes = is.readAllBytes();
         } catch (IOException e) {

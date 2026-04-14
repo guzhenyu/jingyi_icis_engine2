@@ -25,6 +25,7 @@ import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.entity.tubes.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.*;
+import com.jingyicare.jingyi_icis_engine.service.reports.common.PatientNursingReportInvalidationService;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
 import com.jingyicare.jingyi_icis_engine.service.users.UserService;
 import com.jingyicare.jingyi_icis_engine.service.*;
@@ -40,7 +41,7 @@ public class PatientTubeService {
         @Autowired UserService userService,
         @Autowired TubeSetting setting,
         @Autowired PatientTubeImpl patientTubeImpl,
-        @Autowired PatientNursingReportUtils pnrUtils
+        @Autowired PatientNursingReportInvalidationService pnrUtils
     ) {
         this.ZONE_ID = protoService.getConfig().getZoneId();
 
@@ -662,5 +663,5 @@ public class PatientTubeService {
     private final UserService userService;  // 用户服务
     private final TubeSetting setting;       // 管道设置
     private final PatientTubeImpl patientTubeImpl;  // 病人管道实现类
-    private final PatientNursingReportUtils pnrUtils;  // 病人护理报告工具类
+    private final PatientNursingReportInvalidationService pnrUtils;  // 病人护理报告工具类
 }

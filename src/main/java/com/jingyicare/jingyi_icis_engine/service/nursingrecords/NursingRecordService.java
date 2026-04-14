@@ -43,6 +43,7 @@ import com.jingyicare.jingyi_icis_engine.service.medications.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.*;
+import com.jingyicare.jingyi_icis_engine.service.reports.common.PatientNursingReportInvalidationService;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
 import com.jingyicare.jingyi_icis_engine.service.tubes.*;
 import com.jingyicare.jingyi_icis_engine.service.users.*;
@@ -63,7 +64,7 @@ public class NursingRecordService {
         @Autowired ConfigShiftUtils shiftUtils,
         @Autowired PatientTubeImpl patientTubeImpl,
         @Autowired LisService lisService,
-        @Autowired PatientNursingReportUtils pnrUtils,
+        @Autowired PatientNursingReportInvalidationService pnrUtils,
         @Autowired NursingRecordConfig recordConfig,
         @Autowired NursingRecordUtils recordUtils,
         @Autowired NursingRecordTemplateGroupRepository templateGroupRepo,
@@ -1287,7 +1288,7 @@ public class NursingRecordService {
     private final ConfigShiftUtils shiftUtils;
     private final PatientTubeImpl patientTubeImpl;
     private final LisService lisService;
-    private final PatientNursingReportUtils pnrUtils;
+    private final PatientNursingReportInvalidationService pnrUtils;
     private final NursingRecordConfig recordConfig;
     private final NursingRecordUtils recordUtils;
     private final NursingRecordTemplateGroupRepository templateGroupRepo;

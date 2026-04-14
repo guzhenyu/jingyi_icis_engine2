@@ -18,6 +18,7 @@ import com.jingyicare.jingyi_icis_engine.entity.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.reports.*;
+import com.jingyicare.jingyi_icis_engine.service.reports.common.PatientNursingReportInvalidationService;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 
@@ -52,7 +53,7 @@ public class BalanceCalculator {
         @Autowired ConfigProtoService protoService,
         @Autowired MonitoringConfig monitoringConfig,
         @Autowired MonitoringRecordUtils monitoringRecordUtils,
-        @Autowired PatientNursingReportUtils pnrUtils
+        @Autowired PatientNursingReportInvalidationService pnrUtils
     ) {
         this.ZONE_ID = protoService.getConfig().getZoneId();
         MonitoringPB monitoringPb = protoService.getConfig().getMonitoring();
@@ -834,5 +835,5 @@ public class BalanceCalculator {
 
     private final MonitoringConfig monitoringConfig;
     private final MonitoringRecordUtils monitoringRecordUtils;
-    private final PatientNursingReportUtils pnrUtils;
+    private final PatientNursingReportInvalidationService pnrUtils;
 }

@@ -1,4 +1,4 @@
-package com.jingyicare.jingyi_icis_engine.service.reports;
+package com.jingyicare.jingyi_icis_engine.service.reports.ah2report;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -9,8 +9,8 @@ import org.apache.pdfbox.pdmodel.font.*;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoringReport.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoringReportAh2.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisReport.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisReportAh2.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
 
 import com.jingyicare.jingyi_icis_engine.utils.*;

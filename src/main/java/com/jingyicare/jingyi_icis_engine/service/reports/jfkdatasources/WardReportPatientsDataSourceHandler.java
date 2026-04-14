@@ -20,7 +20,7 @@ import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.WardPatientStatsPB;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.WardReportPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
-import com.jingyicare.jingyi_icis_engine.service.reports.JfkPdfUtils;
+import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;

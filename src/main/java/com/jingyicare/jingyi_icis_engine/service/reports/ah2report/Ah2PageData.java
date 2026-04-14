@@ -1,9 +1,9 @@
-package com.jingyicare.jingyi_icis_engine.service.reports;
+package com.jingyicare.jingyi_icis_engine.service.reports.ah2report;
 
 import java.time.LocalDateTime;
 import java.util.*;
 
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoringReportAh2.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisReportAh2.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 public class Ah2PageData {

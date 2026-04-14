@@ -10015,7 +10015,6 @@ jfk {
     doctor_role_ids: 7
 }
 monitoring_report {
-    template_name: "ah2"
     monitoring_template {
         name: "通用观察项平衡量表单模板"
         left_bottom_x: 58.0

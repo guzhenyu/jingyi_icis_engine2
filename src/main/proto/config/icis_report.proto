@@ -141,7 +141,7 @@ message MonitoringReportSettingsPB {
 }
 
 message MonitoringReportPB {
-    string template_name = 1;
+    string template_name = 1 [deprecated = true];  // 版本选择改由 application.properties: jingyi.report.monitoring.version 控制
     MonitoringReportTemplatePB monitoring_template = 2;
     MonitoringReportSettingsPB settings = 3;
 }

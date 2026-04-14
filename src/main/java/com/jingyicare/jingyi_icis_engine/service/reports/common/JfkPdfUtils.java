@@ -1,4 +1,4 @@
-package com.jingyicare.jingyi_icis_engine.service.reports;
+package com.jingyicare.jingyi_icis_engine.service.reports.common;
 
 import java.awt.Color;
 import java.io.IOException;

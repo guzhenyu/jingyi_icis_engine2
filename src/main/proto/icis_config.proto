@@ -10,7 +10,7 @@ import "config/icis_jfk.proto";
 import "config/icis_lis.proto";
 import "config/icis_medication.proto";
 import "config/icis_monitoring.proto";
-import "config/icis_monitoring_report.proto";
+import "config/icis_report.proto";
 import "config/icis_nursing_order.proto";
 import "config/icis_nursing_record.proto";
 import "config/icis_nursing_score.proto";

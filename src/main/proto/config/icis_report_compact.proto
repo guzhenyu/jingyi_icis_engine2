@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+message CompactReportTemplatePB {
+    string name = 1;
+}

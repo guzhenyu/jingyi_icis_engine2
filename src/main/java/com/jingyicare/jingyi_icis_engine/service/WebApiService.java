@@ -28,6 +28,7 @@ import com.jingyicare.jingyi_icis_engine.service.overviews.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.patientshifts.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.*;
+import com.jingyicare.jingyi_icis_engine.service.reports.ah2report.Ah2ReportService;
 import com.jingyicare.jingyi_icis_engine.service.qcs.*;
 import com.jingyicare.jingyi_icis_engine.service.scores.ScoreService;
 import com.jingyicare.jingyi_icis_engine.service.settings.*;

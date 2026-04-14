@@ -24,7 +24,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisLis.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoringReportAh2.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisReportAh2.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingOrder.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingRecord.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingScore.*;

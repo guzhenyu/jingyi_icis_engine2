@@ -19,6 +19,7 @@ import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.service.medications.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.*;
+import com.jingyicare.jingyi_icis_engine.service.reports.common.PatientNursingReportInvalidationService;
 import com.jingyicare.jingyi_icis_engine.service.tubes.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -27,7 +28,7 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class MedReportUtils {
     public MedReportUtils(
         @Autowired ConfigProtoService protoService,
-        @Autowired PatientNursingReportUtils reportUtils,
+        @Autowired PatientNursingReportInvalidationService reportUtils,
         @Autowired MedMonitoringService medMonService,
         @Autowired MonitoringConfig monConfig,
         @Autowired PatientMonitoringService patMonService,
@@ -390,7 +391,7 @@ public class MedReportUtils {
 
     private final String ZONE_ID;
     private final Integer BALANCE_GROUP_TYPE_ID;
-    private final PatientNursingReportUtils reportUtils;
+    private final PatientNursingReportInvalidationService reportUtils;
     private final MedMonitoringService medMonService;
     private final MonitoringConfig monConfig;
     private final PatientMonitoringService patMonService;

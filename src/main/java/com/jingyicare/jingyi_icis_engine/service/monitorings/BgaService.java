@@ -28,6 +28,7 @@ import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentReposito
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.*;
+import com.jingyicare.jingyi_icis_engine.service.reports.common.PatientNursingReportInvalidationService;
 import com.jingyicare.jingyi_icis_engine.service.users.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -40,7 +41,7 @@ public class BgaService {
         @Autowired PatientService patientService,
         @Autowired PatientDeviceService patientDeviceService,
         @Autowired MonitoringConfig monitoringConfig,
-        @Autowired PatientNursingReportUtils pnrUtils,
+        @Autowired PatientNursingReportInvalidationService pnrUtils,
         @Autowired RbacDepartmentRepository departmentRepo,
         @Autowired BgaParamRepository bgaParamRepo,
         @Autowired BgaCategoryMappingRepository bgaCategoryMappingRepo,
@@ -1524,7 +1525,7 @@ public class BgaService {
     private final PatientService patientService;
     private final PatientDeviceService patientDeviceService;
     private final MonitoringConfig monitoringConfig;
-    private final PatientNursingReportUtils pnrUtils;
+    private final PatientNursingReportInvalidationService pnrUtils;
     private final RbacDepartmentRepository departmentRepository;
 
     private final BgaParamRepository bgaParamRepository;

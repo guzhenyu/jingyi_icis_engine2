@@ -28,6 +28,7 @@ import com.jingyicare.jingyi_icis_engine.repository.users.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.*;
+import com.jingyicare.jingyi_icis_engine.service.reports.common.PatientNursingReportInvalidationService;
 import com.jingyicare.jingyi_icis_engine.service.users.UserService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -43,7 +44,7 @@ public class ScoreService {
         @Autowired UserService userService,
         @Autowired PatientService patientService,
         @Autowired MonitoringRecordUtils monitoringRecordUtils,
-        @Autowired PatientNursingReportUtils pnrUtils,
+        @Autowired PatientNursingReportInvalidationService pnrUtils,
         @Autowired DeptScoreGroupRepository deptScoreGroupRepo,
         @Autowired PatientScoreRepository patientScoreRepo,
         @Autowired MonitoringParamRepository monitoringParamRepo,
@@ -1550,7 +1551,7 @@ public class ScoreService {
     private final UserService userService;
     private final PatientService patientService;
     private final MonitoringRecordUtils monitoringRecordUtils;
-    private final PatientNursingReportUtils pnrUtils;
+    private final PatientNursingReportInvalidationService pnrUtils;
     private final DeptScoreGroupRepository deptScoreGroupRepo;
     private final PatientScoreRepository patientScoreRepo;
     private final MonitoringParamRepository monitoringParamRepo;

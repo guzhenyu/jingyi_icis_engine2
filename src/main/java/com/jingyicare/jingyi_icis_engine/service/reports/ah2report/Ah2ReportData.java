@@ -1,4 +1,4 @@
-package com.jingyicare.jingyi_icis_engine.service.reports;
+package com.jingyicare.jingyi_icis_engine.service.reports.ah2report;
 
 import java.awt.Color;
 import java.io.*;
@@ -22,8 +22,8 @@ import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoringReport.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoringReportAh2.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisReport.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisReportAh2.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
@@ -52,6 +52,8 @@ import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.service.medications.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
+import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
+import com.jingyicare.jingyi_icis_engine.service.reports.common.*;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
 import com.jingyicare.jingyi_icis_engine.service.tubes.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -62,6 +64,7 @@ public class Ah2ReportData {
     public Ah2ReportData(
         ConfigurableApplicationContext context,
         @Autowired ConfigProtoService protoService,
+        @Autowired ReportProperties reportProperties,
         @Autowired ConfigShiftUtils configShiftUtils,
         @Autowired PatientService patientService,
         @Autowired MonitoringConfig monitoringConfig,
@@ -69,7 +72,8 @@ public class Ah2ReportData {
         @Autowired BalanceCalculator balanceCalculator,
         @Autowired MedReportUtils medReportUtils,
         @Autowired PatientTubeImpl patientTubeImpl,
-        @Autowired PatientNursingReportUtils pnrUtils,
+        @Autowired PatientNursingReportInvalidationService pnrUtils,
+        @Autowired Ah2NursingReportCacheService ah2ReportCacheService,
         @Autowired PatientMonitoringRecordRepository pmrRepo,
         @Autowired NursingRecordRepository nrRepo,
         @Autowired PatientShiftRecordRepository psrRepo,
@@ -90,10 +94,10 @@ public class Ah2ReportData {
         this.BALANCE_OUT_TYPE_ID = protoService.getConfig().getMonitoring().getEnums().getBalanceOut().getId();
         this.BALANCE_NET_TYPE_ID = protoService.getConfig().getMonitoring().getEnums().getBalanceNet().getId();
         this.DOSAGE_DECIMAL_PLACES = protoService.getConfig().getMedication().getDosageDecimalPlaces();
-        this.ENABLE_BALANCE_STATS_HOUR_SHIFT = protoService.getConfig().getMonitoringReport()
-            .getSettings().getEnableBalanceStatsHourShift();
         this.medExeAdminCodes = new HashSet<>(protoService.getConfig().getMedication().getMedExeAdminCodeList());
         this.dietAdminCodes = new HashSet<>(protoService.getConfig().getMedication().getDietAdminCodeList());
+        this.GENERATION_LOCK_STALE_MS =
+            Math.max(1, reportProperties.getAh2().getGenerationLockStaleMinutes()) * 60L * 1000L;
         MonitoringParamPB colorParamPB = protoService.getConfig().getTube().getTubeSetting()
             .getParamList().stream().filter(p -> p.getCode().equals(Consts.DRAINAGE_TUBE_COLOR_CODE))
             .findFirst().orElse(null);
@@ -110,6 +114,7 @@ public class Ah2ReportData {
         this.medReportUtils = medReportUtils;
         this.patientTubeImpl = patientTubeImpl;
         this.pnrUtils = pnrUtils;
+        this.ah2ReportCacheService = ah2ReportCacheService;
         this.pmrRepo = pmrRepo;
         this.nrRepo = nrRepo;
         this.psrRepo = psrRepo;
@@ -460,13 +465,13 @@ public class Ah2ReportData {
     private void cleanupStale() {
         long now = System.currentTimeMillis();
         processingPids.forEach((k, v) -> {
-            if (now - v.startedAt > STALE_MS) {
+            if (now - v.startedAt > GENERATION_LOCK_STALE_MS) {
                 boolean removed = processingPids.remove(k, v);
                 if (removed) {
                     long ageMs = now - v.startedAt;
                     log.info(
                         "\n\n(debug) AH2 report cleanupStale removed pid={}, startedAt={}, lastProgressAtUtc={}, ageMs={}, staleMs={}",
-                        k, new Date(v.startedAt), v.lastProgressAt, ageMs, STALE_MS
+                        k, new Date(v.startedAt), v.lastProgressAt, ageMs, GENERATION_LOCK_STALE_MS
                     );
                 }
             }
@@ -602,7 +607,7 @@ public class Ah2ReportData {
 
         Ah2PageData ah2PageData = convertToAh2PageData(ctx, patientDataMap, cutOffUtc);
         Ah2PageDataPB ah2PageDataPb = ah2PageData.toProto();
-        pnrUtils.updateLastProcessedAt(pid, midnightUtc, ah2PageDataPb, nowUtc);
+        ah2ReportCacheService.updateLastProcessedAt(pid, midnightUtc, ah2PageDataPb, nowUtc);
         log.info(
             "\n\n(debug) AH2 fetchDailyData end pid={}, midnightUtc={}, patientDataCount={}, cutOffUtc={}",
             pid, midnightUtc, patientDataMap.size(), cutOffUtc
@@ -2400,7 +2405,6 @@ public class Ah2ReportData {
     private final Integer BALANCE_NET_TYPE_ID;
     private final Integer DOSAGE_DECIMAL_PLACES;
     private final ValueMetaPB DRAINAGE_TUBE_COLOR_META;
-    private final boolean ENABLE_BALANCE_STATS_HOUR_SHIFT;
     private final Set<String> medExeAdminCodes;
     private final Set<String> dietAdminCodes;
 
@@ -2412,7 +2416,8 @@ public class Ah2ReportData {
     private final BalanceCalculator balanceCalculator;
     private final MedReportUtils medReportUtils;
     private final PatientTubeImpl patientTubeImpl;
-    private final PatientNursingReportUtils pnrUtils;
+    private final PatientNursingReportInvalidationService pnrUtils;
+    private final Ah2NursingReportCacheService ah2ReportCacheService;
     private final PatientMonitoringRecordRepository pmrRepo;
     private final NursingRecordRepository nrRepo;
     private final PatientShiftRecordRepository psrRepo;
@@ -2429,7 +2434,7 @@ public class Ah2ReportData {
     private Map<String, Long> accountIdToPk;
 
     // 病人报表数据处理状态
-    private static final long STALE_MS = 30 * 60 * 1000; // 30 分钟
+    private final long GENERATION_LOCK_STALE_MS;
     private static class PidInFlight {
         public PidInFlight() {
             startedAt = System.currentTimeMillis();
@@ -2637,15 +2642,7 @@ public class Ah2ReportData {
     //             continue;
     //         }
 
-    //         // 出入量时间微调
     //         LocalDateTime balanceEffectiveTime = effectiveTime;
-    //         if (ENABLE_BALANCE_STATS_HOUR_SHIFT &&
-    //             balanceEffectiveTime.getMinute() == 0 &&
-    //             balanceEffectiveTime.getSecond() == 0 &&
-    //             balanceEffectiveTime.getNano() == 0
-    //         ) {
-    //             balanceEffectiveTime = balanceEffectiveTime.plusHours(1);
-    //         }
 
     //         // 出入量，尿量
     //         if (paramCode.equals(MP_HOURLY_INTAKE)) {

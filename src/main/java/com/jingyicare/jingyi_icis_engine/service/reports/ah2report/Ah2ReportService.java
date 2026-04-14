@@ -1,4 +1,4 @@
-package com.jingyicare.jingyi_icis_engine.service.reports;
+package com.jingyicare.jingyi_icis_engine.service.reports.ah2report;
 
 import java.awt.Color;
 import java.io.*;
@@ -7,9 +7,9 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
 
 import com.google.protobuf.TextFormat;
@@ -23,11 +23,14 @@ import org.apache.pdfbox.util.*;
 
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoringReport.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoringReportAh2.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisReport.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisReportAh2.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 
 import com.jingyicare.jingyi_icis_engine.service.*;
+import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataService;
+import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
+import com.jingyicare.jingyi_icis_engine.service.reports.common.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.jfkdatasources.JfkPatientInfo;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -38,13 +41,16 @@ public class Ah2ReportService {
         ConfigurableApplicationContext context,
         @Autowired ConfigProtoService protoService,
         @Autowired JfkDataService jfkDataService,
-        @Value("${report_ah2}") Resource ah2TemplateResource,
-        @Value("${jingyi.textresources.charset}") String charsetName,
-        @Value("${jingyi.textresources.font}") Resource fontResource,
+        @Autowired ReportProperties reportProperties,
+        @Autowired ResourceLoader resourceLoader,
         @Autowired Ah2ReportData ah2ReportData
     ) {
         this.statusCodeMsgs = protoService.getConfig().getText().getStatusCodeMsgList();
         this.jfkDataService = jfkDataService;
+
+        String charsetName = reportProperties.getCharset();
+        Resource ah2TemplateResource = resourceLoader.getResource(reportProperties.getAh2().getTemplate());
+        Resource fontResource = resourceLoader.getResource(reportProperties.getAh2().getFont());
 
         ReportTemplateAh2PB parsedTemplate = null;
         try {  // 初始化模板信息
