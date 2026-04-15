@@ -42,13 +42,13 @@ public class ReportProperties {
 
     @Data
     public static class Ah2 {
-        private String template = "classpath:/config/pbtxt/ah2_report_template.pb.txt";
+        private String template = "classpath:/config/pbtxt/report_template_ah2.pb.txt";
         private String font = "classpath:/fonts/msyh.ttf";
         private String wardReportFont = "classpath:/fonts/msyh.ttf";
         private int generationLockStaleMinutes = 30;
 
         public String getTemplate() {
-            return StrUtils.isBlank(template) ? "classpath:/config/pbtxt/ah2_report_template.pb.txt" : template;
+            return StrUtils.isBlank(template) ? "classpath:/config/pbtxt/report_template_ah2.pb.txt" : template;
         }
 
         public String getFont() {
