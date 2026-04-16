@@ -9,6 +9,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface BalanceStatsShiftRepository extends JpaRepository<BalanceStatsShift, Long> {
     List<BalanceStatsShift> findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc(String deptId);
     List<BalanceStatsShift> findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeAsc(String deptId);
+    Optional<BalanceStatsShift> findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(
+        String deptId, LocalDateTime effectiveTime
+    );
     Optional<BalanceStatsShift> findByDeptIdAndEffectiveTimeAndIsDeletedFalse(String deptId, LocalDateTime effectiveTime);
     Optional<BalanceStatsShift> findByIdAndIsDeletedFalse(Long id);
 }
