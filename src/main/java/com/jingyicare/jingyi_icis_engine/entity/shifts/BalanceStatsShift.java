@@ -26,6 +26,9 @@ public class BalanceStatsShift {
     @Column(name = "start_hour", nullable = false)
     private Integer startHour;
 
+    @Column(name = "mon_start_hour", nullable = false)
+    private Integer monStartHour;
+
     @Column(name = "effective_time", nullable = false)
     private LocalDateTime effectiveTime;
 

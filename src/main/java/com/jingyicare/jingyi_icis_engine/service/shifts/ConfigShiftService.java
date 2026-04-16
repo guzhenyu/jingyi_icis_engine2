@@ -177,8 +177,21 @@ public class ConfigShiftService {
             .setId(balanceStatsShift.getId())
             .setDeptId(balanceStatsShift.getDeptId())
             .setStartHour(balanceStatsShift.getStartHour())
+            .setMonStartHour(getMonStartHourOrDefault(balanceStatsShift))
             .setEffectiveTimeIso8601(TimeUtils.toIso8601String(balanceStatsShift.getEffectiveTime(), ZONE_ID))
             .build();
+    }
+
+    private Integer getMonStartHourOrDefault(BalanceStatsShift balanceStatsShift) {
+        return balanceStatsShift.getMonStartHour() != null
+            ? balanceStatsShift.getMonStartHour()
+            : balanceStatsShift.getStartHour();
+    }
+
+    private Integer getMonStartHourOrDefault(BalanceStatsShiftPB balanceStatsShift) {
+        return balanceStatsShift.hasMonStartHour()
+            ? balanceStatsShift.getMonStartHour()
+            : balanceStatsShift.getStartHour();
     }
 
     @Transactional
@@ -229,6 +242,7 @@ public class ConfigShiftService {
         balanceStatsShift = BalanceStatsShift.builder()
             .deptId(req.getShift().getDeptId())
             .startHour(req.getShift().getStartHour())
+            .monStartHour(getMonStartHourOrDefault(req.getShift()))
             .effectiveTime(effectiveTime)
             .isDeleted(false)
             .modifiedAt(TimeUtils.getNowUtc())
@@ -299,6 +313,7 @@ public class ConfigShiftService {
         }
         // 更新 BalanceStatsShift 实体
         balanceStatsShift.setStartHour(req.getShift().getStartHour());
+        balanceStatsShift.setMonStartHour(getMonStartHourOrDefault(req.getShift()));
         balanceStatsShift.setEffectiveTime(effectiveTime);
         balanceStatsShift.setModifiedAt(TimeUtils.getNowUtc());
         balanceStatsShift.setModifiedBy(accountId);
