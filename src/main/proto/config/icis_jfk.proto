@@ -25,6 +25,7 @@ message JfkPagePB {
     repeated JfkTextPB texts = 1;  // 页面上的文本组件列表
     repeated JfkTablePB tables = 2;  // 页面上的表格组件列表
     repeated JfkLinePB lines = 3;  // 页面上的线条组件列表
+    repeated JfkAbsContainerPB containers = 4;  // container本身绝对定位，container内部的tables, texts流式布局
 }
 
 enum JfkPageElementDataTypePB {
@@ -50,6 +51,34 @@ message JfkElementMetaPB {
     string data_source_field_id = 5;  // 数据源字段ID
     //// content_type为 JfkPageElementDataTypePB.JFK_CUR_PAGE_ID 时，无额外信息
     //// content_type为 JfkPageElementDataTypePB.JFK_TOTAL_PAGES 时，无额外信息
+}
+
+message JfkAbsContainerPB {
+    string id = 1;
+    string name = 2;
+    float top = 3;  // container首页出现时的顶部坐标（left始终为0），页面左下角的坐标为(0,0)
+    float height = 4;  // container首页出现时，页面内最大的高度
+    float next_page_top = 5;  // 后续页面中的顶部的坐标
+    float next_page_height = 6;  // 后续页面中的高度
+
+    // ac_tables, ac_texts 最多只能有一个不空：
+    // - ac_tables 在 container 内部垂直流式布局
+    // - ac_texts依据offset_top，在container内部绝对定位
+    repeated JfkAcTablePB ac_tables = 7;
+    repeated JfkAcTextPB ac_texts = 8;
+}
+
+message JfkAcTablePB {
+    // 根据container当前的cursor_top_pt，顶部偏移offset_top后，画表格，tbl.y不生效
+    // 画完表格后，cursor_top_pt移到表格底部
+    float offset_top = 1;
+    JfkTablePB tbl = 2;
+}
+
+message JfkAcTextPB {
+    // offset_top是相对于根据container顶部往下的偏移量
+    float offset_top = 1;
+    JfkTextPB text = 2;
 }
 
 message JfkTextPB {
@@ -168,6 +197,7 @@ message JfkValPB {
     int64 int64_val = 2;
     double double_val = 3;
     string str_val = 4;  // 对应于 STRING 和 DATETIME 和 IMAGE 类型
+    repeated string strs_val = 5;  // 如果一个table cell中有多行
 }
 
 enum JfkValTypePB {
@@ -180,6 +210,7 @@ enum JfkValTypePB {
     IMAGE = 6;
     NURSING_SIGN_PIC = 7;
     DOCTOR_SIGN_PIC = 8;
+    STRINGS = 9;
 }
 
 message JfkValMetaPB {

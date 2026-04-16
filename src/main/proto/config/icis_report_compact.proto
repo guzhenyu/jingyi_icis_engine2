@@ -1,7 +1,12 @@
 syntax = "proto3";
 
+import "config/icis_jfk.proto";
+import "config/icis_report_common.proto";
+
 package com.jingyicare.jingyi_icis_engine.proto.config;
 
 message CompactReportTemplatePB {
-    string name = 1;
+    JfkTemplatePB template = 1;
+    LogoMetaPB logo = 2;
+    repeated ReportMonGroupPB mon_group = 3;
 }

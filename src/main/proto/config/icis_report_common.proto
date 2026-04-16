@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+message LogoMetaPB {
+    string png_path = 1;  // 图片文件的路径
+    float top = 2;
+    float left = 3;
+    float width = 4;
+    float height = 5;
+}
+
+message ReportMonGroupPB {
+    string table_id = 1;  // 对应于JfkTablePB.id
+    repeated string param_code = 2;
+}
