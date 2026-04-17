@@ -27,13 +27,13 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 
-public class MonitoringTimeRangeDataSourceHandlerTests {
+public class BalanceTimeRangeDataSourceHandlerTests {
     @Test
-    public void handleReturnsTwentyFourHourLabelsFromMonitoringStartHour() {
+    public void handleReturnsTwentyFourHourLabelsFromBalanceStartHour() {
         JfkDataSourceSupport support = mockSupport();
         BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
-        MonitoringTimeRangeDataSourceHandler handler =
-            new MonitoringTimeRangeDataSourceHandler(support, balanceStatsShiftRepo);
+        BalanceTimeRangeDataSourceHandler handler =
+            new BalanceTimeRangeDataSourceHandler(support, balanceStatsShiftRepo);
 
         LocalDateTime utcEnd = LocalDateTime.of(2026, 4, 17, 0, 0);
         when(balanceStatsShiftRepo
@@ -48,19 +48,19 @@ public class MonitoringTimeRangeDataSourceHandlerTests {
 
         Pair<ReturnCode, JfkDataSourcePB> result = handler.handle(JfkDataSourcePB.newBuilder()
             .setId("request-1")
-            .setMetaId("monitoring_time_range")
+            .setMetaId("balance_time_range")
             .addInputData(strInput("dept_id", "10042"))
             .addInputData(strInput("query_start", "2026-04-16T00:00Z"))
             .build());
 
         assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
         Map<String, List<String>> output = toOutputMap(result.getSecond());
-        assertThat(output.get("time_txt")).containsExactly("观察项");
+        assertThat(output.get("time_txt")).containsExactly("出入量");
         assertThat(output.get("unit_txt")).containsExactly("单位");
-        assertThat(output.get("hour1")).containsExactly("7:00");
-        assertThat(output.get("hour2")).containsExactly("8:00");
-        assertThat(output.get("hour18")).containsExactly("0:00");
-        assertThat(output.get("hour24")).containsExactly("6:00");
+        assertThat(output.get("hour1")).containsExactly("8:00");
+        assertThat(output.get("hour2")).containsExactly("9:00");
+        assertThat(output.get("hour17")).containsExactly("0:00");
+        assertThat(output.get("hour24")).containsExactly("7:00");
         assertThat(output).containsKeys("hour1", "hour24").hasSize(26);
 
         verify(balanceStatsShiftRepo)
@@ -68,34 +68,26 @@ public class MonitoringTimeRangeDataSourceHandlerTests {
     }
 
     @Test
-    public void handleFallsBackToBalanceStartHourWhenMonitoringStartHourIsMissing() {
+    public void handleReturnsBalanceStatsShiftNotFoundWhenShiftIsMissing() {
         JfkDataSourceSupport support = mockSupport();
         BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
-        MonitoringTimeRangeDataSourceHandler handler =
-            new MonitoringTimeRangeDataSourceHandler(support, balanceStatsShiftRepo);
+        BalanceTimeRangeDataSourceHandler handler =
+            new BalanceTimeRangeDataSourceHandler(support, balanceStatsShiftRepo);
 
-        LocalDateTime utcEnd = LocalDateTime.of(2026, 4, 17, 0, 0);
         when(balanceStatsShiftRepo
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc("10042", utcEnd))
-            .thenReturn(Optional.of(BalanceStatsShift.builder()
-                .deptId("10042")
-                .startHour(6)
-                .monStartHour(null)
-                .effectiveTime(LocalDateTime.of(2026, 4, 1, 0, 0))
-                .isDeleted(false)
-                .build()));
+            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(
+                anyString(), any(LocalDateTime.class)))
+            .thenReturn(Optional.empty());
 
         Pair<ReturnCode, JfkDataSourcePB> result = handler.handle(JfkDataSourcePB.newBuilder()
             .setId("request-1")
-            .setMetaId("monitoring_time_range")
+            .setMetaId("balance_time_range")
             .addInputData(strInput("dept_id", "10042"))
             .addInputData(strInput("query_start", "2026-04-16T00:00Z"))
             .build());
 
-        assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
-        Map<String, List<String>> output = toOutputMap(result.getSecond());
-        assertThat(output.get("hour1")).containsExactly("6:00");
-        assertThat(output.get("hour24")).containsExactly("5:00");
+        assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.BALANCE_STATS_SHIFT_NOT_FOUND.ordinal());
+        assertThat(result.getSecond()).isNull();
     }
 
     private JfkDataSourceSupport mockSupport() {

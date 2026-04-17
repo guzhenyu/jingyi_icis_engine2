@@ -16,8 +16,8 @@ import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
 @Component
-public class MonitoringTimeRangeDataSourceHandler extends AbstractJfkDataSourceHandler {
-    public MonitoringTimeRangeDataSourceHandler(
+public class BalanceTimeRangeDataSourceHandler extends AbstractJfkDataSourceHandler {
+    public BalanceTimeRangeDataSourceHandler(
         JfkDataSourceSupport support,
         BalanceStatsShiftRepository balanceStatsShiftRepo
     ) {
@@ -54,12 +54,12 @@ public class MonitoringTimeRangeDataSourceHandler extends AbstractJfkDataSourceH
             return error(StatusCode.BALANCE_STATS_SHIFT_NOT_FOUND, "deptId: " + deptId);
         }
 
-        int monStartHour = shift.getMonStartHour() != null ? shift.getMonStartHour() : shift.getStartHour();
+        int balanceStartHour = shift.getStartHour();
         JfkDataSourcePB.Builder outputBuilder = newOutputBuilder(input);
-        support.addArrayOutput(outputBuilder, FIELD_TIME_TXT, List.of(TIME_TEXT));
+        support.addArrayOutput(outputBuilder, FIELD_TIME_TXT, List.of(BALANCE_TEXT));
         support.addArrayOutput(outputBuilder, FIELD_UNIT_TXT, List.of(UNIT_TEXT));
         for (int i = 0; i < 24; i++) {
-            support.addArrayOutput(outputBuilder, "hour" + (i + 1), List.of(formatHour(monStartHour + i)));
+            support.addArrayOutput(outputBuilder, "hour" + (i + 1), List.of(formatHour(balanceStartHour + i)));
         }
 
         return new Pair<>(returnCode(StatusCode.OK), outputBuilder.build());
@@ -69,12 +69,12 @@ public class MonitoringTimeRangeDataSourceHandler extends AbstractJfkDataSourceH
         return Math.floorMod(hour, 24) + ":00";
     }
 
-    private static final String META_ID = "monitoring_time_range";
+    private static final String META_ID = "balance_time_range";
     private static final String FIELD_DEPT_ID = "dept_id";
     private static final String FIELD_QUERY_START = "query_start";
     private static final String FIELD_TIME_TXT = "time_txt";
     private static final String FIELD_UNIT_TXT = "unit_txt";
-    private static final String TIME_TEXT = "观察项";
+    private static final String BALANCE_TEXT = "出入量";
     private static final String UNIT_TEXT = "单位";
 
     private final BalanceStatsShiftRepository balanceStatsShiftRepo;
