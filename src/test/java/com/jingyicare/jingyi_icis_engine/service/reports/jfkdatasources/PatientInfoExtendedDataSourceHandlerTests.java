@@ -22,20 +22,15 @@ import com.jingyicare.jingyi_icis_engine.entity.patients.SurgeryHistory;
 import com.jingyicare.jingyi_icis_engine.entity.patientshifts.PatientShiftRecord;
 import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
 import com.jingyicare.jingyi_icis_engine.entity.users.RbacDepartment;
-import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkFieldDataPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValPB;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.Patient;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.PatientEnumsV2;
-import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.EnumValue;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.repository.patients.SurgeryHistoryRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patientshifts.PatientShiftRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
-import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
@@ -96,7 +91,7 @@ public class PatientInfoExtendedDataSourceHandlerTests {
         assertThat(output.get("height")).isEqualTo("179cm");
         assertThat(output.get("weight")).isEqualTo("70kg");
         assertThat(output.get("admission_time_yyyymmdd")).isEqualTo("20260324");
-        assertThat(output.get("illness_severity_level")).isEqualTo("危重");
+        assertThat(output.get("illness_severity_level")).isEqualTo("4");
         assertThat(output.get("days_after_surgery")).isEqualTo("5天");
         assertThat(output.get("mon_record_day_range")).isEqualTo("20260416-20260417");
         assertThat(output.get("diagnosis_and_surgery")).isEqualTo("ICU诊断; 手术: 手术B + 手术A");
@@ -131,7 +126,7 @@ public class PatientInfoExtendedDataSourceHandlerTests {
     }
 
     @Test
-    public void handleWarnsAndOutputsBlankWhenIllnessSeverityLevelIsNotConfigured() {
+    public void handleReturnsRawIllnessSeverityLevel() {
         TestContext ctx = new TestContext();
         PatientInfoExtendedDataSourceHandler handler = ctx.handler();
 
@@ -167,7 +162,7 @@ public class PatientInfoExtendedDataSourceHandlerTests {
 
         assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
         Map<String, String> output = toOutputMap(result.getSecond());
-        assertThat(output.get("illness_severity_level")).isEmpty();
+        assertThat(output.get("illness_severity_level")).isEqualTo("99");
         assertThat(output.get("days_after_surgery")).isEqualTo("0天");
     }
 
@@ -236,8 +231,6 @@ public class PatientInfoExtendedDataSourceHandlerTests {
         private final BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
         private final SurgeryHistoryRepository surgeryHistoryRepo = mock(SurgeryHistoryRepository.class);
         private final PatientShiftRecordRepository patientShiftRecordRepo = mock(PatientShiftRecordRepository.class);
-        private final ConfigProtoService configProtoService = mock(ConfigProtoService.class);
-
         private TestContext() {
             when(support.getStatusMsgList()).thenReturn(Collections.nCopies(400, "status"));
             when(support.getZoneId()).thenReturn("Asia/Shanghai");
@@ -260,13 +253,6 @@ public class PatientInfoExtendedDataSourceHandlerTests {
                     .build());
                 return null;
             }).when(support).addStrOutput(any(JfkDataSourcePB.Builder.class), any(String.class), any(String.class));
-            when(configProtoService.getConfig()).thenReturn(Config.newBuilder()
-                .setPatient(Patient.newBuilder()
-                    .setEnumsV2(PatientEnumsV2.newBuilder()
-                        .addIllnessSeverityLevel(EnumValue.newBuilder().setId(4).setName("危重").build())
-                        .build())
-                    .build())
-                .build());
         }
 
         private PatientInfoExtendedDataSourceHandler handler() {
@@ -274,8 +260,7 @@ public class PatientInfoExtendedDataSourceHandlerTests {
                 support,
                 new MonitoringWindowResolver(support, balanceStatsShiftRepo),
                 surgeryHistoryRepo,
-                patientShiftRecordRepo,
-                configProtoService
+                patientShiftRecordRepo
             );
         }
     }

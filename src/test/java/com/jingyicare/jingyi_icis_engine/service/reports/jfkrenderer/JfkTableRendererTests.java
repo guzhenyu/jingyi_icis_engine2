@@ -34,6 +34,35 @@ public class JfkTableRendererTests {
     }
 
     @Test
+    public void buildFixedRowsUsesColumnAlignmentWhenConfigured() throws Exception {
+        JfkTableRenderer renderer = new JfkTableRenderer(new JfkTextRenderer());
+        JfkValueResolver resolver = new JfkValueResolver(new JfkRenderData(List.of(), List.of()));
+        JfkTablePB table = JfkTablePB.newBuilder()
+            .setId("table-1")
+            .setType("table")
+            .setRows(1)
+            .setCols(2)
+            .addCellWidths(50)
+            .addCellWidths(50)
+            .addCellHeights(12)
+            .setVAlignId(2)
+            .setHAlignId(5)
+            .addColumnMetas(column("col_a").toBuilder()
+                .setVAlignId(3)
+                .setHAlignId(6)
+                .build())
+            .addColumnMetas(column("col_b"))
+            .build();
+
+        List<JfkTableRenderer.RowData> rows = renderer.buildFixedRows(table, resolver);
+
+        assertThat(rows.get(0).cells().get(0).vAlignId()).isEqualTo(3);
+        assertThat(rows.get(0).cells().get(0).hAlignId()).isEqualTo(6);
+        assertThat(rows.get(0).cells().get(1).vAlignId()).isEqualTo(2);
+        assertThat(rows.get(0).cells().get(1).hAlignId()).isEqualTo(5);
+    }
+
+    @Test
     public void buildElasticRowsRejectsMismatchedDataColumnLengths() {
         JfkTableRenderer renderer = new JfkTableRenderer(new JfkTextRenderer());
         JfkValueResolver resolver = new JfkValueResolver(new JfkRenderData(

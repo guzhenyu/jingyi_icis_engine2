@@ -12,39 +12,32 @@ import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 
-import lombok.extern.slf4j.Slf4j;
-
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
 import com.jingyicare.jingyi_icis_engine.entity.patients.SurgeryHistory;
 import com.jingyicare.jingyi_icis_engine.entity.patientshifts.PatientShiftRecord;
 import com.jingyicare.jingyi_icis_engine.entity.users.RbacDepartment;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
-import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.EnumValue;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.repository.patients.SurgeryHistoryRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patientshifts.PatientShiftRecordRepository;
-import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
 @Component
-@Slf4j
 public class PatientInfoExtendedDataSourceHandler extends AbstractJfkDataSourceHandler {
     public PatientInfoExtendedDataSourceHandler(
         JfkDataSourceSupport support,
         MonitoringWindowResolver monitoringWindowResolver,
         SurgeryHistoryRepository surgeryHistoryRepo,
-        PatientShiftRecordRepository patientShiftRecordRepo,
-        ConfigProtoService configProtoService
+        PatientShiftRecordRepository patientShiftRecordRepo
     ) {
         super(support);
         this.monitoringWindowResolver = monitoringWindowResolver;
         this.surgeryHistoryRepo = surgeryHistoryRepo;
         this.patientShiftRecordRepo = patientShiftRecordRepo;
-        this.configProtoService = configProtoService;
     }
 
     @Override
@@ -89,7 +82,7 @@ public class PatientInfoExtendedDataSourceHandler extends AbstractJfkDataSourceH
         support.addStrOutput(outputBuilder, "height", height(patient.getHeight()));
         support.addStrOutput(outputBuilder, "weight", weight(patient.getWeight()));
         support.addStrOutput(outputBuilder, "admission_time_yyyymmdd", admissionDate(patient.getAdmissionTime()));
-        support.addStrOutput(outputBuilder, "illness_severity_level", illnessSeverityLevel(patient));
+        support.addStrOutput(outputBuilder, "illness_severity_level", patient.getIllnessSeverityLevel());
         support.addStrOutput(outputBuilder, "days_after_surgery", daysAfterSurgery(surgeries, window.monEndUtc()));
         support.addStrOutput(outputBuilder, "mon_record_day_range", recordDayRange(window));
         support.addStrOutput(outputBuilder, "diagnosis_and_surgery", diagnosisAndSurgery(patient, surgeries));
@@ -122,27 +115,6 @@ public class PatientInfoExtendedDataSourceHandler extends AbstractJfkDataSourceH
         if (admissionTimeUtc == null) return "";
         return TimeUtils.getLocalDateTimeFromUtc(admissionTimeUtc, support.getZoneId())
             .format(DATE_FORMATTER);
-    }
-
-    private String illnessSeverityLevel(PatientRecord patient) {
-        String rawValue = patient.getIllnessSeverityLevel();
-        if (StrUtils.isBlank(rawValue)) return "";
-
-        int severityId;
-        try {
-            severityId = Integer.parseInt(rawValue);
-        } catch (NumberFormatException e) {
-            log.warn("Invalid illness severity level for patient info extended, pid={}, value={}", patient.getId(), rawValue);
-            return "";
-        }
-
-        for (EnumValue value : configProtoService.getConfig().getPatient().getEnumsV2().getIllnessSeverityLevelList()) {
-            if (value.getId() == severityId) {
-                return value.getName();
-            }
-        }
-        log.warn("Illness severity level not configured for patient info extended, pid={}, value={}", patient.getId(), rawValue);
-        return "";
     }
 
     private String daysAfterSurgery(List<SurgeryHistory> surgeries, LocalDateTime monEndUtc) {
@@ -200,5 +172,4 @@ public class PatientInfoExtendedDataSourceHandler extends AbstractJfkDataSourceH
     private final MonitoringWindowResolver monitoringWindowResolver;
     private final SurgeryHistoryRepository surgeryHistoryRepo;
     private final PatientShiftRecordRepository patientShiftRecordRepo;
-    private final ConfigProtoService configProtoService;
 }

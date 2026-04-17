@@ -306,6 +306,15 @@ hour24 => ["6:00"]
 18. `data_source_meta_id`
 19. `column_metas`
 
+列级对齐规则：
+
+1. `JfkTableColumnMetaPB` 支持 `v_align_id` 和 `h_align_id`。
+2. 当 `JfkTableColumnMetaPB.v_align_id > 0` 时，该列使用列级垂直对齐方式。
+3. 当 `JfkTableColumnMetaPB.v_align_id <= 0` 时，该列继承 `JfkTablePB.v_align_id`。
+4. 当 `JfkTableColumnMetaPB.h_align_id > 0` 时，该列使用列级水平对齐方式。
+5. 当 `JfkTableColumnMetaPB.h_align_id <= 0` 时，该列继承 `JfkTablePB.h_align_id`。
+6. 固定表格与弹性表格使用同一套列级覆盖规则。
+
 表格尺寸：
 
 1. 内容宽度为 `sum(cell_widths)`。

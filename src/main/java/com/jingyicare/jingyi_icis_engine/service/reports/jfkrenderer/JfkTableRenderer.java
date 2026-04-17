@@ -113,7 +113,12 @@ public class JfkTableRenderer {
         for (int colIndex = 0; colIndex < table.getColumnMetasCount(); colIndex++) {
             JfkTableColumnMetaPB columnMeta = table.getColumnMetas(colIndex);
             List<String> lines = valueResolver.resolveCellLines(table, columnMeta, rowIndex);
-            cells.add(new CellData(colIndex, lines == null || lines.isEmpty() ? List.of("") : lines));
+            cells.add(new CellData(
+                colIndex,
+                lines == null || lines.isEmpty() ? List.of("") : lines,
+                columnMeta.getHAlignId() > 0 ? columnMeta.getHAlignId() : table.getHAlignId(),
+                columnMeta.getVAlignId() > 0 ? columnMeta.getVAlignId() : table.getVAlignId()
+            ));
         }
         return new RowData(rowIndex, rowHeight, cells);
     }
@@ -190,8 +195,8 @@ public class JfkTableRenderer {
                     fontSize,
                     charSpacing,
                     table.getFontColor(),
-                    table.getHAlignId(),
-                    table.getVAlignId()
+                    cell.hAlignId(),
+                    cell.vAlignId()
                 );
                 cellLeft += cellWidth + lineWidth;
             }
@@ -207,7 +212,7 @@ public class JfkTableRenderer {
         return joiner.toString();
     }
 
-    public record CellData(int colIndex, List<String> lines) {
+    public record CellData(int colIndex, List<String> lines, int hAlignId, int vAlignId) {
     }
 
     public record RowData(int index, float height, List<CellData> cells) {

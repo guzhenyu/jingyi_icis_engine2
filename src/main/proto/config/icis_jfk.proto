@@ -111,6 +111,9 @@ message JfkTableColumnMetaPB {
 
     // element_meta.content_type为 JfkPageElementDataTypePB.STATIC 时有效
     repeated string static_vals = 4;  // 静态内容列表，长度为rows
+
+    int32 v_align_id = 5;  // 垂直对齐方式， JfkEnumsPB.v_align.id
+    int32 h_align_id = 6;  // 水平对齐方式， JfkEnumsPB.h_align.id
 }
 
 // next_id: 27

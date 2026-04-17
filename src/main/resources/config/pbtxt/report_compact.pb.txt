@@ -12,7 +12,7 @@ template {
       id: "text-1"
       type: "text"
       x: 321
-      y: 585
+      y: 565
       z_index: 1
       width: 200
       height: 20
@@ -2639,6 +2639,7 @@ template {
               data_source_meta_id: "patient_bga_records"
               data_source_field_id: "bga_details"
             }
+            h_align_id: 4
           }
           column_metas {
             id: "table-38-col-4"
