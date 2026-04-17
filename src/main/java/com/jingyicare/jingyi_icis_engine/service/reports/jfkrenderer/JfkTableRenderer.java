@@ -67,6 +67,7 @@ public class JfkTableRenderer {
 
         if (expectedLength < 0) expectedLength = Math.max(1, table.getRows());
         float baseCellHeight = table.getCellHeights(0);
+        float fontSize = JfkRenderUtils.positive(table.getFontSize(), 12f);
         List<RowData> rows = new ArrayList<>();
         for (int rowIndex = 0; rowIndex < expectedLength; rowIndex++) {
             RowData row = buildRow(table, valueResolver, rowIndex, baseCellHeight);
@@ -74,7 +75,11 @@ public class JfkTableRenderer {
             for (CellData cell : row.cells()) {
                 maxLineCount = Math.max(maxLineCount, cell.lines().size());
             }
-            rows.add(new RowData(row.index(), baseCellHeight * maxLineCount, row.cells()));
+            rows.add(new RowData(
+                row.index(),
+                JfkRenderUtils.elasticRowHeight(baseCellHeight, fontSize, maxLineCount),
+                row.cells()
+            ));
         }
         return rows;
     }
@@ -130,7 +135,7 @@ public class JfkTableRenderer {
         contentStream.setLineWidth(lineWidth);
 
         float tableBottom = bottom + lineWidth / 2f;
-        float tableTop = bottom + lineWidth + contentHeight + lineWidth / 2f;
+        float tableTop = JfkRenderUtils.tableTopLineCenter(bottom, contentHeight, rows.size(), lineWidth);
         float x = left + lineWidth / 2f;
         contentStream.moveTo(x, tableBottom);
         contentStream.lineTo(x, tableTop);
@@ -166,7 +171,7 @@ public class JfkTableRenderer {
         float fontSize = JfkRenderUtils.positive(table.getFontSize(), 12f);
         float charSpacing = JfkRenderUtils.finite(table.getCharSpacing(), 0f);
         float hPadding = Math.max(0f, JfkRenderUtils.finite(table.getHPadding(), 0f));
-        float rowTop = bottom + lineWidth + contentHeight;
+        float rowTop = JfkRenderUtils.tableTopContentY(bottom, contentHeight, rows.size(), lineWidth);
         for (RowData row : rows) {
             float rowBottom = rowTop - row.height();
             float cellLeft = left + lineWidth;

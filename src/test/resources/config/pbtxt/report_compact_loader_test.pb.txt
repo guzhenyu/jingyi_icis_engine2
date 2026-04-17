@@ -1,0 +1,51 @@
+template {
+  id: 9101
+  dept_id: "loader-test-dept"
+  name: "Compact loader test template"
+  page_size_id: 2
+  is_page_orientation_portrait: false
+  pages {
+    containers {
+      id: "loader-container"
+      name: "loader container"
+      top: 500
+      height: 100
+      next_page_top: 500
+      next_page_height: 100
+      ac_tables {
+        offset_top: 0
+        tbl {
+          id: "loader-table"
+          type: "table"
+          x: 12
+          y: 0
+          rows: 1
+          cols: 1
+          cell_widths: 100
+          cell_heights: 12
+          line_width: 0.5
+          line_color: "#000000"
+          column_metas {
+            id: "loader-table-col-1"
+            name: "列1"
+            element_meta {
+              content_type: 1
+            }
+            static_vals: "loader"
+          }
+          v_align_id: 2
+          h_align_id: 5
+          font: "Microsoft YaHei"
+          font_size: 8
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+        }
+      }
+    }
+  }
+}
+mon_group {
+  table_id: "loader-table"
+  param_code: "temperature"
+}

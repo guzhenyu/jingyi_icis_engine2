@@ -11,6 +11,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkTablePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkTextPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValMetaPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValPB;
+import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 
 public class JfkValueResolver {
     public JfkValueResolver(JfkRenderData data) {
@@ -59,7 +60,7 @@ public class JfkValueResolver {
 
         String metaId = dataSourceMetaId(table, meta);
         String fieldId = meta.getDataSourceFieldId();
-        JfkValPB val = resolveDataSourceVal(metaId, fieldId, rowIndex);
+        JfkValPB val = resolveDataSourceVal(metaId, table.getId(), fieldId, rowIndex);
         JfkValMetaPB valMeta = resolveDataSourceValMeta(metaId, fieldId);
         if (valMeta != null && valMeta.getValType() == JfkRenderUtils.VAL_TYPE_STRINGS) {
             if (val == null || val.getStrsValCount() == 0) return List.of("");
@@ -68,13 +69,19 @@ public class JfkValueResolver {
         return List.of(valToDisplayString(val, valMeta));
     }
 
+    public boolean shouldRenderTable(JfkTablePB table) {
+        String metaId = table.getDataSourceMetaId();
+        return !JfkDataSourceIds.PATIENT_MONITORING_RECORDS.equals(metaId)
+            || data.dataSourceForTable(metaId, table.getId()) != null;
+    }
+
     public int dataSourceFieldLength(JfkTablePB table, JfkTableColumnMetaPB columnMeta) throws JfkRenderException {
         JfkElementMetaPB meta = columnMeta.getElementMeta();
         if (meta == null || meta.getContentType() != JfkRenderUtils.CONTENT_JFK_DATA_SOURCE) {
             return -1;
         }
         String metaId = dataSourceMetaId(table, meta);
-        JfkFieldDataPB fieldData = data.outputFieldData(metaId, meta.getDataSourceFieldId());
+        JfkFieldDataPB fieldData = data.outputFieldDataForTable(metaId, table.getId(), meta.getDataSourceFieldId());
         if (fieldData == null) {
             throw new JfkRenderException(
                 "Data source field missing: table_id=" + table.getId()
@@ -93,6 +100,15 @@ public class JfkValueResolver {
 
     private JfkValPB resolveDataSourceVal(String metaId, String fieldId, int rowIndex) {
         JfkFieldDataPB fieldData = data.outputFieldData(metaId, fieldId);
+        return resolveDataSourceVal(fieldData, rowIndex);
+    }
+
+    private JfkValPB resolveDataSourceVal(String metaId, String tableId, String fieldId, int rowIndex) {
+        JfkFieldDataPB fieldData = data.outputFieldDataForTable(metaId, tableId, fieldId);
+        return resolveDataSourceVal(fieldData, rowIndex);
+    }
+
+    private JfkValPB resolveDataSourceVal(JfkFieldDataPB fieldData, int rowIndex) {
         if (fieldData == null) return null;
         if (rowIndex >= 0 && fieldData.getValsCount() > 0) {
             return rowIndex < fieldData.getValsCount() ? fieldData.getVals(rowIndex) : null;

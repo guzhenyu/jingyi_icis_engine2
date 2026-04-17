@@ -9,6 +9,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourceMetaP
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkFieldDataPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkFieldMetaPB;
+import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 
 public class JfkRenderData {
     public JfkRenderData(
@@ -22,10 +23,13 @@ public class JfkRenderData {
         this.metaById = Collections.unmodifiableMap(metaMap);
 
         Map<String, JfkDataSourcePB> dsMap = new LinkedHashMap<>();
+        Map<String, JfkDataSourcePB> dsByIdMap = new LinkedHashMap<>();
         for (JfkDataSourcePB dataSource : dataSources == null ? List.<JfkDataSourcePB>of() : dataSources) {
             dsMap.putIfAbsent(dataSource.getMetaId(), dataSource);
+            dsByIdMap.putIfAbsent(dataSource.getId(), dataSource);
         }
         this.dataSourceByMetaId = Collections.unmodifiableMap(dsMap);
+        this.dataSourceById = Collections.unmodifiableMap(dsByIdMap);
     }
 
     public JfkDataSourceMetaPB dataSourceMeta(String metaId) {
@@ -34,6 +38,13 @@ public class JfkRenderData {
 
     public JfkDataSourcePB dataSource(String metaId) {
         return dataSourceByMetaId.get(metaId);
+    }
+
+    public JfkDataSourcePB dataSourceForTable(String metaId, String tableId) {
+        if (JfkDataSourceIds.PATIENT_MONITORING_RECORDS.equals(metaId)) {
+            return dataSourceById.get(JfkDataSourceIds.compactTableScoped(metaId, tableId));
+        }
+        return dataSource(metaId);
     }
 
     public JfkFieldMetaPB outputFieldMeta(String metaId, String fieldId) {
@@ -47,6 +58,15 @@ public class JfkRenderData {
 
     public JfkFieldDataPB outputFieldData(String metaId, String fieldId) {
         JfkDataSourcePB dataSource = dataSource(metaId);
+        return outputFieldData(dataSource, fieldId);
+    }
+
+    public JfkFieldDataPB outputFieldDataForTable(String metaId, String tableId, String fieldId) {
+        JfkDataSourcePB dataSource = dataSourceForTable(metaId, tableId);
+        return outputFieldData(dataSource, fieldId);
+    }
+
+    private JfkFieldDataPB outputFieldData(JfkDataSourcePB dataSource, String fieldId) {
         if (dataSource == null) return null;
         for (JfkFieldDataPB fieldData : dataSource.getOutputDataList()) {
             if (fieldId.equals(fieldData.getId())) return fieldData;
@@ -56,4 +76,5 @@ public class JfkRenderData {
 
     private final Map<String, JfkDataSourceMetaPB> metaById;
     private final Map<String, JfkDataSourcePB> dataSourceByMetaId;
+    private final Map<String, JfkDataSourcePB> dataSourceById;
 }

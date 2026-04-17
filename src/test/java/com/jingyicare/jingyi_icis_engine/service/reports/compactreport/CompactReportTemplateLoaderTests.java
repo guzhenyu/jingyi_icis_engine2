@@ -12,15 +12,17 @@ public class CompactReportTemplateLoaderTests {
     @Test
     public void loadParsesConfiguredCompactTemplate() throws Exception {
         ReportProperties properties = new ReportProperties();
-        properties.getCompact().setTemplate("classpath:/config/pbtxt/report_compact.pb.txt");
+        properties.getCompact().setTemplate("classpath:/config/pbtxt/report_compact_loader_test.pb.txt");
         CompactReportTemplateLoader loader =
             new CompactReportTemplateLoader(properties, new DefaultResourceLoader());
 
         CompactReportTemplatePB template = loader.load();
 
-        assertThat(template.getTemplate().getName()).isEqualTo("新安重症监护单");
+        assertThat(template.getTemplate().getName()).isEqualTo("Compact loader test template");
         assertThat(template.getTemplate().getPagesCount()).isEqualTo(1);
         assertThat(template.getTemplate().getPages(0).getContainersCount()).isEqualTo(1);
-        assertThat(template.getTemplate().getPages(0).getContainers(0).getAcTablesCount()).isEqualTo(2);
+        assertThat(template.getTemplate().getPages(0).getContainers(0).getAcTablesCount()).isEqualTo(1);
+        assertThat(template.getMonGroupCount()).isEqualTo(1);
+        assertThat(template.getMonGroup(0).getTableId()).isEqualTo("loader-table");
     }
 }

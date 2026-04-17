@@ -79,7 +79,7 @@ public class CompactReportService {
         CompactReportTemplatePB compactTemplate,
         MonitoringReportRequest request
     ) {
-        List<JfkDataSourcePB> inputList = dataSourceBuilder.buildInputs(compactTemplate.getTemplate(), request);
+        List<JfkDataSourcePB> inputList = dataSourceBuilder.buildInputs(compactTemplate, request);
         List<JfkDataSourcePB> outputList = new ArrayList<>();
         for (JfkDataSourcePB input : inputList) {
             Pair<ReturnCode, JfkDataSourcePB> result = jfkDataService.getDataSource(input);

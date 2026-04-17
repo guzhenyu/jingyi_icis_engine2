@@ -51,19 +51,13 @@ public class JfkTextRenderer {
         if (lines == null || lines.isEmpty()) lines = List.of("");
         float safeWidth = Math.max(0f, width);
         float safeHeight = Math.max(fontSize, height);
-        float leading = fontSize;
+        float leading = JfkRenderUtils.textLineHeight(fontSize);
         float ascent = JfkRenderUtils.ascent(font, fontSize);
         float descent = JfkRenderUtils.descentAbs(font, fontSize);
         int lineCount = lines.size();
 
-        float firstBaseline;
-        if (vAlignId == JfkRenderUtils.V_ALIGN_TOP) {
-            firstBaseline = bottom + safeHeight - ascent;
-        } else if (vAlignId == JfkRenderUtils.V_ALIGN_BOTTOM) {
-            firstBaseline = bottom + descent + (lineCount - 1) * leading;
-        } else {
-            firstBaseline = bottom + (safeHeight + (descent - ascent) + (lineCount - 1) * leading) / 2f;
-        }
+        float firstBaseline = JfkRenderUtils.firstLineBaseline(
+            bottom, safeHeight, fontSize, leading, lineCount, ascent, descent, vAlignId);
 
         Color color = JfkRenderUtils.parseColor(fontColor);
         contentStream.setNonStrokingColor(color);

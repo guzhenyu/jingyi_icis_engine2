@@ -29,8 +29,8 @@ public class JfkTableRendererTests {
         List<JfkTableRenderer.RowData> rows = renderer.buildElasticRows(table(), resolver);
 
         assertThat(rows).hasSize(2);
-        assertThat(rows.get(0).height()).isEqualTo(20f);
-        assertThat(rows.get(1).height()).isEqualTo(10f);
+        assertThat(rows.get(0).height()).isEqualTo(19f);
+        assertThat(rows.get(1).height()).isEqualTo(12f);
     }
 
     @Test
@@ -59,7 +59,8 @@ public class JfkTableRendererTests {
             .setCols(2)
             .addCellWidths(50)
             .addCellWidths(50)
-            .addCellHeights(10)
+            .addCellHeights(12)
+            .setFontSize(6)
             .setDataSourceMetaId("ds")
             .addColumnMetas(column("col_a"))
             .addColumnMetas(column("col_b"))

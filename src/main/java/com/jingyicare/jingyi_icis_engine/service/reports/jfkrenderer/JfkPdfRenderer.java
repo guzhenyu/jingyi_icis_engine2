@@ -98,6 +98,7 @@ public class JfkPdfRenderer {
         List<AbsoluteElement> elements = new ArrayList<>();
         for (int i = 0; i < page.getTablesCount(); i++) {
             JfkTablePB table = page.getTables(i);
+            if (!context.valueResolver.shouldRenderTable(table)) continue;
             if (state.extensionIndex > 1 && !table.getExtendToNextPage()) continue;
             elements.add(new AbsoluteElement(table.getZIndex(), () -> renderAbsoluteTable(context, table, state)));
         }
@@ -203,31 +204,42 @@ public class JfkPdfRenderer {
     ) throws IOException, JfkRenderException {
         float cursorTop = containerTop(container, state);
         float bottomLimit = containerBottom(container, state);
+        float previousLineWidth = 0f;
         for (JfkAcTablePB acTable : container.getAcTablesList()) {
             JfkTablePB table = acTable.getTbl();
-            rejectUnsupportedHReplicas(table);
-            if (tableRenderer.isElasticFlowTable(table)) {
-                cursorTop = renderElasticFlowTable(context, page, state, container, acTable, cursorTop, bottomLimit);
-            } else {
-                cursorTop = renderFixedFlowTable(context, page, state, container, acTable, cursorTop, bottomLimit);
+            if (!context.valueResolver.shouldRenderTable(table)) {
+                continue;
             }
+            rejectUnsupportedHReplicas(table);
+            FlowTableResult result;
+            if (tableRenderer.isElasticFlowTable(table)) {
+                result = renderElasticFlowTable(
+                    context, page, state, container, acTable, cursorTop, bottomLimit, previousLineWidth);
+            } else {
+                result = renderFixedFlowTable(
+                    context, page, state, container, acTable, cursorTop, bottomLimit, previousLineWidth);
+            }
+            cursorTop = result.cursorTop();
+            previousLineWidth = result.bottomLineWidth();
             bottomLimit = containerBottom(container, state);
         }
     }
 
-    private float renderFixedFlowTable(
+    private FlowTableResult renderFixedFlowTable(
         RenderContext context,
         JfkPagePB page,
         TemplatePageState state,
         JfkAbsContainerPB container,
         JfkAcTablePB acTable,
         float cursorTop,
-        float bottomLimit
+        float bottomLimit,
+        float previousLineWidth
     ) throws IOException, JfkRenderException {
         JfkTablePB table = acTable.getTbl();
-        float top = cursorTop - acTable.getOffsetTop();
+        float lineWidth = JfkRenderUtils.lineWidth(table);
+        float top = JfkRenderUtils.flowTableTop(cursorTop, acTable.getOffsetTop(), previousLineWidth, lineWidth);
         List<JfkTableRenderer.RowData> rows = tableRenderer.buildFixedRows(table, context.valueResolver);
-        float tableHeight = segmentHeight(rows, JfkRenderUtils.lineWidth(table));
+        float tableHeight = segmentHeight(rows, lineWidth);
         if (top - tableHeight < bottomLimit) {
             startFlowContinuationPage(context, page, state);
             top = containerTop(container, state) - acTable.getOffsetTop();
@@ -242,22 +254,23 @@ public class JfkPdfRenderer {
         }
         float bottom = top - tableHeight;
         tableRenderer.drawRows(context.contentStream, context.font, table, table.getX(), bottom, rows);
-        return bottom;
+        return new FlowTableResult(bottom, lineWidth);
     }
 
-    private float renderElasticFlowTable(
+    private FlowTableResult renderElasticFlowTable(
         RenderContext context,
         JfkPagePB page,
         TemplatePageState state,
         JfkAbsContainerPB container,
         JfkAcTablePB acTable,
         float cursorTop,
-        float bottomLimit
+        float bottomLimit,
+        float previousLineWidth
     ) throws IOException, JfkRenderException {
         JfkTablePB table = acTable.getTbl();
         List<JfkTableRenderer.RowData> rows = tableRenderer.buildElasticRows(table, context.valueResolver);
         float lineWidth = JfkRenderUtils.lineWidth(table);
-        float top = cursorTop - acTable.getOffsetTop();
+        float top = JfkRenderUtils.flowTableTop(cursorTop, acTable.getOffsetTop(), previousLineWidth, lineWidth);
         int rowIndex = 0;
         while (rowIndex < rows.size()) {
             float available = top - bottomLimit;
@@ -284,7 +297,7 @@ public class JfkPdfRenderer {
                     );
                 }
                 startFlowContinuationPage(context, page, state);
-                top = containerTop(container, state);
+                top = containerTop(container, state) - acTable.getOffsetTop();
                 bottomLimit = containerBottom(container, state);
                 continue;
             }
@@ -302,7 +315,7 @@ public class JfkPdfRenderer {
                 bottomLimit = containerBottom(container, state);
             }
         }
-        return top;
+        return new FlowTableResult(top, lineWidth);
     }
 
     private void startFlowContinuationPage(
@@ -425,6 +438,9 @@ public class JfkPdfRenderer {
     }
 
     private record AbsoluteElement(int zIndex, ElementRenderer renderer) {
+    }
+
+    private record FlowTableResult(float cursorTop, float bottomLineWidth) {
     }
 
     @FunctionalInterface

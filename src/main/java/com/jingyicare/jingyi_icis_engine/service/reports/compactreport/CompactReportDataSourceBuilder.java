@@ -1,8 +1,10 @@
 package com.jingyicare.jingyi_icis_engine.service.reports.compactreport;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import org.springframework.stereotype.Component;
@@ -17,27 +19,86 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkTablePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkTemplatePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkTextPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisReportCommon.ReportMonGroupPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisReportCompact.CompactReportTemplatePB;
+import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.MonitoringReportRequest;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
 @Component
 public class CompactReportDataSourceBuilder {
-    public List<JfkDataSourcePB> buildInputs(JfkTemplatePB template, MonitoringReportRequest request) {
+    public List<JfkDataSourcePB> buildInputs(CompactReportTemplatePB compactTemplate, MonitoringReportRequest request) {
+        JfkTemplatePB template = compactTemplate.getTemplate();
         Set<String> metaIds = collectDataSourceMetaIds(template);
         List<JfkDataSourcePB> inputs = new ArrayList<>();
         for (String metaId : metaIds) {
-            inputs.add(JfkDataSourcePB.newBuilder()
+            if (JfkDataSourceIds.PATIENT_MONITORING_RECORDS.equals(metaId)) {
+                continue;
+            }
+            inputs.add(commonInputBuilder(metaId, request)
                 .setId("compact-" + metaId)
-                .setMetaId(metaId)
-                .addInputData(int64Input("pid", request.getPid() == null ? 0L : request.getPid()))
-                .addInputData(strInput("dept_id", request.getDeptId()))
-                .addInputData(strInput("shift_time", TimeUtils.toIso8601String(request.getShiftStartTime(), "UTC")))
-                .addInputData(strInput("query_start", TimeUtils.toIso8601String(request.getQueryStartUtc(), "UTC")))
-                .addInputData(strInput("query_end", TimeUtils.toIso8601String(request.getQueryEndUtc(), "UTC")))
+                .build());
+        }
+        inputs.addAll(buildPatientMonitoringRecordsInputs(compactTemplate, request));
+        return inputs;
+    }
+
+    private List<JfkDataSourcePB> buildPatientMonitoringRecordsInputs(
+        CompactReportTemplatePB compactTemplate,
+        MonitoringReportRequest request
+    ) {
+        Map<String, ReportMonGroupPB> monGroupByTableId = new LinkedHashMap<>();
+        for (ReportMonGroupPB monGroup : compactTemplate.getMonGroupList()) {
+            if (!StrUtils.isBlank(monGroup.getTableId())) {
+                monGroupByTableId.putIfAbsent(monGroup.getTableId(), monGroup);
+            }
+        }
+
+        List<JfkDataSourcePB> inputs = new ArrayList<>();
+        for (JfkTablePB table : collectTables(compactTemplate.getTemplate())) {
+            if (!JfkDataSourceIds.PATIENT_MONITORING_RECORDS.equals(table.getDataSourceMetaId())) {
+                continue;
+            }
+            ReportMonGroupPB monGroup = monGroupByTableId.get(table.getId());
+            if (monGroup == null || monGroup.getParamCodeCount() == 0) {
+                continue;
+            }
+
+            inputs.add(commonInputBuilder(JfkDataSourceIds.PATIENT_MONITORING_RECORDS, request)
+                .setId(JfkDataSourceIds.compactTableScoped(JfkDataSourceIds.PATIENT_MONITORING_RECORDS, table.getId()))
+                .addInputData(strInput("table_id", table.getId()))
+                .addInputData(strArrayInput("monitoring_param_codes", monGroup.getParamCodeList()))
+                .addInputData(doubleArrayInput("col_widths", table.getCellWidthsList()))
+                .addInputData(doubleInput("font_size", table.getFontSize()))
+                .addInputData(doubleInput("char_spacing", table.getCharSpacing()))
+                .addInputData(doubleInput("h_padding", table.getHPadding()))
                 .build());
         }
         return inputs;
+    }
+
+    private List<JfkTablePB> collectTables(JfkTemplatePB template) {
+        List<JfkTablePB> tables = new ArrayList<>();
+        for (JfkPagePB page : template.getPagesList()) {
+            tables.addAll(page.getTablesList());
+            for (var container : page.getContainersList()) {
+                for (JfkAcTablePB acTable : container.getAcTablesList()) {
+                    tables.add(acTable.getTbl());
+                }
+            }
+        }
+        return tables;
+    }
+
+    private JfkDataSourcePB.Builder commonInputBuilder(String metaId, MonitoringReportRequest request) {
+        return JfkDataSourcePB.newBuilder()
+            .setMetaId(metaId)
+            .addInputData(int64Input("pid", request.getPid() == null ? 0L : request.getPid()))
+            .addInputData(strInput("dept_id", request.getDeptId()))
+            .addInputData(strInput("shift_time", TimeUtils.toIso8601String(request.getShiftStartTime(), "UTC")))
+            .addInputData(strInput("query_start", TimeUtils.toIso8601String(request.getQueryStartUtc(), "UTC")))
+            .addInputData(strInput("query_end", TimeUtils.toIso8601String(request.getQueryEndUtc(), "UTC")));
     }
 
     private Set<String> collectDataSourceMetaIds(JfkTemplatePB template) {
@@ -90,6 +151,31 @@ public class CompactReportDataSourceBuilder {
         return JfkFieldDataPB.newBuilder()
             .setId(id)
             .setVal(JfkValPB.newBuilder().setInt64Val(value).build())
+            .build();
+    }
+
+    private JfkFieldDataPB doubleInput(String id, double value) {
+        return JfkFieldDataPB.newBuilder()
+            .setId(id)
+            .setVal(JfkValPB.newBuilder().setDoubleVal(value).build())
+            .build();
+    }
+
+    private JfkFieldDataPB strArrayInput(String id, List<String> values) {
+        return JfkFieldDataPB.newBuilder()
+            .setId(id)
+            .addAllVals(values.stream()
+                .map(value -> JfkValPB.newBuilder().setStrVal(value == null ? "" : value).build())
+                .toList())
+            .build();
+    }
+
+    private JfkFieldDataPB doubleArrayInput(String id, List<Float> values) {
+        return JfkFieldDataPB.newBuilder()
+            .setId(id)
+            .addAllVals(values.stream()
+                .map(value -> JfkValPB.newBuilder().setDoubleVal(value == null ? 0d : value.doubleValue()).build())
+                .toList())
             .build();
     }
 }

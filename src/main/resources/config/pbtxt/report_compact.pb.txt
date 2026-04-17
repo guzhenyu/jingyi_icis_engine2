@@ -823,6 +823,1590 @@ template {
           h_replica_data_direction_is_col: true
         }
       }
+      ac_tables {
+        offset_top: 0
+        tbl {
+          id: "table-28"
+          type: "table"
+          x: 12
+          y: 0
+          z_index: 1
+          rows: 1
+          cols: 26
+          cell_widths: 55
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_heights: 12
+          line_width: 0.5
+          line_color: "#000000"
+          column_metas {
+            id: "table-28-col-1"
+            name: "列1"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "param_name"
+            }
+          }
+          column_metas {
+            id: "table-28-col-2"
+            name: "列2"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "param_unit"
+            }
+          }
+          column_metas {
+            id: "table-28-col-3"
+            name: "列3"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour1"
+            }
+          }
+          column_metas {
+            id: "table-28-col-4"
+            name: "列4"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour2"
+            }
+          }
+          column_metas {
+            id: "table-28-col-5"
+            name: "列5"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour3"
+            }
+          }
+          column_metas {
+            id: "table-28-col-6"
+            name: "列6"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour4"
+            }
+          }
+          column_metas {
+            id: "table-28-col-7"
+            name: "列7"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour5"
+            }
+          }
+          column_metas {
+            id: "table-28-col-8"
+            name: "列8"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour6"
+            }
+          }
+          column_metas {
+            id: "table-28-col-9"
+            name: "列9"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour7"
+            }
+          }
+          column_metas {
+            id: "table-28-col-10"
+            name: "列10"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour8"
+            }
+          }
+          column_metas {
+            id: "table-28-col-11"
+            name: "列11"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour9"
+            }
+          }
+          column_metas {
+            id: "table-28-col-12"
+            name: "列12"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour10"
+            }
+          }
+          column_metas {
+            id: "table-28-col-13"
+            name: "列13"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour11"
+            }
+          }
+          column_metas {
+            id: "table-28-col-14"
+            name: "列14"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour12"
+            }
+          }
+          column_metas {
+            id: "table-28-col-15"
+            name: "列15"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour13"
+            }
+          }
+          column_metas {
+            id: "table-28-col-16"
+            name: "列16"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour14"
+            }
+          }
+          column_metas {
+            id: "table-28-col-17"
+            name: "列17"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour15"
+            }
+          }
+          column_metas {
+            id: "table-28-col-18"
+            name: "列18"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour16"
+            }
+          }
+          column_metas {
+            id: "table-28-col-19"
+            name: "列19"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour17"
+            }
+          }
+          column_metas {
+            id: "table-28-col-20"
+            name: "列20"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour18"
+            }
+          }
+          column_metas {
+            id: "table-28-col-21"
+            name: "列21"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour19"
+            }
+          }
+          column_metas {
+            id: "table-28-col-22"
+            name: "列22"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour20"
+            }
+          }
+          column_metas {
+            id: "table-28-col-23"
+            name: "列23"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour21"
+            }
+          }
+          column_metas {
+            id: "table-28-col-24"
+            name: "列24"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour22"
+            }
+          }
+          column_metas {
+            id: "table-28-col-25"
+            name: "列25"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour23"
+            }
+          }
+          column_metas {
+            id: "table-28-col-26"
+            name: "列26"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour24"
+            }
+          }
+          extend_to_next_page: false
+          next_page_x: 12
+          next_page_y: 0
+          v_align_id: 2
+          h_align_id: 5
+          font: "Microsoft YaHei"
+          font_size: 6
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+          h_replicas: 0
+          h_replica_data_direction_is_col: true
+          data_source_meta_id: "patient_monitoring_records"
+        }
+      }
+      ac_tables {
+        offset_top: 0
+        tbl {
+          id: "table-29"
+          type: "table"
+          x: 12
+          y: 0
+          z_index: 1
+          rows: 1
+          cols: 1
+          cell_widths: 817.5
+          cell_heights: 12
+          line_width: 0.5
+          line_color: "#000000"
+          column_metas {
+            id: "table-29-col-1"
+            name: "列1"
+            element_meta {
+              content_type: 1
+            }
+            static_vals: "神经系统"
+          }
+          extend_to_next_page: true
+          next_page_x: 12
+          next_page_y: 0
+          v_align_id: 2
+          h_align_id: 4
+          font: "Microsoft YaHei"
+          font_size: 8
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+          h_replicas: 0
+          h_replica_data_direction_is_col: true
+        }
+      }
+      ac_tables {
+        offset_top: 0
+        tbl {
+          id: "table-30"
+          type: "table"
+          x: 12
+          y: 0
+          z_index: 1
+          rows: 1
+          cols: 26
+          cell_widths: 55
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_heights: 12
+          line_width: 0.5
+          line_color: "#000000"
+          column_metas {
+            id: "table-30-col-1"
+            name: "列1"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "param_name"
+            }
+          }
+          column_metas {
+            id: "table-30-col-2"
+            name: "列2"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "param_unit"
+            }
+          }
+          column_metas {
+            id: "table-30-col-3"
+            name: "列3"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour1"
+            }
+          }
+          column_metas {
+            id: "table-30-col-4"
+            name: "列4"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour2"
+            }
+          }
+          column_metas {
+            id: "table-30-col-5"
+            name: "列5"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour3"
+            }
+          }
+          column_metas {
+            id: "table-30-col-6"
+            name: "列6"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour4"
+            }
+          }
+          column_metas {
+            id: "table-30-col-7"
+            name: "列7"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour5"
+            }
+          }
+          column_metas {
+            id: "table-30-col-8"
+            name: "列8"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour6"
+            }
+          }
+          column_metas {
+            id: "table-30-col-9"
+            name: "列9"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour7"
+            }
+          }
+          column_metas {
+            id: "table-30-col-10"
+            name: "列10"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour8"
+            }
+          }
+          column_metas {
+            id: "table-30-col-11"
+            name: "列11"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour9"
+            }
+          }
+          column_metas {
+            id: "table-30-col-12"
+            name: "列12"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour10"
+            }
+          }
+          column_metas {
+            id: "table-30-col-13"
+            name: "列13"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour11"
+            }
+          }
+          column_metas {
+            id: "table-30-col-14"
+            name: "列14"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour12"
+            }
+          }
+          column_metas {
+            id: "table-30-col-15"
+            name: "列15"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour13"
+            }
+          }
+          column_metas {
+            id: "table-30-col-16"
+            name: "列16"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour14"
+            }
+          }
+          column_metas {
+            id: "table-30-col-17"
+            name: "列17"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour15"
+            }
+          }
+          column_metas {
+            id: "table-30-col-18"
+            name: "列18"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour16"
+            }
+          }
+          column_metas {
+            id: "table-30-col-19"
+            name: "列19"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour17"
+            }
+          }
+          column_metas {
+            id: "table-30-col-20"
+            name: "列20"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour18"
+            }
+          }
+          column_metas {
+            id: "table-30-col-21"
+            name: "列21"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour19"
+            }
+          }
+          column_metas {
+            id: "table-30-col-22"
+            name: "列22"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour20"
+            }
+          }
+          column_metas {
+            id: "table-30-col-23"
+            name: "列23"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour21"
+            }
+          }
+          column_metas {
+            id: "table-30-col-24"
+            name: "列24"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour22"
+            }
+          }
+          column_metas {
+            id: "table-30-col-25"
+            name: "列25"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour23"
+            }
+          }
+          column_metas {
+            id: "table-30-col-26"
+            name: "列26"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour24"
+            }
+          }
+          extend_to_next_page: false
+          next_page_x: 12
+          next_page_y: 0
+          v_align_id: 2
+          h_align_id: 5
+          font: "Microsoft YaHei"
+          font_size: 6
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+          h_replicas: 0
+          h_replica_data_direction_is_col: true
+          data_source_meta_id: "patient_monitoring_records"
+        }
+      }
+      ac_tables {
+        offset_top: 0
+        tbl {
+          id: "table-31"
+          type: "table"
+          x: 12
+          y: 0
+          z_index: 1
+          rows: 1
+          cols: 1
+          cell_widths: 817.5
+          cell_heights: 12
+          line_width: 0.5
+          line_color: "#000000"
+          column_metas {
+            id: "table-29-col-1"
+            name: "列1"
+            element_meta {
+              content_type: 1
+            }
+            static_vals: "呼吸系统"
+          }
+          extend_to_next_page: true
+          next_page_x: 12
+          next_page_y: 0
+          v_align_id: 2
+          h_align_id: 4
+          font: "Microsoft YaHei"
+          font_size: 8
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+          h_replicas: 0
+          h_replica_data_direction_is_col: true
+        }
+      }
+      ac_tables {
+        offset_top: 0
+        tbl {
+          id: "table-32"
+          type: "table"
+          x: 12
+          y: 0
+          z_index: 1
+          rows: 1
+          cols: 26
+          cell_widths: 55
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_heights: 12
+          line_width: 0.5
+          line_color: "#000000"
+          column_metas {
+            id: "table-32-col-1"
+            name: "列1"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "param_name"
+            }
+          }
+          column_metas {
+            id: "table-32-col-2"
+            name: "列2"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "param_unit"
+            }
+          }
+          column_metas {
+            id: "table-32-col-3"
+            name: "列3"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour1"
+            }
+          }
+          column_metas {
+            id: "table-32-col-4"
+            name: "列4"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour2"
+            }
+          }
+          column_metas {
+            id: "table-32-col-5"
+            name: "列5"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour3"
+            }
+          }
+          column_metas {
+            id: "table-32-col-6"
+            name: "列6"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour4"
+            }
+          }
+          column_metas {
+            id: "table-32-col-7"
+            name: "列7"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour5"
+            }
+          }
+          column_metas {
+            id: "table-32-col-8"
+            name: "列8"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour6"
+            }
+          }
+          column_metas {
+            id: "table-32-col-9"
+            name: "列9"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour7"
+            }
+          }
+          column_metas {
+            id: "table-32-col-10"
+            name: "列10"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour8"
+            }
+          }
+          column_metas {
+            id: "table-32-col-11"
+            name: "列11"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour9"
+            }
+          }
+          column_metas {
+            id: "table-32-col-12"
+            name: "列12"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour10"
+            }
+          }
+          column_metas {
+            id: "table-32-col-13"
+            name: "列13"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour11"
+            }
+          }
+          column_metas {
+            id: "table-32-col-14"
+            name: "列14"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour12"
+            }
+          }
+          column_metas {
+            id: "table-32-col-15"
+            name: "列15"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour13"
+            }
+          }
+          column_metas {
+            id: "table-32-col-16"
+            name: "列16"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour14"
+            }
+          }
+          column_metas {
+            id: "table-32-col-17"
+            name: "列17"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour15"
+            }
+          }
+          column_metas {
+            id: "table-32-col-18"
+            name: "列18"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour16"
+            }
+          }
+          column_metas {
+            id: "table-32-col-19"
+            name: "列19"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour17"
+            }
+          }
+          column_metas {
+            id: "table-32-col-20"
+            name: "列20"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour18"
+            }
+          }
+          column_metas {
+            id: "table-32-col-21"
+            name: "列21"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour19"
+            }
+          }
+          column_metas {
+            id: "table-32-col-22"
+            name: "列22"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour20"
+            }
+          }
+          column_metas {
+            id: "table-32-col-23"
+            name: "列23"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour21"
+            }
+          }
+          column_metas {
+            id: "table-32-col-24"
+            name: "列24"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour22"
+            }
+          }
+          column_metas {
+            id: "table-32-col-25"
+            name: "列25"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour23"
+            }
+          }
+          column_metas {
+            id: "table-32-col-26"
+            name: "列26"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour24"
+            }
+          }
+          extend_to_next_page: false
+          next_page_x: 12
+          next_page_y: 0
+          v_align_id: 2
+          h_align_id: 5
+          font: "Microsoft YaHei"
+          font_size: 6
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+          h_replicas: 0
+          h_replica_data_direction_is_col: true
+          data_source_meta_id: "patient_monitoring_records"
+        }
+      }
+      ac_tables {
+        offset_top: 0
+        tbl {
+          id: "table-33"
+          type: "table"
+          x: 12
+          y: 0
+          z_index: 1
+          rows: 1
+          cols: 1
+          cell_widths: 817.5
+          cell_heights: 12
+          line_width: 0.5
+          line_color: "#000000"
+          column_metas {
+            id: "table-29-col-1"
+            name: "列1"
+            element_meta {
+              content_type: 1
+            }
+            static_vals: "循环系统"
+          }
+          extend_to_next_page: true
+          next_page_x: 12
+          next_page_y: 0
+          v_align_id: 2
+          h_align_id: 4
+          font: "Microsoft YaHei"
+          font_size: 8
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+          h_replicas: 0
+          h_replica_data_direction_is_col: true
+        }
+      }
+      ac_tables {
+        offset_top: 0
+        tbl {
+          id: "table-34"
+          type: "table"
+          x: 12
+          y: 0
+          z_index: 1
+          rows: 1
+          cols: 26
+          cell_widths: 55
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_heights: 12
+          line_width: 0.5
+          line_color: "#000000"
+          column_metas {
+            id: "table-34-col-1"
+            name: "列1"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "param_name"
+            }
+          }
+          column_metas {
+            id: "table-34-col-2"
+            name: "列2"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "param_unit"
+            }
+          }
+          column_metas {
+            id: "table-34-col-3"
+            name: "列3"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour1"
+            }
+          }
+          column_metas {
+            id: "table-34-col-4"
+            name: "列4"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour2"
+            }
+          }
+          column_metas {
+            id: "table-34-col-5"
+            name: "列5"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour3"
+            }
+          }
+          column_metas {
+            id: "table-34-col-6"
+            name: "列6"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour4"
+            }
+          }
+          column_metas {
+            id: "table-34-col-7"
+            name: "列7"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour5"
+            }
+          }
+          column_metas {
+            id: "table-34-col-8"
+            name: "列8"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour6"
+            }
+          }
+          column_metas {
+            id: "table-34-col-9"
+            name: "列9"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour7"
+            }
+          }
+          column_metas {
+            id: "table-34-col-10"
+            name: "列10"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour8"
+            }
+          }
+          column_metas {
+            id: "table-34-col-11"
+            name: "列11"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour9"
+            }
+          }
+          column_metas {
+            id: "table-34-col-12"
+            name: "列12"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour10"
+            }
+          }
+          column_metas {
+            id: "table-34-col-13"
+            name: "列13"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour11"
+            }
+          }
+          column_metas {
+            id: "table-34-col-14"
+            name: "列14"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour12"
+            }
+          }
+          column_metas {
+            id: "table-34-col-15"
+            name: "列15"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour13"
+            }
+          }
+          column_metas {
+            id: "table-34-col-16"
+            name: "列16"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour14"
+            }
+          }
+          column_metas {
+            id: "table-34-col-17"
+            name: "列17"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour15"
+            }
+          }
+          column_metas {
+            id: "table-34-col-18"
+            name: "列18"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour16"
+            }
+          }
+          column_metas {
+            id: "table-34-col-19"
+            name: "列19"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour17"
+            }
+          }
+          column_metas {
+            id: "table-34-col-20"
+            name: "列20"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour18"
+            }
+          }
+          column_metas {
+            id: "table-34-col-21"
+            name: "列21"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour19"
+            }
+          }
+          column_metas {
+            id: "table-34-col-22"
+            name: "列22"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour20"
+            }
+          }
+          column_metas {
+            id: "table-34-col-23"
+            name: "列23"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour21"
+            }
+          }
+          column_metas {
+            id: "table-34-col-24"
+            name: "列24"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour22"
+            }
+          }
+          column_metas {
+            id: "table-34-col-25"
+            name: "列25"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour23"
+            }
+          }
+          column_metas {
+            id: "table-34-col-26"
+            name: "列26"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour24"
+            }
+          }
+          extend_to_next_page: false
+          next_page_x: 12
+          next_page_y: 0
+          v_align_id: 2
+          h_align_id: 5
+          font: "Microsoft YaHei"
+          font_size: 6
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+          h_replicas: 0
+          h_replica_data_direction_is_col: true
+          data_source_meta_id: "patient_monitoring_records"
+        }
+      }
+      ac_tables {
+        offset_top: 0
+        tbl {
+          id: "table-35"
+          type: "table"
+          x: 12
+          y: 0
+          z_index: 1
+          rows: 1
+          cols: 1
+          cell_widths: 817.5
+          cell_heights: 12
+          line_width: 0.5
+          line_color: "#000000"
+          column_metas {
+            id: "table-29-col-1"
+            name: "列1"
+            element_meta {
+              content_type: 1
+            }
+            static_vals: "护理措施"
+          }
+          extend_to_next_page: true
+          next_page_x: 12
+          next_page_y: 0
+          v_align_id: 2
+          h_align_id: 4
+          font: "Microsoft YaHei"
+          font_size: 8
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+          h_replicas: 0
+          h_replica_data_direction_is_col: true
+        }
+      }
+      ac_tables {
+        offset_top: 0
+        tbl {
+          id: "table-36"
+          type: "table"
+          x: 12
+          y: 0
+          z_index: 1
+          rows: 1
+          cols: 26
+          cell_widths: 55
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_heights: 12
+          line_width: 0.5
+          line_color: "#000000"
+          column_metas {
+            id: "table-36-col-1"
+            name: "列1"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "param_name"
+            }
+          }
+          column_metas {
+            id: "table-36-col-2"
+            name: "列2"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "param_unit"
+            }
+          }
+          column_metas {
+            id: "table-36-col-3"
+            name: "列3"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour1"
+            }
+          }
+          column_metas {
+            id: "table-36-col-4"
+            name: "列4"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour2"
+            }
+          }
+          column_metas {
+            id: "table-36-col-5"
+            name: "列5"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour3"
+            }
+          }
+          column_metas {
+            id: "table-36-col-6"
+            name: "列6"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour4"
+            }
+          }
+          column_metas {
+            id: "table-36-col-7"
+            name: "列7"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour5"
+            }
+          }
+          column_metas {
+            id: "table-36-col-8"
+            name: "列8"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour6"
+            }
+          }
+          column_metas {
+            id: "table-36-col-9"
+            name: "列9"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour7"
+            }
+          }
+          column_metas {
+            id: "table-36-col-10"
+            name: "列10"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour8"
+            }
+          }
+          column_metas {
+            id: "table-36-col-11"
+            name: "列11"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour9"
+            }
+          }
+          column_metas {
+            id: "table-36-col-12"
+            name: "列12"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour10"
+            }
+          }
+          column_metas {
+            id: "table-36-col-13"
+            name: "列13"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour11"
+            }
+          }
+          column_metas {
+            id: "table-36-col-14"
+            name: "列14"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour12"
+            }
+          }
+          column_metas {
+            id: "table-36-col-15"
+            name: "列15"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour13"
+            }
+          }
+          column_metas {
+            id: "table-36-col-16"
+            name: "列16"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour14"
+            }
+          }
+          column_metas {
+            id: "table-36-col-17"
+            name: "列17"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour15"
+            }
+          }
+          column_metas {
+            id: "table-36-col-18"
+            name: "列18"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour16"
+            }
+          }
+          column_metas {
+            id: "table-36-col-19"
+            name: "列19"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour17"
+            }
+          }
+          column_metas {
+            id: "table-36-col-20"
+            name: "列20"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour18"
+            }
+          }
+          column_metas {
+            id: "table-36-col-21"
+            name: "列21"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour19"
+            }
+          }
+          column_metas {
+            id: "table-36-col-22"
+            name: "列22"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour20"
+            }
+          }
+          column_metas {
+            id: "table-36-col-23"
+            name: "列23"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour21"
+            }
+          }
+          column_metas {
+            id: "table-36-col-24"
+            name: "列24"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour22"
+            }
+          }
+          column_metas {
+            id: "table-36-col-25"
+            name: "列25"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour23"
+            }
+          }
+          column_metas {
+            id: "table-36-col-26"
+            name: "列26"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour24"
+            }
+          }
+          extend_to_next_page: false
+          next_page_x: 12
+          next_page_y: 0
+          v_align_id: 2
+          h_align_id: 5
+          font: "Microsoft YaHei"
+          font_size: 6
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+          h_replicas: 0
+          h_replica_data_direction_is_col: true
+          data_source_meta_id: "patient_monitoring_records"
+        }
+      }
     }
   }
   page_expandable: true
@@ -836,21 +2420,37 @@ logo {
 }
 mon_group {
     # 对应于JfkTablePB.id
-    table_id: ""
+    table_id: "table-28"
     param_code: "temperature"
     param_code: "pr"
     param_code: "hr"
-    param_code: "respiration_rate"
+    param_code: "respiratory_rate"
     param_code: "nibp_s"
     param_code: "nibp_d"
     param_code: "Spo2"
 }
 mon_group {
     # 对应于JfkTablePB.id
-    table_id: ""
+    table_id: "table-30"
     param_code: "consciousness"
     param_code: "left_pupil_size"
     param_code: "right_pupil_size"
     param_code: "left_pupil_reflex"
     param_code: "right_pupil_reflex"
 }
+mon_group {
+    # 对应于JfkTablePB.id
+    table_id: "table-32"
+   param_code: "oxygen_delivery_method"
+}
+mon_group {
+    # 对应于JfkTablePB.id
+    table_id: "table-34"
+   param_code: "blood_glucose"
+}
+mon_group {
+    # 对应于JfkTablePB.id
+    table_id: "table-36"
+   param_code: "suction_frequency"
+}
+

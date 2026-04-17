@@ -25,6 +25,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkTextPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValMetaPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisReportCompact.CompactReportTemplatePB;
+import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.compactreport.CompactReportTemplateLoader;
 
@@ -146,7 +147,15 @@ public class JfkPdfRendererTests {
         for (int i = 1; i <= 24; i++) {
             timeRange.addOutputFields(stringFieldMeta("hour" + i));
         }
-        return List.of(patientInfo.build(), timeRange.build());
+
+        JfkDataSourceMetaPB.Builder monitoringRecords = JfkDataSourceMetaPB.newBuilder()
+            .setId("patient_monitoring_records")
+            .addOutputFields(stringsFieldMeta("param_name"))
+            .addOutputFields(stringsFieldMeta("param_unit"));
+        for (int i = 1; i <= 24; i++) {
+            monitoringRecords.addOutputFields(stringsFieldMeta("hour" + i));
+        }
+        return List.of(patientInfo.build(), timeRange.build(), monitoringRecords.build());
     }
 
     private List<JfkDataSourcePB> syntheticDataSources() {
@@ -167,13 +176,29 @@ public class JfkPdfRendererTests {
         for (int i = 1; i <= 24; i++) {
             timeRange.addOutputData(strVals("hour" + i, Math.floorMod(6 + i - 1, 24) + ":00"));
         }
-        return List.of(patientInfo.build(), timeRange.build());
+
+        JfkDataSourcePB.Builder monitoringRecords = JfkDataSourcePB.newBuilder()
+            .setId(JfkDataSourceIds.compactTableScoped(JfkDataSourceIds.PATIENT_MONITORING_RECORDS, "table-28"))
+            .setMetaId(JfkDataSourceIds.PATIENT_MONITORING_RECORDS)
+            .addOutputData(strLinesVals("param_name", List.of("体温"), List.of("脉搏")))
+            .addOutputData(strLinesVals("param_unit", List.of("℃"), List.of("次/分")));
+        for (int i = 1; i <= 24; i++) {
+            monitoringRecords.addOutputData(strLinesVals("hour" + i, List.of("36." + (i % 10)), List.of(String.valueOf(70 + i))));
+        }
+        return List.of(patientInfo.build(), timeRange.build(), monitoringRecords.build());
     }
 
     private JfkFieldMetaPB stringFieldMeta(String id) {
         return JfkFieldMetaPB.newBuilder()
             .setId(id)
             .setValMeta(JfkValMetaPB.newBuilder().setValType(4).build())
+            .build();
+    }
+
+    private JfkFieldMetaPB stringsFieldMeta(String id) {
+        return JfkFieldMetaPB.newBuilder()
+            .setId(id)
+            .setValMeta(JfkValMetaPB.newBuilder().setValType(9).build())
             .build();
     }
 
@@ -188,6 +213,14 @@ public class JfkPdfRendererTests {
         return JfkFieldDataPB.newBuilder()
             .setId(id)
             .addVals(JfkValPB.newBuilder().setStrVal(value).build())
+            .build();
+    }
+
+    private JfkFieldDataPB strLinesVals(String id, List<String> first, List<String> second) {
+        return JfkFieldDataPB.newBuilder()
+            .setId(id)
+            .addVals(JfkValPB.newBuilder().addAllStrsVal(first).build())
+            .addVals(JfkValPB.newBuilder().addAllStrsVal(second).build())
             .build();
     }
 }

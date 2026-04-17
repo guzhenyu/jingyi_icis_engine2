@@ -1,0 +1,73 @@
+template {
+  id: 9001
+  dept_id: "test-dept"
+  name: "Compact builder test template"
+  page_size_id: 2
+  is_page_orientation_portrait: false
+  pages {
+    containers {
+      id: "container-1"
+      name: "test container"
+      top: 500
+      height: 200
+      next_page_top: 500
+      next_page_height: 200
+      ac_tables {
+        offset_top: 0
+        tbl {
+          id: "table-28"
+          type: "table"
+          x: 12
+          y: 0
+          rows: 1
+          cols: 26
+          cell_widths: 55
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_widths: 30
+          cell_heights: 12
+          v_align_id: 2
+          h_align_id: 5
+          font: "Microsoft YaHei"
+          font_size: 8
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+          data_source_meta_id: "patient_monitoring_records"
+        }
+      }
+    }
+  }
+}
+mon_group {
+  table_id: "table-28"
+  param_code: "temperature"
+  param_code: "pr"
+  param_code: "hr"
+  param_code: "respiration_rate"
+  param_code: "nibp_s"
+  param_code: "nibp_d"
+  param_code: "Spo2"
+}

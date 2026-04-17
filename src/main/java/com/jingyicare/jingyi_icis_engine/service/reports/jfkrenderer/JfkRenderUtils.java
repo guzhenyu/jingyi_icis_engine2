@@ -37,6 +37,8 @@ final class JfkRenderUtils {
     static final int VAL_TYPE_DATETIME = 5;
     static final int VAL_TYPE_STRINGS = 9;
 
+    static final float TEXT_LINE_HEIGHT_PADDING = 1f;
+
     static PDRectangle pageRectangle(int pageSizeId, boolean portrait) throws JfkRenderException {
         float width;
         float height;
@@ -79,6 +81,28 @@ final class JfkRenderUtils {
     static float descentAbs(PDFont font, float fontSize) {
         float descent = font.getFontDescriptor() == null ? -200f : font.getFontDescriptor().getDescent();
         return Math.abs(descent) / 1000f * fontSize;
+    }
+
+    static float textLineHeight(float fontSize) {
+        return positive(fontSize, 12f) + TEXT_LINE_HEIGHT_PADDING;
+    }
+
+    static float textLogicalBlockHeight(float fontSize, int lineCount) {
+        int safeLineCount = Math.max(1, lineCount);
+        float safeFontSize = positive(fontSize, 12f);
+        if (safeLineCount == 1) {
+            return safeFontSize;
+        }
+        return safeFontSize + (safeLineCount - 1) * textLineHeight(safeFontSize);
+    }
+
+    static float elasticRowHeight(float baseCellHeight, float fontSize, int lineCount) {
+        float safeFontSize = positive(fontSize, 12f);
+        float safeBaseCellHeight = positive(baseCellHeight, safeFontSize);
+        return Math.max(
+            safeBaseCellHeight,
+            safeBaseCellHeight - safeFontSize + textLogicalBlockHeight(safeFontSize, lineCount)
+        );
     }
 
     static float positive(float value, float fallback) {
@@ -126,6 +150,59 @@ final class JfkRenderUtils {
 
     static float lineWidth(JfkTablePB table) {
         return Math.max(0f, finite(table.getLineWidth(), 0f));
+    }
+
+    static float flowTableTop(
+        float cursorTop,
+        float offsetTop,
+        float previousLineWidth,
+        float currentLineWidth
+    ) {
+        float safeOffsetTop = finite(offsetTop, 0f);
+        float safePreviousLineWidth = Math.max(0f, finite(previousLineWidth, 0f));
+        float safeCurrentLineWidth = Math.max(0f, finite(currentLineWidth, 0f));
+        if (Math.abs(safeOffsetTop) < 0.0001f && safePreviousLineWidth > 0f && safeCurrentLineWidth > 0f) {
+            return cursorTop + (safePreviousLineWidth + safeCurrentLineWidth) / 2f;
+        }
+        return cursorTop - safeOffsetTop;
+    }
+
+    static float firstLineBaseline(
+        float bottom,
+        float height,
+        float fontSize,
+        float lineHeight,
+        int lineCount,
+        float ascent,
+        float descent,
+        int vAlignId
+    ) {
+        int safeLineCount = Math.max(1, lineCount);
+        float leading = positive(lineHeight, textLineHeight(fontSize));
+        float safeAscent = Math.max(0f, finite(ascent, leading));
+        float safeDescent = Math.max(0f, finite(descent, 0f));
+        float safeHeight = Math.max(leading, finite(height, leading));
+        float lineBlockHeight = safeAscent + safeDescent + (safeLineCount - 1) * leading;
+        float blockBottom;
+        if (vAlignId == V_ALIGN_TOP) {
+            blockBottom = bottom + safeHeight - lineBlockHeight;
+        } else if (vAlignId == V_ALIGN_BOTTOM) {
+            blockBottom = bottom;
+        } else {
+            blockBottom = bottom + (safeHeight - lineBlockHeight) / 2f;
+        }
+        return blockBottom + safeDescent + (safeLineCount - 1) * leading;
+    }
+
+    static float tableTopLineCenter(float bottom, float contentHeight, int rowCount, float lineWidth) {
+        int safeRowCount = Math.max(1, rowCount);
+        float safeLineWidth = Math.max(0f, finite(lineWidth, 0f));
+        return bottom + safeLineWidth / 2f + Math.max(0f, finite(contentHeight, 0f)) + safeRowCount * safeLineWidth;
+    }
+
+    static float tableTopContentY(float bottom, float contentHeight, int rowCount, float lineWidth) {
+        float safeLineWidth = Math.max(0f, finite(lineWidth, 0f));
+        return tableTopLineCenter(bottom, contentHeight, rowCount, safeLineWidth) - safeLineWidth / 2f;
     }
 
     static float sum(List<Float> values) {
