@@ -10566,8 +10566,8 @@ jfk {
             is_options: false
         }
         output_fields {
-            id: "unit_txt"
-            name: "单位文本"
+            id: "acc_ml"
+            name: "累计量ml"
             val_meta {
                 val_type: 4 # STRING
             }

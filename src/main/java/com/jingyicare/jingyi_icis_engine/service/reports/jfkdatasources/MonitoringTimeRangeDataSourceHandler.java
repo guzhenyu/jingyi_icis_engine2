@@ -74,7 +74,7 @@ public class MonitoringTimeRangeDataSourceHandler extends AbstractJfkDataSourceH
     private static final String FIELD_QUERY_START = "query_start";
     private static final String FIELD_TIME_TXT = "time_txt";
     private static final String FIELD_UNIT_TXT = "unit_txt";
-    private static final String TIME_TEXT = "观察项";
+    private static final String TIME_TEXT = "时间";
     private static final String UNIT_TEXT = "单位";
 
     private final BalanceStatsShiftRepository balanceStatsShiftRepo;

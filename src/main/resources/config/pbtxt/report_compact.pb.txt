@@ -930,7 +930,7 @@ template {
           v_align_id: 2
           h_align_id: 5
           font: "Microsoft YaHei"
-          font_size: 8
+          font_size: 6
           font_color: "#000000"
           char_spacing: 0
           h_padding: 2
@@ -3352,7 +3352,7 @@ template {
             element_meta {
               content_type: 4
               data_source_meta_id: "balance_time_range"
-              data_source_field_id: "unit_txt"
+              data_source_field_id: "acc_ml"
             }
           }
           column_metas {
@@ -3599,7 +3599,7 @@ template {
           v_align_id: 2
           h_align_id: 5
           font: "Microsoft YaHei"
-          font_size: 8
+          font_size: 6
           font_color: "#000000"
           char_spacing: 0
           h_padding: 2

@@ -55,8 +55,8 @@ public class BalanceTimeRangeDataSourceHandlerTests {
 
         assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
         Map<String, List<String>> output = toOutputMap(result.getSecond());
-        assertThat(output.get("time_txt")).containsExactly("出入量");
-        assertThat(output.get("unit_txt")).containsExactly("单位");
+        assertThat(output.get("time_txt")).containsExactly("时间");
+        assertThat(output.get("acc_ml")).containsExactly("累计量ml");
         assertThat(output.get("hour1")).containsExactly("8:00");
         assertThat(output.get("hour2")).containsExactly("9:00");
         assertThat(output.get("hour17")).containsExactly("0:00");

@@ -56,8 +56,8 @@ public class BalanceTimeRangeDataSourceHandler extends AbstractJfkDataSourceHand
 
         int balanceStartHour = shift.getStartHour();
         JfkDataSourcePB.Builder outputBuilder = newOutputBuilder(input);
-        support.addArrayOutput(outputBuilder, FIELD_TIME_TXT, List.of(BALANCE_TEXT));
-        support.addArrayOutput(outputBuilder, FIELD_UNIT_TXT, List.of(UNIT_TEXT));
+        support.addArrayOutput(outputBuilder, FIELD_TIME_TXT, List.of(TIME_TEXT));
+        support.addArrayOutput(outputBuilder, FIELD_ACC_ML, List.of(ACC_ML_TEXT));
         for (int i = 0; i < 24; i++) {
             support.addArrayOutput(outputBuilder, "hour" + (i + 1), List.of(formatHour(balanceStartHour + i)));
         }
@@ -73,9 +73,9 @@ public class BalanceTimeRangeDataSourceHandler extends AbstractJfkDataSourceHand
     private static final String FIELD_DEPT_ID = "dept_id";
     private static final String FIELD_QUERY_START = "query_start";
     private static final String FIELD_TIME_TXT = "time_txt";
-    private static final String FIELD_UNIT_TXT = "unit_txt";
-    private static final String BALANCE_TEXT = "出入量";
-    private static final String UNIT_TEXT = "单位";
+    private static final String FIELD_ACC_ML = "acc_ml";
+    private static final String TIME_TEXT = "时间";
+    private static final String ACC_ML_TEXT = "累计量ml";
 
     private final BalanceStatsShiftRepository balanceStatsShiftRepo;
 }

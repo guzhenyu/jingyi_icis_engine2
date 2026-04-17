@@ -55,7 +55,7 @@ public class MonitoringTimeRangeDataSourceHandlerTests {
 
         assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
         Map<String, List<String>> output = toOutputMap(result.getSecond());
-        assertThat(output.get("time_txt")).containsExactly("观察项");
+        assertThat(output.get("time_txt")).containsExactly("时间");
         assertThat(output.get("unit_txt")).containsExactly("单位");
         assertThat(output.get("hour1")).containsExactly("7:00");
         assertThat(output.get("hour2")).containsExactly("8:00");
