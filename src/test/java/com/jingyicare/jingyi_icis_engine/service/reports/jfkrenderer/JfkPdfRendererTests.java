@@ -50,12 +50,12 @@ public class JfkPdfRendererTests {
     }
 
     @Test
-    public void renderWritesCurrentCompactTemplateWithSyntheticData(@TempDir Path tempDir) throws Exception {
+    public void renderWritesConfiguredCompactTemplateWithSyntheticData(@TempDir Path tempDir) throws Exception {
         ReportProperties properties = new ReportProperties();
-        properties.getCompact().setTemplate("classpath:/config/pbtxt/report_compact.pb.txt");
+        properties.getCompact().setTemplate("classpath:/config/pbtxt/report_compact_renderer_test.pb.txt");
         CompactReportTemplatePB compactTemplate =
             new CompactReportTemplateLoader(properties, new DefaultResourceLoader()).load();
-        Path output = tempDir.resolve("current-compact.pdf");
+        Path output = tempDir.resolve("configured-compact.pdf");
 
         JfkRenderResult result = new JfkPdfRenderer(new DefaultResourceLoader()).render(
             compactTemplate.getTemplate(),

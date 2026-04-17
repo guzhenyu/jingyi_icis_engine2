@@ -1,0 +1,130 @@
+template {
+  id: 9201
+  dept_id: "renderer-test-dept"
+  name: "Compact renderer test template"
+  page_size_id: 2
+  is_page_orientation_portrait: false
+  pages {
+    texts {
+      id: "patient-name"
+      type: "text"
+      x: 12
+      y: 540
+      width: 100
+      height: 20
+      v_align_id: 2
+      h_align_id: 4
+      font: "Microsoft YaHei"
+      font_size: 10
+      font_color: "#000000"
+      char_spacing: 0
+      element_meta {
+        content_type: 4
+        data_source_meta_id: "patient_info"
+        data_source_field_id: "patient_name"
+      }
+    }
+    containers {
+      id: "renderer-container"
+      name: "renderer container"
+      top: 510
+      height: 120
+      next_page_top: 510
+      next_page_height: 120
+      ac_tables {
+        offset_top: 0
+        tbl {
+          id: "time-range"
+          type: "table"
+          x: 12
+          y: 0
+          rows: 1
+          cols: 3
+          cell_widths: 40
+          cell_widths: 40
+          cell_widths: 40
+          cell_heights: 12
+          line_width: 0.5
+          line_color: "#000000"
+          column_metas {
+            id: "time-range-col-1"
+            name: "时间"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "monitoring_time_range"
+              data_source_field_id: "time_txt"
+            }
+          }
+          column_metas {
+            id: "time-range-col-2"
+            name: "单位"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "monitoring_time_range"
+              data_source_field_id: "unit_txt"
+            }
+          }
+          column_metas {
+            id: "time-range-col-3"
+            name: "小时"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "monitoring_time_range"
+              data_source_field_id: "hour1"
+            }
+          }
+          v_align_id: 2
+          h_align_id: 5
+          font: "Microsoft YaHei"
+          font_size: 8
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+          data_source_meta_id: "monitoring_time_range"
+        }
+      }
+      ac_tables {
+        offset_top: 0
+        tbl {
+          id: "table-28"
+          type: "table"
+          x: 12
+          y: 0
+          rows: 1
+          cols: 2
+          cell_widths: 60
+          cell_widths: 60
+          cell_heights: 12
+          line_width: 0.5
+          line_color: "#000000"
+          column_metas {
+            id: "table-28-col-1"
+            name: "参数"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "param_name"
+            }
+          }
+          column_metas {
+            id: "table-28-col-2"
+            name: "小时"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_monitoring_records"
+              data_source_field_id: "hour1"
+            }
+          }
+          v_align_id: 2
+          h_align_id: 5
+          font: "Microsoft YaHei"
+          font_size: 6
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+          data_source_meta_id: "patient_monitoring_records"
+        }
+      }
+    }
+  }
+}

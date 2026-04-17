@@ -28,9 +28,108 @@ template {
       next_page_y: 575.28
     }
     texts {
+      id: "text-2-1"
+      type: "text"
+      x: 730
+      y: 10
+      z_index: 1
+      width: 15
+      height: 16
+      v_align_id: 2
+      h_align_id: 4
+      font: "Microsoft YaHei"
+      font_size: 10
+      font_color: "#000000"
+      char_spacing: 0
+      content: "第"
+      extend_to_next_page: true
+      next_page_x: 730
+      next_page_y: 10
+    }
+    texts {
+      id: "text-2-2"
+      type: "text"
+      x: 745
+      y: 10
+      z_index: 1
+      width: 15
+      height: 16
+      v_align_id: 2
+      h_align_id: 4
+      font: "Microsoft YaHei"
+      font_size: 10
+      font_color: "#000000"
+      char_spacing: 0
+      extend_to_next_page: true
+      next_page_x: 745
+      next_page_y: 10
+      element_meta {
+        content_type: 5  # CONTENT_CUR_PAGE_ID
+      }
+    }
+    texts {
+      id: "text-2-3"
+      type: "text"
+      x: 760
+      y: 10
+      z_index: 1
+      width: 40
+      height: 16
+      v_align_id: 2
+      h_align_id: 4
+      font: "Microsoft YaHei"
+      font_size: 10
+      font_color: "#000000"
+      char_spacing: 0
+      content: "页 / 共"
+      extend_to_next_page: true
+      next_page_x: 760
+      next_page_y: 10
+    }
+    texts {
+      id: "text-2-4"
+      type: "text"
+      x: 792
+      y: 10
+      z_index: 1
+      width: 15
+      height: 16
+      v_align_id: 2
+      h_align_id: 4
+      font: "Microsoft YaHei"
+      font_size: 10
+      font_color: "#000000"
+      char_spacing: 0
+      extend_to_next_page: true
+      next_page_x: 792
+      next_page_y: 10
+      element_meta {
+        content_type: 6  # CONTENT_TOTAL_PAGES
+      }
+    }
+    texts {
+      id: "text-2-5"
+      type: "text"
+      x: 805
+      y: 10
+      z_index: 1
+      width: 15
+      height: 16
+      v_align_id: 2
+      h_align_id: 4
+      font: "Microsoft YaHei"
+      font_size: 10
+      font_color: "#000000"
+      char_spacing: 0
+      content: "页"
+      extend_to_next_page: true
+      next_page_x: 805
+      next_page_y: 10
+    }
+    texts {
       id: "text-3"
       type: "text"
-      x: 15.73719350733334
+      x: 16
       y: 547
       z_index: 2
       width: 36
@@ -474,9 +573,9 @@ template {
       id: "containers-25"
       name: "观察项容器"
       top: 515
-      height: 449
-      next_page_top: 466
-      next_page_height: 400
+      height: 485
+      next_page_top: 515
+      next_page_height: 485
       ac_tables {
         offset_top: 0
         tbl {
