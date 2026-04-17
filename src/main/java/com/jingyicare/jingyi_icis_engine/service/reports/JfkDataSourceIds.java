@@ -7,6 +7,7 @@ public final class JfkDataSourceIds {
     }
 
     public static final String PATIENT_MONITORING_RECORDS = "patient_monitoring_records";
+    public static final String PATIENT_INFO_EXTENDED = "patient_info_extended";
 
     public static String compactTableScoped(String metaId, String tableId) {
         return "compact-" + metaId + "-" + (StrUtils.isBlank(tableId) ? "unknown" : tableId);

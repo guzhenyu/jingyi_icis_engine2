@@ -9587,6 +9587,223 @@ jfk {
         }
     }
     data_sources {
+        id: "patient_info_extended"
+        name: "扩展病人信息"
+        input_field_ids: "pid"
+        input_field_ids: "query_start"
+        input_field_ids: "query_end"
+        output_fields {
+            id: "dept_name"
+            name: "科室"
+            val_meta {
+                val_type: 4 # STRING
+                default_val {
+                    str_val: ""
+                }
+                is_restricted: false
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: false
+            is_options: false
+        }
+        output_fields {
+            id: "bed_no"
+            name: "床号"
+            val_meta {
+                val_type: 4 # STRING
+                default_val {
+                    str_val: ""
+                }
+                is_restricted: false
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: false
+            is_options: false
+        }
+        output_fields {
+            id: "patient_name"
+            name: "姓名"
+            val_meta {
+                val_type: 4 # STRING
+                default_val {
+                    str_val: ""
+                }
+                is_restricted: false
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: false
+            is_options: false
+        }
+        output_fields {
+            id: "gender"
+            name: "性别"
+            val_meta {
+                val_type: 4 # STRING
+                default_val {
+                    str_val: ""
+                }
+                is_restricted: false
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: false
+            is_options: false
+        }
+        output_fields {
+            id: "age"
+            name: "年龄"
+            val_meta {
+                val_type: 4 # STRING
+                default_val {
+                    str_val: ""
+                }
+                is_restricted: false
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: false
+            is_options: false
+        }
+        output_fields {
+            id: "mrn"
+            name: "住院号"
+            val_meta {
+                val_type: 4 # STRING
+                default_val {
+                    str_val: ""
+                }
+                is_restricted: false
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: false
+            is_options: false
+        }
+        output_fields {
+            id: "diagnosis"
+            name: "诊断"
+            val_meta {
+                val_type: 4 # STRING
+                default_val {
+                    str_val: ""
+                }
+                is_restricted: false
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: false
+            is_options: false
+        }
+        output_fields {
+            id: "height"
+            name: "身高"
+            val_meta {
+                val_type: 4 # STRING
+                default_val {
+                    str_val: ""
+                }
+                is_restricted: false
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: false
+            is_options: false
+        }
+        output_fields {
+            id: "weight"
+            name: "体重"
+            val_meta {
+                val_type: 4 # STRING
+                default_val {
+                    str_val: ""
+                }
+                is_restricted: false
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: false
+            is_options: false
+        }
+        output_fields {
+            id: "admission_time_yyyymmdd"
+            name: "入科日期"
+            val_meta {
+                val_type: 4 # STRING
+                default_val {
+                    str_val: ""
+                }
+                is_restricted: false
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: false
+            is_options: false
+        }
+        output_fields {
+            id: "illness_severity_level"
+            name: "病情分级"
+            val_meta {
+                val_type: 4 # STRING
+                default_val {
+                    str_val: ""
+                }
+                is_restricted: false
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: false
+            is_options: false
+        }
+        output_fields {
+            id: "days_after_surgery"
+            name: "术后天数"
+            val_meta {
+                val_type: 4 # STRING
+                default_val {
+                    str_val: ""
+                }
+                is_restricted: false
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: false
+            is_options: false
+        }
+        output_fields {
+            id: "mon_record_day_range"
+            name: "记录日期"
+            val_meta {
+                val_type: 4 # STRING
+                default_val {
+                    str_val: ""
+                }
+                is_restricted: false
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: false
+            is_options: false
+        }
+        output_fields {
+            id: "diagnosis_and_surgery"
+            name: "诊断及手术"
+            val_meta {
+                val_type: 4 # STRING
+                default_val {
+                    str_val: ""
+                }
+                is_restricted: false
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: false
+            is_options: false
+        }
+        output_fields {
+            id: "patient_shift_info"
+            name: "交班信息"
+            val_meta {
+                val_type: 4 # STRING
+                default_val {
+                    str_val: ""
+                }
+                is_restricted: false
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: false
+            is_options: false
+        }
+    }
+    data_sources {
         id: "test_data_source1"
         name: "测试评分数据集1"
         input_field_ids: "pid"

@@ -293,7 +293,7 @@ public class JfkDataSourceSupport {
         return statusMsgList;
     }
 
-    private String getBedNumber(PatientRecord patient, LocalDateTime shiftStartTime) {
+    public String getBedNumber(PatientRecord patient, LocalDateTime shiftStartTime) {
         PatientDeviceService.UsageHistory<PatientDeviceService.BedName> bedHistory =
             patientDevService.getBedHistory(patient);
         String bedNumber = null;

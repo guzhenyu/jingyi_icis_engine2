@@ -27,4 +27,9 @@ public interface PatientShiftRecordRepository extends JpaRepository<PatientShift
         " :queryStart < p.shiftEnd AND :queryEnd > p.shiftStart" +
         " AND p.isDeleted = false")
     List<PatientShiftRecord> findByPidAndOverlappingTimeRange(@Param("pid") Long pid, @Param("queryStart") LocalDateTime queryStart, @Param("queryEnd") LocalDateTime queryEnd);
+
+    @Query("SELECT p FROM PatientShiftRecord p WHERE p.pid = :pid" +
+        " AND p.shiftStart >= :queryStart AND p.shiftEnd <= :queryEnd" +
+        " AND p.isDeleted = false ORDER BY p.shiftStart ASC")
+    List<PatientShiftRecord> findByPidAndContainedInTimeRange(@Param("pid") Long pid, @Param("queryStart") LocalDateTime queryStart, @Param("queryEnd") LocalDateTime queryEnd);
 }

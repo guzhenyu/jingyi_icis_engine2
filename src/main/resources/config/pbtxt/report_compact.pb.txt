@@ -6,7 +6,7 @@ template {
   is_flipping_long_edge: false
   page_size_id: 2
   is_page_orientation_portrait: false
-  data_source_meta_ids: "patient_info"
+  data_source_meta_ids: "patient_info_extended"
   pages {
     texts {
       id: "text-1"
@@ -127,6 +127,29 @@ template {
       next_page_y: 10
     }
     texts {
+      id: "text-2-6"
+      type: "text"
+      x: 16
+      y: 10
+      z_index: 1
+      width: 160
+      height: 16
+      v_align_id: 2
+      h_align_id: 4
+      font: "Microsoft YaHei"
+      font_size: 10
+      font_color: "#000000"
+      char_spacing: 0
+      extend_to_next_page: true
+      next_page_x: 792
+      next_page_y: 10
+      element_meta {
+        content_type: 4
+        data_source_meta_id: "patient_info_extended"
+        data_source_field_id: "patient_shift_info"
+      }
+    }
+    texts {
       id: "text-3"
       type: "text"
       x: 16
@@ -165,7 +188,7 @@ template {
       next_page_y: 547
       element_meta {
         content_type: 4
-        data_source_meta_id: "patient_info"
+        data_source_meta_id: "patient_info_extended"
         data_source_field_id: "mrn"
       }
     }
@@ -208,7 +231,7 @@ template {
       next_page_y: 547
       element_meta {
         content_type: 4
-        data_source_meta_id: "patient_info"
+        data_source_meta_id: "patient_info_extended"
         data_source_field_id: "bed_no"
       }
     }
@@ -251,7 +274,7 @@ template {
       next_page_y: 547
       element_meta {
         content_type: 4
-        data_source_meta_id: "patient_info"
+        data_source_meta_id: "patient_info_extended"
         data_source_field_id: "patient_name"
       }
     }
@@ -294,7 +317,7 @@ template {
       next_page_y: 547
       element_meta {
         content_type: 4
-        data_source_meta_id: "patient_info"
+        data_source_meta_id: "patient_info_extended"
         data_source_field_id: "gender"
       }
     }
@@ -337,7 +360,7 @@ template {
       next_page_y: 547
       element_meta {
         content_type: 4
-        data_source_meta_id: "patient_info"
+        data_source_meta_id: "patient_info_extended"
         data_source_field_id: "age"
       }
     }
@@ -378,6 +401,11 @@ template {
       extend_to_next_page: true
       next_page_x: 399
       next_page_y: 547
+      element_meta {
+        content_type: 4
+        data_source_meta_id: "patient_info_extended"
+        data_source_field_id: "weight"
+      }
     }
     texts {
       id: "text-15"
@@ -416,6 +444,11 @@ template {
       extend_to_next_page: true
       next_page_x: 483
       next_page_y: 547
+      element_meta {
+        content_type: 4
+        data_source_meta_id: "patient_info_extended"
+        data_source_field_id: "days_after_surgery"
+      }
     }
     texts {
       id: "text-17"
@@ -454,6 +487,11 @@ template {
       extend_to_next_page: true
       next_page_x: 567
       next_page_y: 547
+      element_meta {
+        content_type: 4
+        data_source_meta_id: "patient_info_extended"
+        data_source_field_id: "illness_severity_level"
+      }
     }
     texts {
       id: "text-19"
@@ -492,6 +530,11 @@ template {
       extend_to_next_page: true
       next_page_x: 651
       next_page_y: 547
+      element_meta {
+        content_type: 4
+        data_source_meta_id: "patient_info_extended"
+        data_source_field_id: "admission_time_yyyymmdd"
+      }
     }
     texts {
       id: "text-21"
@@ -530,6 +573,11 @@ template {
       extend_to_next_page: true
       next_page_x: 62
       next_page_y: 531
+      element_meta {
+        content_type: 4
+        data_source_meta_id: "patient_info_extended"
+        data_source_field_id: "diagnosis_and_surgery"
+      }
     }
     texts {
       id: "text-23"
@@ -568,6 +616,11 @@ template {
       extend_to_next_page: true
       next_page_x: 82
       next_page_y: 515
+      element_meta {
+        content_type: 4
+        data_source_meta_id: "patient_info_extended"
+        data_source_field_id: "mon_record_day_range"
+      }
     }
     containers {
       id: "containers-25"
