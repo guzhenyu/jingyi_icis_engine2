@@ -33,7 +33,7 @@ public class CompactReportDataSourceBuilder {
         Set<String> metaIds = collectDataSourceMetaIds(template);
         List<JfkDataSourcePB> inputs = new ArrayList<>();
         for (String metaId : metaIds) {
-            if (JfkDataSourceIds.PATIENT_MONITORING_RECORDS.equals(metaId)) {
+            if (JfkDataSourceIds.isCompactTableScoped(metaId)) {
                 continue;
             }
             inputs.add(commonInputBuilder(metaId, request)
@@ -41,6 +41,7 @@ public class CompactReportDataSourceBuilder {
                 .build());
         }
         inputs.addAll(buildPatientMonitoringRecordsInputs(compactTemplate, request));
+        inputs.addAll(buildPatientBgaRecordsInputs(compactTemplate, request));
         return inputs;
     }
 
@@ -69,6 +70,35 @@ public class CompactReportDataSourceBuilder {
                 .setId(JfkDataSourceIds.compactTableScoped(JfkDataSourceIds.PATIENT_MONITORING_RECORDS, table.getId()))
                 .addInputData(strInput("table_id", table.getId()))
                 .addInputData(strArrayInput("monitoring_param_codes", monGroup.getParamCodeList()))
+                .addInputData(doubleArrayInput("col_widths", table.getCellWidthsList()))
+                .addInputData(doubleInput("font_size", table.getFontSize()))
+                .addInputData(doubleInput("char_spacing", table.getCharSpacing()))
+                .addInputData(doubleInput("h_padding", table.getHPadding()))
+                .build());
+        }
+        return inputs;
+    }
+
+    private List<JfkDataSourcePB> buildPatientBgaRecordsInputs(
+        CompactReportTemplatePB compactTemplate,
+        MonitoringReportRequest request
+    ) {
+        if (StrUtils.isBlank(compactTemplate.getBgaTableId())) {
+            return List.of();
+        }
+
+        List<JfkDataSourcePB> inputs = new ArrayList<>();
+        for (JfkTablePB table : collectTables(compactTemplate.getTemplate())) {
+            if (!JfkDataSourceIds.PATIENT_BGA_RECORDS.equals(table.getDataSourceMetaId())) {
+                continue;
+            }
+            if (!compactTemplate.getBgaTableId().equals(table.getId())) {
+                continue;
+            }
+
+            inputs.add(commonInputBuilder(JfkDataSourceIds.PATIENT_BGA_RECORDS, request)
+                .setId(JfkDataSourceIds.compactTableScoped(JfkDataSourceIds.PATIENT_BGA_RECORDS, table.getId()))
+                .addInputData(strInput("table_id", table.getId()))
                 .addInputData(doubleArrayInput("col_widths", table.getCellWidthsList()))
                 .addInputData(doubleInput("font_size", table.getFontSize()))
                 .addInputData(doubleInput("char_spacing", table.getCharSpacing()))

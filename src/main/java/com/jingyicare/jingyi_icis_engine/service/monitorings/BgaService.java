@@ -701,8 +701,9 @@ public class BgaService {
         }
 
         // 更新记录
-        List<PatientBgaRecord> recordsToUpdate = recordRepository.findByIdInAndIsDeletedFalse(req.getIdList());
-        if (recordsToUpdate.size() != req.getIdCount()) {
+        List<Long> recordIds = req.getIdList().stream().distinct().toList();
+        List<PatientBgaRecord> recordsToUpdate = recordRepository.findByIdInAndIsDeletedFalse(recordIds);
+        if (recordsToUpdate.size() != recordIds.size()) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.PATIENT_BGA_RECORD_NOT_FOUND))
                 .build();

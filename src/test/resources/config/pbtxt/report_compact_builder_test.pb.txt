@@ -58,9 +58,35 @@ template {
           data_source_meta_id: "patient_monitoring_records"
         }
       }
+      ac_tables {
+        offset_top: 0
+        tbl {
+          id: "table-38"
+          type: "table"
+          x: 12
+          y: 0
+          rows: 1
+          cols: 5
+          cell_widths: 74
+          cell_widths: 60
+          cell_widths: 561.5
+          cell_widths: 60
+          cell_widths: 60
+          cell_heights: 12
+          v_align_id: 2
+          h_align_id: 5
+          font: "Microsoft YaHei"
+          font_size: 6
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+          data_source_meta_id: "patient_bga_records"
+        }
+      }
     }
   }
 }
+bga_table_id: "table-38"
 mon_group {
   table_id: "table-28"
   param_code: "temperature"

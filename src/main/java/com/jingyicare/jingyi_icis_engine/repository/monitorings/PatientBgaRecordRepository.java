@@ -26,4 +26,7 @@ public interface PatientBgaRecordRepository extends JpaRepository<PatientBgaReco
 
     List<PatientBgaRecord> findByPidAndEffectiveTimeBetweenAndIsDeletedFalse(
         Long pid, LocalDateTime startTime, LocalDateTime endTime);
+
+    List<PatientBgaRecord> findByPidAndEffectiveTimeGreaterThanEqualAndEffectiveTimeLessThanAndIsDeletedFalseOrderByEffectiveTimeAsc(
+        Long pid, LocalDateTime startTime, LocalDateTime endTime);
 }

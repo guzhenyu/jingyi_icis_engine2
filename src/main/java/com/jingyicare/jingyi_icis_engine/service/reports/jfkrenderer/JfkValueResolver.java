@@ -71,7 +71,7 @@ public class JfkValueResolver {
 
     public boolean shouldRenderTable(JfkTablePB table) {
         String metaId = table.getDataSourceMetaId();
-        return !JfkDataSourceIds.PATIENT_MONITORING_RECORDS.equals(metaId)
+        return !JfkDataSourceIds.isCompactTableScoped(metaId)
             || data.dataSourceForTable(metaId, table.getId()) != null;
     }
 

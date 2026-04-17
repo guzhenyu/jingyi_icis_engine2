@@ -41,7 +41,7 @@ public class JfkRenderData {
     }
 
     public JfkDataSourcePB dataSourceForTable(String metaId, String tableId) {
-        if (JfkDataSourceIds.PATIENT_MONITORING_RECORDS.equals(metaId)) {
+        if (JfkDataSourceIds.isCompactTableScoped(metaId)) {
             return dataSourceById.get(JfkDataSourceIds.compactTableScoped(metaId, tableId));
         }
         return dataSource(metaId);

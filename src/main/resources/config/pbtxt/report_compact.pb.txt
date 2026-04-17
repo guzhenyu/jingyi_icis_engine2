@@ -12,7 +12,7 @@ template {
       id: "text-1"
       type: "text"
       x: 321
-      y: 575.28
+      y: 585
       z_index: 1
       width: 200
       height: 20
@@ -1602,7 +1602,7 @@ template {
           line_width: 0.5
           line_color: "#000000"
           column_metas {
-            id: "table-29-col-1"
+            id: "table-31-col-1"
             name: "列1"
             element_meta {
               content_type: 1
@@ -1926,7 +1926,7 @@ template {
           line_width: 0.5
           line_color: "#000000"
           column_metas {
-            id: "table-29-col-1"
+            id: "table-33-col-1"
             name: "列1"
             element_meta {
               content_type: 1
@@ -2250,7 +2250,7 @@ template {
           line_width: 0.5
           line_color: "#000000"
           column_metas {
-            id: "table-29-col-1"
+            id: "table-35-col-1"
             name: "列1"
             element_meta {
               content_type: 1
@@ -2559,6 +2559,120 @@ template {
           data_source_meta_id: "patient_monitoring_records"
         }
       }
+      ac_tables {
+        offset_top: 0
+        tbl {
+          id: "table-37"
+          type: "table"
+          x: 12
+          y: 0
+          z_index: 1
+          rows: 1
+          cols: 1
+          cell_widths: 817.5
+          cell_heights: 12
+          line_width: 0.5
+          line_color: "#000000"
+          column_metas {
+            id: "table-37-col-1"
+            name: "列1"
+            element_meta {
+              content_type: 1
+            }
+            static_vals: "血气分析"
+          }
+          extend_to_next_page: true
+          next_page_x: 12
+          next_page_y: 0
+          v_align_id: 2
+          h_align_id: 4
+          font: "Microsoft YaHei"
+          font_size: 8
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+          h_replicas: 0
+          h_replica_data_direction_is_col: true
+        }
+      }
+      ac_tables {
+        offset_top: 0
+        tbl {
+          id: "table-38"
+          type: "table"
+          x: 12
+          y: 0
+          z_index: 1
+          rows: 1
+          cols: 5
+          cell_widths: 74
+          cell_widths: 60
+          cell_widths: 561.5
+          cell_widths: 60
+          cell_widths: 60
+          cell_heights: 12
+          line_width: 0.5
+          line_color: "#000000"
+          column_metas {
+            id: "table-38-col-1"
+            name: "列1"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_bga_records"
+              data_source_field_id: "date_str"
+            }
+          }
+          column_metas {
+            id: "table-38-col-2"
+            name: "列2"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_bga_records"
+              data_source_field_id: "category_name"
+            }
+          }
+          column_metas {
+            id: "table-38-col-3"
+            name: "列3"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_bga_records"
+              data_source_field_id: "bga_details"
+            }
+          }
+          column_metas {
+            id: "table-38-col-4"
+            name: "列4"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_bga_records"
+              data_source_field_id: "recorded_by"
+            }
+          }
+          column_metas {
+            id: "table-38-col-5"
+            name: "列5"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_bga_records"
+              data_source_field_id: "reviewed_by"
+            }
+          }
+          extend_to_next_page: false
+          next_page_x: 12
+          next_page_y: 0
+          v_align_id: 2
+          h_align_id: 5
+          font: "Microsoft YaHei"
+          font_size: 6
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+          h_replicas: 0
+          h_replica_data_direction_is_col: true
+          data_source_meta_id: "patient_bga_records"
+        }
+      }
     }
   }
   page_expandable: true
@@ -2570,6 +2684,7 @@ logo {
     width: 127.56
     height: 25.51
 }
+bga_table_id: "table-38"
 mon_group {
     # 对应于JfkTablePB.id
     table_id: "table-28"
@@ -2605,4 +2720,3 @@ mon_group {
     table_id: "table-36"
    param_code: "suction_frequency"
 }
-

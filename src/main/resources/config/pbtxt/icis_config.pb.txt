@@ -10823,6 +10823,68 @@ jfk {
             is_options: false
         }
     }
+    data_sources {
+        id: "patient_bga_records"
+        name: "血气记录"
+        input_field_ids: "pid"
+        input_field_ids: "query_start"
+        input_field_ids: "query_end"
+        input_field_ids: "table_id"
+        input_field_ids: "col_widths"
+        input_field_ids: "font_size"
+        input_field_ids: "char_spacing"
+        input_field_ids: "h_padding"
+        output_fields {
+            id: "date_str"
+            name: "时间"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "category_name"
+            name: "血气类别"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "bga_details"
+            name: "血气记录"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "recorded_by"
+            name: "记录人"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "reviewed_by"
+            name: "审核人"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+    }
     nursing_role_ids: 3
     nursing_role_ids: 4
     nursing_role_ids: 5

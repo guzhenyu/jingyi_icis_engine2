@@ -9,4 +9,5 @@ message CompactReportTemplatePB {
     JfkTemplatePB template = 1;
     LogoMetaPB logo = 2;
     repeated ReportMonGroupPB mon_group = 3;
+    string bga_table_id = 4;
 }
