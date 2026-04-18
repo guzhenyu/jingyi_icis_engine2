@@ -4580,6 +4580,340 @@ template {
           data_source_meta_id: "patient_balance_records"
         }
       }
+      ac_tables {
+        offset_top: 0
+        tbl {
+          id: "table-233"
+          type: "table"
+          x: 12
+          y: 0
+          z_index: 1
+          rows: 1
+          cols: 1
+          cell_widths: 817.5
+          cell_heights: 12
+          line_width: 0.5
+          line_color: "#000000"
+          column_metas {
+            id: "table-233-col-1"
+            name: "列1"
+            element_meta {
+              content_type: 1
+            }
+            static_vals: "执行用药"
+          }
+          extend_to_next_page: true
+          next_page_x: 12
+          next_page_y: 0
+          v_align_id: 2
+          h_align_id: 4
+          font: "Microsoft YaHei"
+          font_size: 8
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+          h_replicas: 0
+          h_replica_data_direction_is_col: true
+        }
+      }
+      ac_tables {
+        offset_top: 0
+        tbl {
+          id: "table-234"
+          type: "table"
+          x: 12
+          y: 0
+          z_index: 1
+          rows: 1
+          cols: 27
+          cell_widths: 129.5
+          cell_widths: 50
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_heights: 12
+          line_width: 0.5
+          line_color: "#000000"
+          column_metas {
+            id: "table-234-col-1"
+            name: "列1"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "medexe_time_range"
+              data_source_field_id: "med_order_txt"
+            }
+          }
+          column_metas {
+            id: "table-234-col-2"
+            name: "列2"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "medexe_time_range"
+              data_source_field_id: "route_txt"
+            }
+          }
+          column_metas {
+            id: "table-234-col-3"
+            name: "列3"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "medexe_time_range"
+              data_source_field_id: "acc_ml"
+            }
+          }
+          column_metas {
+            id: "table-234-col-4"
+            name: "列4"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "medexe_time_range"
+              data_source_field_id: "hour1"
+            }
+          }
+          column_metas {
+            id: "table-234-col-5"
+            name: "列5"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "medexe_time_range"
+              data_source_field_id: "hour2"
+            }
+          }
+          column_metas {
+            id: "table-234-col-6"
+            name: "列6"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "medexe_time_range"
+              data_source_field_id: "hour3"
+            }
+          }
+          column_metas {
+            id: "table-234-col-7"
+            name: "列7"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "medexe_time_range"
+              data_source_field_id: "hour4"
+            }
+          }
+          column_metas {
+            id: "table-234-col-8"
+            name: "列8"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "medexe_time_range"
+              data_source_field_id: "hour5"
+            }
+          }
+          column_metas {
+            id: "table-234-col-9"
+            name: "列9"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "medexe_time_range"
+              data_source_field_id: "hour6"
+            }
+          }
+          column_metas {
+            id: "table-234-col-10"
+            name: "列10"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "medexe_time_range"
+              data_source_field_id: "hour7"
+            }
+          }
+          column_metas {
+            id: "table-234-col-11"
+            name: "列11"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "medexe_time_range"
+              data_source_field_id: "hour8"
+            }
+          }
+          column_metas {
+            id: "table-234-col-12"
+            name: "列12"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "medexe_time_range"
+              data_source_field_id: "hour9"
+            }
+          }
+          column_metas {
+            id: "table-234-col-13"
+            name: "列13"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "medexe_time_range"
+              data_source_field_id: "hour10"
+            }
+          }
+          column_metas {
+            id: "table-234-col-14"
+            name: "列14"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "medexe_time_range"
+              data_source_field_id: "hour11"
+            }
+          }
+          column_metas {
+            id: "table-234-col-15"
+            name: "列15"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "medexe_time_range"
+              data_source_field_id: "hour12"
+            }
+          }
+          column_metas {
+            id: "table-234-col-16"
+            name: "列16"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "medexe_time_range"
+              data_source_field_id: "hour13"
+            }
+          }
+          column_metas {
+            id: "table-234-col-17"
+            name: "列17"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "medexe_time_range"
+              data_source_field_id: "hour14"
+            }
+          }
+          column_metas {
+            id: "table-234-col-18"
+            name: "列18"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "medexe_time_range"
+              data_source_field_id: "hour15"
+            }
+          }
+          column_metas {
+            id: "table-234-col-19"
+            name: "列19"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "medexe_time_range"
+              data_source_field_id: "hour16"
+            }
+          }
+          column_metas {
+            id: "table-234-col-20"
+            name: "列20"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "medexe_time_range"
+              data_source_field_id: "hour17"
+            }
+          }
+          column_metas {
+            id: "table-234-col-21"
+            name: "列21"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "medexe_time_range"
+              data_source_field_id: "hour18"
+            }
+          }
+          column_metas {
+            id: "table-234-col-22"
+            name: "列22"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "medexe_time_range"
+              data_source_field_id: "hour19"
+            }
+          }
+          column_metas {
+            id: "table-234-col-23"
+            name: "列23"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "medexe_time_range"
+              data_source_field_id: "hour20"
+            }
+          }
+          column_metas {
+            id: "table-234-col-24"
+            name: "列24"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "medexe_time_range"
+              data_source_field_id: "hour21"
+            }
+          }
+          column_metas {
+            id: "table-234-col-25"
+            name: "列25"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "medexe_time_range"
+              data_source_field_id: "hour22"
+            }
+          }
+          column_metas {
+            id: "table-234-col-26"
+            name: "列26"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "medexe_time_range"
+              data_source_field_id: "hour23"
+            }
+          }
+          column_metas {
+            id: "table-234-col-27"
+            name: "列27"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "medexe_time_range"
+              data_source_field_id: "hour24"
+            }
+          }
+          extend_to_next_page: false
+          next_page_x: 12
+          next_page_y: 0
+          v_align_id: 2
+          h_align_id: 5
+          font: "Microsoft YaHei"
+          font_size: 6
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+          h_replicas: 0
+          h_replica_data_direction_is_col: true
+          data_source_meta_id: "medexe_time_range"
+        }
+      }
     }
   }
   page_expandable: true
