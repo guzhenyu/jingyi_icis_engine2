@@ -5631,8 +5631,8 @@ template {
 	          rows: 1
 	          cols: 4
 	          cell_widths: 100
-	          cell_widths: 100
-	          cell_widths: 80
+	          cell_widths: 140
+	          cell_widths: 40
 	          cell_widths: 536
 	          cell_heights: 12
 	          line_width: 0.5
@@ -5647,7 +5647,7 @@ template {
 	          }
 	          column_metas {
 	            id: "table-252-col-2"
-	            name: "置管时间"
+	            name: "时间"
 	            element_meta {
 	              content_type: 1
 	            }
@@ -5694,8 +5694,8 @@ template {
 	          rows: 1
 	          cols: 4
 	          cell_widths: 100
-	          cell_widths: 100
-	          cell_widths: 80
+	          cell_widths: 140
+	          cell_widths: 40
 	          cell_widths: 536
 	          cell_heights: 12
 	          line_width: 0.5

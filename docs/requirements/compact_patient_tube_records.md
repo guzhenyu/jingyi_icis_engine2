@@ -283,7 +283,8 @@ root_patient_tube_records.inserted_at
 格式：
 
 ```text
-yyyy-MM-dd HH:mm
+removed_at == null: yyyy-MM-dd HH:mm
+removed_at != null: yyyy-MM-dd HH:mm ~ yyyy-MM-dd HH:mm
 ```
 
 转换：

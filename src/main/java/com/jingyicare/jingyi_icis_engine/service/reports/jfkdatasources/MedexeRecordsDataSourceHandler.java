@@ -99,7 +99,7 @@ public class MedexeRecordsDataSourceHandler extends AbstractJfkDataSourceHandler
         List<String> missingFields = new ArrayList<>();
         if (StrUtils.isBlank(queryStartIso)) missingFields.add(FIELD_QUERY_START);
         if (StrUtils.isBlank(tableId)) missingFields.add(FIELD_TABLE_ID);
-        if (intakeTypeIdInput == null || intakeTypeIdInput <= 0) missingFields.add(FIELD_INTAKE_TYPE_ID);
+        if (intakeTypeIdInput == null) missingFields.add(FIELD_INTAKE_TYPE_ID);
         if (!missingFields.isEmpty()) {
             return error(StatusCode.JFK_MISSING_REQUIRED_FIELD, joinMissingFields(missingFields));
         }
@@ -339,7 +339,7 @@ public class MedexeRecordsDataSourceHandler extends AbstractJfkDataSourceHandler
             );
             return null;
         }
-        if (route.getIntakeTypeId() == null || route.getIntakeTypeId() != intakeTypeId) {
+        if (intakeTypeId > 0 && (route.getIntakeTypeId() == null || route.getIntakeTypeId() != intakeTypeId)) {
             return null;
         }
 

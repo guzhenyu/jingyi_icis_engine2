@@ -174,7 +174,7 @@ public class PatientTubeRecordsDataSourceHandler extends AbstractJfkDataSourceHa
             LocalDateTime rootInsertedAt = rootInsertedAtByRecordId.getOrDefault(record.getId(), record.getInsertedAt());
             rows.add(
                 stringsVal(wrap(safe(record.getTubeName()), TUBE_NAME_COL_INDEX, colWidths, font, fontSize, charSpacing, hPadding)),
-                stringsVal(wrap(formatLocal(rootInsertedAt), INSERTED_AT_COL_INDEX, colWidths, font, fontSize, charSpacing, hPadding)),
+                stringsVal(wrap(insertedAtText(rootInsertedAt, record.getRemovedAt()), INSERTED_AT_COL_INDEX, colWidths, font, fontSize, charSpacing, hPadding)),
                 stringsVal(wrap(durationDays(rootInsertedAt, record.getRemovedAt(), window), DURATION_DAYS_COL_INDEX, colWidths, font, fontSize, charSpacing, hPadding)),
                 stringsVal(wrapLines(
                     maintenanceStatusLines(
@@ -429,6 +429,12 @@ public class PatientTubeRecordsDataSourceHandler extends AbstractJfkDataSourceHa
         if (utcTime == null) return "";
         LocalDateTime localTime = TimeUtils.getLocalDateTimeFromUtc(utcTime, support.getZoneId());
         return DATE_TIME_FORMATTER.format(localTime);
+    }
+
+    private String insertedAtText(LocalDateTime rootInsertedAt, LocalDateTime removedAt) {
+        String insertedAt = formatLocal(rootInsertedAt);
+        if (removedAt == null) return insertedAt;
+        return insertedAt + " ~ " + formatLocal(removedAt);
     }
 
     private List<String> wrap(

@@ -131,6 +131,28 @@ public class MedexeRecordsDataSourceHandlerTests {
     }
 
     @Test
+    public void handleDoesNotFilterRoutesWhenIntakeTypeIsNonPositive() {
+        TestContext ctx = new TestContext();
+        ctx.withShift(7);
+
+        MedicationOrderGroup group = group(201L, "enteral");
+        MedicationExecutionRecord record = record(301L, 201L, "enteral", false, LocalDateTime.of(2026, 4, 15, 23, 10));
+        ctx.withRecords(List.of(record), List.of(group));
+        ctx.withRoutes(route("enteral", "鼻饲", false, 2));
+        ctx.withStats(List.of(stat(401L, 201L, 301L, START_UTC, 8d)));
+        ctx.withActions(List.of(action(501L, 301L, START_UTC.plusMinutes(20), 8d)));
+        ctx.withDosage(group, record, "鼻饲营养液");
+
+        Pair<ReturnCode, JfkDataSourcePB> result = ctx.handler().handle(inputWithIntakeType(0L));
+
+        assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        Map<String, List<List<String>>> output = toOutputMap(result.getSecond());
+        assertThat(output.get("med_order_txt")).containsExactly(List.of("鼻饲营养液"));
+        assertThat(output.get("route_txt")).containsExactly(List.of("鼻饲"));
+        assertThat(output.get("hour1")).containsExactly(List.of("8", "7:20"));
+    }
+
+    @Test
     public void handleReturnsErrorWhenStartHourIsInvalid() {
         TestContext ctx = new TestContext();
         ctx.withShift(24);
@@ -181,6 +203,10 @@ public class MedexeRecordsDataSourceHandlerTests {
     }
 
     private static JfkDataSourcePB input() {
+        return inputWithIntakeType(1L);
+    }
+
+    private static JfkDataSourcePB inputWithIntakeType(long intakeTypeId) {
         return JfkDataSourcePB.newBuilder()
             .setId(JfkDataSourceIds.compactTableScoped(JfkDataSourceIds.MEDEXE_RECORDS, "table-236"))
             .setMetaId(JfkDataSourceIds.MEDEXE_RECORDS)
@@ -189,7 +215,7 @@ public class MedexeRecordsDataSourceHandlerTests {
             .addInputData(strInput("query_start", "2026-04-16T00:00Z"))
             .addInputData(strInput("query_end", "2026-04-17T00:00Z"))
             .addInputData(strInput("table_id", "table-236"))
-            .addInputData(int64Input("intake_type_id", 1L))
+            .addInputData(int64Input("intake_type_id", intakeTypeId))
             .addInputData(doubleArrayInput("col_widths", testColWidths()))
             .addInputData(doubleInput("font_size", 6d))
             .addInputData(doubleInput("char_spacing", 0d))

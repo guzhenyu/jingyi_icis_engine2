@@ -84,7 +84,7 @@ public class PatientTubeRecordsDataSourceHandlerTests {
         PatientTubeRecord current = tubeRecord(
             20L, 20L,
             LocalDateTime.of(2026, 4, 16, 23, 30),
-            LocalDateTime.of(2026, 4, 16, 22, 59)
+            LocalDateTime.of(2026, 4, 17, 3, 0)
         );
         ctx.withTubeRecords(List.of(current));
         ctx.withStatusRecords(List.of(
@@ -97,6 +97,7 @@ public class PatientTubeRecordsDataSourceHandlerTests {
 
         assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
         Map<String, List<List<String>>> output = toOutputMap(result.getSecond());
+        assertThat(output.get("inserted_at")).containsExactly(List.of("2026-04-17 07:30 ~ 2026-04-17 11:00"));
         assertThat(output.get("duration_days")).containsExactly(List.of("1天"));
         assertThat(output.get("maintenance_status")).containsExactly(List.of(
             "A班 2026-04-17 10:10 部位情况: 晚"

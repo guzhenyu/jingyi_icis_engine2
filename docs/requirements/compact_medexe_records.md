@@ -84,10 +84,10 @@ med_exe_tables {
 6. 判断连续/非连续时参考 `MedMonitoringService`：当 `medication_execution_records.is_continuous` 非空时优先使用执行记录值，否则使用 `administration_routes.is_continuous`。
 7. 如果 `medication_execution_record_stats` 缺失，需要在报表生成时临时调用 `MedMonitoringService.calcFluidIntakeImpl(...)` 计算。
 8. 非连续用药同一行同一小时内如果有多个 action，取最早 action 的本地 `HH:mm`；如果多个执行记录同一小时合并，仍取最早 action。
-9. 没有任何匹配 `intake_type_id` 的执行用药记录时，`medexe_records` 返回 0 行，数据源为 `medexe_records` 的明细表（如 `table-236`、`table-238`）不渲染。
+9. 没有任何匹配 `intake_type_id` 的执行用药记录时，`medexe_records` 返回 0 行，数据源为 `medexe_records` 的明细表（如 `table-236`、`table-238`）不渲染；如果 `intake_type_id <= 0`，则不限制 `intake_type_id`，查询所有执行用药记录。
 10. `consumed_ml` 格式化规则：整数不带 `.0`，非整数保留 1 位小数。
 11. `consumed_ml` 小数位数放入 `application.properties`，建议配置名为 `jingyi.report.compact.medication-ml-decimal-places=1`。
-12. `intake_type_id = 1` 确认对应 `静脉药物（ml）`，实现时不校验 `intake_types.id = 1` 的名称，只按 ID 过滤。
+12. `intake_type_id = 1` 确认对应 `静脉药物（ml）`，实现时不校验 `intake_types.id = 1` 的名称，只按 ID 过滤；`intake_type_id <= 0` 表示不过滤。
 13. `table-235/table-236` 的插入位置在 `table-234` 之后。
 14. 未来可能有多组 `med_exe_tables`，每组都需要一对标题表和明细表。
 15. `medexe_records` 不在报表生成过程中持久化统计记录；缺失统计只做内存计算并用于本次报表输出。
@@ -306,7 +306,7 @@ MedicationDosageGroupPB.display_name
 - `administration_routes.intake_type_id`：用于匹配输入 `intake_type_id`。
 - `administration_routes.is_continuous`：用于决定小时格显示形式。
 
-只渲染 `administration_routes.intake_type_id == input.intake_type_id` 的记录。
+当 `input.intake_type_id > 0` 时，只渲染 `administration_routes.intake_type_id == input.intake_type_id` 的记录；当 `input.intake_type_id <= 0` 时，不按 `intake_type_id` 过滤。
 
 连续/非连续判断规则：
 
@@ -331,7 +331,7 @@ MedicationDosageGroupPB.display_name
 2. 查询已完成执行记录：`findCompletedRecordsByPatientId(pid, medStartUtc, medEndUtc)`。
 3. 合并后按 `id` 去重。
 4. 根据 `medication_order_group_id` 批量查询 `MedicationOrderGroup`。
-5. 只保留可解析 dosage group、可解析有效 route、且 route 的 `intake_type_id == input.intake_type_id` 的记录。
+5. 只保留可解析 dosage group、可解析有效 route 的记录；如果 `input.intake_type_id > 0`，还要求 route 的 `intake_type_id == input.intake_type_id`。
 
 ### 用量统计
 
