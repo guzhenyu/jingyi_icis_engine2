@@ -519,6 +519,13 @@ public class NursingRecordService {
                         record.getModifiedByAccountName() : record.getCreatedByAccountName()
                     )
                     .setRecordedAtIso8601(TimeUtils.toIso8601String(record.getEffectiveTime(), ZONE_ID));
+                if (!StrUtils.isBlank(record.getReviewedBy())) {
+                    recordBuilder.setReviewedBy(record.getReviewedBy());
+                }
+                if (!StrUtils.isBlank(record.getReviewedByAccountName())) {
+                    recordBuilder.setReviewedByAccountName(record.getReviewedByAccountName());
+                }
+                recordBuilder.setReviewedAtIso8601(TimeUtils.toIso8601String(record.getReviewedAt(), ZONE_ID));
                 return recordBuilder.build();
             })
             .collect(Collectors.toList());
@@ -717,6 +724,66 @@ public class NursingRecordService {
 
         // 更新护理单的处理时间（为 打印从首页到尾页都一致的护理单 提效，省二院）
         pnrUtils.updateLatestDataTime(pid, deptId, effectiveTime, effectiveTime, nowUtc);
+
+        return GenericResp.newBuilder()
+            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .build();
+    }
+
+    @Transactional
+    public GenericResp reviewNursingRecords(String reviewNursingRecordsReqJson) {
+        final ReviewNursingRecordsReq req;
+        try {
+            req = ProtoUtils.parseJsonToProto(reviewNursingRecordsReqJson, ReviewNursingRecordsReq.newBuilder());
+        } catch (Exception e) {
+            log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .build();
+        }
+
+        // 获取用户信息
+        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        if (accountWithAutoId == null) {
+            log.error("accountId is empty.");
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
+                .build();
+        }
+        final String accountId = accountWithAutoId.getFirst();
+        final String accountName = accountWithAutoId.getSecond();
+
+        // 审核时间
+        LocalDateTime reviewTime = TimeUtils.fromIso8601String(req.getReviewTimeIso8601(), "UTC");
+        if (reviewTime == null) {
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.INVALID_TIME_FORMAT))
+                .build();
+        }
+
+        // 空ID沿用BGA审核接口行为：直接返回OK，不做更新
+        List<Long> recordIds = req.getIdList().stream().distinct().toList();
+        if (recordIds.isEmpty()) {
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.OK))
+                .build();
+        }
+
+        List<NursingRecord> recordsToUpdate = recordRepo.findByIdInAndIsDeletedFalse(recordIds);
+        if (recordsToUpdate.size() != recordIds.size()) {
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.NURSING_RECORD_NOT_EXISTS))
+                .build();
+        }
+
+        for (NursingRecord record : recordsToUpdate) {
+            record.setReviewedBy(accountId);
+            record.setReviewedByAccountName(accountName);
+            record.setReviewedAt(reviewTime);
+        }
+        recordRepo.saveAll(recordsToUpdate);
+        log.info("Reviewed nursing records. accountId={}, accountName={}, recordIds={}",
+            accountId, accountName, recordIds);
 
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))

@@ -23,4 +23,6 @@ public interface NursingRecordRepository extends JpaRepository<NursingRecord, Lo
         Long patientId, Integer patientCriticalLisHandlingId);
 
     Optional<NursingRecord> findByIdAndIsDeletedFalse(Long id);
+
+    List<NursingRecord> findByIdInAndIsDeletedFalse(List<Long> ids);
 }

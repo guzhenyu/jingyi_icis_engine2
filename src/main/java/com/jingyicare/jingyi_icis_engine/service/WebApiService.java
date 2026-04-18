@@ -1022,6 +1022,12 @@ public class WebApiService {
         return resp;
     }
 
+    public GenericResp reviewNursingRecords(String reviewNursingRecordsReqJson) {
+        GenericResp resp = nursingRecordService.reviewNursingRecords(reviewNursingRecordsReqJson);
+        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
+        return resp;
+    }
+
     public GetPatientCriticalLisHandlingsResp getPatientCriticalLisHandlings(String getPatientCriticalLisHandlingsReqJson) {
         GetPatientCriticalLisHandlingsResp resp = patientCriticalLisHandlingService.getPatientCriticalLisHandlings(getPatientCriticalLisHandlingsReqJson);
         resp = metricService.recordApiMetrics(resp, GetPatientCriticalLisHandlingsResp::getRt);

@@ -2750,6 +2750,16 @@ message DeleteNursingRecordReq {
 }
 
 /*
+ * /api/nursingrecord/reviewnursingrecords
+ *  input: ReviewNursingRecordsReq
+ *  output: GenericResp
+ */
+message ReviewNursingRecordsReq {
+    repeated int64 id = 1; // 护理记录ID列表
+    string review_time_iso8601 = 2; // 审核时间 (ISO 8601 UTC)
+}
+
+/*
  * /api/nursingrecord/getpatientcriticallishandlings
  *  input: GetPatientCriticalLisHandlingsReq
  *  output: GetPatientCriticalLisHandlingsResp

@@ -96,10 +96,9 @@ public class NursingRecordUtils {
                     .deletedAt(null)
                     .source(lockedOld.getSource())
                     .patientCriticalLisHandlingId(lockedOld.getPatientCriticalLisHandlingId())
-                    // 审核信息：按需保留；若变更即作废审核，请在此清空
-                    .reviewedBy(lockedOld.getReviewedBy())
-                    .reviewedByAccountName(lockedOld.getReviewedByAccountName())
-                    .reviewedAt(lockedOld.getReviewedAt())
+                    .reviewedBy(null)
+                    .reviewedByAccountName(null)
+                    .reviewedAt(null)
                     // 修改信息
                     .modifiedBy(modifiedBy)
                     .modifiedByAccountName(modifiedByAccountName)

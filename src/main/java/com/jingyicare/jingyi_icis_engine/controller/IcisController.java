@@ -785,6 +785,11 @@ public class IcisController {
         return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.deleteNursingRecord(deleteNursingRecordReqJson)));
     }
 
+    @PostMapping("/nursingrecord/reviewnursingrecords")
+    public ResponseEntity<String> reviewNursingRecords(@RequestBody String reviewNursingRecordsReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.reviewNursingRecords(reviewNursingRecordsReqJson)));
+    }
+
     @PostMapping("/nursingrecord/getpatientcriticallishandlings")
     public ResponseEntity<String> getPatientCriticalLisHandlings(@RequestBody String getPatientCriticalLisHandlingsReqJson) {
         return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getPatientCriticalLisHandlings(getPatientCriticalLisHandlingsReqJson)));
