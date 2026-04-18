@@ -6,12 +6,22 @@ import java.util.Optional;
 
 import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.NursingRecord;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 @Repository
 public interface NursingRecordRepository extends JpaRepository<NursingRecord, Long> {
     List<NursingRecord> findByPatientIdAndEffectiveTimeBetweenAndIsDeletedFalse(
         Long patientId, LocalDateTime startUtc, LocalDateTime endUtc);
+
+    @Query("SELECT n FROM NursingRecord n WHERE n.patientId = :patientId " +
+        "AND n.effectiveTime >= :startUtc AND n.effectiveTime < :endUtc " +
+        "AND n.isDeleted = false ORDER BY n.effectiveTime ASC, n.id ASC")
+    List<NursingRecord> findReportNursingRecords(
+        @Param("patientId") Long patientId,
+        @Param("startUtc") LocalDateTime startUtc,
+        @Param("endUtc") LocalDateTime endUtc);
 
     List<NursingRecord> findByPatientIdAndPatientCriticalLisHandlingIdInAndIsDeletedFalse(
         Long patientId, List<Integer> patientCriticalLisHandlingIds);

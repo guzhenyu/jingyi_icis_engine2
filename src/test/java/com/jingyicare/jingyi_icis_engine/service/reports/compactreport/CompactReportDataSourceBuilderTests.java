@@ -107,6 +107,19 @@ public class CompactReportDataSourceBuilderTests {
         assertThat(doubleVal(tubeInput, "font_size")).isEqualTo(6d);
         assertThat(doubleVal(tubeInput, "char_spacing")).isEqualTo(0d);
         assertThat(doubleVal(tubeInput, "h_padding")).isEqualTo(2d);
+
+        JfkDataSourcePB nursingInput = inputs.stream()
+            .filter(input -> JfkDataSourceIds.PATIENT_NURSING_RECORDS.equals(input.getMetaId()))
+            .findFirst()
+            .orElseThrow();
+
+        assertThat(nursingInput.getId())
+            .isEqualTo(JfkDataSourceIds.compactTableScoped(JfkDataSourceIds.PATIENT_NURSING_RECORDS, "table-256"));
+        assertThat(strVal(nursingInput, "table_id")).isEqualTo("table-256");
+        assertThat(doubleVals(nursingInput, "col_widths")).containsExactly(100d, 596d, 60d, 60d);
+        assertThat(doubleVal(nursingInput, "font_size")).isEqualTo(6d);
+        assertThat(doubleVal(nursingInput, "char_spacing")).isEqualTo(0d);
+        assertThat(doubleVal(nursingInput, "h_padding")).isEqualTo(2d);
     }
 
     private String strVal(JfkDataSourcePB input, String id) {

@@ -5617,9 +5617,8 @@ template {
           char_spacing: 0
           h_padding: 2
           h_replicas: 0
-	          h_replica_data_direction_is_col: true
-	        }
-	      }
+          h_replica_data_direction_is_col: true
+        }
       }
       ac_tables {
         offset_top: 0
@@ -5753,7 +5752,176 @@ template {
           data_source_meta_id: "patient_tube_records"
         }
       }
-	  }
+	      ac_tables {
+	        offset_top: 0
+	        tbl {
+	          id: "table-254"
+	          type: "table"
+	          x: 12
+	          y: 0
+	          z_index: 1
+	          rows: 1
+	          cols: 1
+	          cell_widths: 816
+	          cell_heights: 12
+	          line_width: 0.5
+	          line_color: "#000000"
+	          column_metas {
+	            id: "table-254-col-1"
+	            name: "列1"
+	            element_meta {
+	              content_type: 1
+	            }
+	            static_vals: "护理记录"
+	          }
+	          extend_to_next_page: true
+	          next_page_x: 12
+	          next_page_y: 0
+	          v_align_id: 2
+	          h_align_id: 4
+	          font: "Microsoft YaHei"
+	          font_size: 8
+	          font_color: "#000000"
+	          char_spacing: 0
+	          h_padding: 2
+	          h_replicas: 0
+	          h_replica_data_direction_is_col: true
+	        }
+	      }
+	      ac_tables {
+	        offset_top: 0
+	        tbl {
+	          id: "table-255"
+	          type: "table"
+	          x: 12
+	          y: 0
+	          z_index: 1
+	          rows: 1
+	          cols: 4
+	          cell_widths: 100
+	          cell_widths: 596
+	          cell_widths: 60
+	          cell_widths: 60
+	          cell_heights: 12
+	          line_width: 0.5
+	          line_color: "#000000"
+	          column_metas {
+	            id: "table-255-col-1"
+	            name: "时间"
+	            element_meta {
+	              content_type: 1
+	            }
+	            static_vals: "时间"
+	          }
+	          column_metas {
+	            id: "table-255-col-2"
+	            name: "护理记录"
+	            element_meta {
+	              content_type: 1
+	            }
+	            static_vals: "护理记录"
+	          }
+	          column_metas {
+	            id: "table-255-col-3"
+	            name: "记录人"
+	            element_meta {
+	              content_type: 1
+	            }
+	            static_vals: "记录人"
+	          }
+	          column_metas {
+	            id: "table-255-col-4"
+	            name: "审核人"
+	            element_meta {
+	              content_type: 1
+	            }
+	            static_vals: "审核人"
+	          }
+	          extend_to_next_page: true
+	          next_page_x: 12
+	          next_page_y: 0
+	          v_align_id: 2
+	          h_align_id: 5
+	          font: "Microsoft YaHei"
+	          font_size: 6
+	          font_color: "#000000"
+	          char_spacing: 0
+	          h_padding: 2
+	          h_replicas: 0
+	          h_replica_data_direction_is_col: true
+	        }
+	      }
+	      ac_tables {
+	        offset_top: 0
+	        tbl {
+	          id: "table-256"
+	          type: "table"
+	          x: 12
+	          y: 0
+	          z_index: 1
+	          rows: 1
+	          cols: 4
+	          cell_widths: 100
+	          cell_widths: 596
+	          cell_widths: 60
+	          cell_widths: 60
+	          cell_heights: 12
+	          line_width: 0.5
+	          line_color: "#000000"
+	          column_metas {
+	            id: "table-256-col-1"
+	            name: "时间"
+	            element_meta {
+	              content_type: 4
+	              data_source_meta_id: "patient_nursing_records"
+	              data_source_field_id: "record_time"
+	            }
+	          }
+	          column_metas {
+	            id: "table-256-col-2"
+	            name: "护理记录"
+	            element_meta {
+	              content_type: 4
+	              data_source_meta_id: "patient_nursing_records"
+	              data_source_field_id: "content"
+	            }
+	            h_align_id: 4
+	          }
+	          column_metas {
+	            id: "table-256-col-3"
+	            name: "记录人"
+	            element_meta {
+	              content_type: 4
+	              data_source_meta_id: "patient_nursing_records"
+	              data_source_field_id: "recorded_by"
+	            }
+	          }
+	          column_metas {
+	            id: "table-256-col-4"
+	            name: "审核人"
+	            element_meta {
+	              content_type: 4
+	              data_source_meta_id: "patient_nursing_records"
+	              data_source_field_id: "reviewed_by"
+	            }
+	          }
+	          extend_to_next_page: false
+	          next_page_x: 12
+	          next_page_y: 0
+	          v_align_id: 2
+	          h_align_id: 5
+	          font: "Microsoft YaHei"
+	          font_size: 6
+	          font_color: "#000000"
+	          char_spacing: 0
+	          h_padding: 2
+	          h_replicas: 0
+	          h_replica_data_direction_is_col: true
+	          data_source_meta_id: "patient_nursing_records"
+	        }
+	      }
+      }
+    }
   page_expandable: true
 }
 logo {
