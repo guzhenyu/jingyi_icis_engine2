@@ -20,6 +20,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkTemplatePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkTextPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisReportCommon.ReportMonGroupPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisReportCommon.ReportMedExeTablePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisReportCompact.CompactReportTemplatePB;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.MonitoringReportRequest;
@@ -43,6 +44,7 @@ public class CompactReportDataSourceBuilder {
         inputs.addAll(buildPatientMonitoringRecordsInputs(compactTemplate, request));
         inputs.addAll(buildPatientBgaRecordsInputs(compactTemplate, request));
         inputs.addAll(buildPatientBalanceRecordsInputs(compactTemplate, request));
+        inputs.addAll(buildMedexeRecordsInputs(compactTemplate, request));
         return inputs;
     }
 
@@ -71,6 +73,40 @@ public class CompactReportDataSourceBuilder {
                 .setId(JfkDataSourceIds.compactTableScoped(JfkDataSourceIds.PATIENT_MONITORING_RECORDS, table.getId()))
                 .addInputData(strInput("table_id", table.getId()))
                 .addInputData(strArrayInput("monitoring_param_codes", monGroup.getParamCodeList()))
+                .addInputData(doubleArrayInput("col_widths", table.getCellWidthsList()))
+                .addInputData(doubleInput("font_size", table.getFontSize()))
+                .addInputData(doubleInput("char_spacing", table.getCharSpacing()))
+                .addInputData(doubleInput("h_padding", table.getHPadding()))
+                .build());
+        }
+        return inputs;
+    }
+
+    private List<JfkDataSourcePB> buildMedexeRecordsInputs(
+        CompactReportTemplatePB compactTemplate,
+        MonitoringReportRequest request
+    ) {
+        Map<String, ReportMedExeTablePB> medExeTableByTableId = new LinkedHashMap<>();
+        for (ReportMedExeTablePB medExeTable : compactTemplate.getMedExeTablesList()) {
+            if (!StrUtils.isBlank(medExeTable.getTableId())) {
+                medExeTableByTableId.putIfAbsent(medExeTable.getTableId(), medExeTable);
+            }
+        }
+
+        List<JfkDataSourcePB> inputs = new ArrayList<>();
+        for (JfkTablePB table : collectTables(compactTemplate.getTemplate())) {
+            if (!JfkDataSourceIds.MEDEXE_RECORDS.equals(table.getDataSourceMetaId())) {
+                continue;
+            }
+            ReportMedExeTablePB medExeTable = medExeTableByTableId.get(table.getId());
+            if (medExeTable == null || medExeTable.getIntakeTypeId() <= 0) {
+                continue;
+            }
+
+            inputs.add(commonInputBuilder(JfkDataSourceIds.MEDEXE_RECORDS, request)
+                .setId(JfkDataSourceIds.compactTableScoped(JfkDataSourceIds.MEDEXE_RECORDS, table.getId()))
+                .addInputData(strInput("table_id", table.getId()))
+                .addInputData(int64Input("intake_type_id", medExeTable.getIntakeTypeId()))
                 .addInputData(doubleArrayInput("col_widths", table.getCellWidthsList()))
                 .addInputData(doubleInput("font_size", table.getFontSize()))
                 .addInputData(doubleInput("char_spacing", table.getCharSpacing()))

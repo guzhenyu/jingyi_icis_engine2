@@ -14,3 +14,8 @@ message ReportMonGroupPB {
     string table_id = 1;  // 对应于JfkTablePB.id
     repeated string param_code = 2;
 }
+
+message ReportMedExeTablePB {
+    string table_id = 1;
+    int32 intake_type_id = 2;
+}

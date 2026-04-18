@@ -129,6 +129,53 @@ template {
           data_source_meta_id: "patient_balance_records"
         }
       }
+      ac_tables {
+        offset_top: 0
+        tbl {
+          id: "table-236"
+          type: "table"
+          x: 12
+          y: 0
+          rows: 1
+          cols: 27
+          cell_widths: 129.5
+          cell_widths: 50
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_widths: 25
+          cell_heights: 12
+          v_align_id: 2
+          h_align_id: 5
+          font: "Microsoft YaHei"
+          font_size: 6
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+          data_source_meta_id: "medexe_records"
+        }
+      }
     }
   }
 }
@@ -148,4 +195,8 @@ balance_group {
   param_code: "intravenous_intake"
   param_code: "hourly_intake"
   param_code: "total_intake"
+}
+med_exe_tables {
+  table_id: "table-236"
+  intake_type_id: 1
 }

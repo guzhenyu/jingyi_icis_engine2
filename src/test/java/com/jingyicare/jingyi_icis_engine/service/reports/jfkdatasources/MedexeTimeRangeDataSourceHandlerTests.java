@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 
+import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
 import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
@@ -25,6 +26,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkFieldDataPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 
 public class MedexeTimeRangeDataSourceHandlerTests {
@@ -140,6 +142,38 @@ public class MedexeTimeRangeDataSourceHandlerTests {
         assertThat(result.getSecond()).isNull();
     }
 
+    @Test
+    public void handleUsesPatientDeptWhenPidIsPresent() {
+        PatientService patientService = mock(PatientService.class);
+        PatientRecord patient = new PatientRecord();
+        patient.setId(10001L);
+        patient.setDeptId("patient-dept");
+        when(patientService.getPatientRecord(10001L)).thenReturn(patient);
+
+        JfkDataSourceSupport support = mockSupport();
+        when(support.getPatientService()).thenReturn(patientService);
+        BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
+        MedexeTimeRangeDataSourceHandler handler =
+            new MedexeTimeRangeDataSourceHandler(support, balanceStatsShiftRepo);
+
+        LocalDateTime utcEnd = LocalDateTime.of(2026, 4, 17, 0, 0);
+        when(balanceStatsShiftRepo
+            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept", utcEnd))
+            .thenReturn(Optional.of(BalanceStatsShift.builder()
+                .id(1L)
+                .deptId("patient-dept")
+                .startHour(7)
+                .effectiveTime(LocalDateTime.of(2026, 4, 1, 0, 0))
+                .isDeleted(false)
+                .build()));
+
+        Pair<ReturnCode, JfkDataSourcePB> result = handler.handle(input(10001L, "request-dept", "2026-04-16T00:00Z"));
+
+        assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        verify(balanceStatsShiftRepo)
+            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept", utcEnd);
+    }
+
     private JfkDataSourceSupport mockSupport() {
         JfkDataSourceSupport support = mock(JfkDataSourceSupport.class);
         when(support.getStatusMsgList()).thenReturn(Collections.nCopies(400, "status"));
@@ -174,10 +208,27 @@ public class MedexeTimeRangeDataSourceHandlerTests {
             .build();
     }
 
+    private static JfkDataSourcePB input(long pid, String deptId, String queryStart) {
+        return JfkDataSourcePB.newBuilder()
+            .setId("request-1")
+            .setMetaId("medexe_time_range")
+            .addInputData(int64Input("pid", pid))
+            .addInputData(strInput("dept_id", deptId))
+            .addInputData(strInput("query_start", queryStart))
+            .build();
+    }
+
     private static JfkFieldDataPB strInput(String id, String value) {
         return JfkFieldDataPB.newBuilder()
             .setId(id)
             .setVal(JfkValPB.newBuilder().setStrVal(value).build())
+            .build();
+    }
+
+    private static JfkFieldDataPB int64Input(String id, long value) {
+        return JfkFieldDataPB.newBuilder()
+            .setId(id)
+            .setVal(JfkValPB.newBuilder().setInt64Val(value).build())
             .build();
     }
 

@@ -6,6 +6,9 @@ import java.util.List;
 
 import org.springframework.stereotype.Component;
 
+import lombok.extern.slf4j.Slf4j;
+
+import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
 import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
@@ -16,6 +19,7 @@ import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
 @Component
+@Slf4j
 public class MedexeTimeRangeDataSourceHandler extends AbstractJfkDataSourceHandler {
     public MedexeTimeRangeDataSourceHandler(
         JfkDataSourceSupport support,
@@ -32,7 +36,9 @@ public class MedexeTimeRangeDataSourceHandler extends AbstractJfkDataSourceHandl
 
     @Override
     public Pair<ReturnCode, JfkDataSourcePB> handle(JfkDataSourcePB input) {
-        String deptId = getStringInput(input, FIELD_DEPT_ID);
+        Long pid = getInt64Input(input, FIELD_PID);
+        String inputDeptId = getStringInput(input, FIELD_DEPT_ID);
+        String deptId = resolveDeptId(pid, inputDeptId);
         String queryStartIso = getStringInput(input, FIELD_QUERY_START);
         if (StrUtils.isBlank(deptId) || StrUtils.isBlank(queryStartIso)) {
             List<String> missingFields = new ArrayList<>();
@@ -77,7 +83,26 @@ public class MedexeTimeRangeDataSourceHandler extends AbstractJfkDataSourceHandl
         return Math.floorMod(hour, 24) + ":00";
     }
 
+    private String resolveDeptId(Long pid, String inputDeptId) {
+        if (pid != null && pid > 0) {
+            PatientRecord patient = support.getPatientService().getPatientRecord(pid);
+            if (patient != null && !StrUtils.isBlank(patient.getDeptId())) {
+                String patientDeptId = patient.getDeptId();
+                if (!StrUtils.isBlank(inputDeptId) && !inputDeptId.equals(patientDeptId)) {
+                    log.warn(
+                        "Compact medexe time range dept_id mismatch, pid={}, requestDeptId={}, patientDeptId={}",
+                        pid, inputDeptId, patientDeptId
+                    );
+                }
+                return patientDeptId;
+            }
+            log.warn("Compact medexe time range patient not found or missing dept_id, pid={}", pid);
+        }
+        return inputDeptId;
+    }
+
     private static final String META_ID = "medexe_time_range";
+    private static final String FIELD_PID = "pid";
     private static final String FIELD_DEPT_ID = "dept_id";
     private static final String FIELD_QUERY_START = "query_start";
     private static final String FIELD_MED_ORDER_TXT = "med_order_txt";

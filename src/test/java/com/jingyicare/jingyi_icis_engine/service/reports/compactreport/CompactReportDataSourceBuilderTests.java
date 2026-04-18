@@ -77,10 +77,31 @@ public class CompactReportDataSourceBuilderTests {
         assertThat(doubleVal(balanceInput, "font_size")).isEqualTo(6d);
         assertThat(doubleVal(balanceInput, "char_spacing")).isEqualTo(0d);
         assertThat(doubleVal(balanceInput, "h_padding")).isEqualTo(2d);
+
+        JfkDataSourcePB medexeInput = inputs.stream()
+            .filter(input -> JfkDataSourceIds.MEDEXE_RECORDS.equals(input.getMetaId()))
+            .findFirst()
+            .orElseThrow();
+
+        assertThat(medexeInput.getId())
+            .isEqualTo(JfkDataSourceIds.compactTableScoped(JfkDataSourceIds.MEDEXE_RECORDS, "table-236"));
+        assertThat(strVal(medexeInput, "table_id")).isEqualTo("table-236");
+        assertThat(int64Val(medexeInput, "intake_type_id")).isEqualTo(1L);
+        assertThat(doubleVals(medexeInput, "col_widths")).containsExactly(
+            129.5d, 50d,
+            25d, 25d, 25d, 25d, 25d, 25d, 25d, 25d, 25d, 25d, 25d, 25d, 25d, 25d,
+            25d, 25d, 25d, 25d, 25d, 25d, 25d, 25d, 25d, 25d, 25d);
+        assertThat(doubleVal(medexeInput, "font_size")).isEqualTo(6d);
+        assertThat(doubleVal(medexeInput, "char_spacing")).isEqualTo(0d);
+        assertThat(doubleVal(medexeInput, "h_padding")).isEqualTo(2d);
     }
 
     private String strVal(JfkDataSourcePB input, String id) {
         return field(input, id).getVal().getStrVal();
+    }
+
+    private long int64Val(JfkDataSourcePB input, String id) {
+        return field(input, id).getVal().getInt64Val();
     }
 
     private double doubleVal(JfkDataSourcePB input, String id) {

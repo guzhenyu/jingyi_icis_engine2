@@ -11,4 +11,5 @@ message CompactReportTemplatePB {
     repeated ReportMonGroupPB mon_group = 3;
     string bga_table_id = 4;
     repeated ReportMonGroupPB balance_group = 5;
+    repeated ReportMedExeTablePB med_exe_tables = 6;
 }

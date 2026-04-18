@@ -49,3 +49,7 @@ mon_group {
   table_id: "loader-table"
   param_code: "temperature"
 }
+med_exe_tables {
+  table_id: "loader-table"
+  intake_type_id: 1
+}

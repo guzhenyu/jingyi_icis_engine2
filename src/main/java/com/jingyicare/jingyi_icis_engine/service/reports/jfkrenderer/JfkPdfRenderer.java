@@ -269,6 +269,9 @@ public class JfkPdfRenderer {
     ) throws IOException, JfkRenderException {
         JfkTablePB table = acTable.getTbl();
         List<JfkTableRenderer.RowData> rows = tableRenderer.buildElasticRows(table, context.valueResolver);
+        if (rows.isEmpty()) {
+            return new FlowTableResult(cursorTop, previousLineWidth);
+        }
         float lineWidth = JfkRenderUtils.lineWidth(table);
         float top = JfkRenderUtils.flowTableTop(cursorTop, acTable.getOffsetTop(), previousLineWidth, lineWidth);
         int rowIndex = 0;

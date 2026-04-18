@@ -24,5 +24,8 @@ public class CompactReportTemplateLoaderTests {
         assertThat(template.getTemplate().getPages(0).getContainers(0).getAcTablesCount()).isEqualTo(1);
         assertThat(template.getMonGroupCount()).isEqualTo(1);
         assertThat(template.getMonGroup(0).getTableId()).isEqualTo("loader-table");
+        assertThat(template.getMedExeTablesCount()).isEqualTo(1);
+        assertThat(template.getMedExeTables(0).getTableId()).isEqualTo("loader-table");
+        assertThat(template.getMedExeTables(0).getIntakeTypeId()).isEqualTo(1);
     }
 }

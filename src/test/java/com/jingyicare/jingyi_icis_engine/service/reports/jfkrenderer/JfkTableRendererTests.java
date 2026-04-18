@@ -63,6 +63,19 @@ public class JfkTableRendererTests {
     }
 
     @Test
+    public void buildElasticRowsReturnsEmptyRowsForZeroLengthDataSource() throws Exception {
+        JfkTableRenderer renderer = new JfkTableRenderer(new JfkTextRenderer());
+        JfkValueResolver resolver = new JfkValueResolver(new JfkRenderData(
+            List.of(dataSourceMeta()),
+            List.of(emptyDataSource())
+        ));
+
+        List<JfkTableRenderer.RowData> rows = renderer.buildElasticRows(table(), resolver);
+
+        assertThat(rows).isEmpty();
+    }
+
+    @Test
     public void buildElasticRowsRejectsMismatchedDataColumnLengths() {
         JfkTableRenderer renderer = new JfkTableRenderer(new JfkTextRenderer());
         JfkValueResolver resolver = new JfkValueResolver(new JfkRenderData(
@@ -136,6 +149,19 @@ public class JfkTableRendererTests {
                 .setId("col_b")
                 .addVals(JfkValPB.newBuilder().setStrVal("x").build())
                 .addVals(JfkValPB.newBuilder().setStrVal("y").build())
+                .build())
+            .build();
+    }
+
+    private JfkDataSourcePB emptyDataSource() {
+        return JfkDataSourcePB.newBuilder()
+            .setId("ds-1")
+            .setMetaId("ds")
+            .addOutputData(JfkFieldDataPB.newBuilder()
+                .setId("col_a")
+                .build())
+            .addOutputData(JfkFieldDataPB.newBuilder()
+                .setId("col_b")
                 .build())
             .build();
     }
