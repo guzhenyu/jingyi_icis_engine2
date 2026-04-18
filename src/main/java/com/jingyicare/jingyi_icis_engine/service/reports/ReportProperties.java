@@ -65,5 +65,11 @@ public class ReportProperties {
         private String template = "classpath:/config/pbtxt/report_compact.pb.txt";
         private String font = "classpath:/fonts/msyh.ttf";
         private int medicationMlDecimalPlaces = 1;
+        private TubePolicy tubePolicy = new TubePolicy();
+    }
+
+    @Data
+    public static class TubePolicy {
+        private boolean firstRecordInShift = true;
     }
 }

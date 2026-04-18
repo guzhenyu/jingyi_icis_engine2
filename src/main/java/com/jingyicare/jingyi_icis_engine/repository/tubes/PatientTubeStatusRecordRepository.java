@@ -63,6 +63,16 @@ public interface PatientTubeStatusRecordRepository extends JpaRepository<Patient
         LocalDateTime start,
         LocalDateTime end);
 
+    @Query("SELECT r FROM PatientTubeStatusRecord r " +
+        "WHERE r.patientTubeRecordId IN :patientTubeRecordIds " +
+        "AND r.isDeleted = false " +
+        "AND r.recordedAt >= :start " +
+        "AND r.recordedAt < :end")
+    List<PatientTubeStatusRecord> findReportStatusRecords(
+        @Param("patientTubeRecordIds") List<Long> patientTubeRecordIds,
+        @Param("start") LocalDateTime start,
+        @Param("end") LocalDateTime end);
+
     /*
     select ptr.tube_name, tts.name, ptsr.recorded_at, ptsr.value
     from patient_tube_status_records ptsr

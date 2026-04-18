@@ -15,6 +15,8 @@ public interface TubeTypeStatusRepository extends JpaRepository<TubeTypeStatus, 
 
     Optional<TubeTypeStatus> findByIdAndIsDeletedFalse(Integer id);
 
+    List<TubeTypeStatus> findByIdInAndIsDeletedFalse(List<Integer> ids);
+
     Optional<TubeTypeStatus> findByTubeTypeIdAndNameAndIsDeletedFalse(Integer tubeTypeId, String name);
 
     List<TubeTypeStatus> findByTubeTypeIdAndIsDeletedFalse(Integer tubeTypeId);

@@ -5584,8 +5584,176 @@ template {
           data_source_meta_id: "medexe_records"
         }
       }
-    }
-  }
+      ac_tables {
+        offset_top: 0
+        tbl {
+          id: "table-251"
+          type: "table"
+          x: 12
+          y: 0
+          z_index: 1
+          rows: 1
+          cols: 1
+          cell_widths: 817.5
+          cell_heights: 12
+          line_width: 0.5
+          line_color: "#000000"
+          column_metas {
+            id: "table-251-col-1"
+            name: "列1"
+            element_meta {
+              content_type: 1
+            }
+            static_vals: "管道"
+          }
+          extend_to_next_page: true
+          next_page_x: 12
+          next_page_y: 0
+          v_align_id: 2
+          h_align_id: 4
+          font: "Microsoft YaHei"
+          font_size: 8
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+          h_replicas: 0
+	          h_replica_data_direction_is_col: true
+	        }
+	      }
+	      ac_tables {
+	        offset_top: 0
+	        tbl {
+	          id: "table-252"
+	          type: "table"
+	          x: 12
+	          y: 0
+	          z_index: 1
+	          rows: 1
+	          cols: 4
+	          cell_widths: 100
+	          cell_widths: 100
+	          cell_widths: 80
+	          cell_widths: 536
+	          cell_heights: 12
+	          line_width: 0.5
+	          line_color: "#000000"
+	          column_metas {
+	            id: "table-252-col-1"
+	            name: "管道名称"
+	            element_meta {
+	              content_type: 1
+	            }
+	            static_vals: "管道名称"
+	          }
+	          column_metas {
+	            id: "table-252-col-2"
+	            name: "置管时间"
+	            element_meta {
+	              content_type: 1
+	            }
+	            static_vals: "置管时间"
+	          }
+	          column_metas {
+	            id: "table-252-col-3"
+	            name: "持续天数"
+	            element_meta {
+	              content_type: 1
+	            }
+	            static_vals: "持续天数"
+	          }
+	          column_metas {
+	            id: "table-252-col-4"
+	            name: "管道维护状态"
+	            element_meta {
+	              content_type: 1
+	            }
+	            static_vals: "管道维护状态"
+	          }
+	          extend_to_next_page: true
+	          next_page_x: 12
+	          next_page_y: 0
+	          v_align_id: 2
+	          h_align_id: 5
+	          font: "Microsoft YaHei"
+	          font_size: 6
+	          font_color: "#000000"
+	          char_spacing: 0
+	          h_padding: 2
+	          h_replicas: 0
+	          h_replica_data_direction_is_col: true
+	        }
+	      }
+	      ac_tables {
+	        offset_top: 0
+	        tbl {
+	          id: "table-253"
+	          type: "table"
+	          x: 12
+	          y: 0
+	          z_index: 1
+	          rows: 1
+	          cols: 4
+	          cell_widths: 100
+	          cell_widths: 100
+	          cell_widths: 80
+	          cell_widths: 536
+	          cell_heights: 12
+	          line_width: 0.5
+	          line_color: "#000000"
+	          column_metas {
+	            id: "table-253-col-1"
+	            name: "管道名称"
+	            element_meta {
+	              content_type: 4
+	              data_source_meta_id: "patient_tube_records"
+	              data_source_field_id: "tube_name"
+	            }
+	          }
+	          column_metas {
+	            id: "table-253-col-2"
+	            name: "置管时间"
+	            element_meta {
+	              content_type: 4
+	              data_source_meta_id: "patient_tube_records"
+	              data_source_field_id: "inserted_at"
+	            }
+	          }
+	          column_metas {
+	            id: "table-253-col-3"
+	            name: "持续天数"
+	            element_meta {
+	              content_type: 4
+	              data_source_meta_id: "patient_tube_records"
+	              data_source_field_id: "duration_days"
+	            }
+	          }
+	          column_metas {
+	            id: "table-253-col-4"
+	            name: "管道维护状态"
+	            element_meta {
+	              content_type: 4
+	              data_source_meta_id: "patient_tube_records"
+	              data_source_field_id: "maintenance_status"
+	            }
+              h_align_id: 4
+	          }
+	          extend_to_next_page: false
+	          next_page_x: 12
+	          next_page_y: 0
+	          v_align_id: 2
+	          h_align_id: 5
+	          font: "Microsoft YaHei"
+	          font_size: 6
+	          font_color: "#000000"
+	          char_spacing: 0
+	          h_padding: 2
+	          h_replicas: 0
+	          h_replica_data_direction_is_col: true
+	          data_source_meta_id: "patient_tube_records"
+	        }
+	      }
+	    }
+	  }
   page_expandable: true
 }
 logo {

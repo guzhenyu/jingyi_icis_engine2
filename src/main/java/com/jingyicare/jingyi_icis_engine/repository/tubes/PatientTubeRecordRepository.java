@@ -41,6 +41,16 @@ public interface PatientTubeRecordRepository extends JpaRepository<PatientTubeRe
         @Param("queryStart") LocalDateTime queryStart,
         @Param("queryEnd") LocalDateTime queryEnd);
 
+    @Query("SELECT ptr FROM PatientTubeRecord ptr " +
+           "WHERE ptr.pid = :pid " +
+           "AND ptr.insertedAt < :queryEnd " +
+           "AND (ptr.removedAt IS NULL OR ptr.removedAt >= :queryStart) " +
+           "AND ptr.isDeleted = false")
+    List<PatientTubeRecord> findReportTubeRecords(
+        @Param("pid") Long pid,
+        @Param("queryStart") LocalDateTime queryStart,
+        @Param("queryEnd") LocalDateTime queryEnd);
+
     List<PatientTubeRecord> findByRootTubeRecordIdInAndIsDeletedFalse(List<Long> rootTubeRecordIds);
 
     List<PatientTubeRecord> findByPidAndIsDeletedFalseAndRemovedAtNotNullAndRemovedAtBetween(

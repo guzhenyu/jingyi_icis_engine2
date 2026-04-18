@@ -176,6 +176,30 @@ template {
           data_source_meta_id: "medexe_records"
         }
       }
+      ac_tables {
+        offset_top: 0
+        tbl {
+          id: "table-253"
+          type: "table"
+          x: 12
+          y: 0
+          rows: 1
+          cols: 4
+          cell_widths: 100
+          cell_widths: 100
+          cell_widths: 80
+          cell_widths: 536
+          cell_heights: 12
+          v_align_id: 2
+          h_align_id: 5
+          font: "Microsoft YaHei"
+          font_size: 6
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+          data_source_meta_id: "patient_tube_records"
+        }
+      }
     }
   }
 }

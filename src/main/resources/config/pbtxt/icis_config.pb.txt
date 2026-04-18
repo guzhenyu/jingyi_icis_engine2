@@ -11366,20 +11366,73 @@ jfk {
             is_array: true
             is_options: false
         }
-        output_fields {
-            id: "hour24"
-            name: "第24小时"
-            val_meta {
-                val_type: 9 # STRINGS
+	        output_fields {
+	            id: "hour24"
+	            name: "第24小时"
+	            val_meta {
+	                val_type: 9 # STRINGS
             }
             content_type: 4 # JFK_DATA_SOURCE
             is_array: true
-            is_options: false
-        }
-    }
-    data_sources {
-        id: "patient_monitoring_records"
-        name: "观察项记录"
+	            is_options: false
+	        }
+	    }
+	    data_sources {
+	        id: "patient_tube_records"
+	        name: "管道维护记录"
+	        input_field_ids: "pid"
+	        input_field_ids: "dept_id"
+	        input_field_ids: "query_start"
+	        input_field_ids: "query_end"
+	        input_field_ids: "table_id"
+	        input_field_ids: "col_widths"
+	        input_field_ids: "font_size"
+	        input_field_ids: "char_spacing"
+	        input_field_ids: "h_padding"
+	        output_fields {
+	            id: "tube_name"
+	            name: "管道名称"
+	            val_meta {
+	                val_type: 9 # STRINGS
+	            }
+	            content_type: 4 # JFK_DATA_SOURCE
+	            is_array: true
+	            is_options: false
+	        }
+	        output_fields {
+	            id: "inserted_at"
+	            name: "置管时间"
+	            val_meta {
+	                val_type: 9 # STRINGS
+	            }
+	            content_type: 4 # JFK_DATA_SOURCE
+	            is_array: true
+	            is_options: false
+	        }
+	        output_fields {
+	            id: "duration_days"
+	            name: "持续天数"
+	            val_meta {
+	                val_type: 9 # STRINGS
+	            }
+	            content_type: 4 # JFK_DATA_SOURCE
+	            is_array: true
+	            is_options: false
+	        }
+	        output_fields {
+	            id: "maintenance_status"
+	            name: "管道维护状态"
+	            val_meta {
+	                val_type: 9 # STRINGS
+	            }
+	            content_type: 4 # JFK_DATA_SOURCE
+	            is_array: true
+	            is_options: false
+	        }
+	    }
+	    data_sources {
+	        id: "patient_monitoring_records"
+	        name: "观察项记录"
         input_field_ids: "pid"
         input_field_ids: "query_start"
         input_field_ids: "query_end"
