@@ -42,6 +42,7 @@ public class CompactReportDataSourceBuilder {
         }
         inputs.addAll(buildPatientMonitoringRecordsInputs(compactTemplate, request));
         inputs.addAll(buildPatientBgaRecordsInputs(compactTemplate, request));
+        inputs.addAll(buildPatientBalanceRecordsInputs(compactTemplate, request));
         return inputs;
     }
 
@@ -99,6 +100,40 @@ public class CompactReportDataSourceBuilder {
             inputs.add(commonInputBuilder(JfkDataSourceIds.PATIENT_BGA_RECORDS, request)
                 .setId(JfkDataSourceIds.compactTableScoped(JfkDataSourceIds.PATIENT_BGA_RECORDS, table.getId()))
                 .addInputData(strInput("table_id", table.getId()))
+                .addInputData(doubleArrayInput("col_widths", table.getCellWidthsList()))
+                .addInputData(doubleInput("font_size", table.getFontSize()))
+                .addInputData(doubleInput("char_spacing", table.getCharSpacing()))
+                .addInputData(doubleInput("h_padding", table.getHPadding()))
+                .build());
+        }
+        return inputs;
+    }
+
+    private List<JfkDataSourcePB> buildPatientBalanceRecordsInputs(
+        CompactReportTemplatePB compactTemplate,
+        MonitoringReportRequest request
+    ) {
+        Map<String, ReportMonGroupPB> balanceGroupByTableId = new LinkedHashMap<>();
+        for (ReportMonGroupPB balanceGroup : compactTemplate.getBalanceGroupList()) {
+            if (!StrUtils.isBlank(balanceGroup.getTableId())) {
+                balanceGroupByTableId.putIfAbsent(balanceGroup.getTableId(), balanceGroup);
+            }
+        }
+
+        List<JfkDataSourcePB> inputs = new ArrayList<>();
+        for (JfkTablePB table : collectTables(compactTemplate.getTemplate())) {
+            if (!JfkDataSourceIds.PATIENT_BALANCE_RECORDS.equals(table.getDataSourceMetaId())) {
+                continue;
+            }
+            ReportMonGroupPB balanceGroup = balanceGroupByTableId.get(table.getId());
+            if (balanceGroup == null || balanceGroup.getParamCodeCount() == 0) {
+                continue;
+            }
+
+            inputs.add(commonInputBuilder(JfkDataSourceIds.PATIENT_BALANCE_RECORDS, request)
+                .setId(JfkDataSourceIds.compactTableScoped(JfkDataSourceIds.PATIENT_BALANCE_RECORDS, table.getId()))
+                .addInputData(strInput("table_id", table.getId()))
+                .addInputData(strArrayInput("balance_param_codes", balanceGroup.getParamCodeList()))
                 .addInputData(doubleArrayInput("col_widths", table.getCellWidthsList()))
                 .addInputData(doubleInput("font_size", table.getFontSize()))
                 .addInputData(doubleInput("char_spacing", table.getCharSpacing()))

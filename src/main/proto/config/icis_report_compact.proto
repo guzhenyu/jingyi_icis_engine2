@@ -10,4 +10,5 @@ message CompactReportTemplatePB {
     LogoMetaPB logo = 2;
     repeated ReportMonGroupPB mon_group = 3;
     string bga_table_id = 4;
+    repeated ReportMonGroupPB balance_group = 5;
 }

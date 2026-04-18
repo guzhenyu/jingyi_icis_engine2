@@ -11090,6 +11090,280 @@ jfk {
         }
     }
     data_sources {
+        id: "patient_balance_records"
+        name: "出入量记录"
+        input_field_ids: "pid"
+        input_field_ids: "dept_id"
+        input_field_ids: "query_start"
+        input_field_ids: "query_end"
+        input_field_ids: "balance_param_codes"
+        input_field_ids: "col_widths"
+        input_field_ids: "table_id"
+        input_field_ids: "font_size"
+        input_field_ids: "char_spacing"
+        input_field_ids: "h_padding"
+        output_fields {
+            id: "param_name"
+            name: "出入量参数名称"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "acc_ml"
+            name: "累计量ml"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "hour1"
+            name: "第1小时"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "hour2"
+            name: "第2小时"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "hour3"
+            name: "第3小时"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "hour4"
+            name: "第4小时"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "hour5"
+            name: "第5小时"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "hour6"
+            name: "第6小时"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "hour7"
+            name: "第7小时"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "hour8"
+            name: "第8小时"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "hour9"
+            name: "第9小时"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "hour10"
+            name: "第10小时"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "hour11"
+            name: "第11小时"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "hour12"
+            name: "第12小时"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "hour13"
+            name: "第13小时"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "hour14"
+            name: "第14小时"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "hour15"
+            name: "第15小时"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "hour16"
+            name: "第16小时"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "hour17"
+            name: "第17小时"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "hour18"
+            name: "第18小时"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "hour19"
+            name: "第19小时"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "hour20"
+            name: "第20小时"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "hour21"
+            name: "第21小时"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "hour22"
+            name: "第22小时"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "hour23"
+            name: "第23小时"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+        output_fields {
+            id: "hour24"
+            name: "第24小时"
+            val_meta {
+                val_type: 9 # STRINGS
+            }
+            content_type: 4 # JFK_DATA_SOURCE
+            is_array: true
+            is_options: false
+        }
+    }
+    data_sources {
         id: "patient_bga_records"
         name: "血气记录"
         input_field_ids: "pid"
