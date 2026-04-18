@@ -14,6 +14,8 @@ public interface PatientSkincarePlanRepository extends JpaRepository<PatientSkin
 
     List<PatientSkincarePlan> findByPidAndSkincareTypeIdAndIsDeletedFalse(Long pid, Integer skincareTypeId);
 
+    List<PatientSkincarePlan> findByIdInAndIsDeletedFalse(List<Long> ids);
+
     List<PatientSkincarePlan> findByPidAndCreatedAtBetweenAndIsDeletedFalse(
         Long pid, LocalDateTime startTime, LocalDateTime endTime
     );

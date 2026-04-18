@@ -47,6 +47,7 @@ public class CompactReportDataSourceBuilder {
         inputs.addAll(buildMedexeRecordsInputs(compactTemplate, request));
         inputs.addAll(buildPatientTubeRecordsInputs(compactTemplate, request));
         inputs.addAll(buildPatientNursingRecordsInputs(compactTemplate, request));
+        inputs.addAll(buildPatientSkincareRecordsInputs(compactTemplate, request));
         return inputs;
     }
 
@@ -215,6 +216,28 @@ public class CompactReportDataSourceBuilder {
 
             inputs.add(commonInputBuilder(JfkDataSourceIds.PATIENT_NURSING_RECORDS, request)
                 .setId(JfkDataSourceIds.compactTableScoped(JfkDataSourceIds.PATIENT_NURSING_RECORDS, table.getId()))
+                .addInputData(strInput("table_id", table.getId()))
+                .addInputData(doubleArrayInput("col_widths", table.getCellWidthsList()))
+                .addInputData(doubleInput("font_size", table.getFontSize()))
+                .addInputData(doubleInput("char_spacing", table.getCharSpacing()))
+                .addInputData(doubleInput("h_padding", table.getHPadding()))
+                .build());
+        }
+        return inputs;
+    }
+
+    private List<JfkDataSourcePB> buildPatientSkincareRecordsInputs(
+        CompactReportTemplatePB compactTemplate,
+        MonitoringReportRequest request
+    ) {
+        List<JfkDataSourcePB> inputs = new ArrayList<>();
+        for (JfkTablePB table : collectTables(compactTemplate.getTemplate())) {
+            if (!JfkDataSourceIds.PATIENT_SKINCARE_RECORDS.equals(table.getDataSourceMetaId())) {
+                continue;
+            }
+
+            inputs.add(commonInputBuilder(JfkDataSourceIds.PATIENT_SKINCARE_RECORDS, request)
+                .setId(JfkDataSourceIds.compactTableScoped(JfkDataSourceIds.PATIENT_SKINCARE_RECORDS, table.getId()))
                 .addInputData(strInput("table_id", table.getId()))
                 .addInputData(doubleArrayInput("col_widths", table.getCellWidthsList()))
                 .addInputData(doubleInput("font_size", table.getFontSize()))

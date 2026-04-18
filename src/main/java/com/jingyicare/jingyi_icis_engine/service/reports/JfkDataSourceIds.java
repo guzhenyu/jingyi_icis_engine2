@@ -13,6 +13,7 @@ public final class JfkDataSourceIds {
     public static final String MEDEXE_RECORDS = "medexe_records";
     public static final String PATIENT_TUBE_RECORDS = "patient_tube_records";
     public static final String PATIENT_NURSING_RECORDS = "patient_nursing_records";
+    public static final String PATIENT_SKINCARE_RECORDS = "patient_skincare_records";
 
     public static boolean isCompactTableScoped(String metaId) {
         return PATIENT_MONITORING_RECORDS.equals(metaId)
@@ -20,7 +21,8 @@ public final class JfkDataSourceIds {
             || PATIENT_BALANCE_RECORDS.equals(metaId)
             || MEDEXE_RECORDS.equals(metaId)
             || PATIENT_TUBE_RECORDS.equals(metaId)
-            || PATIENT_NURSING_RECORDS.equals(metaId);
+            || PATIENT_NURSING_RECORDS.equals(metaId)
+            || PATIENT_SKINCARE_RECORDS.equals(metaId);
     }
 
     public static String compactTableScoped(String metaId, String tableId) {

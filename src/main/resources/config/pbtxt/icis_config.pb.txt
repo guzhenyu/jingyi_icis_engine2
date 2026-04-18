@@ -11484,6 +11484,49 @@ jfk {
 	        }
 	    }
 	    data_sources {
+	        id: "patient_skincare_records"
+	        name: "皮肤护理记录"
+	        input_field_ids: "pid"
+	        input_field_ids: "dept_id"
+	        input_field_ids: "query_start"
+	        input_field_ids: "query_end"
+	        input_field_ids: "table_id"
+	        input_field_ids: "col_widths"
+	        input_field_ids: "font_size"
+	        input_field_ids: "char_spacing"
+	        input_field_ids: "h_padding"
+	        output_fields {
+	            id: "record_time"
+	            name: "时间"
+	            val_meta {
+	                val_type: 9 # STRINGS
+	            }
+	            content_type: 4 # JFK_DATA_SOURCE
+	            is_array: true
+	            is_options: false
+	        }
+	        output_fields {
+	            id: "content"
+	            name: "皮肤护理内容"
+	            val_meta {
+	                val_type: 9 # STRINGS
+	            }
+	            content_type: 4 # JFK_DATA_SOURCE
+	            is_array: true
+	            is_options: false
+	        }
+	        output_fields {
+	            id: "recorded_by"
+	            name: "记录人"
+	            val_meta {
+	                val_type: 9 # STRINGS
+	            }
+	            content_type: 4 # JFK_DATA_SOURCE
+	            is_array: true
+	            is_options: false
+	        }
+	    }
+	    data_sources {
 	        id: "patient_monitoring_records"
 	        name: "观察项记录"
         input_field_ids: "pid"
