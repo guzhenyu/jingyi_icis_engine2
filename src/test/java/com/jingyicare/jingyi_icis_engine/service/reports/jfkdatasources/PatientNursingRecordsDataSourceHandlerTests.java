@@ -55,9 +55,9 @@ public class PatientNursingRecordsDataSourceHandlerTests {
             .patientId(10001L)
             .effectiveTime(LocalDateTime.of(2026, 4, 17, 0, 10))
             .content("护理第一行\n护理第二行")
-            .createdBy("fallback-creator")
+            .createdBy("101")
             .createdByAccountName("张护士")
-            .reviewedBy("fallback-reviewer")
+            .reviewedBy("102")
             .reviewedByAccountName("李护士")
             .isDeleted(false)
             .build();
@@ -71,19 +71,19 @@ public class PatientNursingRecordsDataSourceHandlerTests {
                 monitoringRecord(4L, "missing", LocalDateTime.of(2026, 4, 17, 0, 10), "ignored", "", "104")
             ));
         when(ctx.accountRepo.findByIdInAndIsDeletedFalse(any())).thenReturn(List.of(
-            account(101L, "体温记录人"),
-            account(102L, "心率记录人")
+            account(101L, "体温记录人", SIGNATURE_PNG),
+            account(102L, "心率记录人", SIGNATURE_PNG)
         ));
         when(ctx.monitoringConfig.getMonitoringParams("patient-dept")).thenReturn(Map.of(
-            "temperature", param("temperature", "体温", 10, valueMeta(TypeEnumPB.FLOAT)),
-            "hr", param("hr", "心率", 20, valueMeta(TypeEnumPB.INT32))
+            "temperature", param("temperature", "体温", 10, valueMeta(TypeEnumPB.FLOAT, "℃")),
+            "hr", param("hr", "心率", 20, valueMeta(TypeEnumPB.INT32, "次/分"))
         ));
         when(ctx.monitoringConfig.getMonitoringGroups(any(), any(), anyInt(), any(), any())).thenReturn(List.of(
             MonitoringGroupBetaPB.newBuilder()
                 .setId(1)
                 .setDisplayOrder(1)
-                .addParam(param("temperature", "体温", 1, valueMeta(TypeEnumPB.FLOAT)))
-                .addParam(param("hr", "心率", 2, valueMeta(TypeEnumPB.INT32)))
+                .addParam(param("temperature", "体温", 1, valueMeta(TypeEnumPB.FLOAT, "℃")))
+                .addParam(param("hr", "心率", 2, valueMeta(TypeEnumPB.INT32, "次/分")))
                 .build()
         ));
 
@@ -97,10 +97,10 @@ public class PatientNursingRecordsDataSourceHandlerTests {
         );
         assertThat(output.get("content")).containsExactly(
             List.of("护理第一行", "护理第二行"),
-            List.of("体温: 36.8; 心率: 88")
+            List.of("体温: 36.8 ℃; 心率: 88 次/分")
         );
-        assertThat(output.get("recorded_by")).containsExactly(List.of("张护士"), List.of("体温记录人"));
-        assertThat(output.get("reviewed_by")).containsExactly(List.of("李护士"), List.of(""));
+        assertThat(output.get("recorded_by")).containsExactly(List.of(SIGNATURE_PNG), List.of(SIGNATURE_PNG));
+        assertThat(output.get("reviewed_by")).containsExactly(List.of(SIGNATURE_PNG), List.of(""));
 
         verify(ctx.nursingRecordRepo).findReportNursingRecords(10001L, MON_START_UTC, MON_END_UTC);
         verify(ctx.monitoringRecordRepo).findByPidAndEffectiveTimeRange(10001L, MON_START_UTC, MON_END_UTC);
@@ -172,9 +172,10 @@ public class PatientNursingRecordsDataSourceHandlerTests {
             .build();
     }
 
-    private static ValueMetaPB valueMeta(TypeEnumPB type) {
+    private static ValueMetaPB valueMeta(TypeEnumPB type, String unit) {
         return ValueMetaPB.newBuilder()
             .setValueType(type)
+            .setUnit(unit)
             .build();
     }
 
@@ -184,11 +185,12 @@ public class PatientNursingRecordsDataSourceHandlerTests {
             .build());
     }
 
-    private static Account account(Long id, String name) {
+    private static Account account(Long id, String name, String signPic) {
         Account account = new Account();
         account.setId(id);
         account.setAccountId("account-" + id);
         account.setName(name);
+        account.setSignPic(signPic);
         account.setIsDeleted(false);
         return account;
     }
@@ -228,7 +230,9 @@ public class PatientNursingRecordsDataSourceHandlerTests {
             .collect(Collectors.toMap(
                 JfkFieldDataPB::getId,
                 field -> field.getValsList().stream()
-                    .map(val -> List.copyOf(val.getStrsValList()))
+                    .map(val -> val.getStrsValCount() > 0
+                        ? List.copyOf(val.getStrsValList())
+                        : List.of(val.getStrVal()))
                     .toList()
             ));
     }
@@ -296,4 +300,6 @@ public class PatientNursingRecordsDataSourceHandlerTests {
     private static final LocalDateTime MON_END_UTC = LocalDateTime.of(2026, 4, 17, 23, 0);
     private static final LocalDateTime MON_START_LOCAL = LocalDateTime.of(2026, 4, 17, 7, 0);
     private static final LocalDateTime MON_END_LOCAL = LocalDateTime.of(2026, 4, 18, 7, 0);
+    private static final String SIGNATURE_PNG =
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
 }

@@ -107,6 +107,70 @@ public class PatientMonitoringRecordsDataSourceHandlerTests {
             10001L, List.of("temperature", "pr"), monStart, monStart.plusHours(24));
     }
 
+    @Test
+    public void handleFiltersParamsWithoutRecordsWhenConfigured() {
+        JfkDataSourceSupport support = mockSupport();
+        PatientMonitoringRecordRepository recordRepo = mock(PatientMonitoringRecordRepository.class);
+        BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
+        MonitoringConfig monitoringConfig = mock(MonitoringConfig.class);
+        ReportProperties reportProperties = new ReportProperties();
+        reportProperties.getCompact().getPatientMonitoringRecords().setFilterEmptyParams(true);
+        PatientMonitoringRecordsDataSourceHandler handler = new PatientMonitoringRecordsDataSourceHandler(
+            support,
+            recordRepo,
+            balanceStatsShiftRepo,
+            monitoringConfig,
+            reportProperties,
+            new DefaultResourceLoader()
+        );
+
+        LocalDateTime utcEnd = LocalDateTime.of(2026, 4, 17, 0, 0);
+        when(balanceStatsShiftRepo
+            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept", utcEnd))
+            .thenReturn(Optional.of(BalanceStatsShift.builder()
+                .id(1L)
+                .deptId("patient-dept")
+                .startHour(6)
+                .monStartHour(7)
+                .effectiveTime(LocalDateTime.of(2026, 4, 1, 0, 0))
+                .isDeleted(false)
+                .build()));
+
+        when(monitoringConfig.getMonitoringParams("patient-dept")).thenReturn(Map.of(
+            "temperature", param("temperature", "体温", valueMeta(TypeEnumPB.FLOAT, "℃")),
+            "pr", param("pr", "脉搏", valueMeta(TypeEnumPB.INT32, "次/分"))
+        ));
+
+        LocalDateTime monStart = LocalDateTime.of(2026, 4, 16, 7, 0);
+        when(recordRepo.findByPidAndParamCodesAndEffectiveTimeRange(
+            10001L, List.of("temperature", "pr"), monStart, monStart.plusHours(24)))
+            .thenReturn(List.of(
+                record("pr", monStart.plusHours(1), "88", null, LocalDateTime.of(2026, 4, 16, 8, 5))
+            ));
+
+        Pair<ReturnCode, JfkDataSourcePB> result = handler.handle(JfkDataSourcePB.newBuilder()
+            .setId(JfkDataSourceIds.compactTableScoped(JfkDataSourceIds.PATIENT_MONITORING_RECORDS, "table-28"))
+            .setMetaId(JfkDataSourceIds.PATIENT_MONITORING_RECORDS)
+            .addInputData(int64Input("pid", 10001L))
+            .addInputData(strInput("dept_id", "patient-dept"))
+            .addInputData(strInput("query_start", "2026-04-16T00:00Z"))
+            .addInputData(strInput("table_id", "table-28"))
+            .addInputData(strArrayInput("monitoring_param_codes", List.of("temperature", "pr")))
+            .addInputData(doubleArrayInput("col_widths", Collections.nCopies(26, 40d)))
+            .addInputData(doubleInput("font_size", 8d))
+            .addInputData(doubleInput("char_spacing", 0d))
+            .addInputData(doubleInput("h_padding", 2d))
+            .build());
+
+        assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        Map<String, List<List<String>>> output = toOutputMap(result.getSecond());
+        assertThat(output.get("param_name")).containsExactly(List.of("脉搏"));
+        assertThat(output.get("param_unit")).containsExactly(List.of("次/分"));
+        assertThat(output.get("hour1")).containsExactly(List.of(""));
+        assertThat(output.get("hour2")).containsExactly(List.of("88"));
+        assertThat(output.get("hour24")).hasSize(1);
+    }
+
     private JfkDataSourceSupport mockSupport() {
         PatientService patientService = mock(PatientService.class);
         PatientRecord patient = new PatientRecord();

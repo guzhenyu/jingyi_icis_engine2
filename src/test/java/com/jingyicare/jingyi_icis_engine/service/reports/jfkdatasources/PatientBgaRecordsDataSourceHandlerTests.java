@@ -22,6 +22,7 @@ import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientBgaRecord;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientBgaRecordDetail;
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
 import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
+import com.jingyicare.jingyi_icis_engine.entity.users.Account;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisBga.BgaConfigPB;
@@ -39,6 +40,7 @@ import com.jingyicare.jingyi_icis_engine.repository.monitorings.BgaParamReposito
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientBgaRecordDetailRepository;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientBgaRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
+import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
@@ -49,7 +51,7 @@ import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
 public class PatientBgaRecordsDataSourceHandlerTests {
     @Test
-    public void handleBuildsHeaderAndRowsFromPatientBgaRecords() {
+    public void handleBuildsRowsFromPatientBgaRecords() {
         TestContext ctx = new TestContext();
         PatientBgaRecordsDataSourceHandler handler = ctx.handler();
 
@@ -85,16 +87,20 @@ public class PatientBgaRecordsDataSourceHandlerTests {
             "bga_ph", param("bga_ph", "pH", valueMeta(TypeEnumPB.STRING)),
             "bga_po2", param("bga_po2", "氧分压", valueMeta(TypeEnumPB.INT32))
         ));
+        when(ctx.accountRepo.findByIdInAndIsDeletedFalse(any())).thenReturn(List.of(
+            account(101L, "张护士", SIGNATURE_PNG),
+            account(102L, "李医生", SIGNATURE_PNG)
+        ));
 
         Pair<ReturnCode, JfkDataSourcePB> result = handler.handle(input());
 
         assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
         Map<String, List<List<String>>> output = toOutputMap(result.getSecond());
-        assertThat(output.get("date_str")).containsExactly(List.of("时间"), List.of("2026-04-16 8:20"));
-        assertThat(output.get("category_name")).containsExactly(List.of("血气类别"), List.of("备用血气"));
-        assertThat(output.get("bga_details")).containsExactly(List.of("血气记录"), List.of("氧分压: 86; pH: 7.35"));
-        assertThat(output.get("recorded_by")).containsExactly(List.of("记录人"), List.of("张护士"));
-        assertThat(output.get("reviewed_by")).containsExactly(List.of("审核人"), List.of("李医生"));
+        assertThat(output.get("date_str")).containsExactly(List.of("2026-04-16 8:20"));
+        assertThat(output.get("category_name")).containsExactly(List.of("备用血气"));
+        assertThat(output.get("bga_details")).containsExactly(List.of("氧分压: 86; pH: 7.35"));
+        assertThat(output.get("recorded_by")).containsExactly(List.of(SIGNATURE_PNG));
+        assertThat(output.get("reviewed_by")).containsExactly(List.of(SIGNATURE_PNG));
 
         verify(ctx.recordRepo)
             .findByPidAndEffectiveTimeGreaterThanEqualAndEffectiveTimeLessThanAndIsDeletedFalseOrderByEffectiveTimeAsc(
@@ -136,11 +142,11 @@ public class PatientBgaRecordsDataSourceHandlerTests {
 
     private JfkDataSourcePB input() {
         return JfkDataSourcePB.newBuilder()
-            .setId(JfkDataSourceIds.compactTableScoped(JfkDataSourceIds.PATIENT_BGA_RECORDS, "table-38"))
+            .setId(JfkDataSourceIds.compactTableScoped(JfkDataSourceIds.PATIENT_BGA_RECORDS, "table-38-2"))
             .setMetaId(JfkDataSourceIds.PATIENT_BGA_RECORDS)
             .addInputData(int64Input("pid", 10001L))
             .addInputData(strInput("query_start", "2026-04-16T00:00Z"))
-            .addInputData(strInput("table_id", "table-38"))
+            .addInputData(strInput("table_id", "table-38-2"))
             .addInputData(doubleArrayInput("col_widths", List.of(74d, 60d, 561.5d, 60d, 60d)))
             .addInputData(doubleInput("font_size", 6d))
             .addInputData(doubleInput("char_spacing", 0d))
@@ -156,7 +162,9 @@ public class PatientBgaRecordsDataSourceHandlerTests {
             .bgaCategoryId(categoryId)
             .bgaCategoryName(categoryName)
             .effectiveTime(effectiveTime)
+            .recordedBy("101")
             .recordedByAccountName("张护士")
+            .reviewedBy("102")
             .reviewedByAccountName("李医生")
             .isDeleted(false)
             .modifiedAt(LocalDateTime.of(2026, 4, 16, 1, 0))
@@ -206,6 +214,16 @@ public class PatientBgaRecordsDataSourceHandlerTests {
             .build());
     }
 
+    private Account account(Long id, String name, String signPic) {
+        Account account = new Account();
+        account.setId(id);
+        account.setAccountId("account-" + id);
+        account.setName(name);
+        account.setSignPic(signPic);
+        account.setIsDeleted(false);
+        return account;
+    }
+
     private JfkFieldDataPB strInput(String id, String value) {
         return JfkFieldDataPB.newBuilder()
             .setId(id)
@@ -241,7 +259,9 @@ public class PatientBgaRecordsDataSourceHandlerTests {
             .collect(Collectors.toMap(
                 JfkFieldDataPB::getId,
                 field -> field.getValsList().stream()
-                    .map(val -> List.copyOf(val.getStrsValList()))
+                    .map(val -> val.getStrsValCount() > 0
+                        ? List.copyOf(val.getStrsValList())
+                        : List.of(val.getStrVal()))
                     .toList()
             ));
     }
@@ -255,6 +275,7 @@ public class PatientBgaRecordsDataSourceHandlerTests {
         private final BgaParamRepository bgaParamRepo = mock(BgaParamRepository.class);
         private final MonitoringConfig monitoringConfig = mock(MonitoringConfig.class);
         private final ConfigProtoService configProtoService = mock(ConfigProtoService.class);
+        private final AccountRepository accountRepo = mock(AccountRepository.class);
 
         private TestContext() {
             PatientRecord patient = new PatientRecord();
@@ -290,9 +311,13 @@ public class PatientBgaRecordsDataSourceHandlerTests {
                 bgaParamRepo,
                 monitoringConfig,
                 configProtoService,
+                accountRepo,
                 new ReportProperties(),
                 new DefaultResourceLoader()
             );
         }
     }
+
+    private static final String SIGNATURE_PNG =
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
 }

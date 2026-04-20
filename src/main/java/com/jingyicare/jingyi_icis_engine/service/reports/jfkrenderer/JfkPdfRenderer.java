@@ -143,7 +143,7 @@ public class JfkPdfRenderer {
         float x = state.extensionIndex > 1 ? table.getNextPageX() : table.getX();
         float y = state.extensionIndex > 1 ? table.getNextPageY() : table.getY();
         List<JfkTableRenderer.RowData> rows = tableRenderer.buildFixedRows(table, context.valueResolver);
-        tableRenderer.drawRows(context.contentStream, context.font, table, x, y, rows);
+        tableRenderer.drawRows(context.document, context.contentStream, context.font, table, x, y, rows);
     }
 
     private void renderAbsoluteLine(
@@ -253,7 +253,7 @@ public class JfkPdfRenderer {
             );
         }
         float bottom = top - tableHeight;
-        tableRenderer.drawRows(context.contentStream, context.font, table, table.getX(), bottom, rows);
+        tableRenderer.drawRows(context.document, context.contentStream, context.font, table, table.getX(), bottom, rows);
         return new FlowTableResult(bottom, lineWidth);
     }
 
@@ -308,7 +308,7 @@ public class JfkPdfRenderer {
             List<JfkTableRenderer.RowData> segment = rows.subList(start, end);
             float segmentHeight = segmentHeight(segment, lineWidth);
             float bottom = top - segmentHeight;
-            tableRenderer.drawRows(context.contentStream, context.font, table, table.getX(), bottom, segment);
+            tableRenderer.drawRows(context.document, context.contentStream, context.font, table, table.getX(), bottom, segment);
             rowIndex = end;
             top = bottom;
 

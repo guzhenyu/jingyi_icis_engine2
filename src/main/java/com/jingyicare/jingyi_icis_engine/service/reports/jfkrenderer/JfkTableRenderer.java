@@ -9,10 +9,14 @@ import java.util.Map;
 import java.util.StringJoiner;
 
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.font.PDFont;
+import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkTableColumnMetaPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkTablePB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValPB;
+import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkImageUtils;
 
 public class JfkTableRenderer {
     public JfkTableRenderer(JfkTextRenderer textRenderer) {
@@ -85,6 +89,7 @@ public class JfkTableRenderer {
     }
 
     public void drawRows(
+        PDDocument document,
         PDPageContentStream contentStream,
         PDFont font,
         JfkTablePB table,
@@ -100,7 +105,7 @@ public class JfkTableRenderer {
         for (RowData row : rows) contentHeight += row.height();
 
         drawGrid(contentStream, table, left, bottom, cellWidths, rows, contentWidth, contentHeight, lineWidth);
-        drawCells(contentStream, font, table, left, bottom, cellWidths, rows, lineWidth, contentHeight);
+        drawCells(document, contentStream, font, table, left, bottom, cellWidths, rows, lineWidth, contentHeight);
     }
 
     private RowData buildRow(
@@ -112,10 +117,13 @@ public class JfkTableRenderer {
         List<CellData> cells = new ArrayList<>();
         for (int colIndex = 0; colIndex < table.getColumnMetasCount(); colIndex++) {
             JfkTableColumnMetaPB columnMeta = table.getColumnMetas(colIndex);
-            List<String> lines = valueResolver.resolveCellLines(table, columnMeta, rowIndex);
+            JfkValueResolver.ResolvedCell resolvedCell = valueResolver.resolveCell(table, columnMeta, rowIndex);
+            List<String> lines = resolvedCell.lines();
             cells.add(new CellData(
                 colIndex,
                 lines == null || lines.isEmpty() ? List.of("") : lines,
+                resolvedCell.val(),
+                resolvedCell.valType(),
                 columnMeta.getHAlignId() > 0 ? columnMeta.getHAlignId() : table.getHAlignId(),
                 columnMeta.getVAlignId() > 0 ? columnMeta.getVAlignId() : table.getVAlignId()
             ));
@@ -163,6 +171,7 @@ public class JfkTableRenderer {
     }
 
     private void drawCells(
+        PDDocument document,
         PDPageContentStream contentStream,
         PDFont font,
         JfkTablePB table,
@@ -177,11 +186,17 @@ public class JfkTableRenderer {
         float charSpacing = JfkRenderUtils.finite(table.getCharSpacing(), 0f);
         float hPadding = Math.max(0f, JfkRenderUtils.finite(table.getHPadding(), 0f));
         float rowTop = JfkRenderUtils.tableTopContentY(bottom, contentHeight, rows.size(), lineWidth);
+        Map<String, PDImageXObject> imageCache = new LinkedHashMap<>();
         for (RowData row : rows) {
             float rowBottom = rowTop - row.height();
             float cellLeft = left + lineWidth;
             for (CellData cell : row.cells()) {
                 float cellWidth = cellWidths.get(cell.colIndex());
+                if (drawImageCell(
+                    document, contentStream, imageCache, cell, cellLeft, rowBottom, cellWidth, row.height(), hPadding)) {
+                    cellLeft += cellWidth + lineWidth;
+                    continue;
+                }
                 float textLeft = cellLeft + hPadding;
                 float textWidth = Math.max(0f, cellWidth - 2f * hPadding);
                 textRenderer.drawLines(
@@ -204,6 +219,71 @@ public class JfkTableRenderer {
         }
     }
 
+    private boolean drawImageCell(
+        PDDocument document,
+        PDPageContentStream contentStream,
+        Map<String, PDImageXObject> imageCache,
+        CellData cell,
+        float cellLeft,
+        float cellBottom,
+        float cellWidth,
+        float cellHeight,
+        float hPadding
+    ) throws IOException {
+        if (!JfkRenderUtils.isImageValType(cell.valType()) || cell.val() == null || cell.val().getStrVal().isBlank()) {
+            return false;
+        }
+        String imageValue = cell.val().getStrVal();
+        byte[] bytes = JfkImageUtils.decodeSupportedImageBytes(imageValue).orElse(null);
+        if (bytes == null) {
+            return false;
+        }
+        PDImageXObject image = imageCache.get(imageValue);
+        if (image == null) {
+            try {
+                image = PDImageXObject.createFromByteArray(document, bytes, "jfk-cell-image");
+            } catch (IOException e) {
+                return false;
+            }
+            imageCache.put(imageValue, image);
+        }
+        if (image.getWidth() <= 0 || image.getHeight() <= 0) {
+            return false;
+        }
+
+        float maxWidth = Math.max(0f, cellWidth - 2f * hPadding);
+        float maxHeight = Math.max(0f, cellHeight);
+        if (maxWidth <= 0f || maxHeight <= 0f) {
+            return false;
+        }
+        float scale = Math.min(maxWidth / image.getWidth(), maxHeight / image.getHeight());
+        if (!Float.isFinite(scale) || scale <= 0f) {
+            return false;
+        }
+        float drawWidth = image.getWidth() * scale;
+        float drawHeight = image.getHeight() * scale;
+        float areaLeft = cellLeft + hPadding;
+        float drawX;
+        if (cell.hAlignId() == JfkRenderUtils.H_ALIGN_LEFT) {
+            drawX = areaLeft;
+        } else if (cell.hAlignId() == JfkRenderUtils.H_ALIGN_RIGHT) {
+            drawX = areaLeft + maxWidth - drawWidth;
+        } else {
+            drawX = areaLeft + (maxWidth - drawWidth) / 2f;
+        }
+
+        float drawY;
+        if (cell.vAlignId() == JfkRenderUtils.V_ALIGN_TOP) {
+            drawY = cellBottom + maxHeight - drawHeight;
+        } else if (cell.vAlignId() == JfkRenderUtils.V_ALIGN_BOTTOM) {
+            drawY = cellBottom;
+        } else {
+            drawY = cellBottom + (maxHeight - drawHeight) / 2f;
+        }
+        contentStream.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+        return true;
+    }
+
     private String formatLengths(Map<String, Integer> lengths) {
         StringJoiner joiner = new StringJoiner(", ");
         for (Map.Entry<String, Integer> entry : lengths.entrySet()) {
@@ -212,7 +292,7 @@ public class JfkTableRenderer {
         return joiner.toString();
     }
 
-    public record CellData(int colIndex, List<String> lines, int hAlignId, int vAlignId) {
+    public record CellData(int colIndex, List<String> lines, JfkValPB val, int valType, int hAlignId, int vAlignId) {
     }
 
     public record RowData(int index, float height, List<CellData> cells) {

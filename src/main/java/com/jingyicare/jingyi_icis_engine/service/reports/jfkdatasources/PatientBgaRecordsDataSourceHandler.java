@@ -35,6 +35,7 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.GenericValuePB;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.BgaParamRepository;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientBgaRecordDetailRepository;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientBgaRecordRepository;
+import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
@@ -57,6 +58,7 @@ public class PatientBgaRecordsDataSourceHandler extends AbstractJfkDataSourceHan
         BgaParamRepository bgaParamRepo,
         MonitoringConfig monitoringConfig,
         ConfigProtoService configProtoService,
+        AccountRepository accountRepo,
         ReportProperties reportProperties,
         ResourceLoader resourceLoader
     ) {
@@ -67,6 +69,7 @@ public class PatientBgaRecordsDataSourceHandler extends AbstractJfkDataSourceHan
         this.bgaParamRepo = bgaParamRepo;
         this.monitoringConfig = monitoringConfig;
         this.configProtoService = configProtoService;
+        this.accountRepo = accountRepo;
         this.reportProperties = reportProperties;
         this.resourceLoader = resourceLoader;
     }
@@ -104,12 +107,17 @@ public class PatientBgaRecordsDataSourceHandler extends AbstractJfkDataSourceHan
         Map<Long, List<PatientBgaRecordDetail>> detailsByRecordId = findDetails(records);
         Map<String, MonitoringParamPB> paramMap = monitoringConfig.getMonitoringParams(window.deptId());
         Map<String, Integer> bgaParamOrder = bgaParamOrder(window.deptId());
+        JfkSignatureValueResolver signatureResolver = new JfkSignatureValueResolver(
+            accountRepo, bgaSignatureAccountRefs(records), log, "Compact BGA records");
 
         JfkDataSourcePB.Builder outputBuilder = newOutputBuilder(input);
         BgaRows rows;
         try (PDDocument document = new PDDocument()) {
             PDFont font = records.isEmpty() ? null : loadFont(document);
-            rows = buildRows(records, detailsByRecordId, paramMap, bgaParamOrder, colWidths, font, fontSize, charSpacing, hPadding);
+            rows = buildRows(
+                records, detailsByRecordId, paramMap, bgaParamOrder, signatureResolver,
+                colWidths, font, fontSize, charSpacing, hPadding
+            );
         } catch (IOException e) {
             log.error("Failed to wrap compact patient BGA records text: {}", e.getMessage(), e);
             return error(StatusCode.INTERNAL_EXCEPTION, e.getMessage());
@@ -128,6 +136,7 @@ public class PatientBgaRecordsDataSourceHandler extends AbstractJfkDataSourceHan
         Map<Long, List<PatientBgaRecordDetail>> detailsByRecordId,
         Map<String, MonitoringParamPB> paramMap,
         Map<String, Integer> bgaParamOrder,
+        JfkSignatureValueResolver signatureResolver,
         List<Double> colWidths,
         PDFont font,
         double fontSize,
@@ -139,14 +148,6 @@ public class PatientBgaRecordsDataSourceHandler extends AbstractJfkDataSourceHan
             return rows;
         }
 
-        rows.add(
-            stringsVal(List.of("时间")),
-            stringsVal(List.of("血气类别")),
-            stringsVal(List.of("血气记录")),
-            stringsVal(List.of("记录人")),
-            stringsVal(List.of("审核人"))
-        );
-
         for (PatientBgaRecord record : records) {
             rows.add(
                 stringsVal(List.of(formatEffectiveTime(record.getEffectiveTime()))),
@@ -155,11 +156,22 @@ public class PatientBgaRecordsDataSourceHandler extends AbstractJfkDataSourceHan
                     bgaDetails(record, detailsByRecordId.getOrDefault(record.getId(), List.of()), paramMap, bgaParamOrder),
                     BGA_DETAILS_COL_INDEX, colWidths, font, fontSize, charSpacing, hPadding
                 )),
-                stringsVal(List.of(safe(record.getRecordedByAccountName()))),
-                stringsVal(List.of(safe(record.getReviewedByAccountName())))
+                strVal(signatureResolver.signatureOrFallback(
+                    record.getRecordedBy(), safe(record.getRecordedByAccountName()), record.getId())),
+                strVal(signatureResolver.signatureOrFallback(
+                    record.getReviewedBy(), safe(record.getReviewedByAccountName()), record.getId()))
             );
         }
         return rows;
+    }
+
+    private List<String> bgaSignatureAccountRefs(List<PatientBgaRecord> records) {
+        List<String> result = new ArrayList<>();
+        for (PatientBgaRecord record : records) {
+            if (!StrUtils.isBlank(record.getRecordedBy())) result.add(record.getRecordedBy());
+            if (!StrUtils.isBlank(record.getReviewedBy())) result.add(record.getReviewedBy());
+        }
+        return result;
     }
 
     private Map<Long, List<PatientBgaRecordDetail>> findDetails(List<PatientBgaRecord> records) {
@@ -303,6 +315,12 @@ public class PatientBgaRecordsDataSourceHandler extends AbstractJfkDataSourceHan
             .build();
     }
 
+    private JfkValPB strVal(String value) {
+        return JfkValPB.newBuilder()
+            .setStrVal(safe(value))
+            .build();
+    }
+
     private String safe(String value) {
         return value == null ? "" : value;
     }
@@ -379,6 +397,7 @@ public class PatientBgaRecordsDataSourceHandler extends AbstractJfkDataSourceHan
     private final BgaParamRepository bgaParamRepo;
     private final MonitoringConfig monitoringConfig;
     private final ConfigProtoService configProtoService;
+    private final AccountRepository accountRepo;
     private final ReportProperties reportProperties;
     private final ResourceLoader resourceLoader;
 }

@@ -138,12 +138,15 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
             paramOrder = monitoringParamOrder(pid, window.deptId(), account.getFirst());
             accountNameByModifiedBy = accountNameByModifiedBy(nonHourlyRecords);
         }
+        JfkSignatureValueResolver signatureResolver = new JfkSignatureValueResolver(
+            accountRepo, nursingSignatureAccountRefs(nursingRecords, nonHourlyRecords), log, "Compact nursing records");
 
         NursingRows rows;
         try (PDDocument document = new PDDocument()) {
             PDFont font = loadFont(document);
             rows = buildRows(
                 nursingRecords, nonHourlyRecords, paramMap, paramOrder, accountNameByModifiedBy,
+                signatureResolver,
                 colWidths, font, fontSize, charSpacing, hPadding
             );
         } catch (IOException e) {
@@ -164,6 +167,7 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
         Map<String, MonitoringParamPB> paramMap,
         Map<String, Integer> paramOrder,
         Map<String, String> accountNameByModifiedBy,
+        JfkSignatureValueResolver signatureResolver,
         List<Double> colWidths,
         PDFont font,
         double fontSize,
@@ -175,13 +179,16 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
             reportRows.add(new ReportRow(
                 nursingRecord.getEffectiveTime(),
                 safe(nursingRecord.getContent()),
-                safe(nursingRecord.getCreatedByAccountName()),
-                safe(nursingRecord.getReviewedByAccountName()),
+                signatureResolver.signatureOrFallback(
+                    nursingRecord.getCreatedBy(), safe(nursingRecord.getCreatedByAccountName()), nursingRecord.getId()),
+                signatureResolver.signatureOrFallback(
+                    nursingRecord.getReviewedBy(), safe(nursingRecord.getReviewedByAccountName()), nursingRecord.getId()),
                 SOURCE_ORDER_NURSING,
                 nursingRecord.getId()
             ));
         }
-        reportRows.addAll(monitoringRows(nonHourlyRecords, paramMap, paramOrder, accountNameByModifiedBy));
+        reportRows.addAll(monitoringRows(
+            nonHourlyRecords, paramMap, paramOrder, accountNameByModifiedBy, signatureResolver));
 
         reportRows.sort(Comparator
             .comparing(ReportRow::recordTimeUtc, Comparator.nullsLast(LocalDateTime::compareTo))
@@ -193,8 +200,8 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
             rows.add(
                 stringsVal(wrap(formatLocal(row.recordTimeUtc()), RECORD_TIME_COL_INDEX, colWidths, font, fontSize, charSpacing, hPadding)),
                 stringsVal(wrapLines(splitLines(row.content()), CONTENT_COL_INDEX, colWidths, font, fontSize, charSpacing, hPadding)),
-                stringsVal(wrap(row.recordedBy(), RECORDED_BY_COL_INDEX, colWidths, font, fontSize, charSpacing, hPadding)),
-                stringsVal(wrap(row.reviewedBy(), REVIEWED_BY_COL_INDEX, colWidths, font, fontSize, charSpacing, hPadding))
+                strVal(row.recordedBy()),
+                strVal(row.reviewedBy())
             );
         }
         return rows;
@@ -204,7 +211,8 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
         List<PatientMonitoringRecord> nonHourlyRecords,
         Map<String, MonitoringParamPB> paramMap,
         Map<String, Integer> paramOrder,
-        Map<String, String> accountNameByModifiedBy
+        Map<String, String> accountNameByModifiedBy,
+        JfkSignatureValueResolver signatureResolver
     ) {
         if (nonHourlyRecords.isEmpty()) return List.of();
 
@@ -243,11 +251,19 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
             String content = displayValues.stream()
                 .map(MonitoringDisplayValue::text)
                 .collect(Collectors.joining("; "));
-            String recordedBy = displayValues.stream()
-                .map(value -> displayAccountName(value.record().getModifiedBy(), accountNameByModifiedBy))
-                .filter(value -> !StrUtils.isBlank(value))
+            PatientMonitoringRecord recordedByRecord = displayValues.stream()
+                .map(MonitoringDisplayValue::record)
+                .filter(record -> !StrUtils.isBlank(
+                    displayAccountName(record.getModifiedBy(), accountNameByModifiedBy)))
                 .findFirst()
-                .orElse("");
+                .orElse(null);
+            String recordedBy = recordedByRecord == null
+                ? ""
+                : signatureResolver.signatureOrFallback(
+                    recordedByRecord.getModifiedBy(),
+                    displayAccountName(recordedByRecord.getModifiedBy(), accountNameByModifiedBy),
+                    recordedByRecord.getId()
+                );
             Long sourceId = displayValues.stream()
                 .map(value -> value.record().getId())
                 .filter(id -> id != null)
@@ -263,6 +279,21 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
             ));
         }
         return rows;
+    }
+
+    private List<String> nursingSignatureAccountRefs(
+        List<NursingRecord> nursingRecords,
+        List<PatientMonitoringRecord> nonHourlyRecords
+    ) {
+        List<String> result = new ArrayList<>();
+        for (NursingRecord nursingRecord : nursingRecords) {
+            if (!StrUtils.isBlank(nursingRecord.getCreatedBy())) result.add(nursingRecord.getCreatedBy());
+            if (!StrUtils.isBlank(nursingRecord.getReviewedBy())) result.add(nursingRecord.getReviewedBy());
+        }
+        for (PatientMonitoringRecord record : nonHourlyRecords) {
+            if (!StrUtils.isBlank(record.getModifiedBy())) result.add(record.getModifiedBy());
+        }
+        return result;
     }
 
     private Map<String, String> accountNameByModifiedBy(List<PatientMonitoringRecord> records) {
@@ -368,18 +399,27 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
     }
 
     private String displayValue(PatientMonitoringRecord record, MonitoringParamPB param) {
+        String value;
         if (!StrUtils.isBlank(record.getParamValueStr())) {
-            return record.getParamValueStr();
-        }
-        if (StrUtils.isBlank(record.getParamValue())) {
+            value = record.getParamValueStr();
+        } else if (StrUtils.isBlank(record.getParamValue())) {
             return "";
+        } else {
+            MonitoringValuePB monitoringValue = ProtoUtils.decodeMonitoringValue(record.getParamValue());
+            if (monitoringValue == null) {
+                return "";
+            }
+            value = ValueMetaUtils.extractAndFormatParamValue(
+                monitoringValue.getValue(), monitoringValue.getValuesList(), param.getValueMeta());
         }
-        MonitoringValuePB monitoringValue = ProtoUtils.decodeMonitoringValue(record.getParamValue());
-        if (monitoringValue == null) {
-            return "";
+        return appendUnit(value, param.getValueMeta().getUnit());
+    }
+
+    private String appendUnit(String value, String unit) {
+        if (StrUtils.isBlank(value) || StrUtils.isBlank(unit)) {
+            return safe(value);
         }
-        return ValueMetaUtils.extractAndFormatParamValue(
-            monitoringValue.getValue(), monitoringValue.getValuesList(), param.getValueMeta());
+        return value + " " + unit;
     }
 
     private String formatLocal(LocalDateTime utcTime) {
@@ -447,6 +487,12 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
     private JfkValPB stringsVal(List<String> lines) {
         return JfkValPB.newBuilder()
             .addAllStrsVal(lines == null || lines.isEmpty() ? List.of("") : lines)
+            .build();
+    }
+
+    private JfkValPB strVal(String value) {
+        return JfkValPB.newBuilder()
+            .setStrVal(safe(value))
             .build();
     }
 

@@ -45,17 +45,25 @@ public class JfkValueResolver {
         JfkTableColumnMetaPB columnMeta,
         int rowIndex
     ) {
+        return resolveCell(table, columnMeta, rowIndex).lines();
+    }
+
+    public ResolvedCell resolveCell(
+        JfkTablePB table,
+        JfkTableColumnMetaPB columnMeta,
+        int rowIndex
+    ) {
         JfkElementMetaPB meta = columnMeta.getElementMeta();
         int contentType = meta == null ? JfkRenderUtils.CONTENT_STATIC : meta.getContentType();
         if (contentType == JfkRenderUtils.CONTENT_STATIC) {
             String value = rowIndex < columnMeta.getStaticValsCount()
                 ? columnMeta.getStaticVals(rowIndex)
                 : "";
-            return List.of(value);
+            return new ResolvedCell(null, null, List.of(value));
         }
 
         if (contentType != JfkRenderUtils.CONTENT_JFK_DATA_SOURCE) {
-            return List.of("");
+            return new ResolvedCell(null, null, List.of(""));
         }
 
         String metaId = dataSourceMetaId(table, meta);
@@ -63,10 +71,12 @@ public class JfkValueResolver {
         JfkValPB val = resolveDataSourceVal(metaId, table.getId(), fieldId, rowIndex);
         JfkValMetaPB valMeta = resolveDataSourceValMeta(metaId, fieldId);
         if (valMeta != null && valMeta.getValType() == JfkRenderUtils.VAL_TYPE_STRINGS) {
-            if (val == null || val.getStrsValCount() == 0) return List.of("");
-            return new ArrayList<>(val.getStrsValList());
+            if (val == null || val.getStrsValCount() == 0) {
+                return new ResolvedCell(val, valMeta, List.of(""));
+            }
+            return new ResolvedCell(val, valMeta, new ArrayList<>(val.getStrsValList()));
         }
-        return List.of(valToDisplayString(val, valMeta));
+        return new ResolvedCell(val, valMeta, List.of(valToDisplayString(val, valMeta)));
     }
 
     public boolean shouldRenderTable(JfkTablePB table) {
@@ -139,6 +149,12 @@ public class JfkValueResolver {
             case JfkRenderUtils.VAL_TYPE_STRINGS -> val.getStrsValCount() == 0 ? "" : String.join("\n", val.getStrsValList());
             default -> val.getStrVal();
         };
+    }
+
+    public record ResolvedCell(JfkValPB val, JfkValMetaPB valMeta, List<String> lines) {
+        public int valType() {
+            return valMeta == null ? 0 : valMeta.getValType();
+        }
     }
 
     private final JfkRenderData data;

@@ -34,7 +34,11 @@ final class JfkRenderUtils {
     static final int VAL_TYPE_BOOL = 1;
     static final int VAL_TYPE_INT64 = 2;
     static final int VAL_TYPE_DOUBLE = 3;
+    static final int VAL_TYPE_STRING = 4;
     static final int VAL_TYPE_DATETIME = 5;
+    static final int VAL_TYPE_IMAGE = 6;
+    static final int VAL_TYPE_NURSING_SIGN_PIC = 7;
+    static final int VAL_TYPE_DOCTOR_SIGN_PIC = 8;
     static final int VAL_TYPE_STRINGS = 9;
 
     static final float TEXT_LINE_HEIGHT_PADDING = 1f;
@@ -103,6 +107,12 @@ final class JfkRenderUtils {
             safeBaseCellHeight,
             safeBaseCellHeight - safeFontSize + textLogicalBlockHeight(safeFontSize, lineCount)
         );
+    }
+
+    static boolean isImageValType(int valType) {
+        return valType == VAL_TYPE_IMAGE
+            || valType == VAL_TYPE_NURSING_SIGN_PIC
+            || valType == VAL_TYPE_DOCTOR_SIGN_PIC;
     }
 
     static float positive(float value, float fallback) {

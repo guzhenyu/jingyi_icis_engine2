@@ -76,7 +76,7 @@ public class PatientSkincareRecordsDataSourceHandlerTests {
                 attr(1003, "record", "处理", 3)
             ));
         when(ctx.accountRepo.findByIdInAndIsDeletedFalse(any()))
-            .thenReturn(List.of(account(201L, "张护士")));
+            .thenReturn(List.of(account(201L, "张护士", SIGNATURE_PNG)));
 
         Pair<ReturnCode, JfkDataSourcePB> result = ctx.handler().handle(input());
 
@@ -84,7 +84,7 @@ public class PatientSkincareRecordsDataSourceHandlerTests {
         Map<String, List<List<String>>> output = toOutputMap(result.getSecond());
         assertThat(output.get("record_time")).containsExactly(List.of("2026-04-17 08:20"));
         assertThat(output.get("content")).containsExactly(List.of("压疮护理 部位: 骶尾部; 处理: 翻身"));
-        assertThat(output.get("recorded_by")).containsExactly(List.of("张护士"));
+        assertThat(output.get("recorded_by")).containsExactly(List.of(SIGNATURE_PNG));
 
         verify(ctx.skincareRecordRepo).findReportSkincareRecords(10001L, MON_START_UTC, MON_END_UTC);
     }
@@ -213,11 +213,12 @@ public class PatientSkincareRecordsDataSourceHandlerTests {
         return ProtoUtils.encodeGenericValue(GenericValuePB.newBuilder().setStrVal(value).build());
     }
 
-    private static Account account(Long id, String name) {
+    private static Account account(Long id, String name, String signPic) {
         Account account = new Account();
         account.setId(id);
         account.setAccountId("account-" + id);
         account.setName(name);
+        account.setSignPic(signPic);
         account.setIsDeleted(false);
         return account;
     }
@@ -257,7 +258,9 @@ public class PatientSkincareRecordsDataSourceHandlerTests {
             .collect(Collectors.toMap(
                 JfkFieldDataPB::getId,
                 field -> field.getValsList().stream()
-                    .map(val -> List.copyOf(val.getStrsValList()))
+                    .map(val -> val.getStrsValCount() > 0
+                        ? List.copyOf(val.getStrsValList())
+                        : List.of(val.getStrVal()))
                     .toList()
             ));
     }
@@ -320,4 +323,6 @@ public class PatientSkincareRecordsDataSourceHandlerTests {
     private static final LocalDateTime MON_END_UTC = LocalDateTime.of(2026, 4, 17, 23, 0);
     private static final LocalDateTime MON_START_LOCAL = LocalDateTime.of(2026, 4, 17, 7, 0);
     private static final LocalDateTime MON_END_LOCAL = LocalDateTime.of(2026, 4, 18, 7, 0);
+    private static final String SIGNATURE_PNG =
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
 }

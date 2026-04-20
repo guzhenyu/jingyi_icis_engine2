@@ -149,6 +149,9 @@ public class PatientMonitoringRecordsDataSourceHandler extends AbstractJfkDataSo
             : recordRepo.findByPidAndParamCodesAndEffectiveTimeRange(pid, validParamCodes, monStartUtc, monEndUtc);
         Map<String, Map<Integer, PatientMonitoringRecord>> recordsByParamAndHour =
             indexRecords(records, monStartUtc);
+        if (reportProperties.getCompact().getPatientMonitoringRecords().isFilterEmptyParams()) {
+            validParamCodes = filterParamsWithRecords(validParamCodes, recordsByParamAndHour, tableId);
+        }
 
         JfkDataSourcePB.Builder outputBuilder = newOutputBuilder(input);
         try (PDDocument document = new PDDocument()) {
@@ -171,6 +174,26 @@ public class PatientMonitoringRecordsDataSourceHandler extends AbstractJfkDataSo
         }
 
         return new Pair<>(returnCode(StatusCode.OK), outputBuilder.build());
+    }
+
+    private List<String> filterParamsWithRecords(
+        List<String> validParamCodes,
+        Map<String, Map<Integer, PatientMonitoringRecord>> recordsByParamAndHour,
+        String tableId
+    ) {
+        List<String> result = new ArrayList<>();
+        for (String paramCode : validParamCodes) {
+            Map<Integer, PatientMonitoringRecord> recordsByHour = recordsByParamAndHour.get(paramCode);
+            if (recordsByHour == null || recordsByHour.isEmpty()) {
+                log.debug(
+                    "Filtered empty compact patient monitoring param, tableId={}, paramCode={}",
+                    tableId, paramCode
+                );
+                continue;
+            }
+            result.add(paramCode);
+        }
+        return result;
     }
 
     private Integer normalizeStartHour(BalanceStatsShift shift) {
