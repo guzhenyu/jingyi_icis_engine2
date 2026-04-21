@@ -72,7 +72,7 @@ public class CompactReportDataSourceBuilderTests {
             .isEqualTo(JfkDataSourceIds.compactTableScoped(JfkDataSourceIds.PATIENT_BALANCE_RECORDS, "table-228"));
         assertThat(strVal(balanceInput, "table_id")).isEqualTo("table-228");
         assertThat(strVals(balanceInput, "balance_param_codes")).containsExactly(
-            "intravenous_intake", "hourly_intake", "total_intake");
+            "intravenous_intake", "compactreportdrainagetubeparams", "hourly_intake", "total_intake");
         assertThat(doubleVals(balanceInput, "col_widths")).hasSize(26);
         assertThat(doubleVal(balanceInput, "font_size")).isEqualTo(6d);
         assertThat(doubleVal(balanceInput, "char_spacing")).isEqualTo(0d);

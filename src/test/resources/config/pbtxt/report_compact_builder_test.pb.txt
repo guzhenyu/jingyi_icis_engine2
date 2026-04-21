@@ -264,6 +264,7 @@ mon_group {
 balance_group {
   table_id: "table-228"
   param_code: "intravenous_intake"
+  param_code: "compactreportdrainagetubeparams"
   param_code: "hourly_intake"
   param_code: "total_intake"
 }

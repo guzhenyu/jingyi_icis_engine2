@@ -129,9 +129,10 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
         String accountId = account.getFirst();
 
         Map<String, MonitoringParamPB> paramMap = monitoringConfig.getMonitoringParams(deptId);
-        List<String> validParamCodes = validParamCodes(tableId, deptId, paramCodes, paramMap);
         List<String> tubeParamCodes = patientTubeImpl.getMonitoringParamCodes(
             pid, window.balanceStartUtc(), window.balanceEndUtc());
+        List<String> expandedParamCodes = expandDrainageTubeParamCodes(paramCodes, tubeParamCodes);
+        List<String> validParamCodes = validParamCodes(tableId, deptId, expandedParamCodes, paramMap);
         var groupBetaList = monitoringConfig.getMonitoringGroups(
             pid, deptId, monitoringConfig.getBalanceGroupTypeId(), tubeParamCodes, accountId);
 
@@ -216,6 +217,29 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
         LocalDateTime balanceStartLocal = localMidnight.plusHours(startHour);
         LocalDateTime balanceStartUtc = TimeUtils.getUtcFromLocalDateTime(balanceStartLocal, support.getZoneId());
         return new BalanceWindow(null, "", balanceStartUtc, balanceStartUtc.plusHours(24));
+    }
+
+    private List<String> expandDrainageTubeParamCodes(
+        List<String> paramCodes,
+        List<String> tubeParamCodes
+    ) {
+        String placeholder = reportProperties.getCompact()
+            .getPatientBalanceRecords()
+            .getDrainageTubeParams();
+        if (StrUtils.isBlank(placeholder) || paramCodes.isEmpty()) {
+            return paramCodes;
+        }
+
+        List<String> expanded = new ArrayList<>();
+        List<String> safeTubeParamCodes = tubeParamCodes == null ? List.of() : tubeParamCodes;
+        for (String paramCode : paramCodes) {
+            if (placeholder.equals(paramCode)) {
+                expanded.addAll(safeTubeParamCodes);
+            } else {
+                expanded.add(paramCode);
+            }
+        }
+        return expanded;
     }
 
     private List<String> validParamCodes(

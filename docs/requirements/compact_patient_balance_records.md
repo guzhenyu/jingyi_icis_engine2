@@ -1,6 +1,6 @@
 # 精简重症监护记录单 patient_balance_records 需求说明
 
-更新时间：2026-04-18
+更新时间：2026-04-22
 
 ## 背景
 
@@ -21,6 +21,8 @@
 
 实现范围包括后续代码改造时需要完成的几类工作：
 
+- 在 `src/main/resources/application.properties` 中增加引流管参数占位配置
+- 在 `src/main/java/com/jingyicare/jingyi_icis_engine/service/reports/ReportProperties.java` 中为该配置增加类型化适配
 - 在 `src/main/resources/config/pbtxt/icis_config.pb.txt` 中声明 `patient_balance_records` 数据源元数据
 - 在 `src/main/resources/config/pbtxt/report_compact.pb.txt` 中增加 `table-228` 的显示配置
 - 在 `src/main/proto/config/icis_report_compact.proto` 中使用 `balance_group` 配置 `table-228` 需要渲染的参数
@@ -48,6 +50,11 @@ message CompactReportTemplatePB {
 - `balance_group` 中允许配置 Balance 页面中合法的出入量/平衡相关参数，不限定为原始 `patient_monitoring_records` 参数；由 `BalanceCalculator` 产生的计算参数也应被支持
 - 后续还会有 `出量`、`平衡量` 对应的 `table-230`、`table-232` 等表格，`patient_balance_records` 应设计成可复用多表格、多 `balance_group` 的通用数据源
 - 前端 Balance 页面中的分组和 compact 报表中的分组不要求完全一致，例如 `累计入量` 在前端属于 `平衡量` 组，但在报表中可以按模板配置放到其他出入量分段中
+- 引流管动态参数通过 `balance_group.param_code` 中的占位值进行原位展开，不再要求模板枚举每个患者实际存在的引流管参数
+- 占位值来自配置项 `jingyi.report.compact.patient-balance-records.drainage-tube-params`，默认规划为 `compactreportdrainagetubeparams`
+- 当 `balance_group.param_code` 等于该配置项的值时，handler 按 `PatientMonitoringService.getPatientMonitoringRecords(...)` 当前流程一致的方式调用 `patientTubeImpl.getMonitoringParamCodes(pid, balanceStartUtc, balanceEndUtc)`，将该占位项替换为患者当前出入量窗口内的引流管参数列表
+- 引流管参数必须在原占位位置展开，以保持模板中“尿量、引流管们、每小时出量、累计出量”等人工配置顺序
+- 展开后应基于完整有效参数列表做取数、计算和格式转换；占位参数本身不应输出为报表行
 - `acc_ml` 列代表“一行加总的量”
 - `hourly_intake.acc_ml` 直接使用 `BalanceCalculator` 返回的虚拟合计值，语义上等价于当前时间范围内每小时入量的加总
 - `total_intake.acc_ml` 直接使用 `BalanceCalculator` 返回的最后一个虚拟累计值，累计范围跟随当前请求时间窗 `[startTime, endTime)`
@@ -56,7 +63,7 @@ message CompactReportTemplatePB {
 - 允许报表生成时调用 `BalanceCalculator.storeGroupRecordsStats(args)` 写入统计记录
 - 小时列严格按照整点匹配，只接受 `effective_time` 严格落在对应整点的值
 - compact 报表调用 `storeGroupRecordsStats` 时，`accountId` / `modifiedBy` 使用当前用户
-- 需要包含患者 tube/drainage 相关动态出量参数，按前端 Balance 流程调用 `patientTubeImpl.getMonitoringParamCodes(...)`
+- 需要包含患者 tube/drainage 相关动态出量参数，按前端 Balance 流程调用 `patientTubeImpl.getMonitoringParamCodes(...)`，但只在模板显式配置占位值的位置输出
 - 如果 `balance_group` 中配置的参数不在 `MonitoringConfig.getMonitoringParams(deptId)` 中，`log.warn` 后跳过
 - 如果没有任何出入量记录，仍渲染配置的参数行，小时值和 `acc_ml` 为空
 - 如果表格找不到对应 `balance_group.table_id`，静默不渲染该表格
@@ -188,6 +195,53 @@ balance_group {
 
 首期 `table-228` 先绘制上述 3 行。后续可以继续通过 `balance_group` 增加其他 Balance 页面中合法的出入量/平衡相关参数。
 
+如果出量表需要在固定参数之间插入患者实际引流管参数，建议在 `table-230` 的 `balance_group.param_code` 中配置占位值：
+
+```pbtxt
+balance_group {
+  table_id: "table-230"
+  param_code: "urine_output"
+  param_code: "compactreportdrainagetubeparams"
+  param_code: "hourly_output"
+  param_code: "total_output"
+}
+```
+
+运行时 `compactreportdrainagetubeparams` 会按配置项解析，展开为当前患者在出入量窗口内的引流管参数。
+
+## application.properties / ReportProperties 需求
+
+新增配置：
+
+```properties
+jingyi.report.compact.patient-balance-records.drainage-tube-params=compactreportdrainagetubeparams
+```
+
+`ReportProperties` 需要增加与 Spring Boot relaxed binding 匹配的结构，建议形式：
+
+```java
+@Data
+public static class Compact {
+    private PatientBalanceRecords patientBalanceRecords = new PatientBalanceRecords();
+}
+
+@Data
+public static class PatientBalanceRecords {
+    private String drainageTubeParams = "compactreportdrainagetubeparams";
+
+    public String getDrainageTubeParams() {
+        return StrUtils.isBlank(drainageTubeParams) ? "compactreportdrainagetubeparams" : drainageTubeParams;
+    }
+}
+```
+
+后续实现要点：
+
+- `patient-balance-records.drainage-tube-params` 映射到 `Compact.patientBalanceRecords.drainageTubeParams`
+- handler 不应硬编码占位字符串，应从 `reportProperties.getCompact().getPatientBalanceRecords().getDrainageTubeParams()` 读取
+- 如果配置为空，使用默认值 `compactreportdrainagetubeparams`
+- 该值只作为模板占位符，不是实际观察项参数；匹配到该值时应先展开，再做参数合法性校验
+
 ## icis_config.pb.txt 数据源元数据需求
 
 新增 `patient_balance_records` 数据源。
@@ -312,6 +366,51 @@ data_sources {
 
 这些值由 `BalanceCalculator` 根据原始入量、出量记录计算得到。
 
+### 引流管参数占位扩展
+
+引流管参数具有患者和时间窗相关性，不能在 `report_compact.pb.txt` 中提前枚举。模板侧通过占位参数表达“此处插入当前患者当前出入量窗口内的引流管参数”：
+
+```pbtxt
+balance_group {
+  table_id: "table-230"
+  param_code: "urine_output"
+  param_code: "compactreportdrainagetubeparams"
+  param_code: "hourly_output"
+  param_code: "total_output"
+}
+```
+
+其中 `compactreportdrainagetubeparams` 不应直接硬编码，应读取：
+
+```text
+jingyi.report.compact.patient-balance-records.drainage-tube-params
+```
+
+建议处理顺序：
+
+1. handler 先计算与 `balance_time_range` 一致的 `balanceStartUtc`、`balanceEndUtc`
+2. 读取配置中的引流管占位参数，例如 `compactreportdrainagetubeparams`
+3. 调用 `patientTubeImpl.getMonitoringParamCodes(pid, balanceStartUtc, balanceEndUtc)` 得到 `tubeParamCodes`
+4. 遍历 `balance_param_codes`
+5. 遇到普通参数时保留原参数顺序
+6. 遇到引流管占位参数时，将 `tubeParamCodes` 原位插入结果列表
+7. 如果没有返回任何引流管参数，则该占位项展开为空，不输出占位行
+8. 对展开后的完整输出参数列表执行合法性校验
+9. 调用 `MonitoringConfig.getMonitoringGroups(...)` 时仍传入 `tubeParamCodes`，使 `hourly_output`、`total_output`、`total_balance` 等汇总/累计行包含动态引流管数据
+10. 基于展开后的完整输出参数列表做取数、计算和格式转换
+
+示例：
+
+```text
+模板参数: urine_output, compactreportdrainagetubeparams, hourly_output, total_output
+动态引流管: drainage_tube_a, drainage_tube_b
+实际输出: urine_output, drainage_tube_a, drainage_tube_b, hourly_output, total_output
+```
+
+与 `PatientMonitoringService.java:142` 的现有流程保持一致：实际可复用的能力是 `PatientTubeImpl.getMonitoringParamCodes(pid, queryStart, queryEnd)`；在本数据源中建议传入 `balanceStartUtc` 和 `balanceEndUtc`。该方法当前只返回时间范围内 `tubeType == drainage_tube_type` 的管路参数 code，并且返回值会 `distinct().sorted()`。
+
+注意：`MonitoringConfig.getMonitoringGroups(...)` 仍需要接收引流管参数列表，用于将动态引流管参数追加到 Balance 出量组；handler 最终输出则以“模板展开后的参数顺序”为准。即使模板没有配置引流管占位参数，也建议继续把 `tubeParamCodes` 传入 `MonitoringConfig.getMonitoringGroups(...)`，避免出量和平衡量汇总漏算引流管数据。
+
 ## 建议实现路径
 
 ### 方案 A：复用 PatientMonitoringService/BalanceCalculator 计算链路
@@ -319,15 +418,16 @@ data_sources {
 核心思路：
 
 1. 由 handler 计算 `balanceStartUtc`、`balanceEndUtc`
-2. 获取 balance 分组：
+2. 获取患者 tube 相关参数：
+   - `patientTubeImpl.getMonitoringParamCodes(pid, balanceStartUtc, balanceEndUtc)`
+3. 根据 `balance_param_codes`、引流管占位配置和 tube 参数展开有效输出参数列表
+4. 获取 balance 分组：
    - `MonitoringConfig.getMonitoringGroups(...)`
    - group type 使用 `GROUP_TYPE_BALANCE`
-3. 获取患者 tube 相关参数：
-   - `patientTubeImpl.getMonitoringParamCodes(pid, balanceStartUtc, balanceEndUtc)`
-4. 查询原始 `patient_monitoring_records`
-5. 构造 `BalanceCalculator.GetGroupRecordsListArgs`
-6. 调用 `BalanceCalculator.getGroupRecordsList(args)` 得到每个 group 的参数行、合计行、平衡量行和累计行
-7. 根据 `balance_group.table_id == table-228` 的 `param_code` 顺序筛选输出行
+5. 查询原始 `patient_monitoring_records`
+6. 构造 `BalanceCalculator.GetGroupRecordsListArgs`
+7. 调用 `BalanceCalculator.getGroupRecordsList(args)` 得到每个 group 的参数行、合计行、平衡量行和累计行
+8. 根据展开后的 `param_code` 顺序筛选输出行
 
 优点：
 
@@ -374,9 +474,11 @@ handler 最终输出 `JfkDataSourcePB` 时，应构造列式数据：
 
 每一行对应 `balance_group.param_code` 中的一个有效参数。
 
+如果 `balance_group.param_code` 中包含引流管占位参数，则先按“引流管参数占位扩展”规则展开。展开后的实际参数才参与行生成；占位参数本身不对应输出行。
+
 建议行生成规则：
 
-1. 按 `balance_group.param_code` 的顺序输出
+1. 按展开后的 `balance_group.param_code` 顺序输出
 2. 如果参数不存在或无法计算：
    - `log.warn`
    - 跳过该行
@@ -490,6 +592,14 @@ handler 最终输出 `JfkDataSourcePB` 时，应构造列式数据：
 .addInputData(doubleInput("h_padding", table.getHPadding()))
 ```
 
+引流管占位参数不建议在 `CompactReportDataSourceBuilder` 中展开，原因：
+
+- builder 只负责根据模板构造 table-scoped 输入，不负责取患者 tube 数据
+- 引流管列表依赖 `balanceStartUtc`、`balanceEndUtc`，该时间窗由 `patient_balance_records` handler 与 `balance_time_range` 同步计算
+- 将展开逻辑放在 handler 中，可以确保后续取数、计算、格式化使用同一个实际参数列表
+
+因此 builder 应将 `balance_group.param_code` 原样写入 `balance_param_codes`，包括占位参数本身。
+
 ## 数据源 handler 需求
 
 建议新增：
@@ -510,9 +620,13 @@ src/main/java/com/jingyicare/jingyi_icis_engine/service/reports/jfkdatasources/P
    - `log.warn`
    - 以患者 `dept_id` 为准
 4. 计算 `balanceStartUtc` 和 `balanceEndUtc`
-5. 按 balance 规则获取或计算记录
-6. 按 `balance_param_codes` 生成行
-7. 输出 `param_name`、`acc_ml`、`hour1` 至 `hour24`
+5. 从 `ReportProperties` 读取 `compact.patientBalanceRecords.drainageTubeParams`
+6. 调用 `patientTubeImpl.getMonitoringParamCodes(pid, balanceStartUtc, balanceEndUtc)` 得到 `tubeParamCodes`
+7. 如果 `balance_param_codes` 中存在该占位值，则用 `tubeParamCodes` 原位展开
+8. 对展开后的完整输出参数列表做合法性校验
+9. 按 balance 规则获取或计算记录，`tubeParamCodes` 仍传入 `MonitoringConfig.getMonitoringGroups(...)`
+10. 按展开后的参数列表生成行
+11. 输出 `param_name`、`acc_ml`、`hour1` 至 `hour24`
 
 错误处理建议：
 
@@ -529,7 +643,8 @@ src/main/java/com/jingyicare/jingyi_icis_engine/service/reports/jfkdatasources/P
 
 - `balance_group` 中配置的参数不在 `MonitoringConfig.getMonitoringParams(deptId)` 中：`log.warn` 后跳过该行
 - 没有任何出入量记录：仍渲染配置的参数行，`acc_ml` 和小时列为空
-- 需要包含患者 tube/drainage 相关动态出量参数：按前端 Balance 流程调用 `patientTubeImpl.getMonitoringParamCodes(pid, balanceStartUtc, balanceEndUtc)` 并传入 `MonitoringConfig.getMonitoringGroups(...)`
+- 需要包含患者 tube/drainage 相关动态出量参数：只有模板配置了引流管占位参数时才输出动态行；但为了保证合计、累计和平衡量不漏算动态出量，仍按前端 Balance 流程调用 `patientTubeImpl.getMonitoringParamCodes(pid, balanceStartUtc, balanceEndUtc)` 并传入 `MonitoringConfig.getMonitoringGroups(...)`
+- 如果同一个 `balance_group` 中多次出现引流管占位参数，建议每个占位位置都展开同一组引流管参数；是否去重应以后续产品展示需求为准，默认不跨位置去重，以尊重模板配置顺序
 
 ## 渲染规则
 
@@ -567,8 +682,18 @@ src/main/java/com/jingyicare/jingyi_icis_engine/service/reports/jfkdatasources/P
 - 查询不到 `balance_stats_shifts`
 - `start_hour` 为空或非法时返回错误
 - `request.dept_id` 与患者 `dept_id` 不一致
-- 包含 tube/drainage 动态出量参数
+- 配置 `jingyi.report.compact.patient-balance-records.drainage-tube-params=compactreportdrainagetubeparams` 后，占位参数被原位展开
+- 模板没有配置引流管占位参数时，不输出动态引流管行
+- 引流管占位参数展开为空时，不输出占位行，其他参数行顺序不变
+- 包含 tube/drainage 动态出量参数，并且动态参数参与 `MonitoringConfig.getMonitoringGroups(...)` 和 `BalanceCalculator.getGroupRecordsList(...)`
 - 文本折行
+
+### ReportProperties 测试
+
+覆盖：
+
+- `patient-balance-records.drainage-tube-params` 可以正确绑定到 `Compact.patientBalanceRecords.drainageTubeParams`
+- 配置为空时回退到默认值 `compactreportdrainagetubeparams`
 
 ### CompactReportDataSourceBuilder 测试
 
@@ -577,6 +702,7 @@ src/main/java/com/jingyicare/jingyi_icis_engine/service/reports/jfkdatasources/P
 - `patient_balance_records` 被识别为 table-scoped
 - 从 `balance_group` 中找到 `table-228` 的参数列表
 - 输入包含 `table_id`、`balance_param_codes`、`col_widths`、`font_size`、`char_spacing`、`h_padding`
+- `balance_param_codes` 保留模板中的引流管占位参数，不在 builder 中展开
 - 找不到 `balance_group` 时不构造 table-scoped 输入，表格静默不渲染
 
 测试应使用独立测试模板，避免依赖生产 `report_compact.pb.txt`。
@@ -590,16 +716,31 @@ src/main/java/com/jingyicare/jingyi_icis_engine/service/reports/jfkdatasources/P
 - 多行折行后行高正确
 - 数据行较多时分页正确
 
-## 待确认问题
+## 已确认补充结论
 
-本轮需求已经收敛，暂无阻塞实现的问题。
+本轮新增“引流管参数占位扩展”后，已确认以下执行规则：
+
+- 字段名以代码和 proto 为准，使用 `balance_group.param_code`
+- 默认占位值为 `compactreportdrainagetubeparams`
+- 约定 `compactreportdrainagetubeparams` 不作为真实观察项参数使用，运营人员不应将该 code 配置为任何观察项参数
+- 引流管展开顺序暂按 `PatientTubeImpl.getMonitoringParamCodes(...)` 当前返回值，即 `distinct().sorted()`，暂不增加特定临床排序
+- 引流管参数查询窗口使用按 `balance_stats_shifts.start_hour` 计算出的出入量报表窗口 `[balanceStartUtc, balanceEndUtc)`，因为 `start_hour` 决定本张报表出入量起止小时
+- 动态引流管 code 需要能在 `MonitoringConfig.getMonitoringParams(deptId)` 或 `MonitoringConfig.getMonitoringGroups(...)` 中解析到；如果 `TubeSetting.updateMonitoringParam(...)` 未提前创建参数，动态行被跳过或无法计算符合预期，正常情况下参数会被自动创建
+- `patient_balance_records` 输出动态引流管主 code，不输出 `code + "_" + tubeParam.code` 子参数行
+- 同一 `balance_group` 多次配置占位值时，默认可多次原位展开
+- 占位展开为空时表格行数减少符合预期
+- `ReportProperties` 必须提供默认值 `compactreportdrainagetubeparams`
+- 单个患者引流管通常不超过 5 根，性能不是问题；仍需通过 PDF 验证分页和显示效果
+- 新增测试应使用独立测试模板，避免被生产 `report_compact.pb.txt` 变动影响
 
 ## 实现顺序建议
 
 1. 先修复 `icis_report_compact.proto` 字段号冲突
-2. 在 `icis_config.pb.txt` 增加 `patient_balance_records` 数据源元数据
-3. 在 `JfkDataSourceIds` 和 `CompactReportDataSourceBuilder` 中增加 table-scoped 输入构造
-4. 实现 `PatientBalanceRecordsDataSourceHandler`
-5. 增加 `report_compact.pb.txt` 中的 `table-228` 和 `balance_group`
-6. 补充 handler、builder、renderer 测试
-7. 用真实 compact 报表 PDF 验证表格衔接、折行、分页和计算值
+2. 在 `application.properties` 增加 `jingyi.report.compact.patient-balance-records.drainage-tube-params=compactreportdrainagetubeparams`
+3. 在 `ReportProperties` 增加 `Compact.PatientBalanceRecords.drainageTubeParams` 适配和默认值
+4. 在 `icis_config.pb.txt` 增加 `patient_balance_records` 数据源元数据
+5. 在 `JfkDataSourceIds` 和 `CompactReportDataSourceBuilder` 中增加 table-scoped 输入构造，并保持占位参数原样传入 handler
+6. 实现 `PatientBalanceRecordsDataSourceHandler` 的引流管占位原位展开、取数、格式转换
+7. 增加 `report_compact.pb.txt` 中的 `table-228` 和 `balance_group`；`table-230` 如需动态引流管，则在目标位置配置占位参数
+8. 补充 `ReportProperties`、handler、builder、renderer 测试
+9. 用真实 compact 报表 PDF 验证表格衔接、折行、分页、动态引流管顺序和计算值

@@ -66,6 +66,7 @@ public class ReportProperties {
         private String font = "classpath:/fonts/msyh.ttf";
         private int medicationMlDecimalPlaces = 1;
         private PatientMonitoringRecords patientMonitoringRecords = new PatientMonitoringRecords();
+        private PatientBalanceRecords patientBalanceRecords = new PatientBalanceRecords();
         private Skincare skincare = new Skincare();
         private TubePolicy tubePolicy = new TubePolicy();
     }
@@ -73,6 +74,15 @@ public class ReportProperties {
     @Data
     public static class PatientMonitoringRecords {
         private boolean filterEmptyParams = false;
+    }
+
+    @Data
+    public static class PatientBalanceRecords {
+        private String drainageTubeParams = "compactreportdrainagetubeparams";
+
+        public String getDrainageTubeParams() {
+            return StrUtils.isBlank(drainageTubeParams) ? "compactreportdrainagetubeparams" : drainageTubeParams;
+        }
     }
 
     @Data

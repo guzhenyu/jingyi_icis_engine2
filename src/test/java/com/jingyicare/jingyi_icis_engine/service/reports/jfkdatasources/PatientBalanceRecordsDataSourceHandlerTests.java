@@ -105,6 +105,36 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
     }
 
     @Test
+    public void handleExpandsDrainageTubePlaceholderInPlace() {
+        TestContext ctx = new TestContext();
+        LocalDateTime balanceStart = LocalDateTime.of(2026, 4, 16, 7, 0);
+        List<String> tubeParamCodes = List.of("drain_tube_a", "drain_tube_b");
+        ctx.withShift(7);
+        ctx.withParams();
+        when(ctx.patientTubeImpl.getMonitoringParamCodes(10001L, balanceStart, balanceStart.plusHours(24)))
+            .thenReturn(tubeParamCodes);
+        ctx.withBalanceRecords(List.of(
+            codeRecords("urine_output", recordVal("10", balanceStart), recordVal("20", null)),
+            codeRecords("drain_tube_a", recordVal("5", balanceStart), recordVal("5", null)),
+            codeRecords("drain_tube_b", recordVal("8", balanceStart), recordVal("8", null)),
+            codeRecords("hourly_output", recordVal("23", balanceStart), recordVal("23", null))
+        ));
+
+        Pair<ReturnCode, JfkDataSourcePB> result = ctx.handler().handle(input(
+            List.of("urine_output", "compactreportdrainagetubeparams", "hourly_output")));
+
+        assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        Map<String, List<List<String>>> output = toOutputMap(result.getSecond());
+        assertThat(output.get("param_name")).containsExactly(
+            List.of("尿量"), List.of("腹腔引流"), List.of("胸腔引流"), List.of("每小时出量"));
+        assertThat(output.get("acc_ml")).containsExactly(List.of("20"), List.of("5"), List.of("8"), List.of("23"));
+        assertThat(output.get("hour1")).containsExactly(List.of("10"), List.of("5"), List.of("8"), List.of("23"));
+
+        verify(ctx.monitoringConfig).getMonitoringGroups(
+            eq(10001L), eq("patient-dept"), eq(1), eq(tubeParamCodes), eq("42"));
+    }
+
+    @Test
     public void handleReturnsErrorWhenStartHourIsInvalid() {
         TestContext ctx = new TestContext();
         ctx.withShift(24);
@@ -283,7 +313,12 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
             when(monitoringConfig.getMonitoringParams("patient-dept")).thenReturn(Map.of(
                 "intravenous_intake", param("intravenous_intake", "静脉入量", 1),
                 "hourly_intake", param("hourly_intake", "每小时入量", 3),
-                "total_intake", param("total_intake", "累计入量", 0)
+                "total_intake", param("total_intake", "累计入量", 0),
+                "urine_output", param("urine_output", "尿量", 2),
+                "drain_tube_a", param("drain_tube_a", "腹腔引流", 2),
+                "drain_tube_b", param("drain_tube_b", "胸腔引流", 2),
+                "hourly_output", param("hourly_output", "每小时出量", 3),
+                "total_output", param("total_output", "累计出量", 0)
             ));
         }
 

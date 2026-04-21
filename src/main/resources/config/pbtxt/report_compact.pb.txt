@@ -6114,6 +6114,7 @@ balance_group {
     # 对应于JfkTablePB.id
     table_id: "table-230"
     param_code: "urine_output"
+    param_code: "compactreportdrainagetubeparams"
     param_code: "hourly_output"
     param_code: "total_output"
 }
