@@ -17,6 +17,7 @@ message NursingExeRecordPB {
     string plan_time_iso8601 = 3;  // 计划执行时间
     string completed_by = 4;  // 执行人
     string completed_time_iso8601 = 5;  // 执行完成时间
+    string note = 6;  // 护理说明
 }
 
 message NursingOrderPB {
@@ -41,6 +42,12 @@ message NursingOrderTemplateGroupPB {
     repeated NursingOrderPB nursing_order = 5;  // 可为空，查询模板时为空
 }
 
+message MedicalOrderTypeNamePB {
+    string type = 1;
+    repeated string name = 2;
+}
+
 message NursingOrderConfigPB {
     repeated NursingOrderTemplateGroupPB default_dept_group = 2;
+    repeated MedicalOrderTypeNamePB allowed_order_type = 3;
 }

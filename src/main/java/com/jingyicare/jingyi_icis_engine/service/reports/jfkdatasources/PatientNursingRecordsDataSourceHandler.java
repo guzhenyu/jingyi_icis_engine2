@@ -23,6 +23,7 @@ import org.springframework.stereotype.Component;
 import lombok.extern.slf4j.Slf4j;
 
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientMonitoringRecord;
+import com.jingyicare.jingyi_icis_engine.entity.nursingorders.NursingExecutionRecord;
 import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.NursingRecord;
 import com.jingyicare.jingyi_icis_engine.entity.users.Account;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
@@ -34,6 +35,8 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringP
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringValuePB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientMonitoringRecordRepository;
+import com.jingyicare.jingyi_icis_engine.repository.nursingorders.NursingExecutionRecordRepository;
+import com.jingyicare.jingyi_icis_engine.repository.nursingorders.NursingExecutionRecordRepository.NursingExecutionRecordReportRow;
 import com.jingyicare.jingyi_icis_engine.repository.nursingrecords.NursingRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
@@ -55,6 +58,7 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
         JfkDataSourceSupport support,
         MonitoringWindowResolver monitoringWindowResolver,
         NursingRecordRepository nursingRecordRepo,
+        NursingExecutionRecordRepository nursingExecutionRecordRepo,
         PatientMonitoringRecordRepository monitoringRecordRepo,
         MonitoringConfig monitoringConfig,
         ConfigProtoService configProtoService,
@@ -66,6 +70,7 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
         super(support);
         this.monitoringWindowResolver = monitoringWindowResolver;
         this.nursingRecordRepo = nursingRecordRepo;
+        this.nursingExecutionRecordRepo = nursingExecutionRecordRepo;
         this.monitoringRecordRepo = monitoringRecordRepo;
         this.monitoringConfig = monitoringConfig;
         this.configProtoService = configProtoService;
@@ -114,6 +119,9 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
 
         List<NursingRecord> nursingRecords = nursingRecordRepo.findReportNursingRecords(
             pid, window.monStartUtc(), window.monEndUtc());
+        List<NursingExecutionRecordReportRow> nursingExecutionRecords =
+            nursingExecutionRecordRepo.findReportNursingExecutionRecords(
+                pid, window.monStartUtc(), window.monEndUtc());
         List<PatientMonitoringRecord> nonHourlyRecords = monitoringRecordRepo
             .findByPidAndEffectiveTimeRange(pid, window.monStartUtc(), window.monEndUtc())
             .stream()
@@ -122,7 +130,7 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
             .toList();
 
         JfkDataSourcePB.Builder outputBuilder = newOutputBuilder(input);
-        if (nursingRecords.isEmpty() && nonHourlyRecords.isEmpty()) {
+        if (nursingRecords.isEmpty() && nursingExecutionRecords.isEmpty() && nonHourlyRecords.isEmpty()) {
             addEmptyOutputs(outputBuilder);
             return new Pair<>(returnCode(StatusCode.OK), outputBuilder.build());
         }
@@ -138,14 +146,20 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
             paramOrder = monitoringParamOrder(pid, window.deptId(), account.getFirst());
             accountNameByModifiedBy = accountNameByModifiedBy(nonHourlyRecords);
         }
+        Map<String, String> accountNameByCompletedBy = accountNameByCompletedBy(nursingExecutionRecords);
         JfkSignatureValueResolver signatureResolver = new JfkSignatureValueResolver(
-            accountRepo, nursingSignatureAccountRefs(nursingRecords, nonHourlyRecords), log, "Compact nursing records");
+            accountRepo,
+            nursingSignatureAccountRefs(nursingRecords, nursingExecutionRecords, nonHourlyRecords),
+            log,
+            "Compact nursing records"
+        );
 
         NursingRows rows;
         try (PDDocument document = new PDDocument()) {
             PDFont font = loadFont(document);
             rows = buildRows(
-                nursingRecords, nonHourlyRecords, paramMap, paramOrder, accountNameByModifiedBy,
+                nursingRecords, nursingExecutionRecords, nonHourlyRecords, paramMap, paramOrder,
+                accountNameByModifiedBy, accountNameByCompletedBy,
                 signatureResolver,
                 colWidths, font, fontSize, charSpacing, hPadding
             );
@@ -163,10 +177,12 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
 
     private NursingRows buildRows(
         List<NursingRecord> nursingRecords,
+        List<NursingExecutionRecordReportRow> nursingExecutionRecords,
         List<PatientMonitoringRecord> nonHourlyRecords,
         Map<String, MonitoringParamPB> paramMap,
         Map<String, Integer> paramOrder,
         Map<String, String> accountNameByModifiedBy,
+        Map<String, String> accountNameByCompletedBy,
         JfkSignatureValueResolver signatureResolver,
         List<Double> colWidths,
         PDFont font,
@@ -187,6 +203,8 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
                 nursingRecord.getId()
             ));
         }
+        reportRows.addAll(nursingExecutionRows(
+            nursingExecutionRecords, accountNameByCompletedBy, signatureResolver));
         reportRows.addAll(monitoringRows(
             nonHourlyRecords, paramMap, paramOrder, accountNameByModifiedBy, signatureResolver));
 
@@ -205,6 +223,52 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
             );
         }
         return rows;
+    }
+
+    private List<ReportRow> nursingExecutionRows(
+        List<NursingExecutionRecordReportRow> executionRecords,
+        Map<String, String> accountNameByCompletedBy,
+        JfkSignatureValueResolver signatureResolver
+    ) {
+        if (executionRecords.isEmpty()) return List.of();
+
+        List<ReportRow> rows = new ArrayList<>();
+        for (NursingExecutionRecordReportRow reportRow : executionRecords) {
+            if (reportRow == null || reportRow.getExecutionRecord() == null) {
+                continue;
+            }
+            NursingExecutionRecord record = reportRow.getExecutionRecord();
+            if (record.getCompletedTime() == null) {
+                continue;
+            }
+            if (StrUtils.isBlank(reportRow.getOrderName())) {
+                log.warn(
+                    "Nursing order name is empty for compact nursing records, executionRecordId={}, nursingOrderId={}",
+                    record.getId(), record.getNursingOrderId()
+                );
+            }
+            rows.add(new ReportRow(
+                record.getCompletedTime(),
+                nursingExecutionContent(reportRow.getOrderName(), record.getNote()),
+                signatureResolver.signatureOrFallback(
+                    record.getCompletedBy(),
+                    displayAccountName(record.getCompletedBy(), accountNameByCompletedBy),
+                    record.getId()
+                ),
+                "",
+                SOURCE_ORDER_NURSING_EXECUTION,
+                record.getId()
+            ));
+        }
+        return rows;
+    }
+
+    private String nursingExecutionContent(String orderName, String note) {
+        String content = safe(orderName);
+        if (StrUtils.isBlank(note)) {
+            return content;
+        }
+        return content + "(备注: " + note + ")";
     }
 
     private List<ReportRow> monitoringRows(
@@ -283,6 +347,7 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
 
     private List<String> nursingSignatureAccountRefs(
         List<NursingRecord> nursingRecords,
+        List<NursingExecutionRecordReportRow> nursingExecutionRecords,
         List<PatientMonitoringRecord> nonHourlyRecords
     ) {
         List<String> result = new ArrayList<>();
@@ -290,8 +355,57 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
             if (!StrUtils.isBlank(nursingRecord.getCreatedBy())) result.add(nursingRecord.getCreatedBy());
             if (!StrUtils.isBlank(nursingRecord.getReviewedBy())) result.add(nursingRecord.getReviewedBy());
         }
+        for (NursingExecutionRecordReportRow reportRow : nursingExecutionRecords) {
+            if (reportRow == null || reportRow.getExecutionRecord() == null) continue;
+            String completedBy = reportRow.getExecutionRecord().getCompletedBy();
+            if (!StrUtils.isBlank(completedBy)) result.add(completedBy);
+        }
         for (PatientMonitoringRecord record : nonHourlyRecords) {
             if (!StrUtils.isBlank(record.getModifiedBy())) result.add(record.getModifiedBy());
+        }
+        return result;
+    }
+
+    private Map<String, String> accountNameByCompletedBy(List<NursingExecutionRecordReportRow> records) {
+        Map<String, Long> accountIdByCompletedBy = new LinkedHashMap<>();
+        for (NursingExecutionRecordReportRow reportRow : records) {
+            if (reportRow == null || reportRow.getExecutionRecord() == null) continue;
+            NursingExecutionRecord record = reportRow.getExecutionRecord();
+            String completedBy = record.getCompletedBy();
+            if (StrUtils.isBlank(completedBy)) continue;
+            try {
+                accountIdByCompletedBy.putIfAbsent(completedBy, Long.parseLong(completedBy));
+            } catch (NumberFormatException e) {
+                log.warn(
+                    "Compact nursing execution completed_by is not accounts.id, recordId={}, completedBy={}",
+                    record.getId(), completedBy
+                );
+            }
+        }
+        if (accountIdByCompletedBy.isEmpty()) {
+            return Map.of();
+        }
+
+        List<Long> accountIds = new ArrayList<>(new LinkedHashSet<>(accountIdByCompletedBy.values()));
+        Map<Long, String> accountNameById = accountRepo.findByIdInAndIsDeletedFalse(accountIds).stream()
+            .collect(Collectors.toMap(
+                Account::getId,
+                account -> safe(account.getName()),
+                (left, right) -> left,
+                LinkedHashMap::new
+            ));
+
+        Map<String, String> result = new LinkedHashMap<>();
+        for (Map.Entry<String, Long> entry : accountIdByCompletedBy.entrySet()) {
+            String accountName = accountNameById.get(entry.getValue());
+            if (StrUtils.isBlank(accountName)) {
+                log.warn(
+                    "Compact nursing execution completed_by account not found, completedBy={}, accountId={}",
+                    entry.getKey(), entry.getValue()
+                );
+                continue;
+            }
+            result.put(entry.getKey(), accountName);
         }
         return result;
     }
@@ -578,12 +692,14 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
     private static final int RECORDED_BY_COL_INDEX = 2;
     private static final int REVIEWED_BY_COL_INDEX = 3;
     private static final int SOURCE_ORDER_NURSING = 0;
-    private static final int SOURCE_ORDER_MONITORING = 1;
+    private static final int SOURCE_ORDER_NURSING_EXECUTION = 1;
+    private static final int SOURCE_ORDER_MONITORING = 2;
     private static final double DEFAULT_FONT_SIZE = 8d;
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     private final MonitoringWindowResolver monitoringWindowResolver;
     private final NursingRecordRepository nursingRecordRepo;
+    private final NursingExecutionRecordRepository nursingExecutionRecordRepo;
     private final PatientMonitoringRecordRepository monitoringRecordRepo;
     private final MonitoringConfig monitoringConfig;
     private final ConfigProtoService configProtoService;

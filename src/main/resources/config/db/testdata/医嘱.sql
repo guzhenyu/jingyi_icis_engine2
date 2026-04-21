@@ -76,6 +76,39 @@ insert into medical_orders (
     1, '2025-07-01 01:00:00', 'bid', 2, 'push', '静推', now()
 );
 
+-- 张医嘱：适合护理同步的HIS医嘱 medical_orders
+-- 护理白名单要求：
+--   1. order_type 精确匹配 '诊疗' / '文本'
+--   2. order_name 精确匹配 src/main/resources/config/pbtxt/icis_config.pb.txt:9309-9337
+--   3. freq_code 使用 support_nursing_order = true 的频次：qd / bid / tid
+insert into medical_orders (
+    "order_id", "his_patient_id", "group_id", "ordering_doctor", "ordering_doctor_id", "dept_id",
+    "order_type", "status", "order_time", "stop_time", "cancel_time",
+    "order_code", "order_name", "spec", "dose", "dose_unit",
+    "order_duration_type", "plan_time", "freq_code", "first_day_exe_count",
+    "administration_route_code", "administration_route_name",
+    "created_at"
+) values
+(
+    'mo_nursing_zhang_1', 'hisPatientId100', 'mog_nursing_zhang_1', '张医生', 'zhang-doctor-id', '99999',
+    '诊疗', '', '2025-07-02 01:00:00', null, null,
+    'NO-CODE-001', '机械深度排痰', '次', 1, '次',
+    0, '2025-07-02 01:00:00', 'qd', 1, null, null, now()
+),
+(
+    'mo_nursing_zhang_2', 'hisPatientId100', 'mog_nursing_zhang_2', '张医生', 'zhang-doctor-id', '99999',
+    '文本', '', '2025-07-02 02:00:00', null, null,
+    'NO-CODE-002', '保护约束', '次', 1, '次',
+    0, '2025-07-02 02:00:00', 'bid', 2, null, null, now()
+),
+(
+    'mo_nursing_zhang_3', 'hisPatientId100', 'mog_nursing_zhang_3', '张医生', 'zhang-doctor-id', '99999',
+    '诊疗', '', '2025-07-02 03:00:00', null, null,
+    'NO-CODE-003', '吸痰护理', '次', 1, '次',
+    1, '2025-07-02 03:00:00', 'tid', 3, null, null, now()
+)
+on conflict ("order_id") do nothing;
+
 -- 清理医嘱
 -- delete from medication_execution_actions;
 -- delete from medication_execution_record_stats;

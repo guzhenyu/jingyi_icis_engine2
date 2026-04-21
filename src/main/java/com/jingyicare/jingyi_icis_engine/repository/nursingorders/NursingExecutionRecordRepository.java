@@ -12,6 +12,12 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface NursingExecutionRecordRepository extends JpaRepository<NursingExecutionRecord, Long> {
+    interface NursingExecutionRecordReportRow {
+        NursingExecutionRecord getExecutionRecord();
+
+        String getOrderName();
+    }
+
     List<NursingExecutionRecord> findByNursingOrderIdInAndPlanTimeBetween(
         List<Long> nursingOrderIds, LocalDateTime startTime, LocalDateTime endTime);
     
@@ -20,4 +26,23 @@ public interface NursingExecutionRecordRepository extends JpaRepository<NursingE
 
     @Query(value = "SELECT * FROM nursing_execution_records  WHERE nursing_order_id = :orderId AND is_deleted = false ORDER BY plan_time DESC LIMIT 1", nativeQuery = true)
     Optional<NursingExecutionRecord> findLatestValidRecord(@Param("orderId") Long orderId);
+
+    @Query("""
+        select record as executionRecord,
+               nursingOrder.name as orderName
+        from NursingExecutionRecord record
+        join NursingOrder nursingOrder on nursingOrder.id = record.nursingOrderId
+        where record.pid = :pid
+          and record.completedTime is not null
+          and record.completedTime >= :startTime
+          and record.completedTime < :endTime
+          and record.isDeleted = false
+          and nursingOrder.isDeleted = false
+        order by record.completedTime asc, record.id asc
+        """)
+    List<NursingExecutionRecordReportRow> findReportNursingExecutionRecords(
+        @Param("pid") Long pid,
+        @Param("startTime") LocalDateTime startTime,
+        @Param("endTime") LocalDateTime endTime
+    );
 }

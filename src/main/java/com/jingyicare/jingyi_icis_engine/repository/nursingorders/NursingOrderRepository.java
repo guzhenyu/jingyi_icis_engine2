@@ -29,5 +29,7 @@ public interface NursingOrderRepository extends JpaRepository<NursingOrder, Long
 
     Optional<NursingOrder> findByIdAndIsDeletedFalse(Long id);
 
+    Optional<NursingOrder> findByMedicalOrderId(String medicalOrderId);
+
     Optional<NursingOrder> findByPidAndOrderTemplateIdAndOrderTime(Long patientId, Integer orderTemplateId, LocalDateTime orderTime);
 }

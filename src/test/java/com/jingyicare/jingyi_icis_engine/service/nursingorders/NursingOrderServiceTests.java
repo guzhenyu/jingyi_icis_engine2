@@ -3,6 +3,7 @@ package com.jingyicare.jingyi_icis_engine.service.nursingorders;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -13,11 +14,15 @@ import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingOrder.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 
+import com.jingyicare.jingyi_icis_engine.entity.medications.*;
+import com.jingyicare.jingyi_icis_engine.entity.nursingorders.*;
 import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.entity.users.RbacDepartment;
+import com.jingyicare.jingyi_icis_engine.repository.medications.*;
 import com.jingyicare.jingyi_icis_engine.repository.nursingorders.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
@@ -34,6 +39,8 @@ public class NursingOrderServiceTests extends TestsBase {
         @Autowired NursingOrderTemplateRepository templateRepo,
         @Autowired NursingOrderRepository orderRepo,
         @Autowired NursingExecutionRecordRepository recordRepo,
+        @Autowired MedicalOrderRepository medOrdRepo,
+        @Autowired MedicationFrequencyRepository medFreqRepo,
         @Autowired RbacDepartmentRepository deptRepo,
         @Autowired PatientRecordRepository patientRecordRepo
     ) {
@@ -57,6 +64,8 @@ public class NursingOrderServiceTests extends TestsBase {
         this.templateRepo = templateRepo;
         this.orderRepo = orderRepo;
         this.recordRepo = recordRepo;
+        this.medOrdRepo = medOrdRepo;
+        this.medFreqRepo = medFreqRepo;
         this.deptRepo = deptRepo;
         this.patientRecordRepo = patientRecordRepo;
 
@@ -586,6 +595,7 @@ public class NursingOrderServiceTests extends TestsBase {
         UpdateNursingExeRecordReq updateRecordReq = UpdateNursingExeRecordReq.newBuilder()
             .setId(getDetailsResp.getGroup(0).getNursingOrder(0).getExeRecord(0).getId())
             .setCompletedTimeIso8601(TimeUtils.toIso8601String(LocalDateTime.of(2024, 12, 24, 1, 0, 0), ZONE_ID))
+            .setNote("执行备注")
             .build();
         String updateRecordReqJson = ProtoUtils.protoToJson(updateRecordReq);
         GenericResp updateRecordResp = orderService.updateNursingExeRecord(updateRecordReqJson);
@@ -595,10 +605,14 @@ public class NursingOrderServiceTests extends TestsBase {
         assertThat(getDetailsResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         assertThat(getDetailsResp.getGroup(0).getNursingOrder(0).getExeRecord(0).getCompletedTimeIso8601())
             .isEqualTo(TimeUtils.toIso8601String(LocalDateTime.of(2024, 12, 24, 1, 0, 0), ZONE_ID));
+        assertThat(getDetailsResp.getGroup(0).getNursingOrder(0).getExeRecord(0).getNote()).isEqualTo("执行备注");
+        assertThat(recordRepo.findById(getDetailsResp.getGroup(0).getNursingOrder(0).getExeRecord(0).getId()).orElseThrow()
+            .getNote()).isEqualTo("执行备注");
 
         // 更新护嘱执行记录（取消完成）
         updateRecordReq = updateRecordReq.toBuilder()
             .setCompletedTimeIso8601("")
+            .setNote("")
             .build();
         updateRecordReqJson = ProtoUtils.protoToJson(updateRecordReq);
         updateRecordResp = orderService.updateNursingExeRecord(updateRecordReqJson);
@@ -607,6 +621,7 @@ public class NursingOrderServiceTests extends TestsBase {
         getDetailsResp = orderService.getNursingOrderDetails(getDetailsReqJson);
         assertThat(getDetailsResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         assertThat(getDetailsResp.getGroup(0).getNursingOrder(0).getExeRecord(0).getCompletedTimeIso8601()).isEmpty();
+        assertThat(getDetailsResp.getGroup(0).getNursingOrder(0).getExeRecord(0).getNote()).isEmpty();
 
         // 更新护嘱执行记录（删除）
         DeleteNursingExeRecordReq deleteRecordReq = DeleteNursingExeRecordReq.newBuilder()
@@ -621,6 +636,129 @@ public class NursingOrderServiceTests extends TestsBase {
         assertThat(getDetailsResp.getGroupList()).hasSize(0);
     }
 
+    @Test
+    public void testSyncHisNursingOrdersFromMedicalOrders() {
+        List<GrantedAuthority> authorities = AuthorityUtils.createAuthorityList("ROLE_1");
+        UsernamePasswordAuthenticationToken authentication =
+            new UsernamePasswordAuthenticationToken(accountId, null, authorities);
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        PatientRecord patient = patientTestUtils.newPatientRecord(9001L, IN_ICU_VAL, deptId2);
+        patient.setAdmissionTime(LocalDateTime.of(2024, 12, 23, 0, 0, 0));
+        patient = patientRecordRepo.save(patient);
+        final Long patientId = patient.getId();
+        final Integer longTermDurationType = protoService.getConfig().getMedication()
+            .getEnums().getOrderDurationTypeLongTerm().getId();
+        final LocalDateTime orderTime = LocalDateTime.of(2024, 12, 24, 0, 0, 0);
+
+        medOrdRepo.save(newMedicalOrder(
+            "his-nursing-order-1", patient, deptId2, "诊疗", "机械深度排痰",
+            "医生A", longTermDurationType, "test_qd", orderTime));
+        medOrdRepo.save(newMedicalOrder(
+            "his-nursing-order-not-allowed", patient, deptId2, "诊疗", "非白名单护嘱",
+            "医生A", longTermDurationType, "test_qd", orderTime));
+        medOrdRepo.save(newMedicalOrder(
+            "his-nursing-order-wrong-dept", patient, deptId, "诊疗", "气压治疗",
+            "医生A", longTermDurationType, "test_qd", orderTime));
+
+        GetNursingOrdersReq getOrdersReq = GetNursingOrdersReq.newBuilder()
+            .setPid(patientId)
+            .build();
+        GetNursingOrdersResp getOrdersResp = orderService.getNursingOrders(ProtoUtils.protoToJson(getOrdersReq));
+        assertThat(getOrdersResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        assertThat(getOrdersResp.getOrderList()).hasSize(1);
+        NursingOrderPB orderPb = getOrdersResp.getOrder(0);
+        assertThat(orderPb.getOrderTemplateId()).isEqualTo(0);
+        assertThat(orderPb.getName()).isEqualTo("机械深度排痰");
+        assertThat(orderPb.getDurationType()).isEqualTo(1);
+        assertThat(orderPb.getOrderBy()).isEqualTo("医生A");
+        assertThat(orderPb.getNote()).contains("medical_orders.order_id=his-nursing-order-1");
+        assertThat(orderPb.getNote()).contains("medical_orders.group_id=group-his-nursing-order-1");
+
+        GetNursingOrderDetailsReq getDetailsReq = GetNursingOrderDetailsReq.newBuilder()
+            .setPid(patientId)
+            .setQueryStartIso8601(TimeUtils.toIso8601String(LocalDateTime.of(2024, 12, 24, 0, 0, 0), ZONE_ID))
+            .setQueryEndIso8601(TimeUtils.toIso8601String(LocalDateTime.of(2024, 12, 25, 0, 0, 0), ZONE_ID))
+            .build();
+        GetNursingOrderDetailsResp getDetailsResp = orderService.getNursingOrderDetails(
+            ProtoUtils.protoToJson(getDetailsReq));
+        assertThat(getDetailsResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        assertThat(getDetailsResp.getGroupList()).hasSize(1);
+        assertThat(getDetailsResp.getGroup(0).getName()).isEqualTo("His护嘱");
+        assertThat(getDetailsResp.getGroup(0).getNursingOrderList()).hasSize(1);
+        assertThat(getDetailsResp.getGroup(0).getNursingOrder(0).getOrderTemplateId()).isEqualTo(0);
+        assertThat(getDetailsResp.getGroup(0).getNursingOrder(0).getExeRecordList()).hasSize(1);
+
+        StopNursingOrderReq stopOrderReq = StopNursingOrderReq.newBuilder()
+            .addId(orderPb.getId())
+            .setStopTimeIso8601(TimeUtils.toIso8601String(LocalDateTime.of(2024, 12, 25, 0, 0, 0), ZONE_ID))
+            .build();
+        GenericResp stopOrderResp = orderService.stopNursingOrder(ProtoUtils.protoToJson(stopOrderReq));
+        assertThat(stopOrderResp.getRt().getCode()).isEqualTo(StatusCode.NURSING_ORDER_HIS_SYNCED_NOT_EDITABLE.ordinal());
+
+        DeleteNursingOrderReq deleteOrderReq = DeleteNursingOrderReq.newBuilder()
+            .addId(orderPb.getId())
+            .build();
+        GenericResp deleteOrderResp = orderService.deleteNursingOrder(ProtoUtils.protoToJson(deleteOrderReq));
+        assertThat(deleteOrderResp.getRt().getCode()).isEqualTo(StatusCode.NURSING_ORDER_HIS_SYNCED_NOT_EDITABLE.ordinal());
+
+        MedicalOrder canceledOrder = medOrdRepo.findByOrderId("his-nursing-order-1").orElseThrow();
+        canceledOrder.setCancelTime(LocalDateTime.of(2024, 12, 25, 0, 0, 0));
+        medOrdRepo.save(canceledOrder);
+        getOrdersResp = orderService.getNursingOrders(ProtoUtils.protoToJson(getOrdersReq));
+        assertThat(getOrdersResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        assertThat(getOrdersResp.getOrder(0).getStopBy()).isEqualTo("医生A");
+        assertThat(getOrdersResp.getOrder(0).getStopTimeIso8601()).isNotEmpty();
+
+        NursingOrder syncedOrder = orderRepo.findByMedicalOrderId("his-nursing-order-1").orElseThrow();
+        syncedOrder.setIsDeleted(true);
+        orderRepo.save(syncedOrder);
+        getOrdersResp = orderService.getNursingOrders(ProtoUtils.protoToJson(getOrdersReq));
+        assertThat(getOrdersResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        assertThat(getOrdersResp.getOrderList()).isEmpty();
+    }
+
+    @Test
+    public void testSyncHisNursingOrderUnsupportedFrequencyReturnsError() {
+        List<GrantedAuthority> authorities = AuthorityUtils.createAuthorityList("ROLE_1");
+        UsernamePasswordAuthenticationToken authentication =
+            new UsernamePasswordAuthenticationToken(accountId, null, authorities);
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+
+        final String unsupportedFreqCode = "test_unsupported_nursing_order_freq";
+        MedicationFrequencySpec freqSpec = MedicationFrequencySpec.newBuilder()
+            .setCode(unsupportedFreqCode)
+            .setName("不支持护理护嘱频次")
+            .setByInterval(MedicationFrequencySpec.ByInterval.newBuilder().setIntervalDays(0).build())
+            .addTime(MedicationFrequencySpec.Time.newBuilder().setHour(8).setMinute(0).build())
+            .build();
+        MedicationFrequency unsupportedFreq = medFreqRepo.findByCode(unsupportedFreqCode)
+            .orElse(new MedicationFrequency());
+        unsupportedFreq.setCode(unsupportedFreqCode);
+        unsupportedFreq.setName(freqSpec.getName());
+        unsupportedFreq.setFreqSpec(Base64.getEncoder().encodeToString(freqSpec.toByteArray()));
+        unsupportedFreq.setSupportNursingOrder(false);
+        unsupportedFreq.setIsDeleted(false);
+        medFreqRepo.save(unsupportedFreq);
+
+        PatientRecord patient = patientTestUtils.newPatientRecord(9002L, IN_ICU_VAL, deptId2);
+        patient.setAdmissionTime(LocalDateTime.of(2024, 12, 23, 0, 0, 0));
+        patient = patientRecordRepo.save(patient);
+
+        final Integer longTermDurationType = protoService.getConfig().getMedication()
+            .getEnums().getOrderDurationTypeLongTerm().getId();
+        medOrdRepo.save(newMedicalOrder(
+            "his-nursing-order-unsupported-freq", patient, deptId2, "诊疗", "气压治疗",
+            "医生B", longTermDurationType, unsupportedFreqCode,
+            LocalDateTime.of(2024, 12, 24, 0, 0, 0)));
+
+        GetNursingOrdersReq getOrdersReq = GetNursingOrdersReq.newBuilder()
+            .setPid(patient.getId())
+            .build();
+        GetNursingOrdersResp getOrdersResp = orderService.getNursingOrders(ProtoUtils.protoToJson(getOrdersReq));
+        assertThat(getOrdersResp.getRt().getCode()).isEqualTo(StatusCode.NURSING_ORDER_FREQUENCY_NOT_EXISTS.ordinal());
+    }
+
     private void initDepartments() {
         RbacDepartment dept2 = new RbacDepartment();
         dept2.setDeptId(deptId2);
@@ -628,6 +766,38 @@ public class NursingOrderServiceTests extends TestsBase {
         deptRepo.save(dept2);
 
         orderConfig.initialize();
+    }
+
+    private MedicalOrder newMedicalOrder(
+        String orderId,
+        PatientRecord patient,
+        String orderDeptId,
+        String orderType,
+        String orderName,
+        String orderingDoctor,
+        Integer durationType,
+        String freqCode,
+        LocalDateTime orderTime
+    ) {
+        return MedicalOrder.builder()
+            .orderId(orderId)
+            .hisPatientId(patient.getHisPatientId())
+            .groupId("group-" + orderId)
+            .hisMrn(patient.getHisMrn())
+            .patientName(patient.getIcuName())
+            .orderingDoctor(orderingDoctor)
+            .orderingDoctorId(orderingDoctor + "-id")
+            .deptId(orderDeptId)
+            .orderType(orderType)
+            .status("已开立")
+            .orderTime(orderTime)
+            .orderCode("code-" + orderId)
+            .orderName(orderName)
+            .orderDurationType(durationType)
+            .freqCode(freqCode)
+            .planTime(orderTime)
+            .createdAt(orderTime)
+            .build();
     }
 
     private final String ZONE_ID;
@@ -645,6 +815,8 @@ public class NursingOrderServiceTests extends TestsBase {
     private final NursingOrderTemplateRepository templateRepo;
     private final NursingOrderRepository orderRepo;
     private final NursingExecutionRecordRepository recordRepo;
+    private final MedicalOrderRepository medOrdRepo;
+    private final MedicationFrequencyRepository medFreqRepo;
     private final RbacDepartmentRepository deptRepo;
     private final PatientRecordRepository patientRecordRepo;
 

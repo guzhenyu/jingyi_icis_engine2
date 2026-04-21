@@ -66,9 +66,13 @@ cell_widths: 60
 1. `table-255/table-256` 宽度为 `100 + 596 + 60 + 60 = 816`。
 2. `patient_monitoring_records` 生成的护理记录行中，`recorded_by` 使用 `patient_monitoring_records.modified_by` 转 `accounts.id` 后查到的 `accounts.name`，`reviewed_by` 为空。
 3. 非整点观察项同一时间多条记录的内部排序，按观察项配置的分组顺序和组内 `display_order`。
-4. 同一时间既有 `nursing_records` 又有非整点 `patient_monitoring_records` 时，不合并为一行；先显示护理记录行，再显示观察项汇总行。
+4. 同一时间既有 `nursing_records`、`nursing_execution_records` 又有非整点 `patient_monitoring_records` 时，不合并为一行；先显示护理记录行，再显示护理执行记录行，最后显示观察项汇总行。
 5. `nursing_records.content` 可能包含换行符；保留原始换行，并在每个原始行内再按列宽折行。
 6. 无数据时保持 `table-254/table-255` 静态显示，仅隐藏动态明细 `table-256`。
+7. `nursing_execution_records` 作为第三类护理记录来源，只输出已经执行完成的记录：`completed_time` 必须非空。
+8. `nursing_execution_records` 生成行的 `reviewed_by` 固定为空。
+9. `nursing_execution_records.note` 为空时，`content` 只显示护理医嘱名称，不追加空的备注括号。
+10. 关联的 `nursing_orders` 已软删除时，历史执行记录不进入报表，默认过滤 `nursing_orders.is_deleted = false`。
 
 ## 数据源定义
 
@@ -150,7 +154,54 @@ nursing_records.is_deleted = false
 yyyy-MM-dd HH:mm
 ```
 
-## 数据来源二：非整点 patient_monitoring_records
+## 数据来源二：nursing_execution_records
+
+查询条件：
+
+```text
+nursing_execution_records.pid = pid
+nursing_execution_records.completed_time >= monStartUtc
+nursing_execution_records.completed_time < monEndUtc
+nursing_execution_records.completed_time is not null
+nursing_execution_records.is_deleted = false
+关联 nursing_orders：
+  nursing_orders.id = nursing_execution_records.nursing_order_id
+  nursing_orders.is_deleted = false
+```
+
+输出映射：
+
+| 输出字段 | 来源 |
+| --- | --- |
+| `record_time` | `nursing_execution_records.completed_time` 转本地时间 |
+| `content` | `note` 非空时为 `nursing_orders.name + "(备注: " + nursing_execution_records.note + ")"`；`note` 为空时只显示 `nursing_orders.name` |
+| `recorded_by` | `nursing_execution_records.completed_by` 对应的账户名或签名 |
+| `reviewed_by` | 空字符串 |
+
+时间格式建议：
+
+```text
+yyyy-MM-dd HH:mm
+```
+
+### 护理执行记录 content 生成规则
+
+1. `nursing_orders.name` 为空时，记录 `warn`，该行仍可输出，名称按空字符串处理。
+2. `nursing_execution_records.note` 非空时，按以下格式拼接：
+
+```text
+{nursing_orders.name}(备注: {nursing_execution_records.note})
+```
+
+3. `nursing_execution_records.note` 为空时，只输出 `nursing_orders.name`，不追加 `(备注: )`。
+
+### 护理执行记录 recorded_by 生成规则
+
+1. `nursing_execution_records.completed_by` 必须用于解析记录人。
+2. 记录人展示口径与现有护理记录签名解析保持一致：优先通过 `JfkSignatureValueResolver` 输出签名；没有签名时回退账户名或原始账号引用。
+3. 无法解析 `completed_by` 时记录 `warn`，并回退显示原 `completed_by`，避免整行记录人为空。
+
+## 数据来源三：非整点 patient_monitoring_records
 
 查询条件：
 
@@ -208,7 +259,7 @@ MonitoringParamPB.name + ": " + paramValue
 
 ## 合并与排序
 
-数据源最终把两类记录合并成统一行模型：
+数据源最终把三类记录合并成统一行模型：
 
 ```text
 record_time_utc
@@ -222,8 +273,12 @@ source_id
 排序：
 
 1. `record_time_utc` 升序。
-2. 同一时间时，不把 `nursing_records` 与 `patient_monitoring_records` 合并；先输出 `nursing_records` 行，再输出 `patient_monitoring_records` 汇总行。
-3. 同一来源同一时间内按 `id` 升序，保证稳定。
+2. 同一时间时，不把 `nursing_records`、`nursing_execution_records` 与 `patient_monitoring_records` 合并。
+3. 同一时间的来源顺序：
+   - `nursing_records`
+   - `nursing_execution_records`
+   - `patient_monitoring_records`
+4. 同一来源同一时间内按 `id` 升序，保证稳定。
 
 ## 折行
 
@@ -278,7 +333,7 @@ h_padding
 
 `patient_nursing_records` 属于 table-scoped 数据源。现有 renderer 对 table-scoped meta id 的查找逻辑应能复用；若当前白名单只包含已有几个 meta id，需要加入 `patient_nursing_records`。
 
-无护理记录且无非整点观察项时，数据源输出 0 行，使 `table-256` 不渲染；`table-254/table-255` 静态标题和表头仍显示，除非后续新增“静态表头跟随数据源隐藏”的能力。
+无护理记录、无护理执行记录且无非整点观察项时，数据源输出 0 行，使 `table-256` 不渲染；`table-254/table-255` 静态标题和表头仍显示，除非后续新增“静态表头跟随数据源隐藏”的能力。
 
 ## 配置文件变更
 
@@ -348,6 +403,36 @@ findByPidAndEffectiveTimeRange(pid, start, end)
 
 可以复用后在 handler 内过滤非整点；也可以新增更明确的报表查询方法。考虑 JPQL 对 `minute/second/nano` 的跨数据库兼容性，建议先复用现有查询并在 Java 中严格过滤非整点。
 
+### NursingExecutionRecordRepository
+
+新增显式报表查询方法，建议通过 JPQL join `NursingOrder`：
+
+```java
+findReportNursingExecutionRecords(pid, monStartUtc, monEndUtc)
+```
+
+条件：
+
+```text
+NursingExecutionRecord.pid = pid
+NursingExecutionRecord.completedTime >= monStartUtc
+NursingExecutionRecord.completedTime < monEndUtc
+NursingExecutionRecord.completedTime is not null
+NursingExecutionRecord.isDeleted = false
+NursingExecutionRecord.nursingOrderId = NursingOrder.id
+NursingOrder.isDeleted = false
+```
+
+返回数据需要能同时拿到：
+
+1. `NursingExecutionRecord`
+2. 对应 `NursingOrder.name`
+
+实现方式可选：
+
+1. 新增投影接口或 DTO。
+2. 查询执行记录后批量按 `nursing_order_id` 查询 `nursing_orders` 并在 handler 内组装。
+
 ## 单元测试建议
 
 新增：
@@ -360,14 +445,19 @@ src/test/java/com/jingyicare/jingyi_icis_engine/service/reports/jfkdatasources/P
 
 1. 正确解析 `monStartUtc/monEndUtc`。
 2. 查询 `nursing_records` 并输出时间、内容、记录人、审核人。
-3. 查询非整点 `patient_monitoring_records`，整点记录被过滤。
-4. 同一非整点时间多条观察项合并成一行，格式为 `名称: 值; 名称: 值`。
-5. `param_value_str` 为空时解码 `param_value` 并格式化。
-6. 找不到 `MonitoringParamPB` 时 warn 并跳过。
-7. 两类记录合并后按时间升序。
-8. 同一时间 nursing 记录与 monitoring 汇总行的输出顺序稳定。
-9. `content` 按列宽折行，输出 `strs_val` 多行。
-10. 无数据时输出字段存在但 `vals` 长度为 0。
+3. 查询 `nursing_execution_records`，只输出 `completed_time` 非空且未删除的执行记录。
+4. 护理执行记录 `record_time` 使用 `completed_time`。
+5. 护理执行记录 `content`：`note` 非空时使用 `nursing_orders.name + "(备注: " + nursing_execution_records.note + ")"`；`note` 为空时只显示 `nursing_orders.name`。
+6. 护理执行记录 `recorded_by` 使用 `completed_by` 解析账户名或签名，`reviewed_by` 为空。
+7. 关联 `nursing_orders.is_deleted = true` 时，护理执行记录不进入报表。
+8. 查询非整点 `patient_monitoring_records`，整点记录被过滤。
+9. 同一非整点时间多条观察项合并成一行，格式为 `名称: 值; 名称: 值`。
+10. `param_value_str` 为空时解码 `param_value` 并格式化。
+11. 找不到 `MonitoringParamPB` 时 warn 并跳过。
+12. 三类记录合并后按时间升序。
+13. 同一时间 nursing 记录、nursing execution 记录与 monitoring 汇总行的输出顺序稳定。
+14. `content` 按列宽折行，输出 `strs_val` 多行。
+15. 无数据时输出字段存在但 `vals` 长度为 0。
 
 补充：
 
@@ -377,4 +467,4 @@ src/test/java/com/jingyicare/jingyi_icis_engine/service/reports/jfkdatasources/P
 
 ## 待确认问题
 
-暂无阻塞实现的问题。
+当前需求层面暂无业务未确认问题。

@@ -1939,7 +1939,7 @@ CREATE TABLE nursing_orders (
     id BIGSERIAL PRIMARY KEY,  -- 自增id
     pid BIGINT NOT NULL,  -- 患者id
     dept_id VARCHAR(255) NOT NULL,  -- 部门id
-    order_template_id INT NOT NULL,  -- 模板id, 外键nursing_order_templates.id
+    order_template_id INT,  -- 模板id, 外键nursing_order_templates.id；HIS同步护嘱可为空
     name VARCHAR(255) NOT NULL,  -- 护理计划名称
     duration_type INTEGER NOT NULL,  -- 0: 临时护嘱 1: 长期护嘱
     medication_freq_code VARCHAR(255) NOT NULL,  -- 频次编码，外键：medication_frequencies.code
@@ -1951,6 +1951,10 @@ CREATE TABLE nursing_orders (
     is_deleted BOOLEAN NOT NULL,  -- 是否已删除
     deleted_by VARCHAR(255),  -- 删除人
     deleted_at TIMESTAMP,  -- 删除时间
+    source VARCHAR(64),  -- 来源，medical_orders 表示由HIS医嘱同步
+    medical_order_id VARCHAR(255),  -- 来源 medical_orders.order_id
+    medical_order_group_id VARCHAR(255),  -- 来源 medical_orders.group_id
+    synced_at TIMESTAMP,  -- 最近一次同步时间
     modified_by VARCHAR(255),  -- 最后修改人
     modified_at TIMESTAMP,  -- 最后修改时间
     FOREIGN KEY (order_template_id) REFERENCES nursing_order_templates(id)  -- 外键约束
@@ -1959,7 +1963,7 @@ COMMENT ON TABLE nursing_orders IS '护理计划表';
 COMMENT ON COLUMN nursing_orders.id IS '自增id';
 COMMENT ON COLUMN nursing_orders.pid IS '患者id';
 COMMENT ON COLUMN nursing_orders.dept_id IS '部门id';
-COMMENT ON COLUMN nursing_orders.order_template_id IS '模板id, 外键nursing_order_templates.id';
+COMMENT ON COLUMN nursing_orders.order_template_id IS '模板id, 外键nursing_order_templates.id；HIS同步护嘱可为空';
 COMMENT ON COLUMN nursing_orders.name IS '护理计划名称';
 COMMENT ON COLUMN nursing_orders.duration_type IS '0: 临时护嘱 1: 长期护嘱';
 COMMENT ON COLUMN nursing_orders.medication_freq_code IS '频次编码，外键：medication_frequencies.code';
@@ -1971,11 +1975,18 @@ COMMENT ON COLUMN nursing_orders.note IS '备注';
 COMMENT ON COLUMN nursing_orders.is_deleted IS '是否已删除';
 COMMENT ON COLUMN nursing_orders.deleted_by IS '删除人';
 COMMENT ON COLUMN nursing_orders.deleted_at IS '删除时间';
+COMMENT ON COLUMN nursing_orders.source IS '来源，medical_orders 表示由HIS医嘱同步';
+COMMENT ON COLUMN nursing_orders.medical_order_id IS '来源 medical_orders.order_id';
+COMMENT ON COLUMN nursing_orders.medical_order_group_id IS '来源 medical_orders.group_id';
+COMMENT ON COLUMN nursing_orders.synced_at IS '最近一次同步时间';
 COMMENT ON COLUMN nursing_orders.modified_by IS '最后修改人';
 COMMENT ON COLUMN nursing_orders.modified_at IS '最后修改时间';
 CREATE UNIQUE INDEX idx_nursing_orders_pid_order_time 
     ON nursing_orders (pid, order_template_id, order_time)
-    WHERE is_deleted = FALSE;
+    WHERE is_deleted = FALSE AND order_template_id IS NOT NULL;
+CREATE UNIQUE INDEX idx_nursing_orders_medical_order_id
+    ON nursing_orders (medical_order_id)
+    WHERE medical_order_id IS NOT NULL;
 
 CREATE TABLE nursing_execution_records (
     id BIGSERIAL PRIMARY KEY,  -- 自增id
@@ -1984,6 +1995,7 @@ CREATE TABLE nursing_execution_records (
     plan_time TIMESTAMP NOT NULL,  -- 计划执行时间
     completed_by VARCHAR(255),  -- 执行人
     completed_time TIMESTAMP,  -- 执行完成时间
+    note TEXT,  -- 护理说明
     is_deleted BOOLEAN NOT NULL,  -- 是否已删除
     deleted_by VARCHAR(255),  -- 删除人
     deleted_at TIMESTAMP,  -- 删除时间
@@ -1998,6 +2010,7 @@ COMMENT ON COLUMN nursing_execution_records.nursing_order_id IS '护理计划id,
 COMMENT ON COLUMN nursing_execution_records.plan_time IS '计划执行时间';
 COMMENT ON COLUMN nursing_execution_records.completed_by IS '执行人';
 COMMENT ON COLUMN nursing_execution_records.completed_time IS '执行完成时间';
+COMMENT ON COLUMN nursing_execution_records.note IS '护理说明';
 COMMENT ON COLUMN nursing_execution_records.is_deleted IS '是否已删除';
 COMMENT ON COLUMN nursing_execution_records.deleted_by IS '删除人';
 COMMENT ON COLUMN nursing_execution_records.deleted_at IS '删除时间';

@@ -11,7 +11,8 @@ import java.time.LocalDateTime;
 @Builder
 @Entity
 @Table(name = "nursing_orders", indexes = {
-    @Index(name = "idx_nursing_orders_pid_order_time", columnList = "pid, order_time")
+    @Index(name = "idx_nursing_orders_pid_order_time", columnList = "pid, order_time"),
+    @Index(name = "idx_nursing_orders_medical_order_id", columnList = "medical_order_id")
 })
 public class NursingOrder {
 
@@ -26,8 +27,8 @@ public class NursingOrder {
     @Column(name = "dept_id", nullable = false)
     private String deptId;  // 部门id
 
-    @Column(name = "order_template_id", nullable = false)
-    private Integer orderTemplateId;  // 模板id，外键nursing_order_templates.id
+    @Column(name = "order_template_id")
+    private Integer orderTemplateId;  // 模板id，外键nursing_order_templates.id；HIS同步护嘱可为空
 
     @Column(name = "name", nullable = false)
     private String name;  // 护理计划名称
@@ -61,6 +62,18 @@ public class NursingOrder {
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;  // 删除时间
+
+    @Column(name = "source")
+    private String source;  // 来源，medical_orders 表示由HIS医嘱同步
+
+    @Column(name = "medical_order_id")
+    private String medicalOrderId;  // 来源 medical_orders.order_id
+
+    @Column(name = "medical_order_group_id")
+    private String medicalOrderGroupId;  // 来源 medical_orders.group_id
+
+    @Column(name = "synced_at")
+    private LocalDateTime syncedAt;  // 最近一次同步时间
 
     @Column(name = "modified_by")
     private String modifiedBy;  // 最后修改人

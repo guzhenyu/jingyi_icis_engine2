@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.core.io.DefaultResourceLoader;
 
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientMonitoringRecord;
+import com.jingyicare.jingyi_icis_engine.entity.nursingorders.NursingExecutionRecord;
 import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.NursingRecord;
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
 import com.jingyicare.jingyi_icis_engine.entity.users.Account;
@@ -36,6 +37,8 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.GenericValuePB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.TypeEnumPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.ValueMetaPB;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientMonitoringRecordRepository;
+import com.jingyicare.jingyi_icis_engine.repository.nursingorders.NursingExecutionRecordRepository;
+import com.jingyicare.jingyi_icis_engine.repository.nursingorders.NursingExecutionRecordRepository.NursingExecutionRecordReportRow;
 import com.jingyicare.jingyi_icis_engine.repository.nursingrecords.NursingRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
@@ -48,7 +51,7 @@ import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
 public class PatientNursingRecordsDataSourceHandlerTests {
     @Test
-    public void handleMergesNursingRowsAndNonHourlyMonitoringRows() {
+    public void handleMergesNursingExecutionAndNonHourlyMonitoringRows() {
         TestContext ctx = new TestContext();
         NursingRecord nursingRecord = NursingRecord.builder()
             .id(10L)
@@ -63,6 +66,11 @@ public class PatientNursingRecordsDataSourceHandlerTests {
             .build();
         when(ctx.nursingRecordRepo.findReportNursingRecords(10001L, MON_START_UTC, MON_END_UTC))
             .thenReturn(List.of(nursingRecord));
+        NursingExecutionRecord executionRecord = executionRecord(
+            20L, LocalDateTime.of(2026, 4, 17, 0, 10), "101", "痰液较多");
+        NursingExecutionRecordReportRow executionReportRow = executionReportRow(executionRecord, "吸痰护理");
+        when(ctx.nursingExecutionRecordRepo.findReportNursingExecutionRecords(10001L, MON_START_UTC, MON_END_UTC))
+            .thenReturn(List.of(executionReportRow));
         when(ctx.monitoringRecordRepo.findByPidAndEffectiveTimeRange(10001L, MON_START_UTC, MON_END_UTC))
             .thenReturn(List.of(
                 monitoringRecord(2L, "hr", LocalDateTime.of(2026, 4, 17, 0, 10), "", encodedIntValue(88), "102"),
@@ -93,17 +101,44 @@ public class PatientNursingRecordsDataSourceHandlerTests {
         Map<String, List<List<String>>> output = toOutputMap(result.getSecond());
         assertThat(output.get("record_time")).containsExactly(
             List.of("2026-04-17 08:10"),
+            List.of("2026-04-17 08:10"),
             List.of("2026-04-17 08:10")
         );
         assertThat(output.get("content")).containsExactly(
             List.of("护理第一行", "护理第二行"),
+            List.of("吸痰护理(备注: 痰液较多)"),
             List.of("体温: 36.8 ℃; 心率: 88 次/分")
         );
-        assertThat(output.get("recorded_by")).containsExactly(List.of(SIGNATURE_PNG), List.of(SIGNATURE_PNG));
-        assertThat(output.get("reviewed_by")).containsExactly(List.of(SIGNATURE_PNG), List.of(""));
+        assertThat(output.get("recorded_by")).containsExactly(
+            List.of(SIGNATURE_PNG),
+            List.of(SIGNATURE_PNG),
+            List.of(SIGNATURE_PNG)
+        );
+        assertThat(output.get("reviewed_by")).containsExactly(List.of(SIGNATURE_PNG), List.of(""), List.of(""));
 
         verify(ctx.nursingRecordRepo).findReportNursingRecords(10001L, MON_START_UTC, MON_END_UTC);
+        verify(ctx.nursingExecutionRecordRepo).findReportNursingExecutionRecords(10001L, MON_START_UTC, MON_END_UTC);
         verify(ctx.monitoringRecordRepo).findByPidAndEffectiveTimeRange(10001L, MON_START_UTC, MON_END_UTC);
+    }
+
+    @Test
+    public void handleUsesOrderNameOnlyWhenNursingExecutionNoteIsEmpty() {
+        TestContext ctx = new TestContext();
+        NursingExecutionRecord executionRecord = executionRecord(
+            21L, LocalDateTime.of(2026, 4, 17, 0, 30), "103", "");
+        NursingExecutionRecordReportRow executionReportRow = executionReportRow(executionRecord, "吸痰护理");
+        when(ctx.nursingExecutionRecordRepo.findReportNursingExecutionRecords(10001L, MON_START_UTC, MON_END_UTC))
+            .thenReturn(List.of(executionReportRow));
+        when(ctx.accountRepo.findByIdInAndIsDeletedFalse(any())).thenReturn(List.of(account(103L, "王护士", "")));
+
+        Pair<ReturnCode, JfkDataSourcePB> result = ctx.handler().handle(input());
+
+        assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        Map<String, List<List<String>>> output = toOutputMap(result.getSecond());
+        assertThat(output.get("record_time")).containsExactly(List.of("2026-04-17 08:30"));
+        assertThat(output.get("content")).containsExactly(List.of("吸痰护理"));
+        assertThat(output.get("recorded_by")).containsExactly(List.of("王护士"));
+        assertThat(output.get("reviewed_by")).containsExactly(List.of(""));
     }
 
     @Test
@@ -112,6 +147,8 @@ public class PatientNursingRecordsDataSourceHandlerTests {
         when(ctx.nursingRecordRepo.findReportNursingRecords(10001L, MON_START_UTC, MON_END_UTC))
             .thenReturn(List.of());
         when(ctx.monitoringRecordRepo.findByPidAndEffectiveTimeRange(10001L, MON_START_UTC, MON_END_UTC))
+            .thenReturn(List.of());
+        when(ctx.nursingExecutionRecordRepo.findReportNursingExecutionRecords(10001L, MON_START_UTC, MON_END_UTC))
             .thenReturn(List.of());
 
         Pair<ReturnCode, JfkDataSourcePB> result = ctx.handler().handle(input());
@@ -138,6 +175,34 @@ public class PatientNursingRecordsDataSourceHandlerTests {
             .addInputData(doubleInput("char_spacing", 0d))
             .addInputData(doubleInput("h_padding", 2d))
             .build();
+    }
+
+    private static NursingExecutionRecord executionRecord(
+        Long id,
+        LocalDateTime completedTime,
+        String completedBy,
+        String note
+    ) {
+        return NursingExecutionRecord.builder()
+            .id(id)
+            .pid(10001L)
+            .nursingOrderId(1000L + id)
+            .planTime(completedTime.minusMinutes(10))
+            .completedBy(completedBy)
+            .completedTime(completedTime)
+            .note(note)
+            .isDeleted(false)
+            .build();
+    }
+
+    private static NursingExecutionRecordReportRow executionReportRow(
+        NursingExecutionRecord executionRecord,
+        String orderName
+    ) {
+        NursingExecutionRecordReportRow row = mock(NursingExecutionRecordReportRow.class);
+        when(row.getExecutionRecord()).thenReturn(executionRecord);
+        when(row.getOrderName()).thenReturn(orderName);
+        return row;
     }
 
     private static PatientMonitoringRecord monitoringRecord(
@@ -241,6 +306,8 @@ public class PatientNursingRecordsDataSourceHandlerTests {
         private final JfkDataSourceSupport support = mock(JfkDataSourceSupport.class);
         private final MonitoringWindowResolver monitoringWindowResolver = mock(MonitoringWindowResolver.class);
         private final NursingRecordRepository nursingRecordRepo = mock(NursingRecordRepository.class);
+        private final NursingExecutionRecordRepository nursingExecutionRecordRepo =
+            mock(NursingExecutionRecordRepository.class);
         private final PatientMonitoringRecordRepository monitoringRecordRepo = mock(PatientMonitoringRecordRepository.class);
         private final MonitoringConfig monitoringConfig = mock(MonitoringConfig.class);
         private final ConfigProtoService configProtoService = mock(ConfigProtoService.class);
@@ -268,6 +335,12 @@ public class PatientNursingRecordsDataSourceHandlerTests {
                         MON_START_LOCAL, MON_END_LOCAL, 7
                     )
                 ));
+            when(nursingRecordRepo.findReportNursingRecords(10001L, MON_START_UTC, MON_END_UTC))
+                .thenReturn(List.of());
+            when(nursingExecutionRecordRepo.findReportNursingExecutionRecords(10001L, MON_START_UTC, MON_END_UTC))
+                .thenReturn(List.of());
+            when(monitoringRecordRepo.findByPidAndEffectiveTimeRange(10001L, MON_START_UTC, MON_END_UTC))
+                .thenReturn(List.of());
             when(configProtoService.getConfig()).thenReturn(Config.newBuilder()
                 .setMonitoring(MonitoringPB.newBuilder()
                     .setEnums(MonitoringEnums.newBuilder()
@@ -285,6 +358,7 @@ public class PatientNursingRecordsDataSourceHandlerTests {
                 support,
                 monitoringWindowResolver,
                 nursingRecordRepo,
+                nursingExecutionRecordRepo,
                 monitoringRecordRepo,
                 monitoringConfig,
                 configProtoService,

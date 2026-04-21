@@ -35,6 +35,9 @@ public class NursingExecutionRecord {
     @Column(name = "completed_time")
     private LocalDateTime completedTime;  // 执行完成时间
 
+    @Column(name = "note")
+    private String note;  // 护理说明
+
     @Column(name = "is_deleted", nullable = false)
     private Boolean isDeleted;  // 是否已删除
 

@@ -8,7 +8,6 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -49,6 +48,7 @@ public class NursingOrderService {
         @Autowired PatientService patientService,
         @Autowired MedicationConfig medConfig,
         @Autowired NursingOrderConfig orderConfig,
+        @Autowired NursingOrderSyncService nursingOrderSyncService,
         @Autowired NursingOrderTemplateGroupRepository templateGroupRepo,
         @Autowired NursingOrderTemplateRepository templateRepo,
         @Autowired NursingOrderRepository orderRepo,
@@ -57,14 +57,13 @@ public class NursingOrderService {
     ) {
         this.ZONE_ID = protoService.getConfig().getZoneId();
 
-        this.FREQ_ONCE = protoService.getConfig().getMedication().getFreqSpec().getOnceCode();
         this.protoService = protoService;
-        this.configPb = protoService.getConfig().getNursingOrder();
         this.userService = userService;
         this.shiftUtils = shiftUtils;
         this.patientService = patientService;
         this.medConfig = medConfig;
         this.orderConfig = orderConfig;
+        this.nursingOrderSyncService = nursingOrderSyncService;
         this.templateGroupRepo = templateGroupRepo;
         this.templateRepo = templateRepo;
         this.orderRepo = orderRepo;
@@ -488,15 +487,24 @@ public class NursingOrderService {
         final String deptId = patientRecord.getDeptId();
         final ShiftSettingsPB shiftSettings = shiftUtils.getShiftByDeptId(deptId);
 
+        StatusCode syncStatus = nursingOrderSyncService.syncFromMedicalOrders(patientRecord, accountId);
+        if (syncStatus != StatusCode.OK) {
+            return GetNursingOrderDetailsResp.newBuilder()
+                .setRt(protoService.getReturnCode(syncStatus))
+                .build();
+        }
+
         // 查询护理计划
         List<NursingOrder> orders = orderRepo.findByPidAndIsDeletedFalse(pid);
         List<Long> orderIds = orders.stream().map(NursingOrder::getId).toList();
-        Map<Long, List<NursingExecutionRecord>> recordMap = recordRepo
-            .findByNursingOrderIdInAndPlanTimeBetween(
-                orderIds, shiftUtils.getShiftStartTimeUtc(shiftSettings, queryStartUtc, ZONE_ID),
-                shiftUtils.getShiftStartTimeUtc(shiftSettings, queryEndUtc, ZONE_ID).plusDays(1).minusMinutes(1)
-            ).stream()
-            .collect(Collectors.groupingBy(NursingExecutionRecord::getNursingOrderId));
+        final Map<Long, List<NursingExecutionRecord>> recordMap = orderIds.isEmpty() ?
+            new HashMap<>() :
+            recordRepo
+                .findByNursingOrderIdInAndPlanTimeBetween(
+                    orderIds, shiftUtils.getShiftStartTimeUtc(shiftSettings, queryStartUtc, ZONE_ID),
+                    shiftUtils.getShiftStartTimeUtc(shiftSettings, queryEndUtc, ZONE_ID).plusDays(1).minusMinutes(1)
+                ).stream()
+                .collect(Collectors.groupingBy(NursingExecutionRecord::getNursingOrderId));
 
         // 分解没有护理记录的护理计划，获取护理记录
         List<NursingOrder> noRecordOrders = orders.stream()
@@ -506,17 +514,34 @@ public class NursingOrderService {
             accountId, noRecordOrders, shiftSettings, queryStartUtc, queryEndUtc, patientInIcu);
 
         // 根据护理计划获得对应的分组
-        Set<Integer> templateIds = orders.stream().map(NursingOrder::getOrderTemplateId).collect(Collectors.toSet());
-        Map<Integer, Integer> groupMap = templateRepo.findByIdIn(templateIds).stream()
-            .collect(Collectors.toMap(NursingOrderTemplate::getId, NursingOrderTemplate::getGroupId));
+        List<NursingOrder> hisOrders = orders.stream()
+            .filter(NursingOrderSyncService::isHisSynced)
+            .toList();
+        List<NursingOrder> templateOrders = orders.stream()
+            .filter(order -> !NursingOrderSyncService.isHisSynced(order))
+            .filter(order -> order.getOrderTemplateId() != null)
+            .toList();
+        Set<Integer> templateIds = templateOrders.stream()
+            .map(NursingOrder::getOrderTemplateId)
+            .collect(Collectors.toSet());
+        Map<Integer, Integer> groupMap = templateIds.isEmpty() ?
+            new HashMap<>() :
+            templateRepo.findByIdIn(templateIds).stream()
+                .collect(Collectors.toMap(NursingOrderTemplate::getId, NursingOrderTemplate::getGroupId));
         Set<Integer> groupIds = groupMap.values().stream().collect(Collectors.toSet());
-        List<NursingOrderTemplateGroup> groups = templateGroupRepo.findByIdIn(groupIds).stream().toList();
-        Map<Integer, List<NursingOrder>> groupOrderMap = orders.stream()
-            .collect(Collectors.groupingBy(order -> groupMap.get(order.getOrderTemplateId())));
+        List<NursingOrderTemplateGroup> groups = groupIds.isEmpty() ?
+            List.of() :
+            templateGroupRepo.findByIdIn(groupIds).stream().toList();
+        Map<Integer, List<NursingOrder>> groupOrderMap = new HashMap<>();
+        for (NursingOrder order : templateOrders) {
+            Integer groupId = groupMap.get(order.getOrderTemplateId());
+            if (groupId == null) continue;
+            groupOrderMap.computeIfAbsent(groupId, k -> new ArrayList<>()).add(order);
+        }
 
         // 组装分组/护理计划/护理记录
         List<NursingOrderTemplateGroupPB> groupPbList = composeNursingOrderDetails(
-            groups, groupOrderMap, recordMap, newRecordMap, queryStartUtc, queryEndUtc
+            groups, groupOrderMap, hisOrders, recordMap, newRecordMap, queryStartUtc, queryEndUtc
         );
 
         return GetNursingOrderDetailsResp.newBuilder()
@@ -537,26 +562,34 @@ public class NursingOrderService {
                 .build();
         }
 
-        List<NursingOrderPB> orderPbList = new ArrayList<>();
-        for (NursingOrder order : orderRepo.findByPidAndIsDeletedFalse(req.getPid())) {
-            String orderBy = order.getOrderBy() == null ? "" : order.getOrderBy();
-            String orderTimeIso8601 = TimeUtils.toIso8601String(order.getOrderTime(), ZONE_ID);
-            String stopBy = order.getStopBy() == null ? "" : order.getStopBy();
-            String stopTimeIso8601 = order.getStopTime() == null ?
-                "" : TimeUtils.toIso8601String(order.getStopTime(), ZONE_ID);
-            orderPbList.add(NursingOrderPB.newBuilder()
-                .setId(order.getId())
-                .setOrderTemplateId(order.getOrderTemplateId())
-                .setName(order.getName())
-                .setDurationType(order.getDurationType())
-                .setMedicationFreqCode(order.getMedicationFreqCode())
-                .setOrderBy(orderBy)
-                .setOrderTimeIso8601(orderTimeIso8601)
-                .setStopBy(stopBy)
-                .setStopTimeIso8601(stopTimeIso8601)
-                .setNote(order.getNote())
-                .build());
+        // 获取用户信息，用于同步HIS护嘱的modified_by
+        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        if (accountWithAutoId == null) {
+            log.error("accountId is empty.");
+            return GetNursingOrdersResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
+                .build();
         }
+        final String accountId = accountWithAutoId.getFirst();
+
+        final PatientRecord patientRecord = patientService.getPatientRecord(req.getPid());
+        if (patientRecord == null) {
+            log.error("PatientRecord not found: {}", req.getPid());
+            return GetNursingOrdersResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
+                .build();
+        }
+
+        StatusCode syncStatus = nursingOrderSyncService.syncFromMedicalOrders(patientRecord, accountId);
+        if (syncStatus != StatusCode.OK) {
+            return GetNursingOrdersResp.newBuilder()
+                .setRt(protoService.getReturnCode(syncStatus))
+                .build();
+        }
+
+        List<NursingOrderPB> orderPbList = orderRepo.findByPidAndIsDeletedFalse(req.getPid()).stream()
+            .map(order -> buildNursingOrderPB(order, List.of()))
+            .toList();
         return GetNursingOrdersResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
             .addAllOrder(orderPbList.stream().sorted(Comparator.comparing(NursingOrderPB::getOrderTimeIso8601)).toList())
@@ -611,38 +644,13 @@ public class NursingOrderService {
             ).stream()
             .sorted(Comparator.comparing(NursingExecutionRecord::getPlanTime))
             .toList();
-        List<NursingExeRecordPB> recordPbList = records.stream().map(record -> NursingExeRecordPB.newBuilder()
-            .setId(record.getId())
-            .setNursingOrderId(record.getNursingOrderId())
-            .setPlanTimeIso8601(TimeUtils.toIso8601String(record.getPlanTime(), ZONE_ID))
-            .setCompletedBy(record.getCompletedBy() == null ? "" : record.getCompletedBy())
-            .setCompletedTimeIso8601(
-                record.getCompletedTime() == null ? "" : TimeUtils.toIso8601String(record.getCompletedTime(), ZONE_ID)
-            )
-            .build()).toList();
+        List<NursingExeRecordPB> recordPbList = records.stream()
+            .map(this::buildNursingExeRecordPB)
+            .toList();
 
-        // 组装
-        final String orderBy = order.getOrderBy() == null ? "" : order.getOrderBy();
-        final String orderTimeIso8601 = TimeUtils.toIso8601String(order.getOrderTime(), ZONE_ID);
-        final String stopBy = order.getStopBy() == null ? "" : order.getStopBy();
-        final String stopTimeIso8601 = order.getStopTime() == null ?
-            "" : TimeUtils.toIso8601String(order.getStopTime(), ZONE_ID);
-        
         return GetNursingOrderResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
-            .setOrder(NursingOrderPB.newBuilder()
-                .setId(order.getId())
-                .setOrderTemplateId(order.getOrderTemplateId())
-                .setName(order.getName())
-                .setDurationType(order.getDurationType())
-                .setMedicationFreqCode(order.getMedicationFreqCode())
-                .setOrderBy(orderBy)
-                .setOrderTimeIso8601(orderTimeIso8601)
-                .setStopBy(stopBy)
-                .setStopTimeIso8601(stopTimeIso8601)
-                .setNote(order.getNote())
-                .addAllExeRecord(recordPbList)
-                .build())
+            .setOrder(buildNursingOrderPB(order, recordPbList))
             .build();
     }
 
@@ -798,6 +806,12 @@ public class NursingOrderService {
                     .setRt(protoService.getReturnCode(StatusCode.NURSING_ORDER_NOT_EXISTS))
                     .build();
             }
+            if (NursingOrderSyncService.isHisSynced(order)) {
+                log.error("HIS synced nursing order cannot be stopped manually: {}", id);
+                return GenericResp.newBuilder()
+                    .setRt(protoService.getReturnCode(StatusCode.NURSING_ORDER_HIS_SYNCED_NOT_EDITABLE))
+                    .build();
+            }
             ordersToStop.add(order);
         }
 
@@ -857,6 +871,12 @@ public class NursingOrderService {
                 log.error("Nursing order not exists: {}", id);
                 continue;
             }
+            if (NursingOrderSyncService.isHisSynced(order)) {
+                log.error("HIS synced nursing order cannot be deleted manually: {}", id);
+                return GenericResp.newBuilder()
+                    .setRt(protoService.getReturnCode(StatusCode.NURSING_ORDER_HIS_SYNCED_NOT_EDITABLE))
+                    .build();
+            }
             ordersToDelete.add(order);
         }
         
@@ -915,8 +935,10 @@ public class NursingOrderService {
         record.setCompletedTime(completedTime);
         if (completedTime == null) {
             record.setCompletedBy("");
+            record.setNote("");
         } else {
             record.setCompletedBy(accountId);
+            record.setNote(req.getNote());
         }
         record.setModifiedBy(accountId);
         record.setModifiedAt(nowUtc);
@@ -983,7 +1005,7 @@ public class NursingOrderService {
             List<NursingExecutionRecord> records = new ArrayList<>();
             List<LocalDateTime> planTimes = getPlanTimes(
                 inIcu, shiftSettings, medConfig.getMedicationFrequencySpec(order.getMedicationFreqCode()),
-                order.getId(), order.getDurationType() == 0, order.getOrderTime(), order.getStopTime(),
+                order.getId(), order.getDurationType() == 1, order.getOrderTime(), order.getStopTime(),
                 startUtc, endUtc
             );
 
@@ -1090,11 +1112,25 @@ public class NursingOrderService {
     private List<NursingOrderTemplateGroupPB> composeNursingOrderDetails(
         List<NursingOrderTemplateGroup> groups,
         Map<Integer, List<NursingOrder>> groupOrderMap,
+        List<NursingOrder> hisOrders,
         Map<Long, List<NursingExecutionRecord>> recordMap,
         Map<Long, List<NursingExecutionRecord>> newRecordMap,
         LocalDateTime queryStartUtc, LocalDateTime queryStopUtc
     ) {
         List<NursingOrderTemplateGroupPB> groupPbList = new ArrayList<>();
+
+        List<NursingOrderPB> hisOrderPbList = buildNursingOrderPbList(
+            hisOrders, recordMap, newRecordMap, queryStartUtc, queryStopUtc);
+        if (!hisOrderPbList.isEmpty()) {
+            groupPbList.add(NursingOrderTemplateGroupPB.newBuilder()
+                .setId(NursingOrderSyncService.HIS_ORDER_TEMPLATE_ID)
+                .setName(NursingOrderSyncService.HIS_ORDER_GROUP_NAME)
+                .setDisplayOrder(0)
+                .addAllNursingOrder(hisOrderPbList)
+                .build());
+        }
+
+        List<NursingOrderTemplateGroupPB> templateGroupPbList = new ArrayList<>();
 
         for (NursingOrderTemplateGroup group : groups) {
             NursingOrderTemplateGroupPB.Builder groupPbBuilder = NursingOrderTemplateGroupPB.newBuilder()
@@ -1107,97 +1143,110 @@ public class NursingOrderService {
             if (orders == null) continue;
 
             // 组装组内的护理计划
-            List<NursingOrderPB> orderPbList = new ArrayList<>();
-            for (NursingOrder order : orders) {
-                if (order.getIsDeleted()) continue;
-
-                List<NursingExecutionRecord> allRecords = new ArrayList<>();
-                List<NursingExecutionRecord> records = recordMap.get(order.getId());
-                if (records != null) {
-                    for (NursingExecutionRecord record : records) {
-                        if (record.getIsDeleted()) continue;
-                        if (record.getPlanTime().isBefore(queryStartUtc) ||
-                            record.getPlanTime().isAfter(queryStopUtc)
-                        ) continue;
-                        allRecords.add(record);
-                    }
-                }
-                List<NursingExecutionRecord> newRecords = newRecordMap.get(order.getId());
-                if (newRecords != null) {
-                    for (NursingExecutionRecord record : newRecords) {
-                        if (record.getPlanTime().isBefore(queryStartUtc) ||
-                            record.getPlanTime().isAfter(queryStopUtc)
-                        ) continue;
-                        allRecords.add(record);
-                    }
-                }
-                if (allRecords.isEmpty()) continue;
-
-                // 组装护理计划
-                String orderBy = order.getOrderBy() == null ? "" : order.getOrderBy();
-                String orderTimeIso8601 = TimeUtils.toIso8601String(order.getOrderTime(), ZONE_ID);
-                String stopBy = order.getStopBy() == null ? "" : order.getStopBy();
-                String stopTimeIso8601 = order.getStopTime() == null ?
-                    "" : TimeUtils.toIso8601String(order.getStopTime(), ZONE_ID);
-                NursingOrderPB.Builder orderPbBuilder = NursingOrderPB.newBuilder()
-                    .setId(order.getId())
-                    .setOrderTemplateId(order.getOrderTemplateId())
-                    .setName(order.getName())
-                    .setDurationType(order.getDurationType())
-                    .setMedicationFreqCode(order.getMedicationFreqCode())
-                    .setOrderBy(orderBy)
-                    .setOrderTimeIso8601(orderTimeIso8601)
-                    .setStopBy(stopBy)
-                    .setStopTimeIso8601(stopTimeIso8601)
-                    .setNote(order.getNote());
-
-                // 组装护理记录
-                List<NursingExeRecordPB> recordPbList = new ArrayList<>();
-                for (NursingExecutionRecord record : allRecords) {
-                    String planTimeIso8601 = TimeUtils.toIso8601String(record.getPlanTime(), ZONE_ID);
-                    String completedBy = record.getCompletedBy() == null ? "" : record.getCompletedBy();
-                    String completedTimeIso8601 = record.getCompletedTime() == null ?
-                        "" : TimeUtils.toIso8601String(record.getCompletedTime(), ZONE_ID);
-
-                    recordPbList.add(NursingExeRecordPB.newBuilder()
-                        .setId(record.getId())
-                        .setNursingOrderId(record.getNursingOrderId())
-                        .setPlanTimeIso8601(planTimeIso8601)
-                        .setCompletedBy(completedBy)
-                        .setCompletedTimeIso8601(completedTimeIso8601)
-                        .build());
-                }
-                if (recordPbList.isEmpty()) continue;
-                orderPbList.add(orderPbBuilder
-                    .addAllExeRecord(recordPbList.stream()
-                        .sorted(Comparator.comparing(NursingExeRecordPB::getPlanTimeIso8601))
-                        .collect(Collectors.toList())
-                    )
-                    .build());
-            }
+            List<NursingOrderPB> orderPbList = buildNursingOrderPbList(
+                orders, recordMap, newRecordMap, queryStartUtc, queryStopUtc);
             if (orderPbList.isEmpty()) continue;
-            groupPbList.add(groupPbBuilder
-                .addAllNursingOrder(orderPbList.stream()
-                    .sorted(Comparator.comparing(NursingOrderPB::getOrderTimeIso8601))
-                    .toList()
-                )
+            templateGroupPbList.add(groupPbBuilder
+                .addAllNursingOrder(orderPbList)
                 .build());
         }
-        return groupPbList.stream()
+
+        groupPbList.addAll(templateGroupPbList.stream()
             .sorted(Comparator.comparing(NursingOrderTemplateGroupPB::getDisplayOrder))
+            .toList());
+        return groupPbList;
+    }
+
+    private List<NursingOrderPB> buildNursingOrderPbList(
+        List<NursingOrder> orders,
+        Map<Long, List<NursingExecutionRecord>> recordMap,
+        Map<Long, List<NursingExecutionRecord>> newRecordMap,
+        LocalDateTime queryStartUtc, LocalDateTime queryStopUtc
+    ) {
+        List<NursingOrderPB> orderPbList = new ArrayList<>();
+        for (NursingOrder order : orders) {
+            if (Boolean.TRUE.equals(order.getIsDeleted())) continue;
+
+            List<NursingExecutionRecord> allRecords = new ArrayList<>();
+            addRecordsInRange(allRecords, recordMap.get(order.getId()), queryStartUtc, queryStopUtc);
+            addRecordsInRange(allRecords, newRecordMap.get(order.getId()), queryStartUtc, queryStopUtc);
+            if (allRecords.isEmpty()) continue;
+
+            List<NursingExeRecordPB> recordPbList = allRecords.stream()
+                .map(this::buildNursingExeRecordPB)
+                .sorted(Comparator.comparing(NursingExeRecordPB::getPlanTimeIso8601))
+                .toList();
+            if (recordPbList.isEmpty()) continue;
+
+            orderPbList.add(buildNursingOrderPB(order, recordPbList));
+        }
+        return orderPbList.stream()
+            .sorted(Comparator.comparing(NursingOrderPB::getOrderTimeIso8601))
             .toList();
+    }
+
+    private void addRecordsInRange(
+        List<NursingExecutionRecord> allRecords,
+        List<NursingExecutionRecord> records,
+        LocalDateTime queryStartUtc,
+        LocalDateTime queryStopUtc
+    ) {
+        if (records == null) return;
+        for (NursingExecutionRecord record : records) {
+            if (Boolean.TRUE.equals(record.getIsDeleted())) continue;
+            if (record.getPlanTime().isBefore(queryStartUtc) ||
+                record.getPlanTime().isAfter(queryStopUtc)
+            ) continue;
+            allRecords.add(record);
+        }
+    }
+
+    private NursingOrderPB buildNursingOrderPB(NursingOrder order, List<NursingExeRecordPB> recordPbList) {
+        return NursingOrderPB.newBuilder()
+            .setId(order.getId())
+            .setOrderTemplateId(order.getOrderTemplateId() == null ?
+                NursingOrderSyncService.HIS_ORDER_TEMPLATE_ID : order.getOrderTemplateId())
+            .setName(order.getName() == null ? "" : order.getName())
+            .setDurationType(order.getDurationType() == null ? 0 : order.getDurationType())
+            .setMedicationFreqCode(order.getMedicationFreqCode() == null ? "" : order.getMedicationFreqCode())
+            .setOrderBy(getAccountDisplayName(order.getOrderBy(), NursingOrderSyncService.isHisSynced(order)))
+            .setOrderTimeIso8601(TimeUtils.toIso8601String(order.getOrderTime(), ZONE_ID))
+            .setStopBy(getAccountDisplayName(order.getStopBy(), NursingOrderSyncService.isHisSynced(order)))
+            .setStopTimeIso8601(order.getStopTime() == null ? "" : TimeUtils.toIso8601String(order.getStopTime(), ZONE_ID))
+            .setNote(order.getNote() == null ? "" : order.getNote())
+            .addAllExeRecord(recordPbList)
+            .build();
+    }
+
+    private NursingExeRecordPB buildNursingExeRecordPB(NursingExecutionRecord record) {
+        return NursingExeRecordPB.newBuilder()
+            .setId(record.getId())
+            .setNursingOrderId(record.getNursingOrderId())
+            .setPlanTimeIso8601(TimeUtils.toIso8601String(record.getPlanTime(), ZONE_ID))
+            .setCompletedBy(record.getCompletedBy() == null ? "" : record.getCompletedBy())
+            .setCompletedTimeIso8601(
+                record.getCompletedTime() == null ? "" : TimeUtils.toIso8601String(record.getCompletedTime(), ZONE_ID)
+            )
+            .setNote(record.getNote() == null ? "" : record.getNote())
+            .build();
+    }
+
+    private String getAccountDisplayName(String accountRef, boolean hisSynced) {
+        if (StrUtils.isBlank(accountRef)) return "";
+        if (hisSynced) return accountRef;
+        String accountName = userService.getNameByAutoId(accountRef);
+        return StrUtils.isBlank(accountName) ? accountRef : accountName;
     }
 
     private final String ZONE_ID;
 
-    private final String FREQ_ONCE;
-    private final NursingOrderConfigPB configPb;
     private final ConfigProtoService protoService;
     private final UserService userService;
     private final ConfigShiftUtils shiftUtils;
     private final PatientService patientService;
     private final MedicationConfig medConfig;
     private final NursingOrderConfig orderConfig;
+    private final NursingOrderSyncService nursingOrderSyncService;
 
     private final NursingOrderTemplateGroupRepository templateGroupRepo;
     private final NursingOrderTemplateRepository templateRepo;

@@ -284,6 +284,7 @@ text {
     status_code_msg: "病人皮肤护理记录属性已存在"
     status_code_msg: "病人皮肤护理记录属性不存在"
     status_code_msg: "无效的皮肤护理分类ID"
+    status_code_msg: "HIS同步护嘱不允许手工停止或删除"
     units {
         unit: {
             id: 1
@@ -9303,6 +9304,35 @@ nursing_record {
             content: "nursing_record_g2_t1"
             is_common: 1
         }
+    }
+}
+nursing_order {
+    allowed_order_type {
+        type: "诊疗"
+        name: "机械深度排痰"
+        name: "气压治疗"
+        name: "气管切开护理"
+        name: "气管插管护理"
+        name: "特殊物理降温"
+        name: "置管护理"
+        name: "留置导尿"
+        name: "腹内压监测"
+        name: "鼻胃管置管"
+        name: "人工中心静脉压测定"
+        name: "鼻饲注食"
+        name: "电脑血糖监测"
+        name: "吸痰护理"
+        name: "肠内营养输注护理"
+        name: "胃肠减压"
+        name: "造瘘护理"
+        name: "压力性损伤护理"
+    }
+    allowed_order_type {
+        type: "文本"
+        name: "保护约束"
+        name: "气囊压监测"
+        name: "一般专项护理"
+        name: "引流管护理"
     }
 }
 jfk {

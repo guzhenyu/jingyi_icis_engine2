@@ -318,7 +318,8 @@ enum StatusCode {
     PATIENT_SKINCARE_RECORD_ATTR_ALREADY_EXISTS = 281; // 病人皮肤护理记录属性已存在
     PATIENT_SKINCARE_RECORD_ATTR_NOT_FOUND = 282; // 病人皮肤护理记录属性不存在
     INVALID_SKINCARE_CATEGORY_ID = 283; // 无效的皮肤护理分类ID
-    LAST_CODE = 284;
+    NURSING_ORDER_HIS_SYNCED_NOT_EDITABLE = 284; // HIS同步护嘱不允许手工停止或删除
+    LAST_CODE = 285;
 }
 
 /*****************************************************************************
@@ -3031,6 +3032,7 @@ message DeleteNursingOrderReq {
 message UpdateNursingExeRecordReq {
     int64 id = 1;  // nursing_execution_records.id
     string completed_time_iso8601 = 2;  // 完成时间；可以为空，空时代表撤回完成时间
+    string note = 3;  // 护理说明；可以为空，空字符串表示清空备注
 }
 
 /*
