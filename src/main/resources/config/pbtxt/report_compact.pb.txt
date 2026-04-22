@@ -6072,12 +6072,18 @@ mon_group {
     # 对应于JfkTablePB.id
     table_id: "table-28"
     param_code: "temperature"
+    param_code: "tanWen"
+    param_code: "maoWen"
     param_code: "pr"
     param_code: "hr"
     param_code: "respiratory_rate"
     param_code: "nibp_s"
     param_code: "nibp_d"
+    param_code: "ibp_s"
+    param_code: "ibp_d"
+    param_code: "cvp"
     param_code: "Spo2"
+    param_code: "intra_abdominal_pressure"
 }
 mon_group {
     # 对应于JfkTablePB.id
@@ -6091,7 +6097,14 @@ mon_group {
 mon_group {
     # 对应于JfkTablePB.id
     table_id: "table-32"
-   param_code: "oxygen_delivery_method"
+    param_code: "vent_respiratory_rate"
+    param_code: "oxygen_delivery_method"
+    param_code: "oxygen_delivery_method"
+    param_code: "vent_measured_tidal_volume"
+    param_code: "vent_fio2"
+    param_code: "vent_peak_flow_rate_set"
+    param_code: "vent_PEEP"
+    param_code: "vent_PASB"
 }
 mon_group {
     # 对应于JfkTablePB.id
@@ -6101,12 +6114,28 @@ mon_group {
 mon_group {
     # 对应于JfkTablePB.id
     table_id: "table-36"
-   param_code: "suction_frequency"
+    param_code: "sputum_color"
+    param_code: "sputum_consistency"
+    param_code: "sputum_amount"
+    param_code: "airway_humidification"
+    param_code: "restraint"
+    param_code: "talk"
+    param_code: "left_upper_limb_muscle_strength"
+    param_code: "left_lower_limb_muscle_strength"
+    param_code: "right_upper_limb_muscle_strength"
+    param_code: "right_lower_limb_muscle_STRINGength"
 }
 balance_group {
     # 对应于JfkTablePB.id
     table_id: "table-228"
+    param_code: "oral_type"
+    param_code: "oral_intake"
+    param_code: "bisi_type"
+    param_code: "nasal_feeding"
+    param_code: "gastric_type"
+    param_code: "gastric_intake"
     param_code: "intravenous_intake"
+    param_code: "other_intake"
     param_code: "hourly_intake"
     param_code: "total_intake"
 }
@@ -6114,6 +6143,14 @@ balance_group {
     # 对应于JfkTablePB.id
     table_id: "table-230"
     param_code: "urine_output"
+    param_code: "vomit_volume"
+    param_code: "stool_consistency"
+    param_code: "stool_volume"
+    param_code: "other_stool_volume"
+    param_code: "gastric_fluid_volume"
+    param_code: "stomach_residue"
+    param_code: "other_output"
+    param_code: "crrt_UF"
     param_code: "compactreportdrainagetubeparams"
     param_code: "hourly_output"
     param_code: "total_output"
