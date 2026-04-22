@@ -362,7 +362,7 @@ public class PatientRatioCalc {
             ) {
                 PatientRecord record = patientRecords.get(patientIdx);
                 // 筛选入科来源为“手术室”或者入科类型为“手术”
-                boolean isSurgicalType = Objects.equals(record.getAdmissionType(), patientConfig.getAdmissionTypeSurgeryId());
+                boolean isSurgicalType = hasAdmissionType(record, patientConfig.getAdmissionTypeSurgeryId());
                 String src = record.getAdmissionSourceDeptName();
                 boolean fromORorPACU = src != null && (
                         src.contains("手术室") || src.contains("复苏室") || src.contains("麻醉恢复室") || src.contains("PACU")
@@ -832,6 +832,32 @@ public class PatientRatioCalc {
             case Consts.ICU_15_ICU_READMISSION_WITHIN_48H_RATE:
                 return;
         }
+    }
+
+    private boolean hasAdmissionType(PatientRecord patient, Integer admissionType) {
+        if (admissionType == null) return false;
+        List<Integer> admissionTypes = parseAdmissionTypes(patient.getAdmissionTypes());
+        if (admissionTypes.isEmpty()) {
+            return Objects.equals(patient.getAdmissionTypeRaw(), admissionType);
+        }
+        return admissionTypes.contains(admissionType);
+    }
+
+    private List<Integer> parseAdmissionTypes(String admissionTypes) {
+        if (StrUtils.isBlank(admissionTypes)) return Collections.emptyList();
+
+        String[] tokens = admissionTypes.split(",");
+        List<Integer> parsed = new ArrayList<>();
+        for (String token : tokens) {
+            String trimmedToken = token.trim();
+            if (trimmedToken.isEmpty()) return Collections.emptyList();
+            try {
+                parsed.add(Integer.parseInt(trimmedToken));
+            } catch (NumberFormatException e) {
+                return Collections.emptyList();
+            }
+        }
+        return parsed;
     }
 
     final String ZONE_ID;

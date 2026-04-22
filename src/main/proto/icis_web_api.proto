@@ -914,7 +914,7 @@ message NewPatientReq {
     string icu_date_of_birth = 4;             // 出生时间
     string bed_number_str = 5;                // 床号
     string admission_time = 6;                // 入科时间
-    int32 admission_type = 7;                 // 入科类型(枚举)
+    repeated int32 admission_type = 7;        // 入科类型(枚举)
     string admission_source_dept_name = 8;    // 入科来源
     string primary_care_doctor_id = 9;        // 管床医生
     int32 is_planned_admission = 10;          // 是否计划入科(布尔)
@@ -932,7 +932,7 @@ message NewPatientReq {
 message AdmitPatientReq {
     string his_mrn = 1;                       // 住院号
     string admission_time = 2;                // 入科时间
-    int32 admission_type = 3;                 // 入科类型(枚举)
+    repeated int32 admission_type = 3;        // 入科类型(枚举)
     string admission_source_dept_name = 4;    // 入科来源
     string primary_care_doctor_id = 5;        // 管床医生
     int32 is_planned_admission = 6;           // 是否计划入科(布尔)
@@ -988,7 +988,7 @@ message GetPatientInfoResp {
     int32 admission_status = 12;
     string admission_status_str = 13;
     string admission_time = 14;
-    int32 admission_type = 15;
+    repeated int32 admission_type = 15;
     int32 is_planned_admission = 16;
     string unplanned_admission_reason = 17;
     string diagnosis = 18;
@@ -1024,7 +1024,7 @@ message UpdatePatientInfoReq {
 
     // 入科信息
     string admission_time = 2;
-    int32 admission_type = 3;
+    repeated int32 admission_type = 3;
     int32 is_planned_admission = 4;
     string unplanned_admission_reason = 5;
 

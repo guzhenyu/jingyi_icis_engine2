@@ -422,6 +422,7 @@ CREATE TABLE patient_records (
     admission_source_dept_name VARCHAR(255),
     admission_source_dept_id VARCHAR(255),
     admission_type INTEGER,
+    admission_types VARCHAR(255),
     is_planned_admission BOOLEAN,
     unplanned_admission_reason VARCHAR(255),
     admission_status INTEGER,
@@ -525,6 +526,7 @@ COMMENT ON COLUMN patient_records.responsible_nurse_id IS '责任护士ID';
 COMMENT ON COLUMN patient_records.admission_source_dept_name IS '入科来源科室名称，也可以是护士手动输入';
 COMMENT ON COLUMN patient_records.admission_source_dept_id IS '入科来源科室ID，如果入科来源科室名称不是HIS系统中的名称，该id置空';
 COMMENT ON COLUMN patient_records.admission_type IS '入科类型：入院、转入、手术、抢救、重症、外院、病危等';
+COMMENT ON COLUMN patient_records.admission_types IS '多选入科类型，多个枚举ID使用英文逗号分隔';
 COMMENT ON COLUMN patient_records.is_planned_admission IS '是否计划入科';
 COMMENT ON COLUMN patient_records.unplanned_admission_reason IS '非计划入科原因';
 COMMENT ON COLUMN patient_records.admission_status IS '入科状态';

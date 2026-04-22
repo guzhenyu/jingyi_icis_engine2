@@ -385,8 +385,17 @@ public class PatientRecord {
     public Integer getAdmissionType() {
         return admissionType == null ? 0 : admissionType;
     }
+    public Integer getAdmissionTypeRaw() {
+        return admissionType;
+    }
     @Column(name = "admission_type")
     private Integer admissionType; // 入科类型：入院、转入、手术、抢救、重症、外院、病危等
+
+    public String getAdmissionTypes() {
+        return admissionTypes == null ? "" : admissionTypes;
+    }
+    @Column(name = "admission_types")
+    private String admissionTypes; // 多选入科类型，多个枚举ID使用英文逗号分隔
 
     public Boolean getIsPlannedAdmission() {
         return isPlannedAdmission == null ? false : isPlannedAdmission;

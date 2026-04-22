@@ -380,7 +380,7 @@ public class PatientService {
         record.setIcuGender(req.getIcuGender());
         record.setIcuDateOfBirth(TimeUtils.fromIso8601String(req.getIcuDateOfBirth(), "UTC"));
         record.setAdmissionTime(TimeUtils.fromIso8601String(req.getAdmissionTime(), "UTC"));
-        record.setAdmissionType(req.getAdmissionType());
+        setAdmissionTypeValues(record, req.getAdmissionTypeList());
         record.setAdmissionSourceDeptName(req.getAdmissionSourceDeptName());
         record.setPrimaryCareDoctorId(req.getPrimaryCareDoctorId());
         record.setIsPlannedAdmission(req.getIsPlannedAdmission() > 0);
@@ -507,7 +507,7 @@ public class PatientService {
         if (!merged) {
             patient.setDeptId(req.getDeptId());
             patient.setAdmissionTime(admissionTime);
-            patient.setAdmissionType(req.getAdmissionType());
+            setAdmissionTypeValues(patient, req.getAdmissionTypeList());
             patient.setAdmissionSourceDeptName(req.getAdmissionSourceDeptName());
             patient.setPrimaryCareDoctorId(req.getPrimaryCareDoctorId());
             patient.setIsPlannedAdmission(req.getIsPlannedAdmission() > 0);
@@ -686,7 +686,7 @@ public class PatientService {
             .setAdmissionStatus(admissionStatus)
             .setAdmissionStatusStr(admissionStatusStr)
             .setAdmissionTime(TimeUtils.toIso8601String(patient.getAdmissionTime(), ZONE_ID))
-            .setAdmissionType(patient.getAdmissionType())
+            .addAllAdmissionType(getAdmissionTypeValues(patient))
             .setIsPlannedAdmission(patient.getIsPlannedAdmission() ? 1 : 0)
             .setUnplannedAdmissionReason(patient.getUnplannedAdmissionReason())
             .setDiagnosis(patient.getDiagnosis())
@@ -731,7 +731,7 @@ public class PatientService {
         }
 
         patient.setAdmissionTime(TimeUtils.fromIso8601String(req.getAdmissionTime(), "UTC"));
-        patient.setAdmissionType(req.getAdmissionType());
+        setAdmissionTypeValues(patient, req.getAdmissionTypeList());
         patient.setIsPlannedAdmission(req.getIsPlannedAdmission() > 0);
         patient.setUnplannedAdmissionReason(req.getUnplannedAdmissionReason());
 
@@ -1728,8 +1728,7 @@ public class PatientService {
                 return patientRec.getAdmissionSourceDeptId();
 
             case "admission_type":
-                if (patientRec.getAdmissionType() == null) return "";
-                return patientConfig.getAdmissionTypeStr(patientRec.getAdmissionType());
+                return getAdmissionTypeDisplay(patientRec);
 
             case "is_planned_admission":
                 if (patientRec.getIsPlannedAdmission() == null) return "";
@@ -1949,7 +1948,7 @@ public class PatientService {
         builder.setAdmissionStatus(patient.getAdmissionStatus());
 
         builder.setAdmissionSourceDeptName(patient.getAdmissionSourceDeptName());
-        builder.setAdmissionType(patient.getAdmissionType());
+        builder.addAllAdmissionType(getAdmissionTypeValues(patient));
         builder.setIsPlannedAdmission(patient.getIsPlannedAdmission());
         builder.setUnplannedAdmissionReason(patient.getUnplannedAdmissionReason());
         builder.setAdmissionTimeIso8601(patient.getAdmissionTime() != null 
@@ -2055,7 +2054,7 @@ public class PatientService {
 
         patient.setAdmissionSourceDeptName(patientInfo.getAdmissionSourceDeptName().isEmpty() 
             ? null : patientInfo.getAdmissionSourceDeptName());
-        patient.setAdmissionType(patientInfo.getAdmissionType() != 0 ? patientInfo.getAdmissionType() : null);
+        setAdmissionTypeValues(patient, patientInfo.getAdmissionTypeList());
         patient.setIsPlannedAdmission(patientInfo.getIsPlannedAdmission());
         patient.setUnplannedAdmissionReason(patientInfo.getUnplannedAdmissionReason().isEmpty() 
             ? null : patientInfo.getUnplannedAdmissionReason());
@@ -2073,6 +2072,64 @@ public class PatientService {
             ? null : TimeUtils.fromIso8601String(patientInfo.getDischargeTimeIso8601(), "UTC"));
         patient.setDischargedDiagnosis(patientInfo.getDischargedDiagnosis().isEmpty() 
             ? null : patientInfo.getDischargedDiagnosis());
+    }
+
+    private void setAdmissionTypeValues(PatientRecord patient, List<Integer> admissionTypeValues) {
+        List<Integer> validAdmissionTypes = new ArrayList<>();
+        for (Integer admissionType : admissionTypeValues) {
+            if (admissionType != null && admissionType > 0) {
+                validAdmissionTypes.add(admissionType);
+            }
+        }
+        patient.setAdmissionTypes(admissionTypeValuesToString(validAdmissionTypes));
+        patient.setAdmissionType(validAdmissionTypes.isEmpty() ? null : validAdmissionTypes.get(0));
+    }
+
+    private String admissionTypeValuesToString(List<Integer> admissionTypeValues) {
+        if (admissionTypeValues == null || admissionTypeValues.isEmpty()) return null;
+
+        StringJoiner joiner = new StringJoiner(",");
+        for (Integer admissionType : admissionTypeValues) {
+            joiner.add(String.valueOf(admissionType));
+        }
+        return joiner.toString();
+    }
+
+    private List<Integer> getAdmissionTypeValues(PatientRecord patient) {
+        List<Integer> admissionTypes = parseAdmissionTypes(patient.getAdmissionTypes());
+        if (!admissionTypes.isEmpty()) return admissionTypes;
+
+        Integer legacyAdmissionType = patient.getAdmissionTypeRaw();
+        if (legacyAdmissionType == null || legacyAdmissionType == 0) return Collections.emptyList();
+        return List.of(legacyAdmissionType);
+    }
+
+    private List<Integer> parseAdmissionTypes(String admissionTypes) {
+        if (StrUtils.isBlank(admissionTypes)) return Collections.emptyList();
+
+        String[] tokens = admissionTypes.split(",");
+        List<Integer> parsed = new ArrayList<>();
+        for (String token : tokens) {
+            String trimmedToken = token.trim();
+            if (trimmedToken.isEmpty()) return Collections.emptyList();
+            try {
+                parsed.add(Integer.parseInt(trimmedToken));
+            } catch (NumberFormatException e) {
+                return Collections.emptyList();
+            }
+        }
+        return parsed.isEmpty() ? Collections.emptyList() : parsed;
+    }
+
+    private String getAdmissionTypeDisplay(PatientRecord patient) {
+        List<String> admissionTypeNames = new ArrayList<>();
+        for (Integer admissionType : getAdmissionTypeValues(patient)) {
+            String admissionTypeName = patientConfig.getAdmissionTypeStr(admissionType);
+            if (!StrUtils.isBlank(admissionTypeName)) {
+                admissionTypeNames.add(admissionTypeName);
+            }
+        }
+        return String.join(",", admissionTypeNames);
     }
 
     PatientTablePB appendReadmissionInfo(PatientTablePB table) {

@@ -424,6 +424,7 @@ public class ProtoUtils {
         fields.add(GetPatientInfoResp.getDescriptor().findFieldByNumber(11));
         fields.add(GetPatientInfoResp.getDescriptor().findFieldByNumber(12));
         fields.add(GetPatientInfoResp.getDescriptor().findFieldByNumber(13));
+        fields.add(GetPatientInfoResp.getDescriptor().findFieldByNumber(15));
         fields.add(GetPatientInfoResp.getDescriptor().findFieldByNumber(16));
         fields.add(GetPatientInfoResp.getDescriptor().findFieldByNumber(17));
 
