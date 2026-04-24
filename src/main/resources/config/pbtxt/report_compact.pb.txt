@@ -5721,7 +5721,7 @@ template {
             element_meta {
               content_type: 1
             }
-            static_vals: "护理计划执行记录"
+            static_vals: 执行护理计划"
           }
           extend_to_next_page: true
           next_page_x: 12
