@@ -46,7 +46,9 @@ public class CompactReportDataSourceBuilder {
         inputs.addAll(buildPatientBalanceRecordsInputs(compactTemplate, request));
         inputs.addAll(buildMedexeRecordsInputs(compactTemplate, request));
         inputs.addAll(buildPatientTubeRecordsInputs(compactTemplate, request));
+        inputs.addAll(buildPatientNonHourlyMonitoringRecordsInputs(compactTemplate, request));
         inputs.addAll(buildPatientNursingRecordsInputs(compactTemplate, request));
+        inputs.addAll(buildPatientNursingOrdersInputs(compactTemplate, request));
         inputs.addAll(buildPatientSkincareRecordsInputs(compactTemplate, request));
         return inputs;
     }
@@ -216,6 +218,51 @@ public class CompactReportDataSourceBuilder {
 
             inputs.add(commonInputBuilder(JfkDataSourceIds.PATIENT_NURSING_RECORDS, request)
                 .setId(JfkDataSourceIds.compactTableScoped(JfkDataSourceIds.PATIENT_NURSING_RECORDS, table.getId()))
+                .addInputData(strInput("table_id", table.getId()))
+                .addInputData(doubleArrayInput("col_widths", table.getCellWidthsList()))
+                .addInputData(doubleInput("font_size", table.getFontSize()))
+                .addInputData(doubleInput("char_spacing", table.getCharSpacing()))
+                .addInputData(doubleInput("h_padding", table.getHPadding()))
+                .build());
+        }
+        return inputs;
+    }
+
+    private List<JfkDataSourcePB> buildPatientNonHourlyMonitoringRecordsInputs(
+        CompactReportTemplatePB compactTemplate,
+        MonitoringReportRequest request
+    ) {
+        List<JfkDataSourcePB> inputs = new ArrayList<>();
+        for (JfkTablePB table : collectTables(compactTemplate.getTemplate())) {
+            if (!JfkDataSourceIds.PATIENT_NON_HOURLY_MONITORING_RECORDS.equals(table.getDataSourceMetaId())) {
+                continue;
+            }
+
+            inputs.add(commonInputBuilder(JfkDataSourceIds.PATIENT_NON_HOURLY_MONITORING_RECORDS, request)
+                .setId(JfkDataSourceIds.compactTableScoped(
+                    JfkDataSourceIds.PATIENT_NON_HOURLY_MONITORING_RECORDS, table.getId()))
+                .addInputData(strInput("table_id", table.getId()))
+                .addInputData(doubleArrayInput("col_widths", table.getCellWidthsList()))
+                .addInputData(doubleInput("font_size", table.getFontSize()))
+                .addInputData(doubleInput("char_spacing", table.getCharSpacing()))
+                .addInputData(doubleInput("h_padding", table.getHPadding()))
+                .build());
+        }
+        return inputs;
+    }
+
+    private List<JfkDataSourcePB> buildPatientNursingOrdersInputs(
+        CompactReportTemplatePB compactTemplate,
+        MonitoringReportRequest request
+    ) {
+        List<JfkDataSourcePB> inputs = new ArrayList<>();
+        for (JfkTablePB table : collectTables(compactTemplate.getTemplate())) {
+            if (!JfkDataSourceIds.PATIENT_NURSING_ORDERS.equals(table.getDataSourceMetaId())) {
+                continue;
+            }
+
+            inputs.add(commonInputBuilder(JfkDataSourceIds.PATIENT_NURSING_ORDERS, request)
+                .setId(JfkDataSourceIds.compactTableScoped(JfkDataSourceIds.PATIENT_NURSING_ORDERS, table.getId()))
                 .addInputData(strInput("table_id", table.getId()))
                 .addInputData(doubleArrayInput("col_widths", table.getCellWidthsList()))
                 .addInputData(doubleInput("font_size", table.getFontSize()))

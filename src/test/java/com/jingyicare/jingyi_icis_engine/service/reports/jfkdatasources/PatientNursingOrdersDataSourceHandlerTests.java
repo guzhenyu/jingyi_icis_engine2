@@ -3,7 +3,6 @@ package com.jingyicare.jingyi_icis_engine.service.reports.jfkdatasources;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
@@ -15,7 +14,7 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.DefaultResourceLoader;
 
-import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.NursingRecord;
+import com.jingyicare.jingyi_icis_engine.entity.nursingorders.NursingExecutionRecord;
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
 import com.jingyicare.jingyi_icis_engine.entity.users.Account;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
@@ -23,74 +22,92 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkFieldDataPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
-import com.jingyicare.jingyi_icis_engine.repository.nursingrecords.NursingRecordRepository;
+import com.jingyicare.jingyi_icis_engine.repository.nursingorders.NursingExecutionRecordRepository;
+import com.jingyicare.jingyi_icis_engine.repository.nursingorders.NursingExecutionRecordRepository.NursingExecutionRecordReportRow;
 import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 
-public class PatientNursingRecordsDataSourceHandlerTests {
+public class PatientNursingOrdersDataSourceHandlerTests {
     @Test
-    public void handleReturnsOnlyNursingRecordRows() {
+    public void handleReturnsNursingExecutionRows() {
         TestContext ctx = new TestContext();
-        NursingRecord nursingRecord = NursingRecord.builder()
-            .id(10L)
-            .patientId(10001L)
-            .effectiveTime(LocalDateTime.of(2026, 4, 17, 0, 10))
-            .content("护理第一行\n护理第二行")
-            .createdBy("101")
-            .createdByAccountName("张护士")
-            .reviewedBy("102")
-            .reviewedByAccountName("李护士")
-            .isDeleted(false)
-            .build();
-        when(ctx.nursingRecordRepo.findReportNursingRecords(10001L, MON_START_UTC, MON_END_UTC))
-            .thenReturn(List.of(nursingRecord));
+        NursingExecutionRecord record1 = executionRecord(
+            21L, LocalDateTime.of(2026, 4, 17, 0, 20), "101", ""
+        );
+        NursingExecutionRecord record2 = executionRecord(
+            22L, LocalDateTime.of(2026, 4, 17, 0, 30), "102", "痰液较多"
+        );
+        NursingExecutionRecordReportRow reportRow2 = executionReportRow(record2, "吸痰护理");
+        NursingExecutionRecordReportRow reportRow1 = executionReportRow(record1, "翻身护理");
+        when(ctx.nursingExecutionRecordRepo.findReportNursingExecutionRecords(10001L, MON_START_UTC, MON_END_UTC))
+            .thenReturn(List.of(reportRow2, reportRow1));
         when(ctx.accountRepo.findByIdInAndIsDeletedFalse(any())).thenReturn(List.of(
             account(101L, "张护士", SIGNATURE_PNG),
-            account(102L, "李护士", SIGNATURE_PNG)
+            account(102L, "李护士", "")
         ));
 
         Pair<ReturnCode, JfkDataSourcePB> result = ctx.handler().handle(input());
 
         assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
         Map<String, List<List<String>>> output = toOutputMap(result.getSecond());
-        assertThat(output.get("record_time")).containsExactly(List.of("2026-04-17 08:10"));
-        assertThat(output.get("content")).containsExactly(List.of("护理第一行", "护理第二行"));
-        assertThat(output.get("recorded_by")).containsExactly(List.of(SIGNATURE_PNG));
-        assertThat(output.get("reviewed_by")).containsExactly(List.of(SIGNATURE_PNG));
-
-        verify(ctx.nursingRecordRepo).findReportNursingRecords(10001L, MON_START_UTC, MON_END_UTC);
-    }
-
-    @Test
-    public void handleReturnsEmptyRowsWhenNoRecordsExist() {
-        TestContext ctx = new TestContext();
-
-        Pair<ReturnCode, JfkDataSourcePB> result = ctx.handler().handle(input());
-
-        assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
-        Map<String, List<List<String>>> output = toOutputMap(result.getSecond());
-        assertThat(output.get("record_time")).isEmpty();
-        assertThat(output.get("content")).isEmpty();
-        assertThat(output.get("recorded_by")).isEmpty();
-        assertThat(output.get("reviewed_by")).isEmpty();
+        assertThat(output.get("record_time")).containsExactly(
+            List.of("2026-04-17 08:20"),
+            List.of("2026-04-17 08:30")
+        );
+        assertThat(output.get("content")).containsExactly(
+            List.of("翻身护理"),
+            List.of("吸痰护理(备注: 痰液较多)")
+        );
+        assertThat(output.get("recorded_by")).containsExactly(
+            List.of(SIGNATURE_PNG),
+            List.of("李护士")
+        );
     }
 
     private static JfkDataSourcePB input() {
         return JfkDataSourcePB.newBuilder()
-            .setId(JfkDataSourceIds.compactTableScoped(JfkDataSourceIds.PATIENT_NURSING_RECORDS, "table-256"))
-            .setMetaId(JfkDataSourceIds.PATIENT_NURSING_RECORDS)
+            .setId(JfkDataSourceIds.compactTableScoped(JfkDataSourceIds.PATIENT_NURSING_ORDERS, "table-260-3"))
+            .setMetaId(JfkDataSourceIds.PATIENT_NURSING_ORDERS)
             .addInputData(int64Input("pid", 10001L))
             .addInputData(strInput("dept_id", "request-dept"))
             .addInputData(strInput("query_start", "2026-04-17T00:00Z"))
             .addInputData(strInput("query_end", "2026-04-18T00:00Z"))
-            .addInputData(strInput("table_id", "table-256"))
-            .addInputData(doubleArrayInput("col_widths", List.of(300d, 1000d, 300d, 300d)))
+            .addInputData(strInput("table_id", "table-260-3"))
+            .addInputData(doubleArrayInput("col_widths", List.of(66d, 683.5d, 60d)))
             .addInputData(doubleInput("font_size", 6d))
             .addInputData(doubleInput("char_spacing", 0d))
             .addInputData(doubleInput("h_padding", 2d))
             .build();
+    }
+
+    private static NursingExecutionRecord executionRecord(
+        Long id,
+        LocalDateTime completedTime,
+        String completedBy,
+        String note
+    ) {
+        return NursingExecutionRecord.builder()
+            .id(id)
+            .pid(10001L)
+            .nursingOrderId(1000L + id)
+            .planTime(completedTime.minusMinutes(10))
+            .completedBy(completedBy)
+            .completedTime(completedTime)
+            .note(note)
+            .isDeleted(false)
+            .build();
+    }
+
+    private static NursingExecutionRecordReportRow executionReportRow(
+        NursingExecutionRecord executionRecord,
+        String orderName
+    ) {
+        NursingExecutionRecordReportRow row = mock(NursingExecutionRecordReportRow.class);
+        when(row.getExecutionRecord()).thenReturn(executionRecord);
+        when(row.getOrderName()).thenReturn(orderName);
+        return row;
     }
 
     private static Account account(Long id, String name, String signPic) {
@@ -148,7 +165,8 @@ public class PatientNursingRecordsDataSourceHandlerTests {
     private static class TestContext {
         private final JfkDataSourceSupport support = mock(JfkDataSourceSupport.class);
         private final MonitoringWindowResolver monitoringWindowResolver = mock(MonitoringWindowResolver.class);
-        private final NursingRecordRepository nursingRecordRepo = mock(NursingRecordRepository.class);
+        private final NursingExecutionRecordRepository nursingExecutionRecordRepo =
+            mock(NursingExecutionRecordRepository.class);
         private final AccountRepository accountRepo = mock(AccountRepository.class);
 
         private TestContext() {
@@ -172,17 +190,17 @@ public class PatientNursingRecordsDataSourceHandlerTests {
                         MON_START_LOCAL, MON_END_LOCAL, 7
                     )
                 ));
-            when(nursingRecordRepo.findReportNursingRecords(10001L, MON_START_UTC, MON_END_UTC))
+            when(nursingExecutionRecordRepo.findReportNursingExecutionRecords(10001L, MON_START_UTC, MON_END_UTC))
                 .thenReturn(List.of());
         }
 
-        private PatientNursingRecordsDataSourceHandler handler() {
+        private PatientNursingOrdersDataSourceHandler handler() {
             ReportProperties properties = new ReportProperties();
             properties.getCompact().setFont("classpath:/fonts/msyh.ttf");
-            return new PatientNursingRecordsDataSourceHandler(
+            return new PatientNursingOrdersDataSourceHandler(
                 support,
                 monitoringWindowResolver,
-                nursingRecordRepo,
+                nursingExecutionRecordRepo,
                 accountRepo,
                 properties,
                 new DefaultResourceLoader()

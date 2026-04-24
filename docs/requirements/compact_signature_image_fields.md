@@ -7,6 +7,7 @@
 - `patient_skincare_records.recorded_by`
 - `patient_nursing_records.recorded_by`
 - `patient_nursing_records.reviewed_by`
+- `patient_nursing_orders.recorded_by`
 - `patient_bga_records.recorded_by`
 - `patient_bga_records.reviewed_by`
 
@@ -72,6 +73,7 @@ compact PDF renderer 当前限制：
 - `patient_skincare_records.recorded_by`
 - `patient_nursing_records.recorded_by`
 - `patient_nursing_records.reviewed_by`
+- `patient_nursing_orders.recorded_by`
 - `patient_bga_records.recorded_by`
 - `patient_bga_records.reviewed_by`
 
@@ -94,6 +96,8 @@ compact PDF renderer 当前限制：
   - 护理记录行 `reviewed_by` 回退 `nursing_records.reviewed_by_account_name`
   - 非整点观察项合并行 `recorded_by` 当前来自 `PatientMonitoringRecord.modified_by`，回退逻辑沿用当前账号名/原始 `modified_by` 文本
   - 非整点观察项合并行无 `reviewed_by`
+- 护理计划执行记录：
+  - `patient_nursing_orders.recorded_by` 回退 `completed_by` 对应账号名或原始 `completed_by`
 - 皮肤护理：
   - 输出字段名仍为 `recorded_by`
   - 当前表结构没有 `patient_skincare_records.recorded_by`，现有实现使用 `patient_skincare_records.modified_by`
@@ -224,6 +228,7 @@ compact PDF renderer 当前限制：
 `report_compact.pb.txt` 中护理记录和皮肤护理相关表格列不需要改 field id：
 
 - `table-256` 的 `recorded_by/reviewed_by`
+- `table-260-3` 的 `recorded_by`
 - `table-259` 的 `recorded_by`
 
 BGA 表格需要调整：
@@ -248,6 +253,7 @@ BGA 表格需要调整：
 - `sign_pic` 为空时回退。
 - `sign_pic` base64 非法或 PDFBox 不可解析时回退。
 - `patient_nursing_records` 中护理记录行和非整点观察项行都能正确处理。
+- `patient_nursing_orders` 中护理计划执行记录的 `recorded_by` 能正确处理。
 - BGA 静态表头 `table-38-1` 仍显示文本 `"记录人"` / `"审核人"`，不能被当成图片解析。
 - `patient_bga_records` 内容数据源不再输出表头行，避免 `table-38-1` 和 `table-38-2` 重复表头。
 - PDF renderer 对 `NURSING_SIGN_PIC` cell 绘制图片，不按 base64 文本换行。

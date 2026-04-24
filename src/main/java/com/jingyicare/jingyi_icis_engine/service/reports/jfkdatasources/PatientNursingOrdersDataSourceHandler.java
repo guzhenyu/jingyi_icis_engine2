@@ -5,9 +5,12 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.font.PDFont;
@@ -18,13 +21,15 @@ import org.springframework.stereotype.Component;
 
 import lombok.extern.slf4j.Slf4j;
 
-import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.NursingRecord;
+import com.jingyicare.jingyi_icis_engine.entity.nursingorders.NursingExecutionRecord;
+import com.jingyicare.jingyi_icis_engine.entity.users.Account;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkFieldDataPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
-import com.jingyicare.jingyi_icis_engine.repository.nursingrecords.NursingRecordRepository;
+import com.jingyicare.jingyi_icis_engine.repository.nursingorders.NursingExecutionRecordRepository;
+import com.jingyicare.jingyi_icis_engine.repository.nursingorders.NursingExecutionRecordRepository.NursingExecutionRecordReportRow;
 import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
@@ -35,18 +40,18 @@ import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
 @Component
 @Slf4j
-public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourceHandler {
-    public PatientNursingRecordsDataSourceHandler(
+public class PatientNursingOrdersDataSourceHandler extends AbstractJfkDataSourceHandler {
+    public PatientNursingOrdersDataSourceHandler(
         JfkDataSourceSupport support,
         MonitoringWindowResolver monitoringWindowResolver,
-        NursingRecordRepository nursingRecordRepo,
+        NursingExecutionRecordRepository nursingExecutionRecordRepo,
         AccountRepository accountRepo,
         ReportProperties reportProperties,
         ResourceLoader resourceLoader
     ) {
         super(support);
         this.monitoringWindowResolver = monitoringWindowResolver;
-        this.nursingRecordRepo = nursingRecordRepo;
+        this.nursingExecutionRecordRepo = nursingExecutionRecordRepo;
         this.accountRepo = accountRepo;
         this.reportProperties = reportProperties;
         this.resourceLoader = resourceLoader;
@@ -54,7 +59,7 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
 
     @Override
     public String getMetaId() {
-        return JfkDataSourceIds.PATIENT_NURSING_RECORDS;
+        return JfkDataSourceIds.PATIENT_NURSING_ORDERS;
     }
 
     @Override
@@ -84,41 +89,59 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
         MonitoringWindow window = windowResult.getSecond();
         if (!StrUtils.isBlank(requestDeptId) && !requestDeptId.equals(window.deptId())) {
             log.warn(
-                "Compact nursing records dept_id mismatch, pid={}, requestDeptId={}, patientDeptId={}",
+                "Compact nursing orders dept_id mismatch, pid={}, requestDeptId={}, patientDeptId={}",
                 pid, requestDeptId, window.deptId()
             );
         }
 
-        List<NursingRecord> nursingRecords = nursingRecordRepo.findReportNursingRecords(
+        List<NursingExecutionRecordReportRow> executionRecords = nursingExecutionRecordRepo.findReportNursingExecutionRecords(
             pid, window.monStartUtc(), window.monEndUtc());
 
         JfkDataSourcePB.Builder outputBuilder = newOutputBuilder(input);
-        if (nursingRecords.isEmpty()) {
+        if (executionRecords.isEmpty()) {
             addEmptyOutputs(outputBuilder);
             return new Pair<>(returnCode(StatusCode.OK), outputBuilder.build());
         }
 
+        Map<String, String> accountNameByCompletedBy = accountNameByCompletedBy(executionRecords);
         JfkSignatureValueResolver signatureResolver = new JfkSignatureValueResolver(
-            accountRepo, nursingSignatureAccountRefs(nursingRecords), log, "Compact nursing records");
+            accountRepo,
+            executionRecords.stream()
+                .filter(reportRow -> reportRow != null && reportRow.getExecutionRecord() != null)
+                .map(reportRow -> reportRow.getExecutionRecord().getCompletedBy())
+                .filter(completedBy -> !StrUtils.isBlank(completedBy))
+                .toList(),
+            log,
+            "Compact nursing orders"
+        );
 
-        NursingRows rows;
+        NursingOrderRows rows;
         try (PDDocument document = new PDDocument()) {
             PDFont font = loadFont(document);
-            rows = buildRows(nursingRecords, signatureResolver, colWidths, font, fontSize, charSpacing, hPadding);
+            rows = buildRows(
+                executionRecords,
+                accountNameByCompletedBy,
+                signatureResolver,
+                colWidths,
+                font,
+                fontSize,
+                charSpacing,
+                hPadding
+            );
         } catch (IOException e) {
-            log.error("Failed to wrap compact patient nursing records text: {}", e.getMessage(), e);
+            log.error("Failed to wrap compact patient nursing orders text: {}", e.getMessage(), e);
             return error(StatusCode.INTERNAL_EXCEPTION, e.getMessage());
         }
 
         addOutput(outputBuilder, FIELD_RECORD_TIME, rows.recordTime());
         addOutput(outputBuilder, FIELD_CONTENT, rows.content());
         addOutput(outputBuilder, FIELD_RECORDED_BY, rows.recordedBy());
-        addOutput(outputBuilder, FIELD_REVIEWED_BY, rows.reviewedBy());
         return new Pair<>(returnCode(StatusCode.OK), outputBuilder.build());
     }
 
-    private NursingRows buildRows(
-        List<NursingRecord> nursingRecords,
+    private NursingOrderRows buildRows(
+        List<NursingExecutionRecordReportRow> executionRecords,
+        Map<String, String> accountNameByCompletedBy,
         JfkSignatureValueResolver signatureResolver,
         List<Double> colWidths,
         PDFont font,
@@ -126,15 +149,27 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
         double charSpacing,
         double hPadding
     ) throws IOException {
-        NursingRows rows = new NursingRows();
-        for (NursingRecord nursingRecord : nursingRecords.stream()
+        NursingOrderRows rows = new NursingOrderRows();
+        for (NursingExecutionRecordReportRow reportRow : executionRecords.stream()
+            .filter(reportRow -> reportRow != null && reportRow.getExecutionRecord() != null)
             .sorted(Comparator
-                .comparing(NursingRecord::getEffectiveTime, Comparator.nullsLast(LocalDateTime::compareTo))
-                .thenComparing(NursingRecord::getId, Comparator.nullsLast(Long::compareTo)))
+                .comparing((NursingExecutionRecordReportRow reportRow) ->
+                    reportRow.getExecutionRecord().getCompletedTime(), Comparator.nullsLast(LocalDateTime::compareTo))
+                .thenComparing(reportRow -> reportRow.getExecutionRecord().getId(), Comparator.nullsLast(Long::compareTo)))
             .toList()) {
+            NursingExecutionRecord record = reportRow.getExecutionRecord();
+            if (record.getCompletedTime() == null) {
+                continue;
+            }
+            if (StrUtils.isBlank(reportRow.getOrderName())) {
+                log.warn(
+                    "Nursing order name is empty for compact nursing orders, executionRecordId={}, nursingOrderId={}",
+                    record.getId(), record.getNursingOrderId()
+                );
+            }
             rows.add(
                 stringsVal(wrap(
-                    formatLocal(nursingRecord.getEffectiveTime()),
+                    formatLocal(record.getCompletedTime()),
                     RECORD_TIME_COL_INDEX,
                     colWidths,
                     font,
@@ -142,8 +177,8 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
                     charSpacing,
                     hPadding
                 )),
-                stringsVal(wrapLines(
-                    splitLines(safe(nursingRecord.getContent())),
+                stringsVal(wrap(
+                    nursingExecutionContent(reportRow.getOrderName(), record.getNote()),
                     CONTENT_COL_INDEX,
                     colWidths,
                     font,
@@ -152,27 +187,71 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
                     hPadding
                 )),
                 strVal(signatureResolver.signatureOrFallback(
-                    nursingRecord.getCreatedBy(),
-                    safe(nursingRecord.getCreatedByAccountName()),
-                    nursingRecord.getId()
-                )),
-                strVal(signatureResolver.signatureOrFallback(
-                    nursingRecord.getReviewedBy(),
-                    safe(nursingRecord.getReviewedByAccountName()),
-                    nursingRecord.getId()
+                    record.getCompletedBy(),
+                    displayAccountName(record.getCompletedBy(), accountNameByCompletedBy),
+                    record.getId()
                 ))
             );
         }
         return rows;
     }
 
-    private List<String> nursingSignatureAccountRefs(List<NursingRecord> nursingRecords) {
-        List<String> result = new ArrayList<>();
-        for (NursingRecord nursingRecord : nursingRecords) {
-            if (!StrUtils.isBlank(nursingRecord.getCreatedBy())) result.add(nursingRecord.getCreatedBy());
-            if (!StrUtils.isBlank(nursingRecord.getReviewedBy())) result.add(nursingRecord.getReviewedBy());
+    private String nursingExecutionContent(String orderName, String note) {
+        String content = safe(orderName);
+        if (StrUtils.isBlank(note)) {
+            return content;
+        }
+        return content + "(备注: " + note + ")";
+    }
+
+    private Map<String, String> accountNameByCompletedBy(List<NursingExecutionRecordReportRow> records) {
+        Map<String, Long> accountIdByCompletedBy = new LinkedHashMap<>();
+        for (NursingExecutionRecordReportRow reportRow : records) {
+            if (reportRow == null || reportRow.getExecutionRecord() == null) continue;
+            NursingExecutionRecord record = reportRow.getExecutionRecord();
+            String completedBy = record.getCompletedBy();
+            if (StrUtils.isBlank(completedBy)) continue;
+            try {
+                accountIdByCompletedBy.putIfAbsent(completedBy, Long.parseLong(completedBy));
+            } catch (NumberFormatException e) {
+                log.warn(
+                    "Compact nursing orders completed_by is not accounts.id, recordId={}, completedBy={}",
+                    record.getId(), completedBy
+                );
+            }
+        }
+        if (accountIdByCompletedBy.isEmpty()) {
+            return Map.of();
+        }
+
+        List<Long> accountIds = new ArrayList<>(new LinkedHashSet<>(accountIdByCompletedBy.values()));
+        Map<Long, String> accountNameById = accountRepo.findByIdInAndIsDeletedFalse(accountIds).stream()
+            .collect(Collectors.toMap(
+                Account::getId,
+                account -> safe(account.getName()),
+                (left, right) -> left,
+                LinkedHashMap::new
+            ));
+
+        Map<String, String> result = new LinkedHashMap<>();
+        for (Map.Entry<String, Long> entry : accountIdByCompletedBy.entrySet()) {
+            String accountName = accountNameById.get(entry.getValue());
+            if (StrUtils.isBlank(accountName)) {
+                log.warn(
+                    "Compact nursing orders completed_by account not found, completedBy={}, accountId={}",
+                    entry.getKey(), entry.getValue()
+                );
+                continue;
+            }
+            result.put(entry.getKey(), accountName);
         }
         return result;
+    }
+
+    private String displayAccountName(String completedBy, Map<String, String> accountNameByCompletedBy) {
+        if (StrUtils.isBlank(completedBy)) return "";
+        String accountName = accountNameByCompletedBy.get(completedBy);
+        return StrUtils.isBlank(accountName) ? completedBy : accountName;
     }
 
     private String formatLocal(LocalDateTime utcTime) {
@@ -190,31 +269,17 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
         double charSpacing,
         double hPadding
     ) throws IOException {
-        return wrapLines(List.of(value == null ? "" : value), colIndex, colWidths, font, fontSize, charSpacing, hPadding);
-    }
-
-    private List<String> wrapLines(
-        List<String> lines,
-        int colIndex,
-        List<Double> colWidths,
-        PDFont font,
-        double fontSize,
-        double charSpacing,
-        double hPadding
-    ) throws IOException {
         if (font == null || colIndex < 0 || colIndex >= colWidths.size()) {
-            return lines == null || lines.isEmpty() ? List.of("") : lines;
+            return List.of(value == null ? "" : value);
         }
         float availableWidth = (float) Math.max(0d, colWidths.get(colIndex) - 2d * Math.max(0d, hPadding));
         return JfkPdfUtils.getWrappedLines(
-            font, (float) fontSize, availableWidth, (float) charSpacing,
-            lines == null || lines.isEmpty() ? List.of("") : lines
+            font,
+            (float) fontSize,
+            availableWidth,
+            (float) charSpacing,
+            List.of(value == null ? "" : value)
         );
-    }
-
-    private List<String> splitLines(String value) {
-        if (value == null) return List.of("");
-        return Arrays.asList(value.split("\\R", -1));
     }
 
     private PDFont loadFont(PDDocument document) throws IOException {
@@ -228,7 +293,6 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
         addOutput(outputBuilder, FIELD_RECORD_TIME, List.of());
         addOutput(outputBuilder, FIELD_CONTENT, List.of());
         addOutput(outputBuilder, FIELD_RECORDED_BY, List.of());
-        addOutput(outputBuilder, FIELD_REVIEWED_BY, List.of());
     }
 
     private void addOutput(JfkDataSourcePB.Builder outputBuilder, String id, List<JfkValPB> vals) {
@@ -279,26 +343,19 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
         return null;
     }
 
-    private record NursingRows(
+    private record NursingOrderRows(
         List<JfkValPB> recordTime,
         List<JfkValPB> content,
-        List<JfkValPB> recordedBy,
-        List<JfkValPB> reviewedBy
+        List<JfkValPB> recordedBy
     ) {
-        private NursingRows() {
-            this(new ArrayList<>(), new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
+        private NursingOrderRows() {
+            this(new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
         }
 
-        private void add(
-            JfkValPB recordTimeVal,
-            JfkValPB contentVal,
-            JfkValPB recordedByVal,
-            JfkValPB reviewedByVal
-        ) {
+        private void add(JfkValPB recordTimeVal, JfkValPB contentVal, JfkValPB recordedByVal) {
             recordTime.add(recordTimeVal);
             content.add(contentVal);
             recordedBy.add(recordedByVal);
-            reviewedBy.add(reviewedByVal);
         }
     }
 
@@ -313,14 +370,13 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
     private static final String FIELD_RECORD_TIME = "record_time";
     private static final String FIELD_CONTENT = "content";
     private static final String FIELD_RECORDED_BY = "recorded_by";
-    private static final String FIELD_REVIEWED_BY = "reviewed_by";
     private static final int RECORD_TIME_COL_INDEX = 0;
     private static final int CONTENT_COL_INDEX = 1;
     private static final double DEFAULT_FONT_SIZE = 8d;
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     private final MonitoringWindowResolver monitoringWindowResolver;
-    private final NursingRecordRepository nursingRecordRepo;
+    private final NursingExecutionRecordRepository nursingExecutionRecordRepo;
     private final AccountRepository accountRepo;
     private final ReportProperties reportProperties;
     private final ResourceLoader resourceLoader;

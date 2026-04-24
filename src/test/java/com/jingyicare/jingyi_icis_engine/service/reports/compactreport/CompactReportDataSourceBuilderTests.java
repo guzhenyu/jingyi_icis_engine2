@@ -108,6 +108,20 @@ public class CompactReportDataSourceBuilderTests {
         assertThat(doubleVal(tubeInput, "char_spacing")).isEqualTo(0d);
         assertThat(doubleVal(tubeInput, "h_padding")).isEqualTo(2d);
 
+        JfkDataSourcePB nonHourlyMonitoringInput = inputs.stream()
+            .filter(input -> JfkDataSourceIds.PATIENT_NON_HOURLY_MONITORING_RECORDS.equals(input.getMetaId()))
+            .findFirst()
+            .orElseThrow();
+
+        assertThat(nonHourlyMonitoringInput.getId())
+            .isEqualTo(JfkDataSourceIds.compactTableScoped(
+                JfkDataSourceIds.PATIENT_NON_HOURLY_MONITORING_RECORDS, "table-40-2"));
+        assertThat(strVal(nonHourlyMonitoringInput, "table_id")).isEqualTo("table-40-2");
+        assertThat(doubleVals(nonHourlyMonitoringInput, "col_widths")).containsExactly(66d, 683.5d, 60d);
+        assertThat(doubleVal(nonHourlyMonitoringInput, "font_size")).isEqualTo(6d);
+        assertThat(doubleVal(nonHourlyMonitoringInput, "char_spacing")).isEqualTo(0d);
+        assertThat(doubleVal(nonHourlyMonitoringInput, "h_padding")).isEqualTo(2d);
+
         JfkDataSourcePB nursingInput = inputs.stream()
             .filter(input -> JfkDataSourceIds.PATIENT_NURSING_RECORDS.equals(input.getMetaId()))
             .findFirst()
@@ -120,6 +134,19 @@ public class CompactReportDataSourceBuilderTests {
         assertThat(doubleVal(nursingInput, "font_size")).isEqualTo(6d);
         assertThat(doubleVal(nursingInput, "char_spacing")).isEqualTo(0d);
         assertThat(doubleVal(nursingInput, "h_padding")).isEqualTo(2d);
+
+        JfkDataSourcePB nursingOrdersInput = inputs.stream()
+            .filter(input -> JfkDataSourceIds.PATIENT_NURSING_ORDERS.equals(input.getMetaId()))
+            .findFirst()
+            .orElseThrow();
+
+        assertThat(nursingOrdersInput.getId())
+            .isEqualTo(JfkDataSourceIds.compactTableScoped(JfkDataSourceIds.PATIENT_NURSING_ORDERS, "table-260-3"));
+        assertThat(strVal(nursingOrdersInput, "table_id")).isEqualTo("table-260-3");
+        assertThat(doubleVals(nursingOrdersInput, "col_widths")).containsExactly(66d, 683.5d, 60d);
+        assertThat(doubleVal(nursingOrdersInput, "font_size")).isEqualTo(6d);
+        assertThat(doubleVal(nursingOrdersInput, "char_spacing")).isEqualTo(0d);
+        assertThat(doubleVal(nursingOrdersInput, "h_padding")).isEqualTo(2d);
 
         JfkDataSourcePB skincareInput = inputs.stream()
             .filter(input -> JfkDataSourceIds.PATIENT_SKINCARE_RECORDS.equals(input.getMetaId()))

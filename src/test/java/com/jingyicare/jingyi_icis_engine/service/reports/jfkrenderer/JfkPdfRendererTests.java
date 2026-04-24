@@ -155,7 +155,26 @@ public class JfkPdfRendererTests {
         for (int i = 1; i <= 24; i++) {
             monitoringRecords.addOutputFields(stringsFieldMeta("hour" + i));
         }
-        return List.of(patientInfo.build(), timeRange.build(), monitoringRecords.build());
+
+        JfkDataSourceMetaPB.Builder nonHourlyMonitoringRecords = JfkDataSourceMetaPB.newBuilder()
+            .setId("patient_non_hourly_monitoring_records")
+            .addOutputFields(stringsFieldMeta("record_time"))
+            .addOutputFields(stringsFieldMeta("content"))
+            .addOutputFields(signPicFieldMeta("recorded_by"));
+
+        JfkDataSourceMetaPB.Builder nursingOrders = JfkDataSourceMetaPB.newBuilder()
+            .setId("patient_nursing_orders")
+            .addOutputFields(stringsFieldMeta("record_time"))
+            .addOutputFields(stringsFieldMeta("content"))
+            .addOutputFields(signPicFieldMeta("recorded_by"));
+
+        return List.of(
+            patientInfo.build(),
+            timeRange.build(),
+            monitoringRecords.build(),
+            nonHourlyMonitoringRecords.build(),
+            nursingOrders.build()
+        );
     }
 
     private List<JfkDataSourcePB> syntheticDataSources() {
@@ -185,7 +204,31 @@ public class JfkPdfRendererTests {
         for (int i = 1; i <= 24; i++) {
             monitoringRecords.addOutputData(strLinesVals("hour" + i, List.of("36." + (i % 10)), List.of(String.valueOf(70 + i))));
         }
-        return List.of(patientInfo.build(), timeRange.build(), monitoringRecords.build());
+
+        JfkDataSourcePB nonHourlyMonitoringRecords = JfkDataSourcePB.newBuilder()
+            .setId(JfkDataSourceIds.compactTableScoped(
+                JfkDataSourceIds.PATIENT_NON_HOURLY_MONITORING_RECORDS, "table-40-2"))
+            .setMetaId(JfkDataSourceIds.PATIENT_NON_HOURLY_MONITORING_RECORDS)
+            .addOutputData(strLinesVals("record_time", List.of("2026-04-17 08:10")))
+            .addOutputData(strLinesVals("content", List.of("体温: 36.8 ℃; 心率: 88 次/分")))
+            .addOutputData(strVals("recorded_by", SIGNATURE_PNG))
+            .build();
+
+        JfkDataSourcePB nursingOrders = JfkDataSourcePB.newBuilder()
+            .setId(JfkDataSourceIds.compactTableScoped(JfkDataSourceIds.PATIENT_NURSING_ORDERS, "table-260-3"))
+            .setMetaId(JfkDataSourceIds.PATIENT_NURSING_ORDERS)
+            .addOutputData(strLinesVals("record_time", List.of("2026-04-17 08:20")))
+            .addOutputData(strLinesVals("content", List.of("翻身护理")))
+            .addOutputData(strVals("recorded_by", SIGNATURE_PNG))
+            .build();
+
+        return List.of(
+            patientInfo.build(),
+            timeRange.build(),
+            monitoringRecords.build(),
+            nonHourlyMonitoringRecords,
+            nursingOrders
+        );
     }
 
     private JfkFieldMetaPB stringFieldMeta(String id) {
@@ -199,6 +242,13 @@ public class JfkPdfRendererTests {
         return JfkFieldMetaPB.newBuilder()
             .setId(id)
             .setValMeta(JfkValMetaPB.newBuilder().setValType(9).build())
+            .build();
+    }
+
+    private JfkFieldMetaPB signPicFieldMeta(String id) {
+        return JfkFieldMetaPB.newBuilder()
+            .setId(id)
+            .setValMeta(JfkValMetaPB.newBuilder().setValType(7).build())
             .build();
     }
 
@@ -223,4 +273,14 @@ public class JfkPdfRendererTests {
             .addVals(JfkValPB.newBuilder().addAllStrsVal(second).build())
             .build();
     }
+
+    private JfkFieldDataPB strLinesVals(String id, List<String> only) {
+        return JfkFieldDataPB.newBuilder()
+            .setId(id)
+            .addVals(JfkValPB.newBuilder().addAllStrsVal(only).build())
+            .build();
+    }
+
+    private static final String SIGNATURE_PNG =
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
 }

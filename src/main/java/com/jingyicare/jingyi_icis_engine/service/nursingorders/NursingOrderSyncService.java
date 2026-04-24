@@ -120,7 +120,10 @@ public class NursingOrderSyncService {
         nursingOrder.setSource(SOURCE_MEDICAL_ORDERS);
         nursingOrder.setMedicalOrderId(medicalOrder.getOrderId());
         nursingOrder.setMedicalOrderGroupId(medicalOrder.getGroupId());
-        nursingOrder.setName(medicalOrder.getOrderName());
+        String nursingOrderName = medicalOrder.getOrderName() + (
+            StrUtils.isBlank(medicalOrder.getMedicationNote()) ? "" : " - " + medicalOrder.getMedicationNote()
+        );
+        nursingOrder.setName(nursingOrderName);
         nursingOrder.setDurationType(durationType);
         nursingOrder.setMedicationFreqCode(medicalOrder.getFreqCode());
         nursingOrder.setOrderBy(emptyIfBlank(medicalOrder.getOrderingDoctor()));

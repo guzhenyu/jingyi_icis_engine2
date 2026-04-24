@@ -2561,11 +2561,10 @@ template {
           y: 0
           z_index: 1
           rows: 1
-          cols: 5
+          cols: 4
           cell_widths: 66
           cell_widths: 60
-          cell_widths: 561.5
-          cell_widths: 60
+          cell_widths: 622
           cell_widths: 60
           cell_heights: 12
           line_width: 0.5
@@ -2603,14 +2602,6 @@ template {
             }
             static_vals: "记录人"
           }
-          column_metas {
-            id: "table-38-1-col-5"
-            name: "列5"
-            element_meta {
-              content_type: 1
-            }
-            static_vals: "审核人"
-          }
           extend_to_next_page: false
           next_page_x: 12
           next_page_y: 0
@@ -2634,11 +2625,10 @@ template {
           y: 0
           z_index: 1
           rows: 1
-          cols: 5
+          cols: 4
           cell_widths: 66
           cell_widths: 60
-          cell_widths: 561.5
-          cell_widths: 60
+          cell_widths: 622
           cell_widths: 60
           cell_heights: 12
           line_width: 0.5
@@ -2680,13 +2670,153 @@ template {
               data_source_field_id: "recorded_by"
             }
           }
+          extend_to_next_page: false
+          next_page_x: 12
+          next_page_y: 0
+          v_align_id: 2
+          h_align_id: 5
+          font: "Microsoft YaHei"
+          font_size: 6
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+          h_replicas: 0
+          h_replica_data_direction_is_col: true
+          data_source_meta_id: "patient_bga_records"
+        }
+      }
+      ac_tables {
+        offset_top: 0
+        tbl {
+          id: "table-39"
+          type: "table"
+          x: 16
+          y: 0
+          z_index: 1
+          rows: 1
+          cols: 1
+          cell_widths: 809.5
+          cell_heights: 12
+          line_width: 0.5
+          line_color: "#000000"
           column_metas {
-            id: "table-38-2-col-5"
-            name: "列5"
+            id: "table-39-col-1"
+            name: "列1"
+            element_meta {
+              content_type: 1
+            }
+            static_vals: "非整点观察记录"
+          }
+          extend_to_next_page: true
+          next_page_x: 12
+          next_page_y: 0
+          v_align_id: 2
+          h_align_id: 4
+          font: "Microsoft YaHei"
+          font_size: 8
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+          h_replicas: 0
+          h_replica_data_direction_is_col: true
+        }
+      }
+      ac_tables {
+        offset_top: 0
+        tbl {
+          id: "table-40-1"
+          type: "table"
+          x: 16
+          y: 0
+          z_index: 1
+          rows: 1
+          cols: 3
+          cell_widths: 66
+          cell_widths: 683.5
+          cell_widths: 60
+          cell_heights: 12
+          line_width: 0.5
+          line_color: "#000000"
+          column_metas {
+            id: "table-40-1-col-1"
+            name: "列1"
+            element_meta {
+              content_type: 1
+            }
+            static_vals: "时间"
+          }
+          column_metas {
+            id: "table-40-1-col-2"
+            name: "列2"
+            element_meta {
+              content_type: 1
+            }
+            static_vals: "观察内容"
+          }
+          column_metas {
+            id: "table-40-1-col-3"
+            name: "列3"
+            element_meta {
+              content_type: 1
+            }
+            static_vals: "记录者"
+          }
+          extend_to_next_page: false
+          next_page_x: 12
+          next_page_y: 0
+          v_align_id: 2
+          h_align_id: 5
+          font: "Microsoft YaHei"
+          font_size: 6
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+          h_replicas: 0
+          h_replica_data_direction_is_col: true
+        }
+      }
+      ac_tables {
+        offset_top: 0
+        tbl {
+          id: "table-40-2"
+          type: "table"
+          x: 16
+          y: 0
+          z_index: 1
+          rows: 1
+          cols: 3
+          cell_widths: 66
+          cell_widths: 683.5
+          cell_widths: 60
+          cell_heights: 12
+          line_width: 0.5
+          line_color: "#000000"
+          column_metas {
+            id: "table-40-2-col-1"
+            name: "列1"
             element_meta {
               content_type: 4
-              data_source_meta_id: "patient_bga_records"
-              data_source_field_id: "reviewed_by"
+              data_source_meta_id: "patient_non_hourly_monitoring_records"
+              data_source_field_id: "record_time"
+            }
+          }
+          column_metas {
+            id: "table-40-2-col-2"
+            name: "列2"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_non_hourly_monitoring_records"
+              data_source_field_id: "content"
+            }
+            h_align_id: 4
+          }
+          column_metas {
+            id: "table-40-2-col-3"
+            name: "列3"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_non_hourly_monitoring_records"
+              data_source_field_id: "recorded_by"
             }
           }
           extend_to_next_page: false
@@ -2701,7 +2831,7 @@ template {
           h_padding: 2
           h_replicas: 0
           h_replica_data_direction_is_col: true
-          data_source_meta_id: "patient_bga_records"
+          data_source_meta_id: "patient_non_hourly_monitoring_records"
         }
       }
     }
@@ -5574,6 +5704,155 @@ template {
       ac_tables {
         offset_top: 0
         tbl {
+          id: "table-260-1"
+          type: "table"
+          x: 16
+          y: 0
+          z_index: 1
+          rows: 1
+          cols: 1
+          cell_widths: 809.5
+          cell_heights: 12
+          line_width: 0.5
+          line_color: "#000000"
+          column_metas {
+            id: "table-260-1-col-1"
+            name: "列1"
+            element_meta {
+              content_type: 1
+            }
+            static_vals: "护理计划执行记录"
+          }
+          extend_to_next_page: true
+          next_page_x: 12
+          next_page_y: 0
+          v_align_id: 2
+          h_align_id: 4
+          font: "Microsoft YaHei"
+          font_size: 8
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+          h_replicas: 0
+          h_replica_data_direction_is_col: true
+        }
+      }
+      ac_tables {
+        offset_top: 0
+        tbl {
+          id: "table-260-2"
+          type: "table"
+          x: 16
+          y: 0
+          z_index: 1
+          rows: 1
+          cols: 3
+          cell_widths: 66
+          cell_widths: 683.5
+          cell_widths: 60
+          cell_heights: 12
+          line_width: 0.5
+          line_color: "#000000"
+          column_metas {
+            id: "table-260-2-col-1"
+            name: "时间"
+            element_meta {
+              content_type: 1
+            }
+            static_vals: "时间"
+          }
+          column_metas {
+            id: "table-260-2-col-2"
+            name: "内容"
+            element_meta {
+              content_type: 1
+            }
+            static_vals: "内容"
+          }
+          column_metas {
+            id: "table-260-2-col-3"
+            name: "记录者"
+            element_meta {
+              content_type: 1
+            }
+            static_vals: "记录者"
+          }
+          extend_to_next_page: true
+          next_page_x: 12
+          next_page_y: 0
+          v_align_id: 2
+          h_align_id: 5
+          font: "Microsoft YaHei"
+          font_size: 6
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+          h_replicas: 0
+          h_replica_data_direction_is_col: true
+        }
+      }
+      ac_tables {
+        offset_top: 0
+        tbl {
+          id: "table-260-3"
+          type: "table"
+          x: 16
+          y: 0
+          z_index: 1
+          rows: 1
+          cols: 3
+          cell_widths: 66
+          cell_widths: 683.5
+          cell_widths: 60
+          cell_heights: 12
+          line_width: 0.5
+          line_color: "#000000"
+          column_metas {
+            id: "table-260-3-col-1"
+            name: "时间"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_nursing_orders"
+              data_source_field_id: "record_time"
+            }
+          }
+          column_metas {
+            id: "table-260-3-col-2"
+            name: "内容"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_nursing_orders"
+              data_source_field_id: "content"
+            }
+            h_align_id: 4
+          }
+          column_metas {
+            id: "table-260-3-col-3"
+            name: "记录者"
+            element_meta {
+              content_type: 4
+              data_source_meta_id: "patient_nursing_orders"
+              data_source_field_id: "recorded_by"
+            }
+          }
+          extend_to_next_page: false
+          next_page_x: 12
+          next_page_y: 0
+          v_align_id: 2
+          h_align_id: 5
+          font: "Microsoft YaHei"
+          font_size: 6
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+          h_replicas: 0
+          h_replica_data_direction_is_col: true
+          data_source_meta_id: "patient_nursing_orders"
+        }
+      }
+      ac_tables {
+        offset_top: 0
+        tbl {
           id: "table-251"
           type: "table"
           x: 16
@@ -6056,6 +6335,7 @@ template {
           data_source_meta_id: "patient_skincare_records"
         }
       }
+      # next table id: 261
     }
   }
   page_expandable: true

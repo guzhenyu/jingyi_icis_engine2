@@ -203,6 +203,29 @@ template {
       ac_tables {
         offset_top: 0
         tbl {
+          id: "table-40-2"
+          type: "table"
+          x: 12
+          y: 0
+          rows: 1
+          cols: 3
+          cell_widths: 66
+          cell_widths: 683.5
+          cell_widths: 60
+          cell_heights: 12
+          v_align_id: 2
+          h_align_id: 5
+          font: "Microsoft YaHei"
+          font_size: 6
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+          data_source_meta_id: "patient_non_hourly_monitoring_records"
+        }
+      }
+      ac_tables {
+        offset_top: 0
+        tbl {
           id: "table-256"
           type: "table"
           x: 12
@@ -222,6 +245,29 @@ template {
           char_spacing: 0
           h_padding: 2
           data_source_meta_id: "patient_nursing_records"
+        }
+      }
+      ac_tables {
+        offset_top: 0
+        tbl {
+          id: "table-260-3"
+          type: "table"
+          x: 12
+          y: 0
+          rows: 1
+          cols: 3
+          cell_widths: 66
+          cell_widths: 683.5
+          cell_widths: 60
+          cell_heights: 12
+          v_align_id: 2
+          h_align_id: 5
+          font: "Microsoft YaHei"
+          font_size: 6
+          font_color: "#000000"
+          char_spacing: 0
+          h_padding: 2
+          data_source_meta_id: "patient_nursing_orders"
         }
       }
       ac_tables {
