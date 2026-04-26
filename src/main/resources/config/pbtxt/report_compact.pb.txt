@@ -6354,8 +6354,9 @@ mon_group {
     param_code: "temperature"
     param_code: "tanWen"
     param_code: "maoWen"
-    param_code: "pr"
     param_code: "hr"
+    param_code: "pr"
+    param_code: "heart_rhythm"
     param_code: "respiratory_rate"
     param_code: "nibp_s"
     param_code: "nibp_d"
@@ -6364,6 +6365,7 @@ mon_group {
     param_code: "cvp"
     param_code: "Spo2"
     param_code: "intra_abdominal_pressure"
+    param_code: "bga_glu"
 }
 mon_group {
     # 对应于JfkTablePB.id
@@ -6378,11 +6380,12 @@ mon_group {
     # 对应于JfkTablePB.id
     table_id: "table-32"
     param_code: "vent_respiratory_rate"
-    param_code: "oxygen_delivery_method"
+    param_code: "vent_respiratory_mode"
     param_code: "oxygen_delivery_method"
     param_code: "vent_measured_tidal_volume"
     param_code: "vent_fio2"
-    param_code: "vent_peak_flow_rate_set"
+    param_code: "vent_peak_flow_rate"
+    param_code: "vent_set_respiratory_rate"
     param_code: "vent_PEEP"
     param_code: "vent_PASB"
 }
@@ -6399,6 +6402,10 @@ mon_group {
     param_code: "sputum_amount"
     param_code: "airway_humidification"
     param_code: "restraint"
+    param_code: "skin_care"
+    param_code: "repositioning_and_tapping"
+    param_code: "repositioning_right"
+    param_code: "repositioning_left"
     param_code: "talk"
     param_code: "left_upper_limb_muscle_strength"
     param_code: "left_lower_limb_muscle_strength"

@@ -31,6 +31,7 @@ public class Consts {
 
     // 管道
     public static final String DRAINAGE_TUBE_COLOR_CODE = "color"; // 引流管颜色观察项编码
+    public static final String TUBE_RETAINED_ON_DISCHARGE_SUFFIX = "(带管出科)";
 
     // 报表
     public static final String REPORT_TEMPLATE_AH2 = "ah2"; // AH2 护理记录单

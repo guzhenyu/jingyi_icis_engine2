@@ -40,6 +40,7 @@ import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
 import com.jingyicare.jingyi_icis_engine.service.shifts.ConfigShiftUtils;
+import com.jingyicare.jingyi_icis_engine.utils.Consts;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
@@ -173,7 +174,7 @@ public class PatientTubeRecordsDataSourceHandler extends AbstractJfkDataSourceHa
         for (PatientTubeRecord record : sorted) {
             LocalDateTime rootInsertedAt = rootInsertedAtByRecordId.getOrDefault(record.getId(), record.getInsertedAt());
             rows.add(
-                stringsVal(wrap(safe(record.getTubeName()), TUBE_NAME_COL_INDEX, colWidths, font, fontSize, charSpacing, hPadding)),
+                stringsVal(wrap(tubeNameText(record), TUBE_NAME_COL_INDEX, colWidths, font, fontSize, charSpacing, hPadding)),
                 stringsVal(wrap(insertedAtText(rootInsertedAt, record.getRemovedAt()), INSERTED_AT_COL_INDEX, colWidths, font, fontSize, charSpacing, hPadding)),
                 stringsVal(wrap(durationDays(rootInsertedAt, record.getRemovedAt(), window), DURATION_DAYS_COL_INDEX, colWidths, font, fontSize, charSpacing, hPadding)),
                 stringsVal(wrapLines(
@@ -435,6 +436,13 @@ public class PatientTubeRecordsDataSourceHandler extends AbstractJfkDataSourceHa
         String insertedAt = formatLocal(rootInsertedAt);
         if (removedAt == null) return insertedAt;
         return insertedAt + " ~ " + formatLocal(removedAt);
+    }
+
+    private String tubeNameText(PatientTubeRecord record) {
+        String tubeName = safe(record.getTubeName());
+        return Boolean.TRUE.equals(record.getIsRetainedOnDischarge())
+            ? tubeName + Consts.TUBE_RETAINED_ON_DISCHARGE_SUFFIX
+            : tubeName;
     }
 
     private List<String> wrap(
