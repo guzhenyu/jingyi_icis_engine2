@@ -137,6 +137,7 @@ message HisPatientPB {
 
 message UpdateHisPatientReq {
     repeated HisPatientPB patient = 1; // 病人信息列表
+    bool skipping_icu_admission_time = 2; // 是否跳过ICU入科时间更新
 }
 
 message UpdateMedicalOrderReq {
