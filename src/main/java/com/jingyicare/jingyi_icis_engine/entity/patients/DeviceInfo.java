@@ -47,18 +47,6 @@ public class DeviceInfo {
     @Column(name = "device_driver_code")
     private String deviceDriverCode;  // 驱动编码（内部编码）
 
-    @Column(name = "network_protocol")
-    private Integer networkProtocol;  // 网络协议（tcp/udp等），icis_device.proto:DeviceEnums.network_protocol
-
-    @Column(name = "serial_protocol")
-    private Integer serialProtocol;  // 串口端口（RS232, 485等），icis_device.proto:DeviceEnums.serial_protocol
-
-    @Column(name = "model")
-    private String model;  // 型号
-
-    @Column(name = "manufacturer")
-    private String manufacturer;  // 生产厂家
-
     @Column(name = "source_mode")
     private Integer sourceMode;  // 数据来源模式，icis_device.proto:DeviceEnums.source_mode
 
@@ -66,12 +54,12 @@ public class DeviceInfo {
     private Integer sourceTopology;  // 数据来源拓扑，icis_device.proto:DeviceEnums.source_topology
 
     @Builder.Default
-    @Column(name = "enabled_as_source", nullable = false)
-    private Boolean enabledAsSource = false;  // 是否参与 jd2 source/runtime
-
-    @Builder.Default
     @Column(name = "upstream_device_id", nullable = false)
     private Integer upstreamDeviceId = 0;  // 上游设备id，0表示无上游
+
+    @Builder.Default
+    @Column(name = "pds_ip_seq", nullable = false)
+    private Integer pdsIpSeq = 0;  // PDS realtime 目标监护仪 ipSeq
 
     @Column(name = "is_deleted", nullable = false)
     private Boolean isDeleted;  // 是否已删除
@@ -94,11 +82,11 @@ public class DeviceInfo {
     @PrePersist
     @PreUpdate
     private void applyDefaults() {
-        if (enabledAsSource == null) {
-            enabledAsSource = false;
-        }
         if (upstreamDeviceId == null) {
             upstreamDeviceId = 0;
+        }
+        if (pdsIpSeq == null) {
+            pdsIpSeq = 0;
         }
     }
 }

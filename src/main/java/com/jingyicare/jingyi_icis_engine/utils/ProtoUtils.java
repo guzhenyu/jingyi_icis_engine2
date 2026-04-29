@@ -541,10 +541,10 @@ public class ProtoUtils {
         fields.add(DeviceInfoWithBindingPB.getDescriptor().findFieldByNumber(2));
 
         // DeviceInfoPB
-        //    .enabled_as_source = 17
-        fields.add(DeviceInfoPB.getDescriptor().findFieldByNumber(17));
         //    .upstream_device_id = 18
         fields.add(DeviceInfoPB.getDescriptor().findFieldByNumber(18));
+        //    .pds_ip_seq = 19
+        fields.add(DeviceInfoPB.getDescriptor().findFieldByNumber(19));
 
         // GetDeviceBindingHistoryResp
         //    .is_binding = 2

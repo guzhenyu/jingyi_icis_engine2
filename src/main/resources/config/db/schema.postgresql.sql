@@ -2240,14 +2240,10 @@ CREATE TABLE device_infos (
     device_ip VARCHAR(255),
     device_port VARCHAR(255),
     device_driver_code VARCHAR(255),
-    network_protocol INTEGER,
-    serial_protocol INTEGER,
-    model VARCHAR(255),
-    manufacturer VARCHAR(255),
-    source_mode INTEGER,
-    source_topology INTEGER,
-    enabled_as_source BOOLEAN NOT NULL DEFAULT FALSE,
+    source_mode INTEGER NOT NULL,
+    source_topology INTEGER NOT NULL,
     upstream_device_id INTEGER NOT NULL DEFAULT 0,
+    pds_ip_seq INTEGER DEFAULT 0,
     is_deleted BOOLEAN NOT NULL,
     deleted_by VARCHAR(255),
     deleted_at TIMESTAMP,
@@ -2266,14 +2262,10 @@ COMMENT ON COLUMN device_infos.device_name IS '设备名称';
 COMMENT ON COLUMN device_infos.device_ip IS '设备的IP地址';
 COMMENT ON COLUMN device_infos.device_port IS '设备端口';
 COMMENT ON COLUMN device_infos.device_driver_code IS '驱动编码，内部编码（如：迈瑞-呼吸-code1，飞利浦-监护-code2）';
-COMMENT ON COLUMN device_infos.network_protocol IS '网络协议（tcp/udp等），icis_device.proto:DeviceEnums.network_protocol';
-COMMENT ON COLUMN device_infos.serial_protocol IS '串口端口（RS232, 485等），icis_device.proto:DeviceEnums.serial_protocol';
-COMMENT ON COLUMN device_infos.model IS '型号';
-COMMENT ON COLUMN device_infos.manufacturer IS '生产厂家';
-COMMENT ON COLUMN device_infos.source_mode IS '数据来源模式，icis_device.proto:DeviceEnums.source_mode';
+COMMENT ON COLUMN device_infos.source_mode IS '数据来源模式，1-INBOUND_SERVER，2-OUTBOUND_CLIENT，3-NON_DIRECT_CONNECT';
 COMMENT ON COLUMN device_infos.source_topology IS '数据来源拓扑，icis_device.proto:DeviceEnums.source_topology';
-COMMENT ON COLUMN device_infos.enabled_as_source IS '是否参与 jd2 source/runtime';
 COMMENT ON COLUMN device_infos.upstream_device_id IS '上游设备id，0表示无上游；PDS target 指向所属中央站';
+COMMENT ON COLUMN device_infos.pds_ip_seq IS 'PDS realtime 目标监护仪的 ipSeq；第一版床旁 target 默认 0';
 COMMENT ON COLUMN device_infos.is_deleted IS '是否已删除';
 COMMENT ON COLUMN device_infos.deleted_by IS '删除人';
 COMMENT ON COLUMN device_infos.deleted_at IS '删除时间';

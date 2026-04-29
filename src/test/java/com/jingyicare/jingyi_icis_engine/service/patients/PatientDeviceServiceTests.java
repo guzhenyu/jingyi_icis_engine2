@@ -506,7 +506,8 @@ public class PatientDeviceServiceTests extends TestsBase {
 
         DeviceInfoPB directCentral = newDevInfoPB(upstreamRuleDeptId, 301, CENTRAL_STATION_DEVICE_TYPE)
             .toBuilder()
-            .setEnabledAsSource(true)
+            .setSourceMode(1)
+            .setSourceTopology(2)
             .setUpstreamDeviceId(0)
             .build();
         AddDeviceInfoResp addResp = patientDeviceService.addDeviceInfo(
@@ -517,7 +518,8 @@ public class PatientDeviceServiceTests extends TestsBase {
 
         DeviceInfoPB indirectCentral = newDevInfoPB(upstreamRuleDeptId, 302, CENTRAL_STATION_DEVICE_TYPE)
             .toBuilder()
-            .setEnabledAsSource(false)
+            .setSourceMode(3)
+            .setSourceTopology(2)
             .setUpstreamDeviceId(directCentralId)
             .build();
         addResp = patientDeviceService.addDeviceInfo(
@@ -528,7 +530,8 @@ public class PatientDeviceServiceTests extends TestsBase {
 
         DeviceInfoPB downstreamDevice = newDevInfoPB(upstreamRuleDeptId, 303, MONITOR_DEVICE_TYPE)
             .toBuilder()
-            .setEnabledAsSource(false)
+            .setSourceMode(3)
+            .setSourceTopology(2)
             .setUpstreamDeviceId(directCentralId)
             .build();
         addResp = patientDeviceService.addDeviceInfo(
@@ -538,23 +541,25 @@ public class PatientDeviceServiceTests extends TestsBase {
 
         DeviceInfoPB directWithUpstream = newDevInfoPB(upstreamRuleDeptId, 304, MONITOR_DEVICE_TYPE)
             .toBuilder()
-            .setEnabledAsSource(true)
+            .setSourceMode(1)
+            .setSourceTopology(1)
             .setUpstreamDeviceId(directCentralId)
             .build();
         addResp = patientDeviceService.addDeviceInfo(
             ProtoUtils.protoToJson(AddDeviceInfoReq.newBuilder().setDeviceInfo(directWithUpstream).build())
         );
-        assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.DEVICE_INFO_NOT_EXISTS.ordinal());
+        assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.DEVICE_SOURCE_CONFIG_INVALID.ordinal());
 
         DeviceInfoPB upstreamNotSource = newDevInfoPB(upstreamRuleDeptId, 305, MONITOR_DEVICE_TYPE)
             .toBuilder()
-            .setEnabledAsSource(false)
+            .setSourceMode(3)
+            .setSourceTopology(2)
             .setUpstreamDeviceId(indirectCentralId)
             .build();
         addResp = patientDeviceService.addDeviceInfo(
             ProtoUtils.protoToJson(AddDeviceInfoReq.newBuilder().setDeviceInfo(upstreamNotSource).build())
         );
-        assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.DEVICE_INFO_NOT_EXISTS.ordinal());
+        assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.DEVICE_SOURCE_CONFIG_INVALID.ordinal());
     }
 
     private DeviceInfoPB newDevInfoPB(String deptId, Integer devId, Integer devType) {
@@ -566,12 +571,11 @@ public class PatientDeviceServiceTests extends TestsBase {
             .setDeviceName("device-name-" + devId)
             .setDeviceIp("device-ip-" + devId)
             .setDevicePort("device-port-" + devId)
-            .setDataCollectorPort("data-collector-port-" + devId)
             .setDeviceDriverCode("device-driver-code-" + devId)
-            .setNetworkProtocol(1)
-            .setSerialProtocol(1)
-            .setModel("model-" + devId)
-            .setManufacturer("manufacturer-" + devId)
+            .setSourceMode(1)
+            .setSourceTopology(1)
+            .setUpstreamDeviceId(0)
+            .setPdsIpSeq(0)
             .build();
     }
 

@@ -285,6 +285,7 @@ text {
     status_code_msg: "病人皮肤护理记录属性不存在"
     status_code_msg: "无效的皮肤护理分类ID"
     status_code_msg: "HIS同步护嘱不允许手工停止或删除"
+    status_code_msg: "设备数据源配置无效"
     units {
         unit: {
             id: 1
@@ -3555,26 +3556,6 @@ monitoring_report {
 }
 device {
     enums {
-        network_protocol {
-            id: 1
-            name: "TCP/IP CLIENT"
-        }
-        network_protocol {
-            id: 2
-            name: "TCP/IP SERVER"
-        }
-        network_protocol {
-            id: 3
-            name: "UDP"
-        }
-        serial_protocol {
-            id: 1
-            name: "RS232"
-        }
-        serial_protocol {
-            id: 2
-            name: "RS485"
-        }
         source_mode {
             id: 1
             name: "采集程序作为服务端"
@@ -3582,6 +3563,10 @@ device {
         source_mode {
             id: 2
             name: "采集程序作为客户端"
+        }
+        source_mode {
+            id: 3
+            name: "采集程序不直接通信"
         }
         source_topology {
             id: 1
@@ -3624,133 +3609,77 @@ device {
         entry {
             device_type_id: 1
             device_type_name: "监护仪"
-            manufacturer {
-                id: 1
-                name: "迈瑞"
-                model {
-                    id: 1
-                    model: "N12"
-                    driver_code: "JY_monitor_mindray_n"
-                }
-                model {
-                    id: 2
-                    model: "ipm8"
-                    driver_code: "JY_monitor_mindray_t"
-                }
+            driver {
+                driver_code: "JY_monitor_mindray_n"
+                driver_name: "N12"
             }
-            manufacturer {
-                id: 2
-                name: "飞利浦"
-                model {
-                    id: 1
-                    model: "G60"
-                    driver_code: "JY_monitor_philips_g"
-                }
-                model {
-                    id: 2
-                    model: "mp550"
-                    driver_code: "JY_monitor_philips_mp"
-                }
+            driver {
+                driver_code: "JY_monitor_mindray_t"
+                driver_name: "ipm8"
             }
-            manufacturer {
-                id: 3
-                name: "宝莱特"
-                model {
-                    id: 1
-                    model: "P15"
-                    driver_code: "JY_monitor_blt_p"
-                }
+            driver {
+                driver_code: "JY_monitor_philips_g"
+                driver_name: "G60"
             }
-            manufacturer {
-                id: 4
-                name: "科曼"
-                model {
-                    id: 1
-                    model: "C30"
-                    driver_code: "JY_monitor_comen_c"
-                }
-                model {
-                    id: 2
-                    model: "C90"
-                    driver_code: "JY_monitor_comen_hl7"
-                }
+            driver {
+                driver_code: "JY_monitor_philips_mp"
+                driver_name: "mp550"
+            }
+            driver {
+                driver_code: "JY_monitor_blt_p"
+                driver_name: "P15"
+            }
+            driver {
+                driver_code: "JY_monitor_comen_c"
+                driver_name: "C30"
+            }
+            driver {
+                driver_code: "JY_monitor_comen_hl7"
+                driver_name: "C90"
             }
         }
         entry {
             device_type_id: 2
             device_type_name: "呼吸机"
-            manufacturer {
-                id: 1
-                name: "迈瑞"
-                model {
-                    id: 1
-                    model: "SV300"
-                    driver_code: "JY_vent_mindray_sv"
-                }
-                model {
-                    id: 2
-                    model: "SV600"
-                    driver_code: "JY_vent_mindray_egateway"
-                }
+            driver {
+                driver_code: "JY_vent_mindray_sv"
+                driver_name: "SV300"
             }
-            manufacturer {
-                id: 5
-                name: "鸟牌"
-                model {
-                    id: 1
-                    model: "VELA"
-                    driver_code: "JY_vent_vela"
-                }
+            driver {
+                driver_code: "JY_vent_mindray_egateway"
+                driver_name: "SV600"
             }
-            manufacturer {
-                id: 6
-                name: "迈柯维"
-                model {
-                    id: 1
-                    model: "S"
-                    driver_code: "JY_vent_maquet_s"
-                }
-                model {
-                    id: 2
-                    model: "U"
-                    driver_code: "JY_vent_maquet_u"
-                }
+            driver {
+                driver_code: "JY_vent_vela"
+                driver_name: "VELA"
             }
-            manufacturer {
-                id: 7
-                name: "德尔格"
-                model {
-                    id: 1
-                    model: "Evita"
-                    driver_code: "JY_vent_drager_evita"
-                }
-                model {
-                    id: 2
-                    model: "Infinity"
-                    driver_code: "JY_vent_drager_infinity"
-                }
+            driver {
+                driver_code: "JY_vent_maquet_s"
+                driver_name: "S"
+            }
+            driver {
+                driver_code: "JY_vent_maquet_u"
+                driver_name: "U"
+            }
+            driver {
+                driver_code: "JY_vent_drager_evita"
+                driver_name: "Evita"
+            }
+            driver {
+                driver_code: "JY_vent_drager_infinity"
+                driver_name: "Infinity"
             }
         }
         entry {
             device_type_id: 3
             device_type_name: "血气机"
-            manufacturer {
-                id: 8
-                name: "雷度"
-                model {
-                    id: 1
-                    model: "ABL90"
-                    driver_code: "JY_bga_radiometer_abl"
-                }
+            driver {
+                driver_code: "JY_bga_radiometer_abl"
+                driver_name: "ABL90"
             }
-            manufacturer {
-                id: 9
-                name: "贝克曼"
-                model {
-                    id: 1
-                    model: "GEM4000"
-                    driver_code: "JY_bga_beckman_gem4000"
-                }
+            driver {
+                driver_code: "JY_bga_beckman_gem4000"
+                driver_name: "GEM4000"
             }
         }
         entry {
@@ -3776,28 +3705,17 @@ device {
         entry {
             device_type_id: 9
             device_type_name: "中央站"
-            manufacturer {
-                id: 1
-                name: "迈瑞"
-                model {
-                    id: 1
-                    model: "eGateWay"
-                    driver_code: "JY_cms_mindray_egateway"
-                }
-                model {
-                    id: 2
-                    model: "迈瑞中央站"
-                    driver_code: "JY_cms_mindray_hl7"
-                }
+            driver {
+                driver_code: "JY_cms_mindray_egateway"
+                driver_name: "eGateWay"
             }
-            manufacturer {
-                id: 4
-                name: "科曼"
-                model {
-                    id: 1
-                    model: "科曼中央站"
-                    driver_code: "JY_cms_comen_hl7"
-                }
+            driver {
+                driver_code: "JY_cms_mindray_hl7"
+                driver_name: "迈瑞中央站"
+            }
+            driver {
+                driver_code: "JY_cms_comen_hl7"
+                driver_name: "科曼中央站"
             }
         }
     }

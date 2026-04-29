@@ -28,6 +28,12 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 @Service
 @Slf4j
 public class PatientDeviceService {
+    private static final int SOURCE_MODE_INBOUND_SERVER = 1;
+    private static final int SOURCE_MODE_OUTBOUND_CLIENT = 2;
+    private static final int SOURCE_MODE_NON_DIRECT_CONNECT = 3;
+    private static final int SOURCE_TOPOLOGY_SINGLE_DEVICE = 1;
+    private static final int SOURCE_TOPOLOGY_CENTRAL_STATION_FANOUT = 2;
+
     public static class UsageHistory<T> {
         public UsageHistory() {
             this.usageRecords = new ArrayList<>();
@@ -578,9 +584,11 @@ public class PatientDeviceService {
         final String accountId = account.getFirst();
         final String accountName = account.getSecond();
 
+        DeviceInfoPB deviceInfoPB = normalizeDeviceInfo(req.getDeviceInfo());
+
         // 查找设备信息
         DeviceInfo devInfo = devRepo.findByDepartmentIdAndDeviceNameAndIsDeletedFalse(
-            req.getDeviceInfo().getDepartmentId(), req.getDeviceInfo().getDeviceName()
+            deviceInfoPB.getDepartmentId(), deviceInfoPB.getDeviceName()
         ).orElse(null);
         if (devInfo != null) {
             log.error("DeviceInfo already exists: {}", devInfo);
@@ -590,22 +598,22 @@ public class PatientDeviceService {
         }
 
         // 确认IP是否被其它设备占用
-        List<DeviceInfo> devInfoList = devRepo.findByDeviceIpAndIsDeletedFalse(req.getDeviceInfo().getDeviceIp());
+        List<DeviceInfo> devInfoList = devRepo.findByDeviceIpAndIsDeletedFalse(deviceInfoPB.getDeviceIp());
         if (!devInfoList.isEmpty()) {
             log.error("DeviceInfo already exists: {}", devInfoList.get(0));
             return AddDeviceInfoResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.DEVICE_IP_ALREADY_USED))
                 .build();
         }
-        StatusCode upstreamStatus = validateUpstreamDevice(req.getDeviceInfo(), null);
-        if (upstreamStatus != StatusCode.OK) {
+        StatusCode sourceConfigStatus = validateDeviceSourceConfig(deviceInfoPB, null);
+        if (sourceConfigStatus != StatusCode.OK) {
             return AddDeviceInfoResp.newBuilder()
-                .setRt(protoService.getReturnCode(upstreamStatus))
+                .setRt(protoService.getReturnCode(sourceConfigStatus))
                 .build();
         }
 
         // 新增设备信息
-        devInfo = patientConfig.toDeviceInfo(req.getDeviceInfo());
+        devInfo = patientConfig.toDeviceInfo(deviceInfoPB);
         devInfo.setModifiedBy(accountId);
         devInfo.setModifiedByAccountName(accountName);
         devInfo.setModifiedAt(TimeUtils.getNowUtc());
@@ -639,8 +647,10 @@ public class PatientDeviceService {
         final String accountId = account.getFirst();
         final String accountName = account.getSecond();
 
+        DeviceInfoPB deviceInfoPB = normalizeDeviceInfo(req.getDeviceInfo());
+
         // 查找设备是否存在
-        DeviceInfo devInfo = devRepo.findById(req.getDeviceInfo().getId()).orElse(null);
+        DeviceInfo devInfo = devRepo.findById(deviceInfoPB.getId()).orElse(null);
         if (devInfo == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.DEVICE_INFO_NOT_EXISTS))
@@ -649,7 +659,7 @@ public class PatientDeviceService {
 
         // 查找设备和其他设备是否重名
         DeviceInfo devInfoWithSameName = devRepo.findByDepartmentIdAndDeviceNameAndIsDeletedFalse(
-            req.getDeviceInfo().getDepartmentId(), req.getDeviceInfo().getDeviceName()
+            deviceInfoPB.getDepartmentId(), deviceInfoPB.getDeviceName()
         ).orElse(null);
         if (devInfoWithSameName != null && devInfoWithSameName.getId() != devInfo.getId()) {
             return GenericResp.newBuilder()
@@ -657,23 +667,23 @@ public class PatientDeviceService {
                 .build();
         }
         List<DeviceInfo> devInfoWithSameIp = devRepo.findByDeviceIpAndIsDeletedFalseAndIdNot(
-            req.getDeviceInfo().getDeviceIp(), devInfo.getId()
+            deviceInfoPB.getDeviceIp(), devInfo.getId()
         );
         if (!devInfoWithSameIp.isEmpty()) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.DEVICE_IP_ALREADY_USED))
                 .build();
         }
-        StatusCode upstreamStatus = validateUpstreamDevice(req.getDeviceInfo(), devInfo.getId());
-        if (upstreamStatus != StatusCode.OK) {
+        StatusCode sourceConfigStatus = validateDeviceSourceConfig(deviceInfoPB, devInfo.getId());
+        if (sourceConfigStatus != StatusCode.OK) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(upstreamStatus))
+                .setRt(protoService.getReturnCode(sourceConfigStatus))
                 .build();
         }
 
         // 更新设备信息
-        devInfo = patientConfig.toDeviceInfo(req.getDeviceInfo());
-        devInfo.setId(req.getDeviceInfo().getId());
+        devInfo = patientConfig.toDeviceInfo(deviceInfoPB);
+        devInfo.setId(deviceInfoPB.getId());
         devInfo.setModifiedBy(accountId);
         devInfo.setModifiedByAccountName(accountName);
         devInfo.setModifiedAt(TimeUtils.getNowUtc());
@@ -1154,41 +1164,79 @@ public class PatientDeviceService {
         return bedConfig;
     }
 
-    private StatusCode validateUpstreamDevice(DeviceInfoPB devInfoPB, Integer selfDeviceId) {
-        boolean enabledAsSource = devInfoPB.getEnabledAsSource();
-        Integer upstreamDeviceId = devInfoPB.getUpstreamDeviceId();
-        if (enabledAsSource) {
-            if (upstreamDeviceId != null && upstreamDeviceId > 0) {
+    private DeviceInfoPB normalizeDeviceInfo(DeviceInfoPB devInfoPB) {
+        DeviceInfoPB.Builder builder = devInfoPB.toBuilder();
+        int sourceMode = devInfoPB.getSourceMode();
+        if (sourceMode == SOURCE_MODE_INBOUND_SERVER) {
+            builder.setDevicePort("");
+        } else if (sourceMode == SOURCE_MODE_NON_DIRECT_CONNECT) {
+            builder.setDevicePort("");
+            builder.setSourceTopology(SOURCE_TOPOLOGY_CENTRAL_STATION_FANOUT);
+        }
+        return builder.build();
+    }
+
+    private StatusCode validateDeviceSourceConfig(DeviceInfoPB devInfoPB, Integer selfDeviceId) {
+        int sourceMode = devInfoPB.getSourceMode();
+        int sourceTopology = devInfoPB.getSourceTopology();
+        int upstreamDeviceId = devInfoPB.getUpstreamDeviceId();
+
+        if (sourceMode != SOURCE_MODE_INBOUND_SERVER
+            && sourceMode != SOURCE_MODE_OUTBOUND_CLIENT
+            && sourceMode != SOURCE_MODE_NON_DIRECT_CONNECT) {
+            log.error("Invalid source mode: {}", sourceMode);
+            return StatusCode.DEVICE_SOURCE_CONFIG_INVALID;
+        }
+
+        if (sourceMode == SOURCE_MODE_INBOUND_SERVER || sourceMode == SOURCE_MODE_OUTBOUND_CLIENT) {
+            if (upstreamDeviceId != 0) {
                 log.error("Direct source device cannot have upstream device: {}", upstreamDeviceId);
-                return StatusCode.DEVICE_INFO_NOT_EXISTS;
+                return StatusCode.DEVICE_SOURCE_CONFIG_INVALID;
+            }
+            if (sourceTopology != SOURCE_TOPOLOGY_SINGLE_DEVICE
+                && sourceTopology != SOURCE_TOPOLOGY_CENTRAL_STATION_FANOUT) {
+                log.error("Invalid source topology for direct source: {}", sourceTopology);
+                return StatusCode.DEVICE_SOURCE_CONFIG_INVALID;
+            }
+            if (sourceMode == SOURCE_MODE_OUTBOUND_CLIENT && StrUtils.isBlank(devInfoPB.getDevicePort())) {
+                log.error("Outbound source device port cannot be empty");
+                return StatusCode.DEVICE_SOURCE_CONFIG_INVALID;
             }
             return StatusCode.OK;
         }
-        if (upstreamDeviceId == null || upstreamDeviceId <= 0) {
-            return StatusCode.OK;
+
+        if (sourceTopology != SOURCE_TOPOLOGY_CENTRAL_STATION_FANOUT) {
+            log.error("Non-direct source topology must be central station fanout: {}", sourceTopology);
+            return StatusCode.DEVICE_SOURCE_CONFIG_INVALID;
         }
-        if (selfDeviceId != null && upstreamDeviceId.equals(selfDeviceId)) {
+        if (upstreamDeviceId <= 0) {
+            log.error("Non-direct device must have upstream device");
+            return StatusCode.DEVICE_SOURCE_CONFIG_INVALID;
+        }
+        if (selfDeviceId != null && upstreamDeviceId == selfDeviceId) {
             log.error("Device cannot use itself as upstream device: {}", selfDeviceId);
-            return StatusCode.DEVICE_INFO_NOT_EXISTS;
+            return StatusCode.DEVICE_SOURCE_CONFIG_INVALID;
         }
 
         DeviceInfo upstreamDevice = devRepo.findById(upstreamDeviceId).orElse(null);
         if (upstreamDevice == null || Boolean.TRUE.equals(upstreamDevice.getIsDeleted())) {
             log.error("Upstream device not found: {}", upstreamDeviceId);
-            return StatusCode.DEVICE_INFO_NOT_EXISTS;
+            return StatusCode.DEVICE_SOURCE_CONFIG_INVALID;
         }
         if (!Objects.equals(upstreamDevice.getDepartmentId(), devInfoPB.getDepartmentId())) {
             log.error("Upstream device department mismatch: upstream {}, current {}",
                 upstreamDevice.getDepartmentId(), devInfoPB.getDepartmentId());
-            return StatusCode.DEVICE_INFO_NOT_EXISTS;
+            return StatusCode.DEVICE_SOURCE_CONFIG_INVALID;
         }
-        if (!Boolean.TRUE.equals(upstreamDevice.getEnabledAsSource())) {
-            log.error("Upstream device must be enabled as source: {}", upstreamDeviceId);
-            return StatusCode.DEVICE_INFO_NOT_EXISTS;
+        if (upstreamDevice.getSourceMode() == null
+            || (upstreamDevice.getSourceMode() != SOURCE_MODE_INBOUND_SERVER
+                && upstreamDevice.getSourceMode() != SOURCE_MODE_OUTBOUND_CLIENT)) {
+            log.error("Upstream device must be a direct source: {}", upstreamDeviceId);
+            return StatusCode.DEVICE_SOURCE_CONFIG_INVALID;
         }
         if (!Objects.equals(upstreamDevice.getDeviceType(), CENTRAL_STATION_DEVICE_TYPE)) {
             log.error("Upstream device is not a central station: {}", upstreamDeviceId);
-            return StatusCode.DEVICE_INFO_NOT_EXISTS;
+            return StatusCode.DEVICE_SOURCE_CONFIG_INVALID;
         }
         return StatusCode.OK;
     }

@@ -319,7 +319,8 @@ enum StatusCode {
     PATIENT_SKINCARE_RECORD_ATTR_NOT_FOUND = 282; // 病人皮肤护理记录属性不存在
     INVALID_SKINCARE_CATEGORY_ID = 283; // 无效的皮肤护理分类ID
     NURSING_ORDER_HIS_SYNCED_NOT_EDITABLE = 284; // HIS同步护嘱不允许手工停止或删除
-    LAST_CODE = 285;
+    DEVICE_SOURCE_CONFIG_INVALID = 285; // 设备数据源配置无效
+    LAST_CODE = 286;
 }
 
 /*****************************************************************************

@@ -439,14 +439,10 @@ public class PatientConfig {
             .setDeviceIp(dev.getDeviceIp() == null ? "" : dev.getDeviceIp())
             .setDevicePort(dev.getDevicePort() == null ? "" : dev.getDevicePort())
             .setDeviceDriverCode(dev.getDeviceDriverCode() == null ? "" : dev.getDeviceDriverCode())
-            .setNetworkProtocol(dev.getNetworkProtocol() == null ? 0 : dev.getNetworkProtocol())
-            .setSerialProtocol(dev.getSerialProtocol() == null ? 0 : dev.getSerialProtocol())
-            .setModel(dev.getModel() == null ? "" : dev.getModel())
-            .setManufacturer(dev.getManufacturer() == null ? "" : dev.getManufacturer())
             .setSourceMode(dev.getSourceMode() == null ? 0 : dev.getSourceMode())
             .setSourceTopology(dev.getSourceTopology() == null ? 0 : dev.getSourceTopology())
-            .setEnabledAsSource(dev.getEnabledAsSource() != null && dev.getEnabledAsSource())
             .setUpstreamDeviceId(dev.getUpstreamDeviceId() == null ? 0 : dev.getUpstreamDeviceId())
+            .setPdsIpSeq(dev.getPdsIpSeq() == null ? 0 : dev.getPdsIpSeq())
             .build();
     }
 
@@ -460,14 +456,10 @@ public class PatientConfig {
             .deviceIp(devPB.getDeviceIp().isEmpty() ? null : devPB.getDeviceIp())
             .devicePort(devPB.getDevicePort().isEmpty() ? null : devPB.getDevicePort())
             .deviceDriverCode(devPB.getDeviceDriverCode().isEmpty() ? null : devPB.getDeviceDriverCode())
-            .networkProtocol(devPB.getNetworkProtocol() == 0 ? null : devPB.getNetworkProtocol())
-            .serialProtocol(devPB.getSerialProtocol() == 0 ? null : devPB.getSerialProtocol())
-            .model(devPB.getModel().isEmpty() ? null : devPB.getModel())
-            .manufacturer(devPB.getManufacturer().isEmpty() ? null : devPB.getManufacturer())
             .sourceMode(devPB.getSourceMode() == 0 ? null : devPB.getSourceMode())
             .sourceTopology(devPB.getSourceTopology() == 0 ? null : devPB.getSourceTopology())
-            .enabledAsSource(devPB.getEnabledAsSource())
             .upstreamDeviceId(devPB.getUpstreamDeviceId())
+            .pdsIpSeq(devPB.getPdsIpSeq())
             .isDeleted(false)
             .build();
     }
