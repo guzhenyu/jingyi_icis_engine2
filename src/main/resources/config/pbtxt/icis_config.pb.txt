@@ -12383,6 +12383,10 @@ device {
             id: 2
             name: "采集程序作为客户端"
         }
+        source_mode {
+            id: 3
+            name: "采集程序不直接通信"
+        }
         source_topology {
             id: 1
             name: "单设备直连"

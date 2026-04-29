@@ -659,7 +659,7 @@ public class PatientService {
             TimeUtils.toIso8601String(patient.getHisAdmissionTime(), ZONE_ID);
         String primaryCareDoctorId = patient.getPrimaryCareDoctorId();
         String primaryCareDoctor = primaryCareDoctorId == null ?
-            "" : userService.getNameByAutoId(primaryCareDoctorId);
+            "" : userService.getNameByAccountId(primaryCareDoctorId);
         if (primaryCareDoctor == null) primaryCareDoctor = "";
         String allergies = patient.getAllergies();
         Integer admissionStatus = patient.getAdmissionStatus();
@@ -1709,7 +1709,7 @@ public class PatientService {
 
             case "primary_care_doctor_id":
                 if (patientRec.getPrimaryCareDoctorId() == null) return "";
-                return userService.getNameByAutoId(patientRec.getAttendingDoctorId());
+                return userService.getNameByAccountId(patientRec.getPrimaryCareDoctorId());
 
             case "admitting_doctor_id":
                 if (patientRec.getAdmittingDoctorId() == null) return "";
@@ -1933,7 +1933,7 @@ public class PatientService {
             ? userService.getNameByAutoId(patient.getAttendingDoctorId()) : "");
         builder.setPrimaryCareDoctorId(patient.getPrimaryCareDoctorId());
         builder.setPrimaryCareDoctorName(patient.getPrimaryCareDoctorId() != null 
-            ? userService.getNameByAutoId(patient.getPrimaryCareDoctorId()) : "");
+            ? userService.getNameByAccountId(patient.getPrimaryCareDoctorId()) : "");
         builder.setAdmittingDoctorId(patient.getAdmittingDoctorId());
         builder.setAdmittingDoctorName(patient.getAdmittingDoctorId() != null 
             ? userService.getNameByAutoId(patient.getAdmittingDoctorId()) : "");

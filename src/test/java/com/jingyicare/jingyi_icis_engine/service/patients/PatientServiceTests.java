@@ -9,7 +9,9 @@ import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.*;
 
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
+import com.jingyicare.jingyi_icis_engine.entity.users.Account;
 import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordRepository;
+import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
 import com.jingyicare.jingyi_icis_engine.testutils.*;
@@ -19,7 +21,8 @@ public class PatientServiceTests extends TestsBase {
     public PatientServiceTests(
         @Autowired ConfigProtoService protoService,
         @Autowired PatientService patientService,
-        @Autowired PatientRecordRepository patientRecordRepo
+        @Autowired PatientRecordRepository patientRecordRepo,
+        @Autowired AccountRepository accountRepo
     ) {
         this.enums = protoService.getConfig().getPatient().getEnumsV2();
         this.PENDING_ADMISSION_VAL = enums.getAdmissionStatusList().stream()
@@ -46,15 +49,24 @@ public class PatientServiceTests extends TestsBase {
         this.patientService = patientService;
         this.patientTestUtils = new PatientTestUtils();
         this.patientRecordRepo = patientRecordRepo;
+        this.accountRepo = accountRepo;
     }
 
     @Test
     public void testGetPatientsV2() {
         final String deptId = "10013";
+        Account primaryCareDoctor = new Account();
+        primaryCareDoctor.setAccountId("1");
+        primaryCareDoctor.setName("医生1");
+        primaryCareDoctor.setIsDeleted(false);
+        accountRepo.save(primaryCareDoctor);
+
         PatientRecord rec1 = patientTestUtils.newPatientRecord(701L, PENDING_ADMISSION_VAL, deptId);
         PatientRecord rec2 = patientTestUtils.newPatientRecord(702L, IN_ICU_VAL, deptId);
         PatientRecord rec3 = patientTestUtils.newPatientRecord(703L, PENDING_DISCHARGED_VAL, deptId);
         PatientRecord rec4 = patientTestUtils.newPatientRecord(704L, DISCHARGED_VAL, deptId);
+        rec2.setAttendingDoctorId(null);
+        rec2.setPrimaryCareDoctorId(primaryCareDoctor.getAccountId());
         rec1 = patientRecordRepo.save(rec1);
         rec2 = patientRecordRepo.save(rec2);
         rec3 = patientRecordRepo.save(rec3);
@@ -70,6 +82,11 @@ public class PatientServiceTests extends TestsBase {
         assertThat(resp.getInIcu().getColList()).hasSize(8);
         assertThat(resp.getInIcu().getRowList()).hasSize(1);
         assertThat(resp.getInIcu().getRow(0).getCell(0).getValue()).isEqualTo("hisBedNumber702");
+        assertThat(resp.getInIcu().getRow(0).getCellList().stream()
+            .filter(cell -> cell.getColId().equals("primary_care_doctor_id"))
+            .findFirst()
+            .map(PatientTableDataCellPB::getValue)
+        ).hasValue("医生1");
         assertThat(resp.getInIcu().getBasicsList()).hasSize(1);
 
         assertThat(resp.getPendingAdmission().getColList()).hasSize(10);
@@ -103,6 +120,7 @@ public class PatientServiceTests extends TestsBase {
     final private PatientService patientService;
     final private PatientTestUtils patientTestUtils;
     final private PatientRecordRepository patientRecordRepo;
+    final private AccountRepository accountRepo;
 }
 
     // @Test

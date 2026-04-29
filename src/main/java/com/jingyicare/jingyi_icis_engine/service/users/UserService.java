@@ -89,6 +89,17 @@ public class UserService {
         return "";
     }
 
+    public String getNameByAccountId(String accountId) {
+        if (StrUtils.isBlank(accountId)) return "";
+
+        Account account = userBasicOp.getAccount(accountId);
+        if (account != null) {
+            return account.getName();
+        }
+
+        return "";
+    }
+
     public Pair<String/*primary_role_name*/, Boolean/*has_permission*/> hasPermission(String deptId,Integer permissionId) {
         String accountId = getCtxAccountId();
         if (StrUtils.isBlank(accountId)) return null;
