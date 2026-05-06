@@ -38,6 +38,10 @@ public class Consts {
     public static final String REPORT_TEMPLATE_AH2_HALF_DAY_SUMMARY = "小计"; // AH2 护理记录单半日小计
     public static final String REPORT_TEMPLATE_AH2_FULL_DAY_SUMMARY = "总计"; // AH2 护理记录单全天总计
 
+    
+    // 患者归档文档类型常量
+    public static final Integer PATIENT_ARCHIVE_TYPE_NURSING_REPORT_COMPACT = 1;
+
     // 组长质控代码
     public static final String ICU_1_ICU_BED_UTILIZATION_RATE = "icu_bed_utilization_rate";  // ICU 床位使用率
     public static final String ICU_2_ICU_DOCTOR_BED_RATIO = "icu_doctor_bed_ratio";  // ICU 医师床位比

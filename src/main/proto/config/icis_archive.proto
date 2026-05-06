@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+import "config/icis_jfk.proto";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+message NursingReportCompactArchivePB {
+    repeated JfkDataSourcePB sources = 1;
+
+    int64 pid = 2;
+    int32 type = 3;
+    string name = 4;
+    string query_start_iso8601 = 5;
+    string query_midnight_utc_iso8601 = 6;
+    string generated_at_iso8601 = 7;
+    int32 template_id = 8;
+    string template_name = 9;
+    string relative_url = 10;
+}

@@ -16,6 +16,7 @@ import com.google.protobuf.TextFormat;
 import com.google.protobuf.util.JsonFormat;
 
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisArchive.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisBga.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDiagnosis.*;
@@ -399,6 +400,19 @@ public class ProtoUtils {
     }
 
     static public String encodePatientReportConfigPB(PatientReportConfigPB pb) {
+        return Base64.getEncoder().encodeToString(pb.toByteArray());
+    }
+
+    static public NursingReportCompactArchivePB decodeNursingReportCompactArchive(String base64) {
+        try {
+            return NursingReportCompactArchivePB.parseFrom(Base64.getDecoder().decode(base64));
+        } catch (Exception e) {
+            log.error("Failed to decode NursingReportCompactArchivePB from base64 string ", e);
+            return null;
+        }
+    }
+
+    static public String encodeNursingReportCompactArchive(NursingReportCompactArchivePB pb) {
         return Base64.getEncoder().encodeToString(pb.toByteArray());
     }
 

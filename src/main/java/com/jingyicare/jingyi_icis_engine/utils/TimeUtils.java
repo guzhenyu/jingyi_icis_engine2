@@ -60,6 +60,12 @@ public class TimeUtils {
         return localDateTime.withHour(0).withMinute(0).withSecond(0).withNano(0);
     }
 
+    public static LocalDateTime getLocalMidnightUtc(LocalDateTime utcDateTime, String zoneId) {
+        LocalDateTime localDateTime = getLocalDateTimeFromUtc(utcDateTime, zoneId);
+        if (localDateTime == null) return null;
+        return getUtcFromLocalDateTime(truncateToDay(localDateTime), zoneId);
+    }
+
     public static LocalDateTime truncateToMonthStart(LocalDateTime localDateTime) {
         if (localDateTime == null) return null;
         // 将时间截断到月，去掉日时分秒

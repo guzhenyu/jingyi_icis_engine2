@@ -4074,6 +4074,41 @@ CREATE UNIQUE INDEX idx_ext_url_configs_dept_display_name
     ON ext_url_configs (dept_id, display_name) 
     WHERE is_deleted = FALSE;
 
+CREATE TABLE patient_archives (
+    id SERIAL PRIMARY KEY,
+    pid BIGINT NOT NULL,
+    type INTEGER NOT NULL,
+    local_midnight_utc TIMESTAMP NOT NULL,
+    page_count INTEGER,
+    data_pb TEXT,
+    relative_url VARCHAR(255),
+
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    deleted_at TIMESTAMP,
+    deleted_by VARCHAR(255),
+
+    modified_at TIMESTAMP NOT NULL,
+    modified_by VARCHAR(255) NOT NULL
+);
+
+COMMENT ON TABLE patient_archives IS '病人文档归档表';
+COMMENT ON COLUMN patient_archives.id IS '自增主键';
+COMMENT ON COLUMN patient_archives.pid IS '病人ID，对应patient_records.id';
+COMMENT ON COLUMN patient_archives.type IS '文档类型，1表示compact重症护理单';
+COMMENT ON COLUMN patient_archives.local_midnight_utc IS '业务日期本地0点对应的UTC时间';
+COMMENT ON COLUMN patient_archives.page_count IS '归档文档页数';
+COMMENT ON COLUMN patient_archives.data_pb IS '归档数据PB的Base64字节码';
+COMMENT ON COLUMN patient_archives.relative_url IS '归档文档外部访问相对URL';
+COMMENT ON COLUMN patient_archives.is_deleted IS '是否已删除';
+COMMENT ON COLUMN patient_archives.deleted_at IS '删除时间';
+COMMENT ON COLUMN patient_archives.deleted_by IS '删除人';
+COMMENT ON COLUMN patient_archives.modified_at IS '最后修改时间';
+COMMENT ON COLUMN patient_archives.modified_by IS '最后修改人';
+
+CREATE UNIQUE INDEX idx_patient_archives_pid_type_local_midnight
+    ON patient_archives (pid, type, local_midnight_utc)
+    WHERE is_deleted = FALSE;
+
 CREATE TABLE patient_nursing_reports (
     id BIGSERIAL PRIMARY KEY,
     pid BIGINT NOT NULL,
