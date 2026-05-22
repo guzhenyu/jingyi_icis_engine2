@@ -2,12 +2,12 @@
 -- 云迭科技无纸化视图URL根地址，后续会在此基础上拼接具体的视图URL路径
 CREATE OR REPLACE VIEW pr_medical_record AS
 SELECT
-    '001'::VARCHAR AS record_type_code,
-    '新安县人民医院重症监护记录单'::VARCHAR AS record_type_name,
+    '801'::VARCHAR AS record_type_code,
+    '重症监护记录单'::VARCHAR AS record_type_name,
     pr.id::VARCHAR AS patient_no,
     pr.his_mrn::VARCHAR AS admission_no,
     COALESCE(pr.his_admission_count, 0)::INTEGER AS admission_count,
-    '新安县人民医院重症监护记录单'::VARCHAR AS title,
+    '重症监护记录单'::VARCHAR AS title,
     pr.dept_id::VARCHAR AS department_code,
     pr.dept_name::VARCHAR AS department_name,
     pr.ward_code::VARCHAR AS ward_code,
