@@ -7,6 +7,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,10 +39,14 @@ public class DeviceDataFetcher {
         @Autowired PatientMonitoringRecordRepository monRecRepo,
         @Autowired DeviceDataRepository devDataRepo,
         @Autowired DeviceDataHourlyRepository devDataHourlyRepo,
-        @Autowired DeviceDataHourlyApproxRepository devDataHourlyApproxRepo
+        @Autowired DeviceDataHourlyApproxRepository devDataHourlyApproxRepo,
+        @Value("${monitoring.enable_hourly_approx:false}") boolean enableHourlyApprox,
+        @Value("${monitoring.hourly_approx_boundary_minutes:10}") int hourlyApproxBoundaryMinutes
     ) {
         this.ZONE_ID = protoService.getConfig().getZoneId();
         this.APPROX_SECONDS = protoService.getConfig().getDevice().getApproxSeconds();
+        this.enableHourlyApprox = enableHourlyApprox;
+        this.hourlyApproxBoundaryMinutes = hourlyApproxBoundaryMinutes;
         this.paramCodesToApprox = new HashSet<>(
             protoService.getConfig().getDevice().getParamCodeToApproxList()
         );
@@ -122,6 +127,90 @@ public class DeviceDataFetcher {
         return new Pair<>(StatusCode.OK, monRecsToAdd);
     }
 
+    public Pair<StatusCode, List<PatientMonitoringRecord>> fetchHourlyApproxRecords(
+        Long pid, LocalDateTime from, LocalDateTime to,
+        List<MonitoringGroupBetaPB> paramGroups,
+        String modifiedBy
+    ) {
+        if (!enableHourlyApprox) return new Pair<>(StatusCode.OK, Collections.emptyList());
+        if (hourlyApproxBoundaryMinutes <= 0) {
+            log.warn("Invalid monitoring.hourly_approx_boundary_minutes: {}, skip hourly approx",
+                hourlyApproxBoundaryMinutes);
+            return new Pair<>(StatusCode.OK, Collections.emptyList());
+        }
+
+        FetchContext ctx = getFetchContext(
+            pid, from, to, Collections.emptyList(), paramGroups, modifiedBy
+        );
+        if (ctx.statusCode != StatusCode.OK) return new Pair<>(ctx.statusCode, null);
+
+        List<LocalDateTime> hourlyEffectiveTimes = ctx.allTimes.stream()
+            .filter(DeviceDataFetcher::isExactHour)
+            .toList();
+        if (hourlyEffectiveTimes.isEmpty()) return new Pair<>(StatusCode.OK, Collections.emptyList());
+
+        LinkedHashSet<String> targetParamCodes = getHourlyApproxTargetParamCodes(paramGroups);
+        if (targetParamCodes.isEmpty()) return new Pair<>(StatusCode.OK, Collections.emptyList());
+
+        LinkedHashSet<String> queryParamCodes = getHourlyApproxQueryParamCodes(targetParamCodes);
+        if (queryParamCodes.isEmpty()) return new Pair<>(StatusCode.OK, Collections.emptyList());
+
+        long boundarySeconds = Duration.ofMinutes(hourlyApproxBoundaryMinutes).toSeconds();
+        List<DevDataQuery> queries = getDeviceDataQueries(ctx, boundarySeconds);
+
+        List<DeviceDataHourly> hourlyDataList = getHourlyDataForHourlyApprox(
+            queries, queryParamCodes.stream().toList()
+        );
+        Map<String, Set<LocalDateTime>> hourlyDataTimes = getDeviceDataTimesByParam(
+            ctx, toDeviceDataList(hourlyDataList), hourlyEffectiveTimes, targetParamCodes
+        );
+        Map<String, Set<LocalDateTime>> existingTimes = getExistingRecordTimesByParam(
+            ctx, targetParamCodes.stream().toList(), false /* includeDeleted */
+        );
+        Set<String> targetKeys = getMissingHourlyApproxKeys(
+            targetParamCodes, hourlyEffectiveTimes, existingTimes, hourlyDataTimes
+        );
+        if (targetKeys.isEmpty()) return new Pair<>(StatusCode.OK, Collections.emptyList());
+
+        List<DeviceData> deviceDataList = getRawDeviceDataForHourlyApprox(
+            queries, queryParamCodes.stream().toList()
+        );
+        Map<String, List<DeviceData>> mergedDataMap = getMergedDeviceData(ctx, deviceDataList);
+        Map<String, List<DeviceData>> approxDataMap = new HashMap<>();
+        Map<String, String> noteByRecordKey = new HashMap<>();
+        for (String paramCode : targetParamCodes) {
+            List<DeviceData> devDataList = mergedDataMap.getOrDefault(paramCode, Collections.emptyList());
+            if (devDataList.isEmpty()) continue;
+
+            Map<String, LocalDateTime> originalTimeBySourceKey = new HashMap<>();
+            for (DeviceData devData : devDataList) {
+                originalTimeBySourceKey.put(deviceDataSourceKey(devData), devData.getRecordedAt());
+            }
+
+            List<DeviceData> approxDataList = approxSeries(
+                devDataList, hourlyEffectiveTimes, boundarySeconds, false /* rightOpen */
+            );
+            for (DeviceData approxData : approxDataList) {
+                String targetKey = hourlyApproxKey(paramCode, approxData.getRecordedAt());
+                if (!targetKeys.contains(targetKey)) continue;
+
+                approxDataMap.computeIfAbsent(paramCode, k -> new ArrayList<>()).add(approxData);
+                LocalDateTime originalTime = originalTimeBySourceKey.get(deviceDataSourceKey(approxData));
+                if (originalTime != null) {
+                    noteByRecordKey.put(
+                        generatedRecordKey(paramCode, approxData.getId(), approxData.getRecordedAt()),
+                        "device_data.recorded_at=" + originalTime
+                    );
+                }
+            }
+        }
+
+        List<PatientMonitoringRecord> recordsToAdd = generateMonitoringRecords(
+            ctx, approxDataMap, noteByRecordKey, false /* includeDeletedExistingRecords */
+        );
+        return new Pair<>(StatusCode.OK, recordsToAdd);
+    }
+
     // public 只是为了写单元测试
     public FetchContext getFetchContext(
         Long pid, LocalDateTime from, LocalDateTime to,
@@ -176,9 +265,13 @@ public class DeviceDataFetcher {
     }
 
     public List<DevDataQuery> getDeviceDataQueries(FetchContext ctx) {
+        return getDeviceDataQueries(ctx, APPROX_SECONDS);
+    }
+
+    private List<DevDataQuery> getDeviceDataQueries(FetchContext ctx, long approxSeconds) {
         List<DevDataQuery> queries = new ArrayList<>();
-        LocalDateTime approxFrom = ctx.from.minusSeconds(APPROX_SECONDS);
-        LocalDateTime approxTo = ctx.to.plusSeconds(APPROX_SECONDS);
+        LocalDateTime approxFrom = ctx.from.minusSeconds(approxSeconds);
+        LocalDateTime approxTo = ctx.to.plusSeconds(approxSeconds);
 
         // 获取床位绑定历史[{bedNum, from, to}]
         PatientDeviceService.UsageHistory<PatientDeviceService.BedName> bedHistory =
@@ -228,6 +321,163 @@ public class DeviceDataFetcher {
         }
 
         return queries;
+    }
+
+    private LinkedHashSet<String> getHourlyApproxTargetParamCodes(List<MonitoringGroupBetaPB> paramGroups) {
+        LinkedHashSet<String> targetParamCodes = new LinkedHashSet<>();
+        for (MonitoringGroupBetaPB group : paramGroups) {
+            for (MonitoringParamPB param : group.getParamList()) {
+                String paramCode = param.getCode();
+                if (StrUtils.isBlank(paramCode) || paramCodesToApprox.contains(paramCode)) continue;
+                targetParamCodes.add(paramCode);
+            }
+        }
+        return targetParamCodes;
+    }
+
+    private LinkedHashSet<String> getHourlyApproxQueryParamCodes(Set<String> targetParamCodes) {
+        LinkedHashSet<String> queryParamCodes = new LinkedHashSet<>(targetParamCodes);
+        for (Map.Entry<String, List<String>> entry : aliasCodeMap.entrySet()) {
+            String origCode = entry.getKey();
+            List<String> aliasCodes = entry.getValue();
+            if (StrUtils.isBlank(origCode) || aliasCodes == null) continue;
+            for (String aliasCode : aliasCodes) {
+                if (targetParamCodes.contains(aliasCode)) {
+                    queryParamCodes.add(origCode);
+                    break;
+                }
+            }
+        }
+        return queryParamCodes;
+    }
+
+    private List<DeviceDataHourly> getHourlyDataForHourlyApprox(
+        List<DevDataQuery> queries, List<String> queryParamCodes
+    ) {
+        if (queryParamCodes.isEmpty()) return Collections.emptyList();
+
+        List<DeviceDataHourly> hourlyDataList = new ArrayList<>();
+        for (DevDataQuery query : queries) {
+            if (query.devBedNum != null) {
+                hourlyDataList.addAll(devDataHourlyRepo.findByBedNumberAndRecordedAtAndParamCodeIn(
+                    query.devBedNum, query.start, query.end, queryParamCodes
+                ));
+            } else if (query.devId != null) {
+                hourlyDataList.addAll(devDataHourlyRepo.findByDeviceIdAndRecordedAtAndParamCodeIn(
+                    query.devId, query.start, query.end, queryParamCodes
+                ));
+            }
+        }
+
+        Set<Long> seenIds = new HashSet<>();
+        return hourlyDataList.stream()
+            .filter(data -> seenIds.add(data.getId()))
+            .toList();
+    }
+
+    private List<DeviceData> getRawDeviceDataForHourlyApprox(
+        List<DevDataQuery> queries, List<String> queryParamCodes
+    ) {
+        if (queryParamCodes.isEmpty()) return Collections.emptyList();
+
+        List<DeviceData> deviceDataList = new ArrayList<>();
+        for (DevDataQuery query : queries) {
+            if (query.devBedNum != null) {
+                deviceDataList.addAll(devDataRepo.findByBedNumberAndRecordedAtAndParamCodeIn(
+                    query.devBedNum, query.approxStart, query.approxEnd, queryParamCodes
+                ));
+            } else if (query.devId != null) {
+                deviceDataList.addAll(devDataRepo.findByDeviceIdAndRecordedAtAndParamCodeIn(
+                    query.devId, query.approxStart, query.approxEnd, queryParamCodes
+                ));
+            }
+        }
+
+        Set<Long> seenIds = new HashSet<>();
+        return deviceDataList.stream()
+            .filter(data -> seenIds.add(data.getId()))
+            .toList();
+    }
+
+    private List<DeviceData> toDeviceDataList(List<DeviceDataHourly> hourlyDataList) {
+        List<DeviceData> deviceDataList = new ArrayList<>(hourlyDataList.size());
+        for (DeviceDataHourly hourlyData : hourlyDataList) {
+            deviceDataList.add(toDeviceData(hourlyData));
+        }
+        return deviceDataList;
+    }
+
+    private DeviceData toDeviceData(DeviceDataHourly hourlyData) {
+        return DeviceData.builder()
+            .id(hourlyData.getId())
+            .departmentId(hourlyData.getDepartmentId())
+            .deviceId(hourlyData.getDeviceId())
+            .deviceType(hourlyData.getDeviceType())
+            .deviceBedNumber(hourlyData.getDeviceBedNumber())
+            .paramCode(hourlyData.getParamCode())
+            .recordedAt(hourlyData.getRecordedAt())
+            .recordedStr(hourlyData.getRecordedStr())
+            .build();
+    }
+
+    private Map<String, Set<LocalDateTime>> getDeviceDataTimesByParam(
+        FetchContext ctx,
+        List<DeviceData> deviceDataList,
+        List<LocalDateTime> hourlyEffectiveTimes,
+        Set<String> targetParamCodes
+    ) {
+        Set<LocalDateTime> hourlyTimeSet = new HashSet<>(hourlyEffectiveTimes);
+        Map<String, List<DeviceData>> mergedDataMap = getMergedDeviceData(ctx, deviceDataList);
+        Map<String, Set<LocalDateTime>> dataTimes = new HashMap<>();
+        for (String paramCode : targetParamCodes) {
+            for (DeviceData devData : mergedDataMap.getOrDefault(paramCode, Collections.emptyList())) {
+                LocalDateTime recordedAt = devData.getRecordedAt();
+                if (!hourlyTimeSet.contains(recordedAt)) continue;
+                dataTimes.computeIfAbsent(paramCode, k -> new HashSet<>()).add(recordedAt);
+            }
+        }
+        return dataTimes;
+    }
+
+    private Map<String, Set<LocalDateTime>> getExistingRecordTimesByParam(
+        FetchContext ctx, List<String> paramCodes, boolean includeDeleted
+    ) {
+        if (paramCodes.isEmpty()) return Collections.emptyMap();
+
+        List<PatientMonitoringRecord> records = includeDeleted
+            ? monRecRepo.findAllByPidAndEffectiveTimeRange(ctx.pid, ctx.from, ctx.to)
+            : monRecRepo.findByPidAndParamCodesAndEffectiveTimeRange(
+                ctx.pid, paramCodes, ctx.from, ctx.to
+            );
+        return records.stream()
+            .filter(record -> paramCodes.contains(record.getMonitoringParamCode()))
+            .collect(Collectors.groupingBy(
+                PatientMonitoringRecord::getMonitoringParamCode,
+                Collectors.mapping(PatientMonitoringRecord::getEffectiveTime, Collectors.toSet())
+            ));
+    }
+
+    private Set<String> getMissingHourlyApproxKeys(
+        Set<String> targetParamCodes,
+        List<LocalDateTime> hourlyEffectiveTimes,
+        Map<String, Set<LocalDateTime>> existingTimes,
+        Map<String, Set<LocalDateTime>> hourlyDataTimes
+    ) {
+        Set<String> targetKeys = new HashSet<>();
+        for (String paramCode : targetParamCodes) {
+            Set<LocalDateTime> existingTimesForParam = existingTimes.getOrDefault(
+                paramCode, Collections.emptySet()
+            );
+            Set<LocalDateTime> hourlyDataTimesForParam = hourlyDataTimes.getOrDefault(
+                paramCode, Collections.emptySet()
+            );
+            for (LocalDateTime hourlyTime : hourlyEffectiveTimes) {
+                if (existingTimesForParam.contains(hourlyTime)) continue;
+                if (hourlyDataTimesForParam.contains(hourlyTime)) continue;
+                targetKeys.add(hourlyApproxKey(paramCode, hourlyTime));
+            }
+        }
+        return targetKeys;
     }
 
     List<DeviceData> getDeviceData(FetchContext ctx, List<DevDataQuery> deviceDataQueries) {
@@ -288,17 +538,7 @@ public class DeviceDataFetcher {
             uniqueDataList.add(devData);
         }
         for (DeviceDataHourly hourlyData : hourlyDataList) {
-            DeviceData devData = DeviceData.builder()
-                .id(hourlyData.getId())
-                .departmentId(hourlyData.getDepartmentId())
-                .deviceId(hourlyData.getDeviceId())
-                .deviceType(hourlyData.getDeviceType())
-                .deviceBedNumber(hourlyData.getDeviceBedNumber())
-                .paramCode(hourlyData.getParamCode())
-                .recordedAt(hourlyData.getRecordedAt())
-                .recordedStr(hourlyData.getRecordedStr())
-                .build();
-            uniqueDataList.add(devData);
+            uniqueDataList.add(toDeviceData(hourlyData));
         }
         return uniqueDataList;
     }
@@ -543,17 +783,41 @@ public class DeviceDataFetcher {
         return !t.isBefore(left) && (rightOpen ? t.isBefore(right) : !t.isAfter(right));
     }
 
+    private static boolean isExactHour(LocalDateTime t) {
+        return t.getMinute() == 0 && t.getSecond() == 0 && t.getNano() == 0;
+    }
+
+    private static String hourlyApproxKey(String paramCode, LocalDateTime hourlyTime) {
+        return paramCode + "|" + hourlyTime;
+    }
+
+    private static String generatedRecordKey(String paramCode, Long deviceDataId, LocalDateTime effectiveTime) {
+        return paramCode + "|" + deviceDataId + "|" + effectiveTime;
+    }
+
+    private static String deviceDataSourceKey(DeviceData devData) {
+        return devData.getParamCode() + "|" + devData.getId();
+    }
+
     List<PatientMonitoringRecord> generateMonitoringRecords(
         FetchContext ctx,
         Map<String/*paramCode*/, List<DeviceData>> rawDeviceDataMap
     ) {
-        Map<String, Set<LocalDateTime>> existingTimes = monRecRepo
-            .findAllByPidAndEffectiveTimeRange(ctx.pid, ctx.from, ctx.to)
-            .stream()
-            .collect(Collectors.groupingBy(
-                PatientMonitoringRecord::getMonitoringParamCode,
-                Collectors.mapping(PatientMonitoringRecord::getEffectiveTime, Collectors.toSet())
-            ));
+        return generateMonitoringRecords(
+            ctx, rawDeviceDataMap, Collections.emptyMap(), true /* includeDeletedExistingRecords */
+        );
+    }
+
+    List<PatientMonitoringRecord> generateMonitoringRecords(
+        FetchContext ctx,
+        Map<String/*paramCode*/, List<DeviceData>> rawDeviceDataMap,
+        Map<String, String> noteByRecordKey,
+        boolean includeDeletedExistingRecords
+    ) {
+        List<String> paramCodes = new ArrayList<>(rawDeviceDataMap.keySet());
+        Map<String, Set<LocalDateTime>> existingTimes = getExistingRecordTimesByParam(
+            ctx, paramCodes, includeDeletedExistingRecords
+        );
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
 
         int estimate = rawDeviceDataMap.values().stream().mapToInt(List::size).sum();
@@ -595,6 +859,7 @@ public class DeviceDataFetcher {
                     .paramValueStr(paramValueStr)
                     .unit(valueMeta.getUnit())
                     .source("dev-" + String.valueOf(devData.getDeviceType()))
+                    .note(noteByRecordKey.get(generatedRecordKey(paramCode, devData.getId(), effectiveTime)))
                     .modifiedBy(ctx.modifiedBy)
                     .modifiedAt(nowUtc)
                     .isDeleted(false)
@@ -614,10 +879,16 @@ public class DeviceDataFetcher {
     public void resetAliasCodeMapForTesting(Map<String, List<String>> aliasCodeMap) {
         this.aliasCodeMap = aliasCodeMap;
     }
+    public void resetHourlyApproxConfigForTesting(boolean enableHourlyApprox, int hourlyApproxBoundaryMinutes) {
+        this.enableHourlyApprox = enableHourlyApprox;
+        this.hourlyApproxBoundaryMinutes = hourlyApproxBoundaryMinutes;
+    }
 
     private final String ZONE_ID;
 
     private Integer APPROX_SECONDS;
+    private boolean enableHourlyApprox;
+    private int hourlyApproxBoundaryMinutes;
 
     private Set<String> paramCodesToApprox;
     private Map<String, List<String>> aliasCodeMap;

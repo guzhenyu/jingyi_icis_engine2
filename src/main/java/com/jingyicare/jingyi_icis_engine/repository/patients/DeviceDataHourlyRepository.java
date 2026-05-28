@@ -28,11 +28,31 @@ public interface DeviceDataHourlyRepository extends JpaRepository<DeviceDataHour
         @Param("end") LocalDateTime end
     );
 
+    @Query("SELECT d FROM DeviceDataHourly d WHERE d.deviceBedNumber = :bedNumber " +
+        "AND d.recordedAt >= :start AND d.recordedAt < :end " +
+        "AND d.paramCode IN :paramCodes")
+    List<DeviceDataHourly> findByBedNumberAndRecordedAtAndParamCodeIn(
+        @Param("bedNumber") String bedNumber,
+        @Param("start") LocalDateTime start,
+        @Param("end") LocalDateTime end,
+        @Param("paramCodes") List<String> paramCodes
+    );
+
     @Query("SELECT d FROM DeviceDataHourly d WHERE d.deviceId = :deviceId " +
         "AND d.recordedAt >= :start AND d.recordedAt < :end")
     List<DeviceDataHourly> findByDeviceIdAndRecordedAt(
         @Param("deviceId") Integer deviceId, 
         @Param("start") LocalDateTime start, 
         @Param("end") LocalDateTime end
+    );
+
+    @Query("SELECT d FROM DeviceDataHourly d WHERE d.deviceId = :deviceId " +
+        "AND d.recordedAt >= :start AND d.recordedAt < :end " +
+        "AND d.paramCode IN :paramCodes")
+    List<DeviceDataHourly> findByDeviceIdAndRecordedAtAndParamCodeIn(
+        @Param("deviceId") Integer deviceId,
+        @Param("start") LocalDateTime start,
+        @Param("end") LocalDateTime end,
+        @Param("paramCodes") List<String> paramCodes
     );
 }

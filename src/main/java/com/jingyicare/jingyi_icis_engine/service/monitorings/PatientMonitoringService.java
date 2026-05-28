@@ -259,6 +259,21 @@ public class PatientMonitoringService {
             List<PatientMonitoringRecord> recordsToAdd = resultPair.getSecond();
             recordRepository.saveAll(recordsToAdd);
             result.recordList.addAll(recordsToAdd);
+
+            if (!isBalanceGroups) {
+                Pair<StatusCode, List<PatientMonitoringRecord>> hourlyApproxResultPair =
+                    deviceDataFetcher.fetchHourlyApproxRecords(
+                        pid, startTime, endTime, groupBetaList, accountId
+                    );
+                if (hourlyApproxResultPair.getFirst() != StatusCode.OK) {
+                    log.error("Failed to fetch hourly approx device data: {}", hourlyApproxResultPair.getFirst());
+                    result.statusCode = hourlyApproxResultPair.getFirst();
+                    return result;
+                }
+                List<PatientMonitoringRecord> hourlyApproxRecordsToAdd = hourlyApproxResultPair.getSecond();
+                recordRepository.saveAll(hourlyApproxRecordsToAdd);
+                result.recordList.addAll(hourlyApproxRecordsToAdd);
+            }
         }
 
         return result;

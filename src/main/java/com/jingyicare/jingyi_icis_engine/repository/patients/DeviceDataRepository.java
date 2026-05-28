@@ -25,10 +25,30 @@ public interface DeviceDataRepository extends JpaRepository<DeviceData, Long> {
         @Param("recordedTimes") List<LocalDateTime> recordedTimes
     );
 
+    @Query("SELECT d FROM DeviceData d WHERE d.deviceBedNumber = :bedNumber " +
+        "AND d.recordedAt >= :start AND d.recordedAt <= :end " +
+        "AND d.paramCode IN :paramCodes")
+    List<DeviceData> findByBedNumberAndRecordedAtAndParamCodeIn(
+        @Param("bedNumber") String bedNumber,
+        @Param("start") LocalDateTime start,
+        @Param("end") LocalDateTime end,
+        @Param("paramCodes") List<String> paramCodes
+    );
+
     @Query("SELECT d FROM DeviceData d WHERE d.deviceId = :deviceId " +
         "AND d.recordedAt IN :recordedTimes")
     List<DeviceData> findByDeviceIdAndRecordedAtIn(
         @Param("deviceId") Integer deviceId, 
         @Param("recordedTimes") List<LocalDateTime> recordedTimes
+    );
+
+    @Query("SELECT d FROM DeviceData d WHERE d.deviceId = :deviceId " +
+        "AND d.recordedAt >= :start AND d.recordedAt <= :end " +
+        "AND d.paramCode IN :paramCodes")
+    List<DeviceData> findByDeviceIdAndRecordedAtAndParamCodeIn(
+        @Param("deviceId") Integer deviceId,
+        @Param("start") LocalDateTime start,
+        @Param("end") LocalDateTime end,
+        @Param("paramCodes") List<String> paramCodes
     );
 }
