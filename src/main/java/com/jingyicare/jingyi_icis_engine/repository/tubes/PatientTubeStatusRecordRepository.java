@@ -99,4 +99,23 @@ public interface PatientTubeStatusRecordRepository extends JpaRepository<Patient
         @Param("queryStartUtc") LocalDateTime queryStartUtc,
         @Param("queryEndUtc") LocalDateTime queryEndUtc
     );
+
+    @Query("SELECT ptr.id AS tubeRecordId, ptr.tubeName AS tubeName, " +
+        "tts.name AS statusName, ptsr.recordedAt AS recordedAt, " +
+        "ptsr.value AS value, ptsr.id AS statusRecordId " +
+        "FROM PatientTubeStatusRecord ptsr " +
+        "JOIN PatientTubeRecord ptr ON ptsr.patientTubeRecordId = ptr.id " +
+        "JOIN TubeTypeStatus tts ON ptsr.tubeStatusId = tts.id " +
+        "WHERE ptr.pid = :pid " +
+        "AND ptr.isDeleted = false " +
+        "AND ptsr.recordedAt >= :queryStartUtc " +
+        "AND ptsr.recordedAt < :queryEndUtc " +
+        "AND ptsr.isDeleted = false " +
+        "AND tts.isDeleted = false"
+    )
+    List<PatientTubeStatusReportBrief> findPatientTubeStatusReportBrief(
+        @Param("pid") Long pid,
+        @Param("queryStartUtc") LocalDateTime queryStartUtc,
+        @Param("queryEndUtc") LocalDateTime queryEndUtc
+    );
 }

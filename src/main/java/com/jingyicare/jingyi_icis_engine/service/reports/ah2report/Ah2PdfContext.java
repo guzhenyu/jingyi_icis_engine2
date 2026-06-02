@@ -17,10 +17,12 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 
 public class Ah2PdfContext {
     public Long pid;
+    public String variant;
 
     public PDDocument document;
     public PDType0Font font;
     public PDPage pdPage;
+    public PDRectangle pageRectangle;
     public PDPageContentStream contentStream;
 
     public TableCommonPB tblCommon;
@@ -40,4 +42,6 @@ public class Ah2PdfContext {
 
     public Map<Long, String> accountSignPicMap; // accountId -> signPic data url/base64
     public Map<Long, PDImageXObject> signImageCache; // runtime cache
+
+    public int halfDayShiftHours = 12;
 }

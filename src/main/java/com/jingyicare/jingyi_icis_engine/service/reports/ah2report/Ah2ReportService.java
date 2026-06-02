@@ -30,6 +30,7 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataService;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
+import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties.Ah2;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.jfkdatasources.JfkPatientInfo;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -43,13 +44,23 @@ public class Ah2ReportService {
         @Autowired JfkDataService jfkDataService,
         @Autowired ReportProperties reportProperties,
         @Autowired ResourceLoader resourceLoader,
-        @Autowired Ah2ReportData ah2ReportData
+        @Autowired List<Ah2ReportDataProvider> dataProviders,
+        @Autowired Ah2TableRenderer tableRenderer
     ) {
         this.statusCodeMsgs = protoService.getConfig().getText().getStatusCodeMsgList();
         this.jfkDataService = jfkDataService;
+        this.variant = reportProperties.getAh2().getVariant();
+        this.templatePath = reportProperties.getAh2().getTemplate();
+        if (!isTemplateCompatible(this.variant, this.templatePath)) {
+            log.error(
+                "AH2 template/variant mismatch: variant={}, template={}, expected={}",
+                this.variant, this.templatePath, expectedTemplatePath(this.variant)
+            );
+            LogUtils.flushAndQuit(context);
+        }
 
         String charsetName = reportProperties.getCharset();
-        Resource ah2TemplateResource = resourceLoader.getResource(reportProperties.getAh2().getTemplate());
+        Resource ah2TemplateResource = resourceLoader.getResource(this.templatePath);
         Resource fontResource = resourceLoader.getResource(reportProperties.getAh2().getFont());
 
         ReportTemplateAh2PB parsedTemplate = null;
@@ -83,7 +94,11 @@ public class Ah2ReportService {
             LogUtils.flushAndQuit(context);
         }
 
-        this.ah2ReportData = ah2ReportData;
+        this.reportDataProvider = selectDataProvider(context, dataProviders, this.variant);
+        this.tableRenderer = tableRenderer;
+        this.pageRectangle = Ah2.VARIANT_XIUNING.equals(this.variant)
+            ? new PDRectangle(PDRectangle.A4.getHeight(), PDRectangle.A4.getWidth())
+            : new PDRectangle(PDRectangle.A3.getHeight(), PDRectangle.A3.getWidth());
     }
 
     public ReturnCode drawPdf(
@@ -99,6 +114,8 @@ public class Ah2ReportService {
             // 设置上下文
             Ah2PdfContext ctx = new Ah2PdfContext();
             ctx.pid = pid;
+            ctx.variant = this.variant;
+            ctx.pageRectangle = this.pageRectangle;
             ctx.document = document;
             ctx.font = PDType0Font.load(ctx.document, new ByteArrayInputStream(fontDataBytes));
             TableCommonPB tblCommonPb = this.template.getPage().getTblCommon();
@@ -111,7 +128,7 @@ public class Ah2ReportService {
             ctx.tblLineStyle = tblCommonPb.getLineStyle();
 
             // 收集数据
-            Pair<ReturnCode, List<Ah2PageData>> dataPair = ah2ReportData.collectPageData(
+            Pair<ReturnCode, List<Ah2PageData>> dataPair = reportDataProvider.collectPageData(
                 ctx, pid, deptId, queryStartUtc, queryEndUtc, accountId
             );
             ReturnCode returnCode = dataPair.getFirst();
@@ -140,7 +157,7 @@ public class Ah2ReportService {
         try (PDDocument document = new PDDocument()) {
             PDFont font = PDType0Font.load(document, new ByteArrayInputStream(fontDataBytes));
             TextStylePB txtStyle = template.getPage().getTblCommon().getTextStyle();
-            return ah2ReportData.calcCellTextWidthPt(
+            return tableRenderer.calcCellTextWidthPt(
                 font, txtStyle.getFontSize(), txtStyle.getCharSpacing(), str
             );
         } catch (IOException e) {
@@ -392,7 +409,10 @@ public class Ah2ReportService {
             return;
         }
         ctx.table = subPage.getTable();
-        ctx.pdPage = new PDPage(new PDRectangle(PDRectangle.A3.getHeight(), PDRectangle.A3.getWidth()));
+        PDRectangle rect = ctx.pageRectangle == null
+            ? new PDRectangle(PDRectangle.A3.getHeight(), PDRectangle.A3.getWidth())
+            : ctx.pageRectangle;
+        ctx.pdPage = new PDPage(rect);
         ctx.document.addPage(ctx.pdPage);
 
         // 获取病人数据
@@ -419,7 +439,7 @@ public class Ah2ReportService {
             // 画表头
             setLineStyle(contentStream, ctx.tblLineStyle);
             TableCommonPB baseTblCommonPb = this.template.getPage().getTblCommon();
-            int effectiveBodyRows = getEffectiveBodyRows(ctx.pageData, baseTblCommonPb.getBodyRows());
+            int effectiveBodyRows = getEffectiveBodyRows(ctx, baseTblCommonPb.getBodyRows());
             float tableTop = baseTblCommonPb.getBottom() + baseTblCommonPb.getHeight();
             float tableHeight = baseTblCommonPb.getRowHeight() * (baseTblCommonPb.getHeaderRows() + effectiveBodyRows);
             float tableBottom = tableTop - tableHeight;
@@ -465,7 +485,7 @@ public class Ah2ReportService {
             }
 
             // 画表体
-            ah2ReportData.drawTableBody(ctx);
+            tableRenderer.drawTableBody(ctx);
 
             // 画备注
             if (!StrUtils.isBlank(subPage.getNotes())) {
@@ -489,7 +509,11 @@ public class Ah2ReportService {
         }
     }
 
-    private int getEffectiveBodyRows(Ah2PageData pageData, int maxBodyRows) {
+    private int getEffectiveBodyRows(Ah2PdfContext ctx, int maxBodyRows) {
+        if (ctx != null && Ah2.VARIANT_XIUNING.equals(ctx.variant)) {
+            return maxBodyRows;
+        }
+        Ah2PageData pageData = ctx == null ? null : ctx.pageData;
         if (pageData == null || pageData.rowBlocks == null || pageData.rowBlocks.isEmpty()) {
             return maxBodyRows;
         }
@@ -541,7 +565,7 @@ public class Ah2ReportService {
         // 3) 画cell的文本
         List<String> contentList = new ArrayList<>();
         if (cell.getContentCode() != ContentCodeEnum.NA) {
-            String content = ah2ReportData.getContent(cell.getContentCode(), ctx.pageData);
+            String content = tableRenderer.getContent(cell.getContentCode(), ctx.pageData);
             if (content != null && !content.isEmpty()) {
                 contentList.add(content);
             }
@@ -576,8 +600,14 @@ public class Ah2ReportService {
             if (textPb.getId().equals("patient_info:bed_no")) {
                 return jfkPatInfo.bedNumber;
             }
+            if (textPb.getId().equals("patient_info:dept_name")) {
+                return jfkPatInfo.deptName;
+            }
             if (textPb.getId().equals("patient_info:patient_name")) {
                 return jfkPatInfo.name;
+            }
+            if (textPb.getId().equals("patient_info:gender")) {
+                return jfkPatInfo.gender;
             }
             if (textPb.getId().equals("patient_info:mrn")) {
                 return jfkPatInfo.mrn;
@@ -595,10 +625,53 @@ public class Ah2ReportService {
 
     private static final float EPS = 0.1f;
 
+    private boolean isTemplateCompatible(String variant, String templatePath) {
+        if (Ah2.VARIANT_XIUNING.equals(variant)) {
+            return Ah2.TEMPLATE_XIUNING.equals(templatePath);
+        }
+        if (Ah2.VARIANT_AH2.equals(variant)) {
+            return Ah2.TEMPLATE_AH2.equals(templatePath) || Ah2.TEMPLATE_AH2_LEGACY.equals(templatePath);
+        }
+        return false;
+    }
+
+    private String expectedTemplatePath(String variant) {
+        if (Ah2.VARIANT_XIUNING.equals(variant)) return Ah2.TEMPLATE_XIUNING;
+        if (Ah2.VARIANT_AH2.equals(variant)) return Ah2.TEMPLATE_AH2;
+        return Ah2.TEMPLATE_AH2 + " or " + Ah2.TEMPLATE_XIUNING;
+    }
+
+    private Ah2ReportDataProvider selectDataProvider(
+        ConfigurableApplicationContext context,
+        List<Ah2ReportDataProvider> dataProviders,
+        String variant
+    ) {
+        Ah2ReportDataProvider selected = null;
+        for (Ah2ReportDataProvider provider : dataProviders) {
+            if (provider == null || !Objects.equals(variant, provider.variant())) {
+                continue;
+            }
+            if (selected != null) {
+                log.error("Duplicate AH2 report data provider for variant={}", variant);
+                LogUtils.flushAndQuit(context);
+            }
+            selected = provider;
+        }
+        if (selected == null) {
+            log.error("No AH2 report data provider for variant={}", variant);
+            LogUtils.flushAndQuit(context);
+        }
+        return selected;
+    }
+
     private final List<String> statusCodeMsgs;
     private JfkDataService jfkDataService;
 
     private byte[] fontDataBytes;
     private final ReportTemplateAh2PB template;
-    private final Ah2ReportData ah2ReportData;
+    private final Ah2ReportDataProvider reportDataProvider;
+    private final Ah2TableRenderer tableRenderer;
+    private final String variant;
+    private final String templatePath;
+    private final PDRectangle pageRectangle;
 }

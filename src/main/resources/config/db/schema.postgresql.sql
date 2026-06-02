@@ -3864,6 +3864,7 @@ CREATE TABLE balance_stats_shifts (
     id BIGSERIAL PRIMARY KEY,
     dept_id VARCHAR(255) NOT NULL,
     start_hour INTEGER NOT NULL,
+    half_day_shift_hours INTEGER,
     mon_start_hour INTEGER NOT NULL,
     effective_time TIMESTAMP NOT NULL,
 
@@ -3878,6 +3879,7 @@ COMMENT ON TABLE balance_stats_shifts IS '出入量统计班次表';
 COMMENT ON COLUMN balance_stats_shifts.id IS '自增主键';
 COMMENT ON COLUMN balance_stats_shifts.dept_id IS '科室ID';
 COMMENT ON COLUMN balance_stats_shifts.start_hour IS '重症监护记录单每天出入量平衡量起止时间对应的开始小时';
+COMMENT ON COLUMN balance_stats_shifts.half_day_shift_hours IS '半日汇总相对start_hour的小时偏移；为空或非法时默认12小时';
 COMMENT ON COLUMN balance_stats_shifts.mon_start_hour IS '重症监护记录单每天观察项起止时间对应的开始小时';
 COMMENT ON COLUMN balance_stats_shifts.effective_time IS '统计时间';
 COMMENT ON COLUMN balance_stats_shifts.is_deleted IS '是否删除';

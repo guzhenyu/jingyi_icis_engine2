@@ -1,10 +1,7 @@
-package com.jingyicare.jingyi_icis_engine.service.reports.ah2report;
+package com.jingyicare.jingyi_icis_engine.service.reports.ah2report.impl;
 
-import java.awt.Color;
-import java.io.*;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.Base64;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -13,18 +10,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.stereotype.Component;
 
-import com.google.protobuf.TextFormat;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
-import org.apache.pdfbox.pdmodel.font.PDFont;
-import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
-
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisReport.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisReportAh2.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisReportAh2.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 
@@ -37,6 +29,7 @@ import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.entity.patientshifts.*;
 import com.jingyicare.jingyi_icis_engine.entity.reports.*;
 import com.jingyicare.jingyi_icis_engine.entity.scores.*;
+import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
 import com.jingyicare.jingyi_icis_engine.entity.tubes.*;
 import com.jingyicare.jingyi_icis_engine.entity.users.Account;
 import com.jingyicare.jingyi_icis_engine.repository.doctors.*;
@@ -46,6 +39,7 @@ import com.jingyicare.jingyi_icis_engine.repository.patients.PatientSettingsRepo
 import com.jingyicare.jingyi_icis_engine.repository.patientshifts.*;
 import com.jingyicare.jingyi_icis_engine.repository.reports.*;
 import com.jingyicare.jingyi_icis_engine.repository.scores.*;
+import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.repository.tubes.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.*;
@@ -53,15 +47,18 @@ import com.jingyicare.jingyi_icis_engine.service.medications.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
+import com.jingyicare.jingyi_icis_engine.service.reports.ah2report.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.*;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
 import com.jingyicare.jingyi_icis_engine.service.tubes.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
+import static com.jingyicare.jingyi_icis_engine.service.reports.ah2report.Ah2ReportCodes.*;
+
 @Component
 @Slf4j
-public class Ah2ReportData {
-    public Ah2ReportData(
+public class AnhuiSecondHospitalAh2ReportData implements Ah2ReportDataProvider {
+    public AnhuiSecondHospitalAh2ReportData(
         ConfigurableApplicationContext context,
         @Autowired ConfigProtoService protoService,
         @Autowired ReportProperties reportProperties,
@@ -82,6 +79,7 @@ public class Ah2ReportData {
         @Autowired PatientBgaRecordRepository pbgarRepo,
         @Autowired PatientBgaRecordDetailRepository pbgardRepo,
         @Autowired PatientNursingReportRepository pnrRepo,
+        @Autowired BalanceStatsShiftRepository balanceStatsShiftRepo,
         @Autowired PatientTubeRecordRepository ptrRepo,
         @Autowired PatientTubeStatusRecordRepository ptsrRepo,
         @Autowired AccountRepository accountRepo,
@@ -123,12 +121,18 @@ public class Ah2ReportData {
         this.pbgarRepo = pbgarRepo;
         this.pbgardRepo = pbgardRepo;
         this.pnrRepo = pnrRepo;
+        this.balanceStatsShiftRepo = balanceStatsShiftRepo;
         this.ptrRepo = ptrRepo;
         this.ptsrRepo = ptsrRepo;
         this.accountRepo = accountRepo;
         this.patientSettingsRepository = patientSettingsRepository;
 
         processingPids = new ConcurrentHashMap<>();
+    }
+
+    @Override
+    public String variant() {
+        return ReportProperties.Ah2.VARIANT_AH2;
     }
 
     private void loadAccountSignatureMap(Ah2PdfContext ctx) {
@@ -284,9 +288,10 @@ public class Ah2ReportData {
             int shiftStartHour = dbsuCurLocal.getHour();
             final LocalDateTime shiftStartUtc = midnightUtc.plusHours(shiftStartHour);
             final LocalDateTime shiftEndUtc = shiftStartUtc.plusDays(1);
+            ctx.halfDayShiftHours = resolveHalfDayShiftHours(deptId, shiftStartUtc);
             log.info(
-                "\n\n(debug) AH2 dailyData window pid={}, midnightUtc={}, shiftStartUtc={}, shiftEndUtc={}, dbsuCurUtc={}",
-                pid, midnightUtc, shiftStartUtc, shiftEndUtc, dbsuCurUtc
+                "\n\n(debug) AH2 dailyData window pid={}, midnightUtc={}, shiftStartUtc={}, shiftEndUtc={}, dbsuCurUtc={}, halfDayShiftHours={}",
+                pid, midnightUtc, shiftStartUtc, shiftEndUtc, dbsuCurUtc, ctx.halfDayShiftHours
             );
 
             // 获取或补齐护理单数据
@@ -393,13 +398,6 @@ public class Ah2ReportData {
         );
 
         return new Pair<>(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.OK), pageDataList);
-    }
-
-    public String getContent(ContentCodeEnum contentCode, Ah2PageData pageData) {
-        if (contentCode == ContentCodeEnum.YEAR) {
-            return pageData.yearStr == null ? "" : pageData.yearStr;
-        }
-        return "";
     }
 
     // 尝试占位（成功返回 true，失败返回 false）
@@ -739,7 +737,7 @@ public class Ah2ReportData {
         patientData.summary = balanceGroupList;
 
         // 统计半天数据
-        LocalDateTime halfDayEndUtc = shiftStartUtc.plusHours(12);
+        LocalDateTime halfDayEndUtc = shiftStartUtc.plusHours(normalizeHalfDayShiftHours(ctx));
         recordList = recordsResult.recordList.stream()
             .filter(record -> record.getEffectiveTime().isBefore(halfDayEndUtc))
             .sorted(Comparator.comparing(PatientMonitoringRecord::getEffectiveTime))
@@ -758,6 +756,27 @@ public class Ah2ReportData {
         halfDayPatientData.summary = halfDayBalanceGroupList;
 
         return StatusCode.OK;
+    }
+
+    private int normalizeHalfDayShiftHours(Ah2PdfContext ctx) {
+        int hours = ctx == null ? 12 : ctx.halfDayShiftHours;
+        return hours > 0 && hours < 24 ? hours : 12;
+    }
+
+    private int resolveHalfDayShiftHours(String deptId, LocalDateTime shiftStartUtc) {
+        if (StrUtils.isBlank(deptId) || shiftStartUtc == null) return 12;
+        LocalDateTime shiftStartLocal = TimeUtils.getLocalDateTimeFromUtc(shiftStartUtc, ZONE_ID);
+        LocalDateTime effectiveLocal = TimeUtils.truncateToDay(shiftStartLocal);
+        LocalDateTime effectiveUtc = TimeUtils.getUtcFromLocalDateTime(effectiveLocal, ZONE_ID);
+        if (effectiveUtc == null) return 12;
+
+        BalanceStatsShift shift = balanceStatsShiftRepo
+            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(
+                deptId, effectiveUtc.plusSeconds(1)
+            )
+            .orElse(null);
+        Integer hours = shift == null ? null : shift.getHalfDayShiftHours();
+        return hours != null && hours > 0 && hours < 24 ? hours : 12;
     }
 
     private void getNonBalanceMonitoringData(
@@ -1417,16 +1436,6 @@ public class Ah2ReportData {
         if (ctx == null || ctx.tblTxtStyle == null) return colWidth;
         float padding = Math.max(0f, ctx.tblTxtStyle.getPadding());
         return (padding > 0f && colWidth > 2f * padding) ? (colWidth - 2f * padding) : colWidth;
-    }
-
-    public float calcCellTextWidthPt(PDFont font, float fontSize, float charSpacing, String str) {
-        if (font == null || fontSize <= 0f) return 0f;
-        try {
-            return JfkPdfUtils.textWidth(font, fontSize, str == null ? "" : str, charSpacing);
-        } catch (IOException e) {
-            log.error("Failed to calc cell text width for [{}]: {}", str, e.getMessage(), e);
-            return 0f;
-        }
     }
 
     private int setMonitoringItem(
@@ -2095,307 +2104,6 @@ public class Ah2ReportData {
         return pageDataList;
     }
 
-    /*
-     * 画图模块
-     **/
-    public void drawTableBody(Ah2PdfContext ctx) throws IOException {
-        // 如果需要填写时间列，则画时间竖线
-        float summaryColLeft = ctx.tblCommon.getLeft();
-        float summaryColWidth = ctx.tblCommon.getWidth();
-        boolean hasDateTimeCols = ctx.table.getColParamCodeList().contains(AH2P_HHMM) ||
-            ctx.table.getColParamCodeList().contains(AH2P_MMDD);
-        if (hasDateTimeCols) {
-            ParamColMetaPB hhMMCol = ctx.colMetaMap.get(AH2P_HHMM);
-            if (hhMMCol != null) {
-                float x = hhMMCol.getLeft() + hhMMCol.getWidth();
-                ctx.contentStream.moveTo(x, ctx.tableHeaderBottom);
-                ctx.contentStream.lineTo(x, ctx.tblCommon.getBottom());
-                ctx.contentStream.stroke();
-                summaryColLeft += hhMMCol.getWidth();
-                summaryColWidth -= hhMMCol.getWidth();
-            }
-            ParamColMetaPB mmDDCol = ctx.colMetaMap.get(AH2P_MMDD);
-            if (mmDDCol != null) {
-                float x = mmDDCol.getLeft() + mmDDCol.getWidth();
-                ctx.contentStream.moveTo(x, ctx.tableHeaderBottom);
-                ctx.contentStream.lineTo(x, ctx.tblCommon.getBottom());
-                ctx.contentStream.stroke();
-                summaryColLeft += mmDDCol.getWidth();
-                summaryColWidth -= mmDDCol.getWidth();
-            }
-            ParamColMetaPB signCol = ctx.colMetaMap.get(AH2P_SIGNATURE);
-            if (signCol != null) {
-                summaryColWidth -= signCol.getWidth();
-            }
-        }
-
-// log.info("\n\npageData:\n{}\n\n", ProtoUtils.protoToTxt(ctx.pageData.toProto()));
-        // 画数据块
-        for (Ah2PageData.RowBlock rowBlock : ctx.pageData.rowBlocks) {
-            // - 画表体横线
-            for (int i = 0; i < rowBlock.totalRows; i++) {
-                int rowIdx = rowBlock.startRow + i;
-                if (rowIdx == ctx.tblCommon.getBodyRows() - 1) break; // 最后一行不画
-                float y = ctx.tableHeaderBottom - (rowIdx + 1) * ctx.tblCommon.getRowHeight();
-                ctx.contentStream.moveTo(ctx.tblCommon.getLeft(), y);
-                ctx.contentStream.lineTo(ctx.tblCommon.getLeft() + ctx.tblCommon.getWidth(), y);
-                ctx.contentStream.stroke();
-            }
-
-            if (rowBlock.isSummaryRow) {  // 画汇总行文字
-                if (hasDateTimeCols) {
-                    // 日期时间
-                    float dateBottom = ctx.tableHeaderBottom -
-                        (rowBlock.startRow + 1) * ctx.tblCommon.getRowHeight();
-                    LocalDateTime tsLocal = TimeUtils.getLocalDateTimeFromUtc(rowBlock.timestamp, ZONE_ID);
-                    List<String> mMddStr = tsLocal == null ? Collections.singletonList("") :
-                        Collections.singletonList(TimeUtils.getMonthDay(tsLocal));
-                    ParamColMetaPB colMeta = ctx.colMetaMap.get(AH2P_MMDD);
-                    PdfTextRenderer.drawTxt(
-                        ctx.contentStream,
-                        ctx.font, ctx.tblTxtStyle.getFontSize(), Color.BLACK,
-                        ctx.tblTxtStyle.getCharSpacing(), ctx.tblCommon.getRowHeight(), HorizontalAlign.CENTER,
-                        colMeta.getLeft(), dateBottom, colMeta.getWidth(), 1 * ctx.tblCommon.getRowHeight(),
-                        mMddStr
-                    );
-                    List<String> hHMMStr = tsLocal == null ? Collections.singletonList("") :
-                        Collections.singletonList(TimeUtils.getHourMinute(tsLocal));
-                    colMeta = ctx.colMetaMap.get(AH2P_HHMM);
-                    PdfTextRenderer.drawTxt(
-                        ctx.contentStream,
-                        ctx.font, ctx.tblTxtStyle.getFontSize(), Color.BLACK,
-                        ctx.tblTxtStyle.getCharSpacing(), ctx.tblCommon.getRowHeight(), HorizontalAlign.CENTER,
-                        colMeta.getLeft(), dateBottom, colMeta.getWidth(), 1 * ctx.tblCommon.getRowHeight(),
-                        hHMMStr
-                    );
-
-                    // 汇总行文字
-                    int summaryLines = Math.max(1, rowBlock.summary.size());
-                    float summaryBottom = ctx.tableHeaderBottom -
-                        (rowBlock.startRow + summaryLines) * ctx.tblCommon.getRowHeight();
-                    PdfTextRenderer.drawTxt(
-                        ctx.contentStream,
-                        ctx.font, ctx.tblTxtStyle.getFontSize(), Color.BLACK,
-                        ctx.tblTxtStyle.getCharSpacing(), ctx.tblCommon.getRowHeight(), HorizontalAlign.LEFT,
-                        summaryColLeft + ctx.tblCommon.getSummaryRowHotizontalPadding(),
-                        summaryBottom, summaryColWidth, summaryLines * ctx.tblCommon.getRowHeight(),
-                        rowBlock.summary
-                    );
-
-                    // 画汇总列和签名列之间的竖线
-                    float x = summaryColLeft + summaryColWidth;
-                    float y0 = summaryBottom;
-                    float y1 = y0 + summaryLines * ctx.tblCommon.getRowHeight();
-                    ctx.contentStream.moveTo(x, y0);
-                    ctx.contentStream.lineTo(x, y1);
-                    ctx.contentStream.stroke();
-
-                    // 画签名列
-                    ParamColMetaPB signColMeta = ctx.colMetaMap.get(AH2P_SIGNATURE);
-                    List<String> signatureLines = rowBlock.wrappedLinesByParam.get(AH2P_SIGNATURE);
-                    if (signColMeta != null && signatureLines != null && !signatureLines.isEmpty()) {
-                        drawSignatureImage(
-                            ctx, signatureLines,
-                            signColMeta.getLeft(), summaryBottom,
-                            signColMeta.getWidth(), summaryLines * ctx.tblCommon.getRowHeight()
-                        );
-                    }
-
-                    // 小计行上边框加粗；总计行上下边框加粗
-                    final float ordinaryLineWidth = ctx.tblCommon.getLineStyle().getWidth();
-                    final float ordinaryGray = ctx.tblCommon.getLineStyle().getGrayValue();
-                    if (rowBlock.summary.size() == 1 &&
-                        rowBlock.summary.get(0).startsWith("总计")
-                    ) {
-                        // 总计行
-                        float yTop = ctx.tableHeaderBottom - rowBlock.startRow * ctx.tblCommon.getRowHeight();
-// log.info("\n\n\n(总计) top = {}, bottom = {}\n\n\n", yTop, summaryBottom);
-                        float yBottom = summaryBottom;
-                        ctx.contentStream.setLineWidth(ordinaryLineWidth * 5);
-                        ctx.contentStream.setStrokingColor(0f);
-                        ctx.contentStream.moveTo(ctx.tblCommon.getLeft(), yTop);
-                        ctx.contentStream.lineTo(ctx.tblCommon.getLeft() + ctx.tblCommon.getWidth(), yTop);
-                        ctx.contentStream.stroke();
-                        ctx.contentStream.moveTo(ctx.tblCommon.getLeft(), yBottom);
-                        ctx.contentStream.lineTo(ctx.tblCommon.getLeft() + ctx.tblCommon.getWidth(), yBottom);
-                        ctx.contentStream.stroke();
-                        ctx.contentStream.setLineWidth(ordinaryLineWidth);
-                        ctx.contentStream.setStrokingColor(ordinaryGray);
-                    } else {
-                        // 小计行
-                        float yTop = ctx.tableHeaderBottom - rowBlock.startRow * ctx.tblCommon.getRowHeight();
-// log.info("\n\n\n(小计) top = {}, bottom = {}\n\n\n", yTop, summaryBottom);
-                        ctx.contentStream.setLineWidth(ordinaryLineWidth * 5);
-                        ctx.contentStream.setStrokingColor(0f);
-                        ctx.contentStream.moveTo(ctx.tblCommon.getLeft(), yTop);
-                        ctx.contentStream.lineTo(ctx.tblCommon.getLeft() + ctx.tblCommon.getWidth(), yTop);
-                        ctx.contentStream.stroke();
-                        ctx.contentStream.setLineWidth(ordinaryLineWidth);
-                        ctx.contentStream.setStrokingColor(ordinaryGray);
-                    }
-                }  // 每页中除了第一个子页，其余子叶不填汇总行内容
-            } else {  // 画普通行
-                LocalDateTime tsLocal = rowBlock.timestamp == null ?
-                    null : TimeUtils.getLocalDateTimeFromUtc(rowBlock.timestamp, ZONE_ID);
-                for (int colIdx = 0; colIdx < ctx.table.getColParamCodeCount(); colIdx++) {
-                    String paramCode = ctx.table.getColParamCode(colIdx);
-                    ParamColMetaPB colMeta = ctx.colMetaMap.get(paramCode);
-                    if (colMeta == null) {
-                        log.error("Ah2ReportService.drawTableBody: colMetaMap missing paramCode=" + paramCode);
-                        continue;
-                    }
-                    if (!paramCode.equals(AH2P_HHMM) && !paramCode.equals(AH2P_MMDD)
-                        && colIdx != ctx.table.getColParamCodeCount() - 1
-                    ) {  // 画列竖线
-                        float x = colMeta.getLeft() + colMeta.getWidth();
-                        float y0 = ctx.tableHeaderBottom - rowBlock.startRow * ctx.tblCommon.getRowHeight();
-                        float y1 = y0 - rowBlock.totalRows * ctx.tblCommon.getRowHeight();
-                        ctx.contentStream.moveTo(x, y0);
-                        ctx.contentStream.lineTo(x, y1);
-                        ctx.contentStream.stroke();
-                    }
-
-                    if (paramCode.equals(AH2P_SIGNATURE)) {
-                        List<String> signatureLines = rowBlock.wrappedLinesByParam.get(AH2P_SIGNATURE);
-                        if (signatureLines != null && !signatureLines.isEmpty()) {
-                            float cellBottom = ctx.tableHeaderBottom -
-                                (rowBlock.startRow + rowBlock.totalRows) * ctx.tblCommon.getRowHeight();
-                            drawSignatureImage(
-                                ctx, signatureLines,
-                                colMeta.getLeft(), cellBottom,
-                                colMeta.getWidth(), rowBlock.totalRows * ctx.tblCommon.getRowHeight()
-                            );
-                        }
-                        continue;
-                    }
-
-                    // 填写文字
-                    List<String> wrappedLines = paramCode.equals(AH2P_HHMM) ? 
-                        (tsLocal == null ? Collections.singletonList("") :
-                         Collections.singletonList(TimeUtils.getHourMinute(tsLocal))
-                        ) : paramCode.equals(AH2P_MMDD) ?
-                        (tsLocal == null ? Collections.singletonList("") :
-                         Collections.singletonList(TimeUtils.getMonthDay(tsLocal))
-                        ) :
-                        rowBlock.wrappedLinesByParam.get(paramCode);
-                    if (wrappedLines == null) continue;
-                    int nLines = Math.max(1, wrappedLines.size());
-                    float cellBottom = ctx.tableHeaderBottom -
-                        (rowBlock.startRow + nLines) * ctx.tblCommon.getRowHeight();
-
-                    HorizontalAlign hAlign = HorizontalAlign.CENTER;
-                    if (paramCode.equals(AH2P_MED_EXEC) || paramCode.equals(AH2P_NASOGASTRIC) ||
-                        paramCode.equals(AH2P_NURSING_RECORD)
-                    ) {
-                        hAlign = HorizontalAlign.LEFT;
-                    }
-
-                    float textLeft = colMeta.getLeft();
-                    float textWidth = colMeta.getWidth();
-                    float padding = Math.max(0f, ctx.tblTxtStyle.getPadding());
-                    if (padding > 0f && colMeta.getWidth() > 2f * padding) {
-                        textLeft = colMeta.getLeft() + padding;
-                        textWidth = colMeta.getWidth() - 2f * padding;
-                    }
-
-                    PdfTextRenderer.drawTxt(
-                        ctx.contentStream,
-                        ctx.font, ctx.tblTxtStyle.getFontSize(), Color.BLACK,
-                        ctx.tblTxtStyle.getCharSpacing(), ctx.tblCommon.getRowHeight(), hAlign,
-                        textLeft, cellBottom, textWidth, nLines * ctx.tblCommon.getRowHeight(),
-                        wrappedLines
-                    );
-                }
-            }
-        }
-    }
-
-    private List<Ah2PageData.RowBlock> fakeRowBlocks() {
-        List<Ah2PageData.RowBlock> rowBlocks = new ArrayList<>();
-        Ah2PageData.RowBlock rowBlock = new Ah2PageData.RowBlock();
-        rowBlock.timestamp = LocalDateTime.now();
-        rowBlock.startRow = 0;
-        rowBlock.totalRows = 10;
-        rowBlock.wrappedLinesByParam.put(AH2P_CONSCIOUSNESS, List.of("1"));
-        rowBlock.wrappedLinesByParam.put(AH2P_MED_EXEC, List.of(
-            "阿莫西林克拉维酸钾注射液 1.2g ",
-            "静脉滴注 + ",
-            "头孢曲松钠 2g 静脉滴注 +",
-            "药品2 + ",
-            "药品3"));
-        rowBlocks.add(rowBlock);
-
-        rowBlock = new Ah2PageData.RowBlock();
-        rowBlock.startRow = 10;
-        rowBlock.totalRows = 1;
-        rowBlock.isSummaryRow = true;
-        rowBlock.timestamp = TimeUtils.getLocalTime(2025, 9, 18, 7, 0);
-        rowBlock.summary = List.of("汇总行示例1");
-        rowBlocks.add(rowBlock);
-
-        return rowBlocks;
-    }
-
-    private void drawSignatureImage(
-        Ah2PdfContext ctx, List<String> signatureLines,
-        float left, float bottom, float width, float height
-    ) {
-        if (ctx == null || signatureLines == null || signatureLines.isEmpty()) return;
-        float adjustedLeft = left + 1;
-        float adjustedWidth = Math.max(0, width - 2);
-        float lineHeight = ctx.tblCommon.getRowHeight();
-
-        for (int idx = 0; idx < signatureLines.size(); idx++) {
-            String idStr = signatureLines.get(idx);
-            if (StrUtils.isBlank(idStr)) continue;
-            PDImageXObject img = getSignatureImage(ctx, idStr);
-            if (img == null) continue;
-
-            float imgW = img.getWidth();
-            float imgH = img.getHeight();
-            if (imgW <= 0 || imgH <= 0) continue;
-            float scale = Math.min(adjustedWidth / imgW, lineHeight / imgH);
-            float drawW = imgW * scale;
-            float drawH = imgH * scale;
-            // 对齐到该行区域：从下往上计算当前行底部
-            float lineBottom = bottom + (signatureLines.size() - idx - 1) * lineHeight;
-            float drawX = adjustedLeft + (adjustedWidth - drawW) / 2;
-            float drawY = lineBottom + (lineHeight - drawH) / 2;
-            try {
-                ctx.contentStream.drawImage(img, drawX, drawY, drawW, drawH);
-            } catch (IOException e) {
-                log.error("Failed to draw signature image for {}: {}", idStr, e.getMessage());
-            }
-        }
-    }
-
-    private PDImageXObject getSignatureImage(Ah2PdfContext ctx, String idStr) {
-        if (ctx == null || StrUtils.isBlank(idStr)) return null;
-        Long accountId = null;
-        try {
-            accountId = Long.parseLong(idStr);
-        } catch (NumberFormatException e) {
-            return null;
-        }
-        if (accountId == null) return null;
-        if (ctx.signImageCache != null && ctx.signImageCache.containsKey(accountId)) {
-            return ctx.signImageCache.get(accountId);
-        }
-        String dataUrl = ctx.accountSignPicMap == null ? null : ctx.accountSignPicMap.get(accountId);
-        if (StrUtils.isBlank(dataUrl)) return null;
-        int commaIdx = dataUrl.indexOf(',');
-        String base64Str = commaIdx >= 0 ? dataUrl.substring(commaIdx + 1) : dataUrl;
-        try {
-            byte[] bytes = Base64.getDecoder().decode(base64Str);
-            PDImageXObject img = PDImageXObject.createFromByteArray(ctx.document, bytes, "sign-" + accountId);
-            if (ctx.signImageCache != null) ctx.signImageCache.put(accountId, img);
-            return img;
-        } catch (Exception e) {
-            log.error("Failed to decode signature image for account {}: {}", accountId, e.getMessage());
-            return null;
-        }
-    }
-
     // 系统配置
     private final String ZONE_ID;
     private final List<String> statusCodeMsgs;
@@ -2426,6 +2134,7 @@ public class Ah2ReportData {
     private final PatientBgaRecordRepository pbgarRepo;
     private final PatientBgaRecordDetailRepository pbgardRepo;
     private final PatientNursingReportRepository pnrRepo;
+    private final BalanceStatsShiftRepository balanceStatsShiftRepo;
     private final PatientTubeRecordRepository ptrRepo;
     private final PatientTubeStatusRecordRepository ptsrRepo;
     private final AccountRepository accountRepo;
@@ -2445,352 +2154,4 @@ public class Ah2ReportData {
     }
     private final ConcurrentHashMap<Long/*pid*/, PidInFlight> processingPids;
 
-    // 观察项编码
-    public static final String MP_CONSCIOUSNESS = "consciousness";  // 意识 string
-    public static final String MP_LEFT_PUPIL_SIZE = "left_pupil_size";  // 左瞳大小 
-    public static final String MP_RIGHT_PUPIL_SIZE = "right_pupil_size";  // 右瞳大小
-    public static final String MP_LEFT_PUPIL_REFLEX = "left_pupil_reflex";  // 左瞳反射
-    public static final String MP_RIGHT_PUPIL_REFLEX = "right_pupil_reflex";  // 右瞳反射
-    public static final String MP_TEMPERATURE = "temperature";  // 体温 float
-    public static final String MP_SKIN_TEMPERATURE = "skin_temperature";  // 末梢皮温 float
-    public static final String MP_HEART_RATE = "hr";  // 心率 int
-    public static final String MP_HEART_RHYTHM = "heart_rhythm";  // 心律 string
-    public static final String MP_RESPIRATORY_RATE = "respiratory_rate";  // 呼吸频率 | 呼吸 int
-    public static final String MP_NIBP_S = "nibp_s";  // 无创收缩压 int
-    public static final String MP_NIBP_D = "nibp_d";  // 无创舒张压 int
-    public static final String MP_IBP_S = "ibp_s";  // 有创收缩压 int
-    public static final String MP_IBP_D = "ibp_d";  // 有创舒张压 int
-    public static final String MP_SPO2 = "Spo2";  // 血氧饱和度 | SpO2
-    public static final String MP_CVP = "cvp";  // 中心静脉压 | CVP
-    public static final String MP_ICP = "icp";  // 颅内压 | ICP
-    public static final String MP_BLOOD_GLUCOSE = "blood_glucose";  // 血糖
-    public static final String MP_HOURLY_INTAKE = "hourly_intake";  // 每小时入量 float
-    public static final String MP_ACCU_INTAKE = "MP_ACCU_INTAKE";  // 累计入量 float
-    public static final String MP_HOURLY_OUTPUT = "hourly_output";  // 每小时出量 float
-    public static final String MP_ACCU_OUTPUT = "MP_ACCU_OUTPUT";  // 累计出量 float
-    public static final String MP_URINE_OUTPUT = "urine_output";  // 每小时尿量 float
-    public static final String MP_ACCU_URINE_OUTPUT = "MP_ACCU_URINE_OUTPUT";  // 累计尿量 float
-    public static final String MP_GASTRIC_FLUID_VOLUME = "gastric_fluid_volume";  // 胃液 float
-    public static final String MP_STOOL_VOLUME = "stool_volume";  // 大便量 float
-    public static final String MP_CRRT_UF = "crrt_UF";  // CRRT超滤量 float
-    public static final String MP_OXYGEN_DELIVERY_METHOD = "oxygen_delivery_method";  // 吸氧途径 | 吸氧方式
-    public static final String MP_RESPIRATORY_TUBE_DEPTH = "vent_tube_plant_depth";  // (呼吸机)插管深度
-    public static final String MP_VENT_OXYGEN_CONCENTRATION = "vent_oxygen_concentration";  // 氧浓度
-    public static final String MP_VENT_OXYGEN_FLOW_RATE = "vent_oxygen_flow_rate";  // 氧流量
-    public static final String MP_VENT_CUFF_PRESSURE = "vent_cuff_pressure";  // 气囊压力
-    public static final String MP_RESPIRATORY_MODE = "vent_respiratory_mode";  // 呼吸模式 | 机械通气/模式
-    public static final String MP_RESPIRATORY_RATE_VENT = "vent_respiratory_rate";  // 呼吸频率 | 机械通气/频率
-    public static final String MP_SET_TIDAL_VOLUME = "vent_set_tidal_volume";  // sVt | 机械通气/VT(set)
-    public static final String MP_FIO2 = "vent_fio2";  // FiO2 | 机械通气/FiO2
-    public static final String MP_PS = "vent_PS";  // PS | 机械通气/PS
-    public static final String MP_PEEP = "vent_PEEP";  // PEEP | 机械通气/PEEP  （测量的呼气末正压 - Positive End-Expiratory Pressure）
-    public static final String MP_LEFT_BREATH_SOUNDS = "left_breath_sounds";  // 左呼吸音  | 机械通气/呼吸音
-    public static final String MP_RIGHT_BREATH_SOUNDS = "right_breath_sounds";  // 右呼吸音 | 机械通气/呼吸音
-    public static final String MP_AIRWAY_HUMIDIFICATION = "airway_humidification";  // 气道湿化 | 气道温湿化
-    public static final String MP_ATOMIZATION = "atomization";  // 雾化
-    public static final String MP_SPUTUM_AMOUNT = "sputum_amount";  // 痰量
-    public static final String MP_SPUTUM_COLOR = "sputum_color";  // 痰颜色  
-    public static final String MP_SUCTION_COUNT = "suction_count";  // 吸痰次数
-    public static final String MP_BED_BATHING = "bed_bathing";  // 床上擦洗 | 床上擦浴
-    public static final String MP_PERINEAL_CARE = "perineal_care";  // 会阴护理
-    public static final String MP_ORAL_CARE = "oral_care";  // 口腔护理
-    public static final String MP_TRACHEOSTOMY_CARE = "tracheostomy_care";  // 气切护理
-    public static final String MP_SKIN_CARE = "skin_care";  // 皮肤护理
-    public static final String MP_WASH_HAIR = "washing_hair";  // 洗头
-    public static final String MP_PULMONARY_PHYSIOTHERAPY = "pulmonary_physiotherapy";  // 肺部理疗
-    public static final String MP_LIMB_PNEUMATIC_THERAPY = "limb_pneumatic_therapy";  // 肢体气压治疗
-    public static final String MP_RESTRAINT = "restraint";  // 约束
-    public static final String MP_BODY_POSITION = "body_position";  // 体位
-
-    // 护理评分编码
-    public static final String PS_BRADEN = "braden";
-    public static final String PS_MORSE = "morse";
-    public static final String PS_AODLS = "activities_of_daily_living_assessment";
-    public static final String PS_VTE_CAPRINI = "ah2vte";
-    public static final String PS_CATHETER_SLIPPAGE = "catheter_slippage";
-    public static final String PS_RASS = "rass";
-    public static final String PS_FRS_V2 = "frs_v2";
-
-    // 血气编码
-    public static final String BGA_PH = "bga_ph";  // 血气：PH
-    public static final String BGA_PCO2 = "bga_pco2";  // 血气：PCO2
-    public static final String BGA_PO2 = "bga_po2";  // 血气：PO2
-    public static final String BGA_PO2_FIO2 = "bga_pao2/fio2";  // 血气：Po2/FiO2
-    public static final String BGA_BE = "bga_be";  // 血气：BE
-    public static final String BGA_HCO3 = "bga_hco3-";  // 血气：HCO3-
-    public static final String BGA_SPO2 = "bga_o2sat";  // 血气：SpO2
-    public static final String BGA_K = "bga_k+";  // 血气：K+
-    public static final String BGA_NA = "bga_na+";  // 血气：Na+
-    public static final String BGA_CL = "bga_cl-";  // 血气：Cl-
-    public static final String BGA_LAC = "bga_lac";  // 血气：Lac
-
-    // 管道
-    public static final String TUBE_DEPTH_STATUS_NAME = "置入长度";
-    public static final String TUBE_STATE_STATUS_NAME = "管道状态";
-    public static final String TUBE_STATE_NORMAL = "正常";
-    public static final String TUBE_STATE_ABNORMAL = "异常";
-    public static final String TUBE_STATE_DRESSING_CHANGE = "换药";
-
-    // 报表参数代码
-    public static final String AH2P_MMDD = "AH2P_MMDD";  // 月日
-    public static final String AH2P_HHMM = "AH2P_HHMM";  // 时分
-    
-    public static final String AH2P_CONSCIOUSNESS = "AH2P_CONSCIOUSNESS";  // 意识
-    public static final String AH2P_LEFT_PUPIL_SIZE = "AH2P_LEFT_PUPIL_SIZE";  // 左瞳大小
-    public static final String AH2P_RIGHT_PUPIL_SIZE = "AH2P_RIGHT_PUPIL_SIZE";  // 右瞳大小
-    public static final String AH2P_LEFT_PUPIL_REFLEX = "AH2P_LEFT_PUPIL_REFLEX";  // 左瞳反射
-    public static final String AH2P_RIGHT_PUPIL_REFLEX = "AH2P_RIGHT_PUPIL_REFLEX";  // 右瞳反射
-    public static final String AH2P_TEMPERATURE = "AH2P_TEMPERATURE";  // 体温
-    public static final String AH2P_SKIN_TEMPERATURE = "AH2P_SKIN_TEMPERATURE";  // 末梢皮温
-    public static final String AH2P_HEART_RATE = "AH2P_HEART_RATE";  // 心率
-    public static final String AH2P_HEART_RHYTHM = "AH2P_HEART_RHYTHM";  // 心律
-    public static final String AH2P_RESPIRATORY_RATE = "AH2P_RESPIRATORY_RATE";  // 呼吸频率
-    public static final String AH2P_NIBP_IBP = "AH2P_NIBP_IBP";  // 无创/有创血压, 无创优先
-    public static final String AH2P_SPO2 = "AH2P_SPO2";  // SpO2
-    public static final String AH2P_CVP = "AH2P_CVP";  // CVP
-    public static final String AH2P_ICP = "AH2P_ICP";  // ICP
-    public static final String AH2P_BLOOD_GLUCOSE = "AH2P_BLOOD_GLUCOSE";  // 血糖
-    public static final String AH2P_MED_EXEC = "AH2P_MED_EXEC";  // 执行用药
-    public static final String AH2P_MEDICATION_ML = "AH2P_MEDICATION_ML";  // 液体量
-    public static final String AH2P_NASOGASTRIC = "AH2P_NASOGASTRIC";  // 饮食/鼻饲
-    public static final String AH2P_NASOGASTRIC_ML = "AH2P_NASOGASTRIC_ML";  // 饮食/鼻饲量
-    public static final String AH2P_HOURLY_INTAKE = "AH2P_HOURLY_INTAKE";  // 每小时入量
-    public static final String AH2P_TOTAL_INTAKE = "AH2P_TOTAL_INTAKE";  // 总量
-    public static final String AH2P_URINE_OUTPUT = "AH2P_URINE_OUTPUT";  // 每小时尿量
-    public static final String AH2P_ACCUMULATED_URINE_OUTPUT = "AH2P_ACCUMULATED_URINE_OUTPUT";  // 累计尿量
-    public static final String AH2P_GASTRIC_FLUID_VOLUME = "AH2P_GASTRIC_FLUID_VOLUME";  // 胃液
-    public static final String AH2P_STOOL_VOLUME = "AH2P_STOOL_VOLUME";  // 大便量
-    public static final String AH2P_OTHER_OUTPUT_NAME = "AH2P_OTHER_OUTPUT_NAME";  // 其他名称
-    public static final String AH2P_OTHER_OUTPUT_VOLUME = "AH2P_OTHER_OUTPUT_VOLUME";  // 其他量
-    public static final String AH2P_DRAINAGE_FLUID_COLOR = "AH2P_DRAINAGE_FLUID_COLOR";  // 引流液颜色
-    public static final String AH2P_CRRT_UF = "AH2P_CRRT_UF";  // 超滤量
-    public static final String AH2P_ACCUMULATED_OUTPUT = "AH2P_ACCUMULATED_OUTPUT";  // 总量
-    public static final String AH2P_NURSING_RECORD = "AH2P_NURSING_RECORD";  // 病情观察及处理
-    public static final String AH2P_SIGNATURE = "AH2P_SIGNATURE";  // 签名
-
-    public static final String AH2P_OXYGEN_DELIVERY_METHOD = "AH2P_OXYGEN_DELIVERY_METHOD";  // 吸氧方式
-    public static final String AH2P_RESPIRATORY_TUBE_DEPTH = "AH2P_RESPIRATORY_TUBE_DEPTH";  // 插管深度
-    public static final String AH2P_OXYGEN_CONCENTRATION_FLOW = "AH2P_OXYGEN_CONCENTRATION_FLOW";  // 氧浓度/氧流量
-    public static final String AH2P_VENT_CUFF_PRESSURE = "AH2P_VENT_CUFF_PRESSURE";  // 气囊压力
-    public static final String AH2P_RESPIRATORY_MODE = "AH2P_RESPIRATORY_MODE";  // 呼吸模式
-    public static final String AH2P_RESPIRATORY_RATE_VENT = "AH2P_RESPIRATORY_RATE_VENT";  // 呼吸频率
-    public static final String AH2P_SET_TIDAL_VOLUME = "AH2P_SET_TIDAL_VOLUME";  // VT(set)
-    public static final String AH2P_FIO2 = "AH2P_FIO2";  // FiO2
-    public static final String AH2P_PS = "AH2P_PS";  // PS
-    public static final String AH2P_PEEP = "AH2P_PEEP";  // PEEP
-    public static final String AH2P_LEFT_BREATH_SOUNDS = "AH2P_LEFT_BREATH_SOUNDS";  // 左呼吸音
-    public static final String AH2P_RIGHT_BREATH_SOUNDS = "AH2P_RIGHT_BREATH_SOUNDS";  // 右呼吸音
-    public static final String AH2P_AIRWAY_HUMIDIFICATION = "AH2P_AIRWAY_HUMIDIFICATION";  // 气道湿化
-    public static final String AH2P_ATOMIZATION = "AH2P_ATOMIZATION";  // 雾化
-    public static final String AH2P_SPUTUM_AMOUNT = "AH2P_SPUTUM_AMOUNT";  // 痰量
-    public static final String AH2P_SPUTUM_COLOR = "AH2P_SPUTUM_COLOR";  // 痰颜色
-    public static final String AH2P_SUCTION_COUNT = "AH2P_SUCTION_COUNT";  // 吸痰次数
-    public static final String AH2P_BRADEN = "AH2P_BRADEN";  // Braden评分
-    public static final String AH2P_MORSE = "AH2P_MORSE";  // Morse跌倒评估
-    public static final String AH2P_AODLS = "AH2P_AODLS";  // 自理评估
-    public static final String AH2P_VTE_CAPRINI = "AH2P_VTE_CAPRINI";  // VTE Caprini 血栓风险评估
-    public static final String AH2P_CATHETER_SLIPPAGE = "AH2P_CATHETER_SLIPPAGE";  // 导管风险评估
-    public static final String AH2P_RASS = "AH2P_RASS";  // RASS镇静评估
-    public static final String AH2P_CPOT_NRS = "AH2P_CPOT_NRS";  // CPOT/NRS
-    public static final String AH2P_TUBE_NAME = "AH2P_TUBE_NAME";  // 管道名称
-    public static final String AH2P_TUBE_DEPTH = "AH2P_TUBE_DEPTH";  // 置管深度
-    public static final String AH2P_TUBE_DRESSING_CHANGE = "AH2P_TUBE_DRESSING_CHANGE";  // 管道维护：换药
-    public static final String AH2P_TUBE_NORMAL = "AH2P_TUBE_NORMAL";  // 管道维护：正常
-    public static final String AH2P_TUBE_ABNORMAL = "AH2P_TUBE_ABNORMAL";  // 管道维护：异常
-    public static final String AH2P_BED_BATHING = "AH2P_BED_BATHING";  // 床上擦浴
-    public static final String AH2P_PERINEAL_CARE = "AH2P_PERINEAL_CARE";  // 会阴护理
-    public static final String AH2P_ORAL_CARE = "AH2P_ORAL_CARE";  // 口腔护理
-    public static final String AH2P_TRACHEOSTOMY_CARE = "AH2P_TRACHEOSTOMY_CARE";  // 气切护理
-    public static final String AH2P_SKIN_CARE = "AH2P_SKIN_CARE";  // 皮肤护理
-    public static final String AH2P_WASH_HAIR = "AH2P_WASH_HAIR";  // 洗头
-    public static final String AH2P_PULMONARY_PHYSIOTHERAPY = "AH2P_PULMONARY_PHYSIOTHERAPY";  // 肺部理疗
-    public static final String AH2P_LIMB_PNEUMATIC_THERAPY = "AH2P_LIMB_PNEUMATIC_THERAPY";  // 肢体气压理疗
-    public static final String AH2P_RESTRAINT = "AH2P_RESTRAINT";  // 约束
-    public static final String AH2P_BODY_POSITION = "AH2P_BODY_POSITION";  // 体位
-    public static final String AH2P_BGA_PH = "AH2P_BGA_PH";  // 血气：PH
-    public static final String AH2P_BGA_PCO2 = "AH2P_BGA_PCO2";  // 血气：PCO2
-    public static final String AH2P_BGA_PO2 = "AH2P_BGA_PO2";  // 血气：PO2
-    public static final String AH2P_BGA_PO2_FIO2 = "AH2P_BGA_PO2_FIO2";  // 血气：Po2/FiO2
-    public static final String AH2P_BGA_BE = "AH2P_BGA_BE";  // 血气：BE
-    public static final String AH2P_BGA_HCO3 = "AH2P_BGA_HCO3";  // 血气：HCO3-
-    public static final String AH2P_BGA_SPO2 = "AH2P_BGA_SPO2";  // 血气：SpO2
-    public static final String AH2P_BGA_K = "AH2P_BGA_K";  // 血气：K+
-    public static final String AH2P_BGA_NA = "AH2P_BGA_NA";  // 血气：Na+
-    public static final String AH2P_BGA_CL = "AH2P_BGA_CL";  // 血气：Cl-
-    public static final String AH2P_BGA_LAC = "AH2P_BGA_LAC";  // 血气：Lac
 }
-
-
-    // private void getMonitoringData(
-    //     Ah2PdfContext ctx, Long pid, LocalDateTime shiftStartUtc, LocalDateTime shiftEndUtc, Map<LocalDateTime, PatientData> patientDataMap
-    // ) {
-    //     List<PatientMonitoringRecord> mpRecords = pmrRepo
-    //         .findByPidAndEffectiveTimeRange(pid, shiftStartUtc, shiftEndUtc);
-    //     // 提取每小时入量、每小时出量、每小时尿量
-    //     List<Pair<LocalDateTime, GenericValuePB>> hourlyIntakeList = new ArrayList<>();
-    //     List<Pair<LocalDateTime, GenericValuePB>> hourlyOutputList = new ArrayList<>();
-    //     List<Pair<LocalDateTime, GenericValuePB>> urineOutputList = new ArrayList<>();
-    //     // 提取引流管数据
-    //     Map<String, String> tubeCodeNameMap = patientTubeImpl.getMonitoringParamCodeNames(
-    //         pid, shiftStartUtc, shiftEndUtc);  // 引流管 编码-名称 映射
-    //     for (PatientMonitoringRecord pmr : mpRecords) {
-    //         String paramCode = pmr.getMonitoringParamCode();
-    //         LocalDateTime effectiveTime = pmr.getEffectiveTime();
-    //         MonitoringValuePB mvPb = ProtoUtils.decodeMonitoringValue(pmr.getParamValue());
-    //         if (StrUtils.isBlank(paramCode) || effectiveTime == null || mvPb == null) {
-    //             log.warn("Invalid monitoring record: {}", pmr.getId());
-    //             continue;
-    //         }
-
-    //         LocalDateTime balanceEffectiveTime = effectiveTime;
-
-    //         // 出入量，尿量
-    //         if (paramCode.equals(MP_HOURLY_INTAKE)) {
-    //             if (effectiveTime.getMinute() == 0 && effectiveTime.getSecond() == 0 &&
-    //                 effectiveTime.getNano() == 0
-    //             ) {
-    //                 hourlyIntakeList.add(new Pair<>(balanceEffectiveTime, mvPb.getValue()));
-    //             }
-    //             continue;
-    //         }
-    //         if (paramCode.equals(MP_HOURLY_OUTPUT)) {
-    //             if (effectiveTime.getMinute() == 0 && effectiveTime.getSecond() == 0 &&
-    //                 effectiveTime.getNano() == 0
-    //             ) {
-    //                 hourlyOutputList.add(new Pair<>(balanceEffectiveTime, mvPb.getValue()));
-    //             }
-    //             continue;
-    //         }
-    //         if (paramCode.equals(MP_URINE_OUTPUT)) {
-    //             if (effectiveTime.getMinute() == 0 && effectiveTime.getSecond() == 0 &&
-    //                 effectiveTime.getNano() == 0
-    //             ) {
-    //                 urineOutputList.add(new Pair<>(balanceEffectiveTime, mvPb.getValue()));
-    //             }
-    //             continue;
-    //         }
-
-    //         // 设置病人观察项数据
-    //         if (paramCode.equals(MP_GASTRIC_FLUID_VOLUME) ||
-    //             paramCode.equals(MP_STOOL_VOLUME) ||
-    //             paramCode.equals(MP_CRRT_UF)
-    //         ) {
-    //             effectiveTime = effectiveTime.plusHours(1);
-    //         }
-    //         final LocalDateTime effectiveTimeF = effectiveTime;
-    //         PatientData patientData = patientDataMap.computeIfAbsent(
-    //             effectiveTimeF, k -> new PatientData(effectiveTimeF)
-    //         );
-    //         patientData.mpKvMap.put(paramCode, mvPb.getValue());
-
-    //         // 其他出量：非尿/胃/大便/超滤 出量 + 引流管
-    //         String tubeParamCode = null;
-    //         String tubeName = null;
-    //         String tubeVol = null;
-    //         String tubeColor = null;
-    //         if (paramCode.endsWith("_" + Consts.DRAINAGE_TUBE_COLOR_CODE)) {
-    //             tubeParamCode = paramCode.substring(0,
-    //                 paramCode.length() - Consts.DRAINAGE_TUBE_COLOR_CODE.length() - 1);
-    //             tubeName = tubeCodeNameMap.get(tubeParamCode);
-    //             if (tubeName == null) continue;  // 非法引流管颜色编码;
-    //             String rawTubeColor = ValueMetaUtils.extractAndFormatParamValue(
-    //                 mvPb.getValue(), DRAINAGE_TUBE_COLOR_META);
-    //             if (rawTubeColor.equals("血性")) {
-    //                 tubeColor = "1";
-    //             } else if (rawTubeColor.equals("褐色")) {
-    //                 tubeColor = "2";
-    //             } else if (rawTubeColor.equals("黄色")) {
-    //                 tubeColor = "3";
-    //             }
-    //             if (StrUtils.isBlank(tubeColor)) continue;
-    //         } else if (tubeCodeNameMap.containsKey(paramCode)) {
-    //             tubeParamCode = paramCode;
-    //             tubeName = tubeCodeNameMap.get(tubeParamCode);
-    //             if (tubeName == null) continue;  // 非法引流管编码;
-    //             ValueMetaPB vmPb = ctx.mpVmMap.get(paramCode);
-    //             if (vmPb == null) continue;  // 非法引流管编码;
-    //             tubeVol = ValueMetaUtils.extractAndFormatParamValue(mvPb.getValue(), vmPb);
-    //             if (StrUtils.isBlank(tubeVol)) continue;
-    //         } else {  // 其他出量：非尿/胃/大便/超滤 出量
-    //             MonitoringParamPB mpPb = ctx.mpMap.get(paramCode);
-    //             if (mpPb == null || mpPb.getBalanceType() != BALANCE_OUT_TYPE_ID ||
-    //                 paramCode.equals(MP_URINE_OUTPUT) ||
-    //                 paramCode.equals(MP_GASTRIC_FLUID_VOLUME) ||
-    //                 paramCode.equals(MP_STOOL_VOLUME) ||
-    //                 paramCode.equals(MP_CRRT_UF)
-    //             ) {
-    //                 continue;
-    //             }
-    //             tubeParamCode = paramCode;
-    //             tubeName = mpPb.getName();
-    //             tubeVol = ValueMetaUtils.extractAndFormatParamValue(
-    //                 mvPb.getValue(), mpPb.getValueMeta());
-    //             if (StrUtils.isBlank(tubeVol)) continue;
-    //         }
-    //         final String tubeParamCodeF = tubeParamCode;
-    //         final String tubeNameF = tubeName;
-    //         final LocalDateTime balanceEffectiveTimeF = balanceEffectiveTime;
-    //         patientData = patientDataMap.computeIfAbsent(
-    //             balanceEffectiveTimeF, k -> new PatientData(balanceEffectiveTimeF)
-    //         );
-    //         DrainageTubeData tubeData = patientData.drainageTubeMap.computeIfAbsent(
-    //             tubeParamCode, k -> new DrainageTubeData(tubeParamCodeF, tubeNameF)
-    //         );
-    //         if (tubeColor != null) tubeData.color = tubeColor;
-    //         if (tubeVol != null ) tubeData.volume = tubeVol;
-    //     }
-
-    //     // 提取元数据
-    //     ValueMetaPB hourlyIntakeMeta = ctx.mpVmMap.get(MP_HOURLY_INTAKE);
-    //     ValueMetaPB hourlyOutputMeta = ctx.mpVmMap.get(MP_HOURLY_OUTPUT);
-    //     ValueMetaPB urineOutputMeta = ctx.mpVmMap.get(MP_URINE_OUTPUT);
-    //     if (hourlyIntakeMeta == null || hourlyOutputMeta == null || urineOutputMeta == null) {
-    //         log.warn("Missing monitoring param meta for hourly intake/output or urine output.");
-    //         return;
-    //     }
-
-    //     // 处理每小时入量
-    //     GenericValuePB accTotalIntake = ValueMetaUtils.getDefaultValue(hourlyIntakeMeta);
-    //     hourlyIntakeList.sort(Comparator.comparing(Pair::getFirst));
-    //     for (Pair<LocalDateTime, GenericValuePB> pair : hourlyIntakeList) {
-    //         LocalDateTime effectiveTime = pair.getFirst();
-    //         GenericValuePB value = pair.getSecond();
-    //         if (effectiveTime == null || value == null) continue;
-    //         PatientData patientData = patientDataMap.computeIfAbsent(
-    //             effectiveTime, k -> new PatientData(effectiveTime)
-    //         );
-    //         patientData.mpKvMap.put(MP_HOURLY_INTAKE, value);
-    //         accTotalIntake = ValueMetaUtils.addGenericValue(accTotalIntake, value, hourlyIntakeMeta);
-    //         patientData.mpKvMap.put(MP_ACCU_INTAKE, accTotalIntake);
-    //     }
-
-    //     // 处理每小时出量
-    //     GenericValuePB accTotalOutput = ValueMetaUtils.getDefaultValue(hourlyOutputMeta);
-    //     hourlyOutputList.sort(Comparator.comparing(Pair::getFirst));
-    //     for (Pair<LocalDateTime, GenericValuePB> pair : hourlyOutputList) {
-    //         LocalDateTime effectiveTime = pair.getFirst();
-    //         GenericValuePB value = pair.getSecond();
-    //         if (effectiveTime == null || value == null) continue;
-    //         PatientData patientData = patientDataMap.computeIfAbsent(
-    //             effectiveTime, k -> new PatientData(effectiveTime)
-    //         );
-    //         patientData.mpKvMap.put(MP_HOURLY_OUTPUT, value);
-    //         accTotalOutput = ValueMetaUtils.addGenericValue(accTotalOutput, value, hourlyOutputMeta);
-    //         patientData.mpKvMap.put(MP_ACCU_OUTPUT, accTotalOutput);
-    //     }
-
-    //     // 处理每小时尿量
-    //     GenericValuePB accTotalUrineOutput = ValueMetaUtils.getDefaultValue(urineOutputMeta);
-    //     urineOutputList.sort(Comparator.comparing(Pair::getFirst));
-    //     for (Pair<LocalDateTime, GenericValuePB> pair : urineOutputList) {
-    //         LocalDateTime effectiveTime = pair.getFirst();
-    //         GenericValuePB value = pair.getSecond();
-    //         if (effectiveTime == null || value == null) continue;
-    //         PatientData patientData = patientDataMap.computeIfAbsent(
-    //             effectiveTime, k -> new PatientData(effectiveTime)
-    //         );
-    //         patientData.mpKvMap.put(MP_URINE_OUTPUT, value);
-    //         accTotalUrineOutput = ValueMetaUtils.addGenericValue(accTotalUrineOutput, value, urineOutputMeta);
-    //         patientData.mpKvMap.put(MP_ACCU_URINE_OUTPUT, accTotalUrineOutput);
-    //     }
-    // }

@@ -42,13 +42,24 @@ public class ReportProperties {
 
     @Data
     public static class Ah2 {
-        private String template = "classpath:/config/pbtxt/report_template_ah2.pb.txt";
+        public static final String VARIANT_AH2 = "ah2";
+        public static final String VARIANT_XIUNING = "xiuning";
+        public static final String TEMPLATE_AH2 = "classpath:/config/pbtxt/hospitals/report_template_ah2.pb.txt";
+        public static final String TEMPLATE_AH2_LEGACY = "classpath:/config/pbtxt/report_template_ah2.pb.txt";
+        public static final String TEMPLATE_XIUNING = "classpath:/config/pbtxt/hospitals/report_template_xiuning.pb.txt";
+
+        private String template = TEMPLATE_AH2;
+        private String variant = VARIANT_AH2;
         private String font = "classpath:/fonts/msyh.ttf";
         private String wardReportFont = "classpath:/fonts/msyh.ttf";
         private int generationLockStaleMinutes = 30;
 
         public String getTemplate() {
-            return StrUtils.isBlank(template) ? "classpath:/config/pbtxt/report_template_ah2.pb.txt" : template;
+            return StrUtils.isBlank(template) ? TEMPLATE_AH2 : template.trim();
+        }
+
+        public String getVariant() {
+            return StrUtils.isBlank(variant) ? VARIANT_AH2 : variant.trim().toLowerCase();
         }
 
         public String getFont() {

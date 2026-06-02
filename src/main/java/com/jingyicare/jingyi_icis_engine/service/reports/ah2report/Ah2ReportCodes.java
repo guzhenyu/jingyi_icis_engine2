@@ -1,0 +1,179 @@
+package com.jingyicare.jingyi_icis_engine.service.reports.ah2report;
+
+public final class Ah2ReportCodes {
+    private Ah2ReportCodes() {}
+
+    // 观察项编码
+    public static final String MP_CONSCIOUSNESS = "consciousness";  // 意识 string
+    public static final String MP_LEFT_PUPIL_SIZE = "left_pupil_size";  // 左瞳大小 
+    public static final String MP_RIGHT_PUPIL_SIZE = "right_pupil_size";  // 右瞳大小
+    public static final String MP_LEFT_PUPIL_REFLEX = "left_pupil_reflex";  // 左瞳反射
+    public static final String MP_RIGHT_PUPIL_REFLEX = "right_pupil_reflex";  // 右瞳反射
+    public static final String MP_TEMPERATURE = "temperature";  // 体温 float
+    public static final String MP_SKIN_TEMPERATURE = "skin_temperature";  // 末梢皮温 float
+    public static final String MP_HEART_RATE = "hr";  // 心率 int
+    public static final String MP_HEART_RHYTHM = "heart_rhythm";  // 心律 string
+    public static final String MP_RESPIRATORY_RATE = "respiratory_rate";  // 呼吸频率 | 呼吸 int
+    public static final String MP_NIBP_S = "nibp_s";  // 无创收缩压 int
+    public static final String MP_NIBP_D = "nibp_d";  // 无创舒张压 int
+    public static final String MP_IBP_S = "ibp_s";  // 有创收缩压 int
+    public static final String MP_IBP_D = "ibp_d";  // 有创舒张压 int
+    public static final String MP_SPO2 = "Spo2";  // 血氧饱和度 | SpO2
+    public static final String MP_CVP = "cvp";  // 中心静脉压 | CVP
+    public static final String MP_ICP = "icp";  // 颅内压 | ICP
+    public static final String MP_BLOOD_GLUCOSE = "blood_glucose";  // 血糖
+    public static final String MP_HOURLY_INTAKE = "hourly_intake";  // 每小时入量 float
+    public static final String MP_ACCU_INTAKE = "MP_ACCU_INTAKE";  // 累计入量 float
+    public static final String MP_HOURLY_OUTPUT = "hourly_output";  // 每小时出量 float
+    public static final String MP_ACCU_OUTPUT = "MP_ACCU_OUTPUT";  // 累计出量 float
+    public static final String MP_URINE_OUTPUT = "urine_output";  // 每小时尿量 float
+    public static final String MP_ACCU_URINE_OUTPUT = "MP_ACCU_URINE_OUTPUT";  // 累计尿量 float
+    public static final String MP_GASTRIC_FLUID_VOLUME = "gastric_fluid_volume";  // 胃液 float
+    public static final String MP_STOOL_VOLUME = "stool_volume";  // 大便量 float
+    public static final String MP_CRRT_UF = "crrt_UF";  // CRRT超滤量 float
+    public static final String MP_OXYGEN_DELIVERY_METHOD = "oxygen_delivery_method";  // 吸氧途径 | 吸氧方式
+    public static final String MP_RESPIRATORY_TUBE_DEPTH = "vent_tube_plant_depth";  // (呼吸机)插管深度
+    public static final String MP_VENT_OXYGEN_CONCENTRATION = "vent_oxygen_concentration";  // 氧浓度
+    public static final String MP_VENT_OXYGEN_FLOW_RATE = "vent_oxygen_flow_rate";  // 氧流量
+    public static final String MP_VENT_CUFF_PRESSURE = "vent_cuff_pressure";  // 气囊压力
+    public static final String MP_RESPIRATORY_MODE = "vent_respiratory_mode";  // 呼吸模式 | 机械通气/模式
+    public static final String MP_RESPIRATORY_RATE_VENT = "vent_respiratory_rate";  // 呼吸频率 | 机械通气/频率
+    public static final String MP_SET_TIDAL_VOLUME = "vent_set_tidal_volume";  // sVt | 机械通气/VT(set)
+    public static final String MP_FIO2 = "vent_fio2";  // FiO2 | 机械通气/FiO2
+    public static final String MP_PS = "vent_PS";  // PS | 机械通气/PS
+    public static final String MP_PEEP = "vent_PEEP";  // PEEP | 机械通气/PEEP  （测量的呼气末正压 - Positive End-Expiratory Pressure）
+    public static final String MP_LEFT_BREATH_SOUNDS = "left_breath_sounds";  // 左呼吸音  | 机械通气/呼吸音
+    public static final String MP_RIGHT_BREATH_SOUNDS = "right_breath_sounds";  // 右呼吸音 | 机械通气/呼吸音
+    public static final String MP_AIRWAY_HUMIDIFICATION = "airway_humidification";  // 气道湿化 | 气道温湿化
+    public static final String MP_ATOMIZATION = "atomization";  // 雾化
+    public static final String MP_SPUTUM_AMOUNT = "sputum_amount";  // 痰量
+    public static final String MP_SPUTUM_COLOR = "sputum_color";  // 痰颜色  
+    public static final String MP_SUCTION_COUNT = "suction_count";  // 吸痰次数
+    public static final String MP_BED_BATHING = "bed_bathing";  // 床上擦洗 | 床上擦浴
+    public static final String MP_PERINEAL_CARE = "perineal_care";  // 会阴护理
+    public static final String MP_ORAL_CARE = "oral_care";  // 口腔护理
+    public static final String MP_TRACHEOSTOMY_CARE = "tracheostomy_care";  // 气切护理
+    public static final String MP_SKIN_CARE = "skin_care";  // 皮肤护理
+    public static final String MP_WASH_HAIR = "washing_hair";  // 洗头
+    public static final String MP_PULMONARY_PHYSIOTHERAPY = "pulmonary_physiotherapy";  // 肺部理疗
+    public static final String MP_LIMB_PNEUMATIC_THERAPY = "limb_pneumatic_therapy";  // 肢体气压治疗
+    public static final String MP_RESTRAINT = "restraint";  // 约束
+    public static final String MP_BODY_POSITION = "body_position";  // 体位
+
+    // 护理评分编码
+    public static final String PS_BRADEN = "braden";
+    public static final String PS_MORSE = "morse";
+    public static final String PS_AODLS = "activities_of_daily_living_assessment";
+    public static final String PS_VTE_CAPRINI = "ah2vte";
+    public static final String PS_CATHETER_SLIPPAGE = "catheter_slippage";
+    public static final String PS_RASS = "rass";
+    public static final String PS_FRS_V2 = "frs_v2";
+
+    // 血气编码
+    public static final String BGA_PH = "bga_ph";  // 血气：PH
+    public static final String BGA_PCO2 = "bga_pco2";  // 血气：PCO2
+    public static final String BGA_PO2 = "bga_po2";  // 血气：PO2
+    public static final String BGA_PO2_FIO2 = "bga_pao2/fio2";  // 血气：Po2/FiO2
+    public static final String BGA_BE = "bga_be";  // 血气：BE
+    public static final String BGA_HCO3 = "bga_hco3-";  // 血气：HCO3-
+    public static final String BGA_SPO2 = "bga_o2sat";  // 血气：SpO2
+    public static final String BGA_K = "bga_k+";  // 血气：K+
+    public static final String BGA_NA = "bga_na+";  // 血气：Na+
+    public static final String BGA_CL = "bga_cl-";  // 血气：Cl-
+    public static final String BGA_LAC = "bga_lac";  // 血气：Lac
+
+    // 管道
+    public static final String TUBE_DEPTH_STATUS_NAME = "置入长度";
+    public static final String TUBE_STATE_STATUS_NAME = "管道状态";
+    public static final String TUBE_STATE_NORMAL = "正常";
+    public static final String TUBE_STATE_ABNORMAL = "异常";
+    public static final String TUBE_STATE_DRESSING_CHANGE = "换药";
+
+    // 报表参数代码
+    public static final String AH2P_MMDD = "AH2P_MMDD";  // 月日
+    public static final String AH2P_HHMM = "AH2P_HHMM";  // 时分
+    
+    public static final String AH2P_CONSCIOUSNESS = "AH2P_CONSCIOUSNESS";  // 意识
+    public static final String AH2P_LEFT_PUPIL_SIZE = "AH2P_LEFT_PUPIL_SIZE";  // 左瞳大小
+    public static final String AH2P_RIGHT_PUPIL_SIZE = "AH2P_RIGHT_PUPIL_SIZE";  // 右瞳大小
+    public static final String AH2P_LEFT_PUPIL_REFLEX = "AH2P_LEFT_PUPIL_REFLEX";  // 左瞳反射
+    public static final String AH2P_RIGHT_PUPIL_REFLEX = "AH2P_RIGHT_PUPIL_REFLEX";  // 右瞳反射
+    public static final String AH2P_TEMPERATURE = "AH2P_TEMPERATURE";  // 体温
+    public static final String AH2P_SKIN_TEMPERATURE = "AH2P_SKIN_TEMPERATURE";  // 末梢皮温
+    public static final String AH2P_HEART_RATE = "AH2P_HEART_RATE";  // 心率
+    public static final String AH2P_HEART_RHYTHM = "AH2P_HEART_RHYTHM";  // 心律
+    public static final String AH2P_RESPIRATORY_RATE = "AH2P_RESPIRATORY_RATE";  // 呼吸频率
+    public static final String AH2P_NIBP_IBP = "AH2P_NIBP_IBP";  // 无创/有创血压, 无创优先
+    public static final String AH2P_SPO2 = "AH2P_SPO2";  // SpO2
+    public static final String AH2P_CVP = "AH2P_CVP";  // CVP
+    public static final String AH2P_ICP = "AH2P_ICP";  // ICP
+    public static final String AH2P_BLOOD_GLUCOSE = "AH2P_BLOOD_GLUCOSE";  // 血糖
+    public static final String AH2P_MED_EXEC = "AH2P_MED_EXEC";  // 执行用药
+    public static final String AH2P_MEDICATION_ML = "AH2P_MEDICATION_ML";  // 液体量
+    public static final String AH2P_NASOGASTRIC = "AH2P_NASOGASTRIC";  // 饮食/鼻饲
+    public static final String AH2P_NASOGASTRIC_ML = "AH2P_NASOGASTRIC_ML";  // 饮食/鼻饲量
+    public static final String AH2P_HOURLY_INTAKE = "AH2P_HOURLY_INTAKE";  // 每小时入量
+    public static final String AH2P_TOTAL_INTAKE = "AH2P_TOTAL_INTAKE";  // 总量
+    public static final String AH2P_URINE_OUTPUT = "AH2P_URINE_OUTPUT";  // 每小时尿量
+    public static final String AH2P_ACCUMULATED_URINE_OUTPUT = "AH2P_ACCUMULATED_URINE_OUTPUT";  // 累计尿量
+    public static final String AH2P_GASTRIC_FLUID_VOLUME = "AH2P_GASTRIC_FLUID_VOLUME";  // 胃液
+    public static final String AH2P_STOOL_VOLUME = "AH2P_STOOL_VOLUME";  // 大便量
+    public static final String AH2P_OTHER_OUTPUT_NAME = "AH2P_OTHER_OUTPUT_NAME";  // 其他名称
+    public static final String AH2P_OTHER_OUTPUT_VOLUME = "AH2P_OTHER_OUTPUT_VOLUME";  // 其他量
+    public static final String AH2P_DRAINAGE_FLUID_COLOR = "AH2P_DRAINAGE_FLUID_COLOR";  // 引流液颜色
+    public static final String AH2P_CRRT_UF = "AH2P_CRRT_UF";  // 超滤量
+    public static final String AH2P_ACCUMULATED_OUTPUT = "AH2P_ACCUMULATED_OUTPUT";  // 总量
+    public static final String AH2P_NURSING_RECORD = "AH2P_NURSING_RECORD";  // 病情观察及处理
+    public static final String AH2P_SIGNATURE = "AH2P_SIGNATURE";  // 签名
+
+    public static final String AH2P_OXYGEN_DELIVERY_METHOD = "AH2P_OXYGEN_DELIVERY_METHOD";  // 吸氧方式
+    public static final String AH2P_RESPIRATORY_TUBE_DEPTH = "AH2P_RESPIRATORY_TUBE_DEPTH";  // 插管深度
+    public static final String AH2P_OXYGEN_CONCENTRATION_FLOW = "AH2P_OXYGEN_CONCENTRATION_FLOW";  // 氧浓度/氧流量
+    public static final String AH2P_VENT_CUFF_PRESSURE = "AH2P_VENT_CUFF_PRESSURE";  // 气囊压力
+    public static final String AH2P_RESPIRATORY_MODE = "AH2P_RESPIRATORY_MODE";  // 呼吸模式
+    public static final String AH2P_RESPIRATORY_RATE_VENT = "AH2P_RESPIRATORY_RATE_VENT";  // 呼吸频率
+    public static final String AH2P_SET_TIDAL_VOLUME = "AH2P_SET_TIDAL_VOLUME";  // VT(set)
+    public static final String AH2P_FIO2 = "AH2P_FIO2";  // FiO2
+    public static final String AH2P_PS = "AH2P_PS";  // PS
+    public static final String AH2P_PEEP = "AH2P_PEEP";  // PEEP
+    public static final String AH2P_LEFT_BREATH_SOUNDS = "AH2P_LEFT_BREATH_SOUNDS";  // 左呼吸音
+    public static final String AH2P_RIGHT_BREATH_SOUNDS = "AH2P_RIGHT_BREATH_SOUNDS";  // 右呼吸音
+    public static final String AH2P_AIRWAY_HUMIDIFICATION = "AH2P_AIRWAY_HUMIDIFICATION";  // 气道湿化
+    public static final String AH2P_ATOMIZATION = "AH2P_ATOMIZATION";  // 雾化
+    public static final String AH2P_SPUTUM_AMOUNT = "AH2P_SPUTUM_AMOUNT";  // 痰量
+    public static final String AH2P_SPUTUM_COLOR = "AH2P_SPUTUM_COLOR";  // 痰颜色
+    public static final String AH2P_SUCTION_COUNT = "AH2P_SUCTION_COUNT";  // 吸痰次数
+    public static final String AH2P_BRADEN = "AH2P_BRADEN";  // Braden评分
+    public static final String AH2P_MORSE = "AH2P_MORSE";  // Morse跌倒评估
+    public static final String AH2P_AODLS = "AH2P_AODLS";  // 自理评估
+    public static final String AH2P_VTE_CAPRINI = "AH2P_VTE_CAPRINI";  // VTE Caprini 血栓风险评估
+    public static final String AH2P_CATHETER_SLIPPAGE = "AH2P_CATHETER_SLIPPAGE";  // 导管风险评估
+    public static final String AH2P_RASS = "AH2P_RASS";  // RASS镇静评估
+    public static final String AH2P_CPOT_NRS = "AH2P_CPOT_NRS";  // CPOT/NRS
+    public static final String AH2P_TUBE_NAME = "AH2P_TUBE_NAME";  // 管道名称
+    public static final String AH2P_TUBE_DEPTH = "AH2P_TUBE_DEPTH";  // 置管深度
+    public static final String AH2P_TUBE_DRESSING_CHANGE = "AH2P_TUBE_DRESSING_CHANGE";  // 管道维护：换药
+    public static final String AH2P_TUBE_NORMAL = "AH2P_TUBE_NORMAL";  // 管道维护：正常
+    public static final String AH2P_TUBE_ABNORMAL = "AH2P_TUBE_ABNORMAL";  // 管道维护：异常
+    public static final String AH2P_BED_BATHING = "AH2P_BED_BATHING";  // 床上擦浴
+    public static final String AH2P_PERINEAL_CARE = "AH2P_PERINEAL_CARE";  // 会阴护理
+    public static final String AH2P_ORAL_CARE = "AH2P_ORAL_CARE";  // 口腔护理
+    public static final String AH2P_TRACHEOSTOMY_CARE = "AH2P_TRACHEOSTOMY_CARE";  // 气切护理
+    public static final String AH2P_SKIN_CARE = "AH2P_SKIN_CARE";  // 皮肤护理
+    public static final String AH2P_WASH_HAIR = "AH2P_WASH_HAIR";  // 洗头
+    public static final String AH2P_PULMONARY_PHYSIOTHERAPY = "AH2P_PULMONARY_PHYSIOTHERAPY";  // 肺部理疗
+    public static final String AH2P_LIMB_PNEUMATIC_THERAPY = "AH2P_LIMB_PNEUMATIC_THERAPY";  // 肢体气压理疗
+    public static final String AH2P_RESTRAINT = "AH2P_RESTRAINT";  // 约束
+    public static final String AH2P_BODY_POSITION = "AH2P_BODY_POSITION";  // 体位
+    public static final String AH2P_BGA_PH = "AH2P_BGA_PH";  // 血气：PH
+    public static final String AH2P_BGA_PCO2 = "AH2P_BGA_PCO2";  // 血气：PCO2
+    public static final String AH2P_BGA_PO2 = "AH2P_BGA_PO2";  // 血气：PO2
+    public static final String AH2P_BGA_PO2_FIO2 = "AH2P_BGA_PO2_FIO2";  // 血气：Po2/FiO2
+    public static final String AH2P_BGA_BE = "AH2P_BGA_BE";  // 血气：BE
+    public static final String AH2P_BGA_HCO3 = "AH2P_BGA_HCO3";  // 血气：HCO3-
+    public static final String AH2P_BGA_SPO2 = "AH2P_BGA_SPO2";  // 血气：SpO2
+    public static final String AH2P_BGA_K = "AH2P_BGA_K";  // 血气：K+
+    public static final String AH2P_BGA_NA = "AH2P_BGA_NA";  // 血气：Na+
+    public static final String AH2P_BGA_CL = "AH2P_BGA_CL";  // 血气：Cl-
+    public static final String AH2P_BGA_LAC = "AH2P_BGA_LAC";  // 血气：Lac
+}

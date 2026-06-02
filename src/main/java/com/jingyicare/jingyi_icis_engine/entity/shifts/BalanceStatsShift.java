@@ -26,6 +26,9 @@ public class BalanceStatsShift {
     @Column(name = "start_hour", nullable = false)
     private Integer startHour;
 
+    @Column(name = "half_day_shift_hours")
+    private Integer halfDayShiftHours;
+
     @Column(name = "mon_start_hour", nullable = false)
     private Integer monStartHour;
 

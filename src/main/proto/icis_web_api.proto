@@ -432,6 +432,7 @@ message BalanceStatsShiftPB {
     int32 start_hour = 3; // 每天出入量平衡量起止时间对应的开始小时
     optional int32 mon_start_hour = 5; // 每天观察项起止时间对应的开始小时
     string effective_time_iso8601 = 4;
+    optional int32 half_day_shift_hours = 6; // 半日小计相对start_hour的小时偏移，1-23；为空或非法时默认12
 }
 
 message GetDeptBalanceStatsShiftsResp {

@@ -173,13 +173,17 @@ public class ConfigShiftService {
     }
 
     private BalanceStatsShiftPB toBalanceStatsShiftPB(BalanceStatsShift balanceStatsShift) {
-        return BalanceStatsShiftPB.newBuilder()
+        BalanceStatsShiftPB.Builder builder = BalanceStatsShiftPB.newBuilder()
             .setId(balanceStatsShift.getId())
             .setDeptId(balanceStatsShift.getDeptId())
             .setStartHour(balanceStatsShift.getStartHour())
             .setMonStartHour(getMonStartHourOrDefault(balanceStatsShift))
-            .setEffectiveTimeIso8601(TimeUtils.toIso8601String(balanceStatsShift.getEffectiveTime(), ZONE_ID))
-            .build();
+            .setEffectiveTimeIso8601(TimeUtils.toIso8601String(balanceStatsShift.getEffectiveTime(), ZONE_ID));
+        Integer halfDayShiftHours = getValidHalfDayShiftHoursOrNull(balanceStatsShift.getHalfDayShiftHours());
+        if (halfDayShiftHours != null) {
+            builder.setHalfDayShiftHours(halfDayShiftHours);
+        }
+        return builder.build();
     }
 
     private Integer getMonStartHourOrDefault(BalanceStatsShift balanceStatsShift) {
@@ -192,6 +196,22 @@ public class ConfigShiftService {
         return balanceStatsShift.hasMonStartHour()
             ? balanceStatsShift.getMonStartHour()
             : balanceStatsShift.getStartHour();
+    }
+
+    private Integer getValidHalfDayShiftHoursOrNull(Integer halfDayShiftHours) {
+        return halfDayShiftHours != null && halfDayShiftHours > 0 && halfDayShiftHours < 24
+            ? halfDayShiftHours
+            : null;
+    }
+
+    private Integer getHalfDayShiftHoursOrNull(BalanceStatsShiftPB balanceStatsShift) {
+        if (balanceStatsShift == null || !balanceStatsShift.hasHalfDayShiftHours()) return null;
+        return getValidHalfDayShiftHoursOrNull(balanceStatsShift.getHalfDayShiftHours());
+    }
+
+    private boolean hasInvalidHalfDayShiftHours(BalanceStatsShiftPB balanceStatsShift) {
+        return balanceStatsShift != null && balanceStatsShift.hasHalfDayShiftHours() &&
+            getValidHalfDayShiftHoursOrNull(balanceStatsShift.getHalfDayShiftHours()) == null;
     }
 
     @Transactional
@@ -228,6 +248,12 @@ public class ConfigShiftService {
                 .setRt(protoService.getReturnCode(StatusCode.INVALID_TIME_FORMAT))
                 .build();
         }
+        if (hasInvalidHalfDayShiftHours(req.getShift())) {
+            log.error("Invalid half_day_shift_hours: {}", req.getShift().getHalfDayShiftHours());
+            return AddDeptBalanceStatsShiftResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.INVALID_PARAM_VALUE))
+                .build();
+        }
         BalanceStatsShift balanceStatsShift = balanceStatsShiftRepo
             .findByDeptIdAndEffectiveTimeAndIsDeletedFalse(req.getShift().getDeptId(), effectiveTime)
             .orElse(null);
@@ -242,6 +268,7 @@ public class ConfigShiftService {
         balanceStatsShift = BalanceStatsShift.builder()
             .deptId(req.getShift().getDeptId())
             .startHour(req.getShift().getStartHour())
+            .halfDayShiftHours(getHalfDayShiftHoursOrNull(req.getShift()))
             .monStartHour(getMonStartHourOrDefault(req.getShift()))
             .effectiveTime(effectiveTime)
             .isDeleted(false)
@@ -289,6 +316,12 @@ public class ConfigShiftService {
                 .setRt(protoService.getReturnCode(StatusCode.INVALID_TIME_FORMAT))
                 .build();
         }
+        if (hasInvalidHalfDayShiftHours(req.getShift())) {
+            log.error("Invalid half_day_shift_hours: {}", req.getShift().getHalfDayShiftHours());
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.INVALID_PARAM_VALUE))
+                .build();
+        }
 
         // 查找现有的 BalanceStatsShift 实体
         BalanceStatsShift balanceStatsShift = balanceStatsShiftRepo
@@ -313,6 +346,7 @@ public class ConfigShiftService {
         }
         // 更新 BalanceStatsShift 实体
         balanceStatsShift.setStartHour(req.getShift().getStartHour());
+        balanceStatsShift.setHalfDayShiftHours(getHalfDayShiftHoursOrNull(req.getShift()));
         balanceStatsShift.setMonStartHour(getMonStartHourOrDefault(req.getShift()));
         balanceStatsShift.setEffectiveTime(effectiveTime);
         balanceStatsShift.setModifiedAt(TimeUtils.getNowUtc());
