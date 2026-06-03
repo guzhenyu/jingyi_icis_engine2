@@ -466,13 +466,12 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         List<TubeEntry> entries = new ArrayList<>();
         for (TubeStatusGroup group : groupMap.values()) {
             String tubeName = trim(group.tubeName);
-            String drainageName = DRAINAGE_TUBE_NAME_MAP.get(tubeName);
-            if (!StrUtils.isBlank(drainageName)) {
+            if (DRAINAGE_TUBE_NAMES.contains(tubeName)) {
                 TubeEntry entry = new TubeEntry(TubeCategory.DRAINAGE, group.tubeRecordId, group.minute);
-                entry.nameCode = drainageName;
+                entry.nameCode = tubeName;
                 entry.depth = getStatus(group, TUBE_DEPTH_STATUS_NAME);
-                entry.colorCode = mapStrict(DRAINAGE_COLOR_MAP, getStatus(group, "颜色"));
-                entry.nursingCode = mapStrict(TUBE_NURSING_MAP, getStatus(group, "护理"));
+                entry.colorCode = getStatus(group, "颜色");
+                entry.nursingCode = getStatus(group, "护理");
                 entries.add(entry);
                 continue;
             }
@@ -482,7 +481,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
                 TubeEntry entry = new TubeEntry(TubeCategory.VASCULAR, group.tubeRecordId, group.minute);
                 entry.nameCode = vascularName;
                 entry.depth = getStatus(group, TUBE_DEPTH_STATUS_NAME);
-                entry.nursingCode = mapStrict(TUBE_NURSING_MAP, getStatus(group, "护理"));
+                entry.nursingCode = getStatus(group, "护理");
                 entries.add(entry);
             }
         }
@@ -508,8 +507,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
                 .filter(pta -> pta != null && !StrUtils.isBlank(pta.getValue()))
                 .filter(pta -> {
                     TubeTypeAttribute meta = attrMetaMap.get(pta.getTubeAttrId());
-                    return meta != null && "身体部位".equals(trim(meta.getName())) &&
-                        CENTRAL_VENOUS_BODY_PART_MAP.containsKey(trim(pta.getValue()));
+                    return meta != null && "身体部位".equals(trim(meta.getName()));
                 })
                 .min(Comparator
                     .comparing((PatientTubeAttr pta) -> {
@@ -519,7 +517,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
                     .thenComparing(PatientTubeAttr::getId, Comparator.nullsLast(Long::compareTo)))
                 .orElse(null);
             if (selected != null) {
-                result.put(entry.getKey(), CENTRAL_VENOUS_BODY_PART_MAP.get(trim(selected.getValue())));
+                result.put(entry.getKey(), trim(selected.getValue()));
             }
         }
         return result;
@@ -792,11 +790,6 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         return mapped;
     }
 
-    private String mapStrict(Map<String, String> valueMap, String raw) {
-        if (StrUtils.isBlank(raw)) return "";
-        return valueMap.getOrDefault(raw.trim(), "");
-    }
-
     private String getStatus(TubeStatusGroup group, String statusName) {
         TubeStatusValue value = group.statusMap.get(statusName);
         return value == null ? "" : value.value;
@@ -1022,18 +1015,8 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
     private static final Map<String, String> VENT_MODE_MAP = Map.of(
         "V-C", "1", "P-C", "2", "V-SIMV", "3", "P-SIMV", "4", "PSV", "5", "BIRAP", "6", "BiPAP", "6"
     );
-    private static final Map<String, String> DRAINAGE_TUBE_NAME_MAP = Map.of(
-        "导尿管", "1", "胃管", "2", "头部引流管", "3", "胸管", "4", "腹部引流管", "5", "切口管", "6", "空肠管", "7"
-    );
-    private static final Map<String, String> DRAINAGE_COLOR_MAP = Map.of(
-        "血性", "1", "褐色", "2", "黄色", "3", "酱油色", "4", "浓茶色", "5", "淡黄色", "6", "深黄色", "7"
-    );
-    private static final Map<String, String> TUBE_NURSING_MAP = Map.of(
-        "通畅/妥善固定", "1a", "通畅/教育告知", "1b", "通畅/挤压", "1c",
-        "不畅/冲洗", "2a", "不畅/拔管", "2b", "不畅/更换", "2c"
-    );
-    private static final Map<String, String> CENTRAL_VENOUS_BODY_PART_MAP = Map.of(
-        "颈内", "1a", "锁骨下", "1b", "股静脉", "1c"
+    private static final Set<String> DRAINAGE_TUBE_NAMES = Set.of(
+        "导尿管", "胃管", "头部引流管", "胸管", "腹部引流管", "切口管", "空肠管"
     );
     private static final Map<String, String> RESTRAINT_MAP = Map.of(
         "上肢", "1", "下肢", "2", "上下肢", "3", "胸部", "4"

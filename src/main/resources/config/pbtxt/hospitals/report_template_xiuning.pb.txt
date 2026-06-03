@@ -238,8 +238,7 @@ page {
                     height_rows: 1
                 }
                 top_level_cell {
-                    content: "病情变化及"
-                    content: "护理措施"
+                    content: "病情变化及护理措施"
                     param_code: "AH2P_NURSING_RECORD"
                     width: 274
                 }
@@ -589,24 +588,23 @@ page {
                         children {
                             content: "名称"
                             param_code: "XN_DRAINAGE_TUBE_NAME"
-                            width: 15
+                            width: 75
                         }
                         children {
                             content: "刻度"
                             param_code: "XN_DRAINAGE_TUBE_DEPTH"
-                            width: 15
+                            width: 45
                         }
                         children {
-                            content: "引流液"
-                            content: "颜色"
+                            content: "引流液颜色"
                             param_code: "XN_DRAINAGE_TUBE_COLOR"
-                            width: 15
+                            width: 45
                         }
                         children {
                             content: "护理"
                             param_code: "XN_DRAINAGE_TUBE_NURSING"
                         }
-                        width: 58
+                        width: 215
                         height_rows: 1
                     }
                     children {
@@ -614,21 +612,21 @@ page {
                         children {
                             content: "名称"
                             param_code: "XN_VASCULAR_TUBE_NAME"
-                            width: 15
+                            width: 75
                         }
                         children {
                             content: "刻度"
                             param_code: "XN_VASCULAR_TUBE_DEPTH"
-                            width: 15
+                            width: 45
                         }
                         children {
                             content: "护理"
                             param_code: "XN_VASCULAR_TUBE_NURSING"
                         }
-                        width: 42
+                        width: 170
                         height_rows: 1
                     }
-                    width: 100
+                    width: 385
                     height_rows: 1
                 }
                 top_level_cell {
@@ -636,7 +634,7 @@ page {
                     children {
                         content: "项目"
                         param_code: "XN_INTAKE_ITEM"
-                        width: 543
+                        width: 258
                     }
                     children {
                         content: "用法"
@@ -647,7 +645,7 @@ page {
                         content: "量"
                         param_code: "XN_INTAKE_AMOUNT"
                     }
-                    width: 578
+                    width: 293
                     height_rows: 1
                 }
                 top_level_cell {
