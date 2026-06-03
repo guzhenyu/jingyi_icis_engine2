@@ -103,8 +103,7 @@ page {
                         width: 24
                     }
                     children {
-                        content: "血氧"
-                        content: "饱和度"
+                        content: "血氧饱和度%"
                         param_code: "XN_SPO2"
                         width: 14
                     }

@@ -244,7 +244,7 @@ Ah2HospitalReportAdapter
 3. 构建表头患者信息。
 4. 收集并转换当前医院的行数据。
 5. 提供观察项值映射。
-6. 提供管道分类和管道状态映射。
+6. 提供管道分类和管道状态展示规则。
 7. 提供汇总行时间规则。
 8. 提供页面和分页约束。
 
@@ -270,7 +270,7 @@ Ah2HospitalReportAdapter
 3. 表格列结构。
 4. 每列绑定的数据源。
 5. 观察项枚举映射。
-6. 管道分类和状态映射。
+6. 管道分类和状态展示规则。
 7. 半日汇总行偏移。
 8. 行合并和分页规则。
 
@@ -324,7 +324,7 @@ ICU 护 理 记 录 单
 2. 行高固定。
 3. 超出 28 行时分页，不截断临床记录。
 4. 后续页重复页眉和表头。
-5. 入量和出量列本次不实现取数，但模板中仍需要保留列位。
+5. 入量和出量列按本文“入量和出量”章节取数。
 
 ### 行生成、合并和分页
 
@@ -334,15 +334,16 @@ ICU 护 理 记 录 单
 | --- | --- |
 | `patient_monitoring_records` | `effective_time` |
 | `patient_tube_status_records` | `recorded_at` |
+| 每 4 小时管道统计 | 由 `balance_stats_shifts.start_hour` 推导出的统计时刻 |
 | `nursing_records` | `effective_time` |
 
 规则：
 
 1. 同一分钟内的观察项、管道状态和护理记录合并到同一逻辑时间点。
-2. 若同一分钟有多条同类记录，按稳定顺序拆成多行。
-3. 单个时间点存在多条引流管或动静脉置管 entry 时，每个 entry 一行。
+2. 若同一分钟有多条同类记录，除本文明确要求 `/` 合并的管道字段外，按稳定顺序拆成多行。
+3. 单个时间点存在多条引流管或动静脉置管 entry 时，不按管道条数拆行；同类管道字段按 `/` 合并到同一逻辑行。
 4. 同一时间的基础观察项只在第一行展示。
-5. 拆分出的后续行只填管道相关列、护理记录延续内容和必要签名。
+5. 拆分出的后续行只填护理记录延续内容和必要签名；管道字段优先在对应统计时刻的首行展示。
 6. 纯观察项或纯管道拆分行没有护理记录时，签名留空。
 7. 每页最多 28 行；超过 28 行后分页。
 8. 护理记录长文本折行占用的续行也计入 28 行。
@@ -385,20 +386,20 @@ ICU 护 理 记 录 单
 | 23 | 机械通气 | 氧浓度% | `vent_fio2` |
 | 24 | 机械通气 | PEEP/PSV cmH2O | `vent_PEEP` / `vent_PS` |
 | 25 | 机械通气 | 气囊压cmH2O | `vent_cuff_pressure` |
-| 26 | 引流管 | 名称 | 管道记录，映射 |
+| 26 | 引流管 | 名称 | 管道记录，原文；多管道用 `/` 合并 |
 | 27 | 引流管 | 刻度 | 管道状态 `置入长度` |
-| 28 | 引流管 | 引流液颜色 | 管道状态 `颜色`，映射 |
-| 29 | 引流管 | 护理 | 管道状态 `护理`，映射 |
-| 30 | 动静脉置管 | 名称 | 管道记录和属性，映射 |
+| 28 | 引流管 | 引流液颜色 | 管道状态 `颜色`，原文 |
+| 29 | 引流管 | 护理 | 管道状态 `护理`，原文 |
+| 30 | 动静脉置管 | 名称 | 管道记录和属性，原文；多管道用 `/` 合并 |
 | 31 | 动静脉置管 | 刻度 | 管道状态 `置入长度` |
-| 32 | 动静脉置管 | 护理 | 管道状态 `护理`，映射 |
+| 32 | 动静脉置管 | 护理 | 管道状态 `护理`，原文 |
 | 33 | 血糖 | 血糖 | `blood_glucose` |
-| 34 | 入量 | 项目 | 本次不实现 |
-| 35 | 入量 | 用法 | 本次不实现 |
-| 36 | 入量 | 量 | 本次不实现 |
-| 37 | 出量 | 项目 | 本次不实现 |
-| 38 | 出量 | 用法 | 本次不实现 |
-| 39 | 出量 | 量 | 本次不实现 |
+| 34 | 入量 | 项目 | 执行用药项目，参考 `AH2P_MED_EXEC` |
+| 35 | 入量 | 用法 | 根据 `administration_routes.intake_type_id` 归类 |
+| 36 | 入量 | 量 | `MP_HOURLY_INTAKE` 统计值 |
+| 37 | 出量 | 项目 | 出量参数项目，多个用 `+` 连接 |
+| 38 | 出量 | 用法 | 性状，多个用 `+` 连接 |
+| 39 | 出量 | 量 | `MP_HOURLY_OUTPUT` 或大便量兜底 |
 | 40 | 护理 | 吸痰 | `suction` |
 | 41 | 护理 | 约束部位/约束情况 | `restraint` / `restraint_status` |
 | 42 | 护理 | 扣背/振动 | `back_percussion` |
@@ -617,59 +618,62 @@ List<(ptr.id, ptr.tube_name, recorded_at, Map<tts.name, ptsr.value>)>
 2. 当前 schema 未提供 `ptsr.modified_at` 时，按 `ptsr.id` 最新取值。
 3. 发生重复时记录 `log.warn`，便于回溯配置或数据问题。
 
-名称映射：
+引流管名称范围：
 
-| `ptr.tube_name` | 输出 |
-| --- | --- |
-| 导尿管 | 1 |
-| 胃管 | 2 |
-| 头部引流管 | 3 |
-| 胸管 | 4 |
-| 腹部引流管 | 5 |
-| 切口管 | 6 |
-| 空肠管 | 7 |
+| `ptr.tube_name` |
+| --- |
+| 导尿管 |
+| 胃管 |
+| 头部引流管 |
+| 胸管 |
+| 腹部引流管 |
+| 切口管 |
+| 空肠管 |
 
 要求：
 
-1. `trim` 后映射不到的 entry 不应出现在“引流管”列中。
-2. 刻度取 `tts.name == "置入长度"` 的 `ptsr.value`。
-3. 引流液颜色取 `tts.name == "颜色"` 的 `ptsr.value`。
-4. 护理取 `tts.name == "护理"` 的 `ptsr.value`。
+1. `trim` 后不在“引流管名称范围”中的 entry 不应出现在“引流管”列中。
+2. 名称直接显示 `ptr.tube_name` 原文，不再映射为编码。
+3. 刻度取 `tts.name == "置入长度"` 的 `ptsr.value` 原文。
+4. 引流液颜色取 `tts.name == "颜色"` 的 `ptsr.value` 原文，不再映射为编码。
+5. 护理取 `tts.name == "护理"` 的 `ptsr.value` 原文，不再映射为编码。
 
-引流液颜色映射：
+同一时刻多引流管合并规则：
 
-| 原值 | 输出 |
-| --- | --- |
-| 血性 | 1 |
-| 褐色 | 2 |
-| 黄色 | 3 |
+1. 同一个统计时刻如果存在多个有效引流管，`名称`、`刻度`、`引流液颜色`、`护理` 四列分别用 `/` 连接。
+2. 连接顺序需要稳定，建议优先按 `ptr.id` 升序；若补充了出量推导出的管道，按本文“出量”章节的合并规则追加。
+3. 某个管道某个字段为空时保留空位，确保四列的第 N 段仍对应同一根管道。
+4. 示例：同一时刻存在 `导尿管`、`胸管`、`胃管` 三根引流管，刻度分别为空、`20`、空，颜色分别为 `黄色`、空、空，护理分别为空、空、`通畅`，则：
+   - 名称：`导尿管/胸管/胃管`
+   - 刻度：` /20/ `
+   - 引流液颜色：`黄色/ / `
+   - 护理：` / /通畅`
 
-护理映射：
+每 4 小时管道统计规则：
 
-| 原值 | 输出 |
-| --- | --- |
-| 通畅/妥善固定 | 1a |
-| 通畅/教育告知 | 1b |
-| 通畅/挤压 | 1c |
-| 不畅/冲洗 | 2a |
-| 不畅/拔管 | 2b |
-| 不畅/更换 | 2c |
+1. 从 `balance_stats_shifts.start_hour` 开始，每 4 小时统计一次管道情况。
+2. 例如 `start_hour = 7`，则一个 24 小时班次内统计时刻为 `7:00`、`11:00`、`15:00`、`19:00`、`23:00`、次日 `3:00`。
+3. 给定统计时刻 `t`，统计窗口为 `[t - 4 hours, t)`。
+4. 满足 `patient_tube_records.inserted_at <= t < patient_tube_records.removed_at` 的管道进入统计；`removed_at is null` 视为无限大。
+5. 如果统计时刻没有任何有效管道，则跳过该管道统计行。
+6. 名称来自有效管道本身；刻度、引流液颜色、护理从 `[t - 4 hours, t)` 内对应管道状态记录中选择离 `t` 最近的一条。
+7. 因窗口右开，离 `t` 最近的一条即该窗口内 `recorded_at < t` 且 `recorded_at` 最大的记录；若同一字段存在同一 `recorded_at` 的多条状态，仍按“同一 entry 中同一个 `tts.name` 多条记录的取值规则”取最新记录。
+8. 若某字段在统计窗口内没有值，则该字段为空，并在 `/` 合并时保留空位。
+9. 多根管道之间的合并规则与“同一时刻多引流管合并规则”一致。
 
 ### 动静脉置管
 
 基础查询语句与“引流管”相同。
 
-名称映射：
+名称显示规则：
 
-| 条件 | 输出 |
+| 条件 | 名称显示 |
 | --- | --- |
-| `ptr.tube_name == "中心静脉导管"` 且属性值为 `颈内` | 1a |
-| `ptr.tube_name == "中心静脉导管"` 且属性值为 `锁骨下` | 1b |
-| `ptr.tube_name == "中心静脉导管"` 且属性值为 `股静脉` | 1c |
-| `ptr.tube_name == "外周静脉针"` | 2 |
-| `ptr.tube_name == "PICC管"` | 3 |
-| `ptr.tube_name == "动脉导管"` | 4 |
-| `ptr.tube_name == "中长导管"` | 5 |
+| `ptr.tube_name == "中心静脉导管"` 且存在有效身体部位属性 | 身体部位属性 `pta.value` 原文 |
+| `ptr.tube_name == "外周静脉针"` | `ptr.tube_name` 原文 |
+| `ptr.tube_name == "PICC管"` | `ptr.tube_name` 原文 |
+| `ptr.tube_name == "动脉导管"` | `ptr.tube_name` 原文 |
+| `ptr.tube_name == "中长导管"` | `ptr.tube_name` 原文 |
 
 中心静脉导管需要额外查询属性：
 
@@ -700,7 +704,7 @@ where ptr.is_deleted = false;
 
 1. 先按 `ptr.id` 取该管道所有有效属性。
 2. 只使用 `tta.name == '身体部位'` 的属性。
-3. `pta.value` 命中 `颈内`、`锁骨下`、`股静脉` 时分别输出 `1a`、`1b`、`1c`。
+3. `pta.value` 直接输出原文，不再映射为 `1a`、`1b`、`1c`。
 4. 如多个属性命中，优先取 `tta.display_order` 最小的一条。
 5. `tta.display_order` 相同或不可用时，取最新修改的一条；当前 `patient_tube_attrs` 无修改时间时，按 `pta.id` 最新取值。
 
@@ -712,12 +716,27 @@ where ptr.is_deleted = false;
 护理逻辑：
 
 1. 与引流管护理相同。
-2. 取 `tts.name == "护理"` 的 `ptsr.value` 并按护理映射输出。
+2. 取 `tts.name == "护理"` 的 `ptsr.value` 原文，不再映射为编码。
 
 无效 entry：
 
 1. 中心静脉导管没有有效部位属性时，该 entry 过滤。
 2. 其他未列出的 `tube_name` 过滤。
+
+同一时刻多动静脉置管合并规则：
+
+1. 同一个统计时刻如果存在多个有效动静脉置管，`名称`、`刻度`、`护理` 三列分别用 `/` 连接。
+2. 连接顺序需要稳定，建议优先按 `ptr.id` 升序。
+3. 某个管道某个字段为空时保留空位，确保三列的第 N 段仍对应同一根管道。
+
+每 4 小时管道统计规则：
+
+1. 与引流管相同，从 `balance_stats_shifts.start_hour` 开始，每 4 小时统计一次。
+2. 给定统计时刻 `t`，统计窗口为 `[t - 4 hours, t)`。
+3. 满足 `patient_tube_records.inserted_at <= t < patient_tube_records.removed_at` 的动静脉置管进入统计；`removed_at is null` 视为无限大。
+4. 如果统计时刻没有任何有效动静脉置管，则跳过该管道统计行。
+5. 名称来自“名称显示规则”；刻度和护理从 `[t - 4 hours, t)` 内对应管道状态记录中选择离 `t` 最近的一条。
+6. 多根管道之间的合并规则与“同一时刻多动静脉置管合并规则”一致。
 
 ### 血糖
 
@@ -727,18 +746,106 @@ where ptr.is_deleted = false;
 
 ### 入量和出量
 
-本次不实现取数：
+#### 出量
 
-| 分组 | 列 |
-| --- | --- |
-| 入量 | 项目 |
-| 入量 | 用法 |
-| 入量 | 量 |
-| 出量 | 项目 |
-| 出量 | 用法 |
-| 出量 | 量 |
+时间和值：
 
-模板中仍保留这些列，数据为空。
+1. 参照 `AnhuiSecondHospitalAh2ReportData` 中 `MP_HOURLY_OUTPUT` 的统计逻辑，找出对应显示时间点 `t` 与 `ml`。
+2. 沿用省二院口径：`hourly_output` 记录的 `effective_time` 表示 `effective_time` 到 `effective_time + 1 hour` 的小时量，报表显示时间点为 `effective_time + 1 hour`。
+3. 下文同一时间点 `t` 的出量项目均使用该 `t` 对应的 `MP_HOURLY_OUTPUT` 值作为“量”，除非明确说明使用 `stool_volume` 兜底。
+
+引流管出量参数：
+
+时间范围内查找 `patient_monitoring_records.monitoring_param_code` 以 `tube_ylg_` 开头的记录，例如导尿管为 `tube_ylg_dng`。
+
+| `monitoring_param_code` | 出量项目 | 对应引流管名称 |
+| --- | --- | --- |
+| `tube_ylg_dng` | 尿量 | 导尿管 |
+| `tube_ylg_wg` | 胃液量 | 胃管 |
+| `tube_ylg_tbylg` | 其他导流液 | 头部引流管 |
+| `tube_ylg_xg` | 其他导流液 | 胸管 |
+| `tube_ylg_fbylg` | 其他导流液 | 腹部引流管 |
+| `tube_ylg_kcg` | 其他导流液 | 空肠管 |
+| `tube_ylg_qkg` | 其他导流液 | 切口管 |
+| 其他 `tube_ylg_*` | 其他导流液 | 无固定映射时不补充引流管名称 |
+
+引流管出量填充规则：
+
+1. `项目`：按上表输出，多个项目用 `+` 连接并去重。
+2. `性状`：为空。
+3. `量`：填同一时间点 `t` 的 `MP_HOURLY_OUTPUT`。
+4. 同时补充“引流管”列：
+   - 名称按上表补充到引流管名称 cell。
+   - 与原管道统计得到的名称重复时不重复写入。
+   - 原管道统计没有的名称追加到 `/` 合并结果末尾。
+   - 刻度、引流液颜色、护理按“引流管”章节的每 4 小时统计取最近值规则获取，并合并到对应 cell。
+   - 若同名管道已经存在，刻度、引流液颜色、护理优先保留原管道统计值；原管道统计值为空时才用出量推导出的最近值补齐。
+
+其他出量参数：
+
+时间范围内查找以下 `patient_monitoring_records.monitoring_param_code`：
+
+```text
+gastric_fluid_volume
+crrt_UF
+stool_volume
+stool_consistency
+```
+
+填充规则：
+
+1. `gastric_fluid_volume` 存在时，`项目` 增加 `胃液量`。
+2. `crrt_UF` 存在时，`项目` 增加 `超滤量`。
+3. `stool_volume` 或 `stool_consistency` 任意存在时，`项目` 增加 `大便`。
+4. `性状`：只填 `stool_consistency` 对应值；如果多个性状值进入同一时间点，用 `+` 连接并去重。
+5. `量`：优先填同一时间点 `t` 的 `MP_HOURLY_OUTPUT`；如果 `MP_HOURLY_OUTPUT` 为空且 `stool_volume` 不为空，填 `stool_volume` 对应值。
+
+出量额外合并规则：
+
+1. `项目` 和 `性状` 均用 `+` 连接。
+2. `量` 只填一个值：`MP_HOURLY_OUTPUT`，或在 `MP_HOURLY_OUTPUT` 为空且 `stool_volume` 不为空时填 `stool_volume`。
+3. `tube_ylg_*`、`gastric_fluid_volume`、`crrt_UF`、`stool_volume`、`stool_consistency` 同一时间点同时存在时，`项目` 合并为一个 `+` 连接字符串。
+
+#### 入量
+
+项目：
+
+1. 参考 `AnhuiSecondHospitalAh2ReportData` 中 `AH2P_MED_EXEC` 的执行用药项目展示逻辑。
+2. 按省二院 `PatientData.medExeList` 的用药执行汇总口径取同一时间点的用药项目。
+3. 同一时间点多个入量用药项目复用省二院 `AH2P_MED_EXEC` 的多行折行展示方式，不使用 `+` 合并。
+4. 休宁“项目”列展示格式为：
+
+```text
+dosageGroupDisplayName(液体总量 xx ml)
+```
+
+5. `dosageGroupDisplayName` 仍参考省二院 `MedReportUtils.generateMedExeRecordSummaryList` 中的 `medConfig.getDosageGroupDisplayName(...)`。
+6. `xx` 取对应有效 `MedicationDosageGroupPB` 中 `MedicationDosagePB.intake_vol_ml` 的合计值；代码中 `MedicationDosageGroupPB.md` 为 repeated，现有液体量计算也按 `md.intake_vol_ml` 求和。
+7. 有效 `MedicationDosageGroupPB` 的选择顺序参考省二院逻辑：优先使用执行记录 `MedicationExecutionRecord.medication_dosage_group`，为空时回退医嘱组 `MedicationOrderGroup.medication_dosage_group`。
+
+用法：
+
+1. 参考省二院 `PatientData.medExeList.admin_code` 的逻辑找到用药执行记录的 `admin_code`。
+2. 每次绘制报表时全局计算一次 `Map<admin_code, intake_type_id>`。
+3. 基础 SQL：
+
+```sql
+select code, intake_type_id
+from administration_routes
+where dept_id = :deptId
+  and is_valid = true;
+```
+
+4. `administration_routes` 必须按当前 `dept_id` 和 `is_valid = true` 过滤；当前表唯一索引为 `(dept_id, code)`，不能直接按全院 `code` 建 map。
+5. `intake_type_id == 1` 或 `intake_type_id == 2` 时，用法填 `静脉`。
+6. `intake_type_id == 3` 时，用法填 `胃肠`。
+7. 其他 `intake_type_id` 或未找到 `admin_code` 时，用法填 `其他`。
+
+量：
+
+1. 参照 `AnhuiSecondHospitalAh2ReportData` 中 `MP_HOURLY_INTAKE` 的统计逻辑。
+2. 沿用省二院口径：`hourly_intake` 记录的 `effective_time` 表示 `effective_time` 到 `effective_time + 1 hour` 的小时量，报表显示时间点为 `effective_time + 1 hour`。
+3. 同一时间点入量“量”填该时间点对应的 `MP_HOURLY_INTAKE` 值。
 
 ### 护理
 
@@ -851,7 +958,7 @@ start_hour + 12 hours
 
 1. 在 `balance_stats_shifts.start_hour` 后新增 `half_day_shift_hours`。
 2. 休宁先保留省二院既有半日小计和全天总计机制。
-3. 入量/出量本次为空时，汇总行对应列也为空；需要确保分页和签名不异常。
+3. 入量/出量明细按本文“入量和出量”章节取数；汇总行继续沿用省二院既有出入量汇总机制，需要确保分页和签名不异常。
 4. 半日小计结束时间调整为：
 
 ```text
@@ -972,7 +1079,7 @@ half_day_shift_hours
 2. 不修改 SQL schema。
 3. 不修改前端页面。
 4. 不生成休宁实际 PDF。
-5. 不实现入量和出量取数。
+5. 不实现本文新增的引流管、动静脉置管、入量和出量取数逻辑。
 6. 不调整省二院现有模板布局内容；省二院模板文件路径迁移到 `hospitals` 目录属于后续实现范围。
 
 ## 验收标准
@@ -989,9 +1096,9 @@ half_day_shift_hours
 8. 休宁表头显示科室、床号、姓名、性别、年龄、住院号，诊断另起一行。
 9. 休宁主表每页 28 行固定行高。
 10. 休宁观察项映射按本文档输出。
-11. 引流管和动静脉置管无效 entry 被过滤。
-12. 入量和出量列存在但为空。
-13. 休宁保留省二院既有半日小计和全天总计机制；入量/出量为空时汇总行对应列为空。
+11. 引流管和动静脉置管无效 entry 被过滤，有效管道按每 4 小时统计并在同一时刻用 `/` 合并。
+12. 入量和出量列按本文档输出项目、用法/性状和量。
+13. 休宁保留省二院既有半日小计和全天总计机制；入量/出量明细存在时汇总行不应影响分页和签名。
 14. 半日小计在 `half_day_shift_hours` 有效时使用该字段，否则使用 12；全天总计仍使用班次结束时间。
 15. 前端可以配置 `half_day_shift_hours`。
 16. 休宁和省二院实现没有互相污染的医院专属硬编码。
@@ -1006,25 +1113,30 @@ half_day_shift_hours
 3. 新增休宁模板 `src/main/resources/config/pbtxt/hospitals/report_template_xiuning.pb.txt`。
 4. 休宁模板短期继续使用 `ReportTemplateAh2PB`，不改用 `JfkTemplatePB`。
 5. 正文行以所有数据源事件时间按分钟聚合；同一分钟内的观察项、管道状态和护理记录合并到同一逻辑行。
-6. 同一分钟有多条同类记录时，按稳定顺序拆成多行。
+6. 同一分钟有多条同类记录时，除本文明确要求 `/` 合并的管道字段外，按稳定顺序拆成多行。
 7. 超过 28 行时分页，后续页重复页眉和表头，不截断临床记录。
-8. 单个时间点存在多条引流管或动静脉置管 entry 时，每个 entry 拆成一行；基础观察项只在第一行展示。
+8. 单个时间点存在多条引流管或动静脉置管 entry 时，同类管道字段用 `/` 合并，不按管道条数拆行；基础观察项只在第一行展示。
 9. 护理记录长文本按列宽折行并占用多行；日期、时间和签名只在首行展示。
 10. 观察项枚举未命中时显示原值并记录 `log.warn`；明确要求过滤的管道无效 entry 仍按过滤处理。
 11. 无创血压、有创血压和 PEEP/PSV 的单项缺失均用 `-` 占位；两项都无值时显示空。
 12. 通气模式同时兼容 `BIRAP` 和 `BiPAP`，输出 `6`，配置展示名统一为 `BiPAP`。
 13. `Spo2` 使用现有配置中的精确 code；休宁配置确认为 `Spo2` 时，不做大小写自动匹配。
-14. 中心静脉导管部位属性使用 `tta.name == '身体部位'` 过滤，命中 `颈内`、`锁骨下`、`股静脉` 后映射为 `1a`、`1b`、`1c`。
+14. 中心静脉导管部位属性使用 `tta.name == '身体部位'` 过滤，`pta.value` 直接输出原文，不再映射为编码。
 15. 同一管道 entry 中同一个 `tts.name` 多条记录时，按最新记录取值并记录 warning；有 `ptsr.modified_at` 时按其排序，否则按 `ptsr.id`。
 16. 诊断字段短期复用现有 AH2 头部诊断来源；如果省二院当前会拼接手术信息，休宁也保持一致。
 17. 签名口径：护理记录行使用护理记录创建人签名；汇总行使用省二院现有汇总签名逻辑；纯观察项/管道行无护理记录时签名留空。
 18. `half_day_shift_hours` 数据库不加硬约束，仅允许 `NULL`；前后端校验 `1..23`，后端对 `NULL` 或非法值回退 12。
 19. 前端 `half_day_shift_hours` 清空时保存 `NULL`，不保存 12。
 20. 为已知 `variant` 建立默认模板路径和模板标识校验；`template` 和 `variant` 不匹配时 fail-fast，并在错误信息中给出期望模板路径。
-21. 休宁先保留省二院既有半日小计和全天总计机制；入量/出量为空时，汇总行对应列也为空。
+21. 休宁先保留省二院既有半日小计和全天总计机制；入量/出量明细按本文新增规则取数。
 22. `half_day_shift_hours` 调整 `REPORT_TEMPLATE_AH2_HALF_DAY_SUMMARY` 的结束时间；`REPORT_TEMPLATE_AH2_FULL_DAY_SUMMARY` 仍使用班次结束时间。
 23. 休宁模板列宽、字号和表头坐标以 `/Users/guzhenyu/gDocs/jingyi/休宁县人民医院/xiuning_report_template.pb.txt` 为初始基准；首版 PDF 经截图或打印样张确认后固定。
 24. 默认配置和 `ReportProperties` 迁移到 `hospitals` 目录；如存在多环境灰度发布需求，可短期保留旧路径文件作为 `ah2` 兼容副本，后续再删除。
+25. 管道每 4 小时统计窗口为 `[t - 4 hours, t)`；窗口内取离 `t` 最近的一条状态记录。
+26. 出量补充引流管时，同名管道已有非空刻度、引流液颜色或护理时保留原管道统计值。
+27. 入量用法按当前 `dept_id` 且 `is_valid = true` 的 `administration_routes` 建立 `admin_code -> intake_type_id` 映射；`intake_type_id == 1 or 2` 显示 `静脉`。
+28. 同一时间点多个入量用药项目复用省二院 `AH2P_MED_EXEC` 的多行折行展示方式。
+29. 休宁入量项目展示为 `dosageGroupDisplayName(液体总量 xx ml)`，其中 `xx` 取有效 `MedicationDosageGroupPB.md[*].intake_vol_ml` 合计值。
 
 ## 待决策
 

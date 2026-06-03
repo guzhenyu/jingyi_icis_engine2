@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.entity.medications.*;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientMonitoringRecord;
 import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.NursingRecord;
 import com.jingyicare.jingyi_icis_engine.entity.patientshifts.PatientShiftRecord;
@@ -18,10 +19,12 @@ import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
 import com.jingyicare.jingyi_icis_engine.entity.tubes.*;
 import com.jingyicare.jingyi_icis_engine.entity.users.Account;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisReportAh2.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
+import com.jingyicare.jingyi_icis_engine.repository.medications.*;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientMonitoringRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.nursingrecords.NursingRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patientshifts.PatientShiftRecordRepository;
@@ -29,6 +32,7 @@ import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepo
 import com.jingyicare.jingyi_icis_engine.repository.tubes.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.medications.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
@@ -59,11 +63,17 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         @Autowired PatientTubeAttrRepository ptaRepo,
         @Autowired TubeTypeAttributeRepository ttaRepo,
         @Autowired AccountRepository accountRepo,
-        @Autowired BalanceStatsShiftRepository balanceStatsShiftRepo
+        @Autowired BalanceStatsShiftRepository balanceStatsShiftRepo,
+        @Autowired MedicationExecutionRecordRepository medExeRecordRepo,
+        @Autowired MedicationOrderGroupRepository medOrderGroupRepo,
+        @Autowired AdministrationRouteRepository routeRepo,
+        @Autowired MedMonitoringService medMonitoringService,
+        @Autowired MedicationConfig medConfig
     ) {
         this.ZONE_ID = protoService.getConfig().getZoneId();
         this.statusCodeMsgs = protoService.getConfig().getText().getStatusCodeMsgList();
         this.BALANCE_GROUP_TYPE_ID = monitoringConfig.getBalanceGroupTypeId();
+        this.medOrderGroupSettingsPb = protoService.getConfig().getMedication().getOrderGroupSettings();
         this.configShiftUtils = configShiftUtils;
         this.patientService = patientService;
         this.monitoringConfig = monitoringConfig;
@@ -79,6 +89,11 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         this.ttaRepo = ttaRepo;
         this.accountRepo = accountRepo;
         this.balanceStatsShiftRepo = balanceStatsShiftRepo;
+        this.medExeRecordRepo = medExeRecordRepo;
+        this.medOrderGroupRepo = medOrderGroupRepo;
+        this.routeRepo = routeRepo;
+        this.medMonitoringService = medMonitoringService;
+        this.medConfig = medConfig;
     }
 
     @Override
@@ -127,6 +142,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         ctx.mpVmMap = ctx.mpMap.entrySet().stream()
             .filter(e -> e.getValue() != null)
             .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getValueMeta()));
+        Map<String, Integer> routeIntakeTypeMap = getRouteIntakeTypeMap(deptId);
 
         List<LocalDateTime> balanceStatTimeUtcHistory = configShiftUtils.getBalanceStatTimeUtcHistory(deptId);
         LocalDateTime shiftStartUtc = configShiftUtils.getBalanceStatStartUtc(balanceStatTimeUtcHistory, queryStartUtc);
@@ -141,7 +157,9 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
             Ah2PageData dailyData = new Ah2PageData();
             dailyData.pageStartTs = shiftStartUtc;
             dailyData.pageEndTs = shiftEndUtc;
-            dailyData.rowBlocks.addAll(collectRows(ctx, pid, deptId, shiftStartUtc, shiftEndUtc, accountId));
+            dailyData.rowBlocks.addAll(collectRows(
+                ctx, pid, deptId, shiftStartUtc, shiftEndUtc, accountId, routeIntakeTypeMap
+            ));
             addBalanceSummaryRows(ctx, dailyData.rowBlocks, pid, deptId, shiftStartUtc, shiftEndUtc, accountId);
             dailyData.rowBlocks.sort(this::compareRows);
             dailyDataList.add(dailyData);
@@ -187,7 +205,8 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
     }
 
     private List<Ah2PageData.RowBlock> collectRows(
-        Ah2PdfContext ctx, Long pid, String deptId, LocalDateTime startUtc, LocalDateTime endUtc, String accountId
+        Ah2PdfContext ctx, Long pid, String deptId, LocalDateTime startUtc, LocalDateTime endUtc,
+        String accountId, Map<String, Integer> routeIntakeTypeMap
     ) {
         Map<LocalDateTime, MinuteBucket> buckets = new TreeMap<>();
 
@@ -204,10 +223,13 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
                 .add(pmr);
         }
 
-        List<TubeEntry> tubeEntries = collectTubeEntries(pid, startUtc, endUtc);
+        TubeReportContext tubeCtx = loadTubeReportContext(pid, startUtc, endUtc);
+        List<TubeEntry> tubeEntries = collectTubeEntries(tubeCtx, startUtc, endUtc);
         for (TubeEntry entry : tubeEntries) {
             buckets.computeIfAbsent(entry.minute, MinuteBucket::new).tubeEntries.add(entry);
         }
+        collectBalanceRows(ctx, buckets, pmrs, tubeCtx, endUtc);
+        collectMedicationIntakeRows(buckets, pid, startUtc, endUtc, routeIntakeTypeMap);
 
         List<NursingRecord> nursingRecords = nrRepo.findReportNursingRecords(pid, startUtc, endUtc);
         for (NursingRecord record : nursingRecords) {
@@ -220,12 +242,17 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         for (MinuteBucket bucket : buckets.values()) {
             List<Map<String, List<String>>> observationRows = buildObservationRows(ctx, bucket);
             List<Map<String, List<String>>> tubeRows = buildTubeRows(ctx, bucket);
+            List<Map<String, List<String>>> balanceRows = buildBalanceRows(ctx, bucket);
             List<Map<String, List<String>>> nursingRows = buildNursingRows(ctx, bucket);
-            int rowCount = Math.max(observationRows.size(), Math.max(tubeRows.size(), nursingRows.size()));
+            int rowCount = Math.max(
+                Math.max(observationRows.size(), tubeRows.size()),
+                Math.max(balanceRows.size(), nursingRows.size())
+            );
             for (int i = 0; i < rowCount; i++) {
                 Map<String, List<String>> lines = new HashMap<>();
                 if (i < observationRows.size()) lines.putAll(observationRows.get(i));
                 if (i < tubeRows.size()) lines.putAll(tubeRows.get(i));
+                if (i < balanceRows.size()) lines.putAll(balanceRows.get(i));
                 if (i < nursingRows.size()) lines.putAll(nursingRows.get(i));
                 if (lines.isEmpty()) continue;
 
@@ -285,23 +312,84 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         if (bucket.tubeEntries.isEmpty()) return new ArrayList<>();
         bucket.tubeEntries.sort(Comparator
             .comparing((TubeEntry e) -> e.category)
-            .thenComparing(e -> e.tubeRecordId, Comparator.nullsLast(Long::compareTo)));
-        List<Map<String, List<String>>> rows = new ArrayList<>();
-        for (TubeEntry entry : bucket.tubeEntries) {
-            Map<String, List<String>> row = new HashMap<>();
-            if (entry.category == TubeCategory.DRAINAGE) {
-                putCell(ctx, row, XN_DRAINAGE_TUBE_NAME, entry.nameCode);
-                putCell(ctx, row, XN_DRAINAGE_TUBE_DEPTH, entry.depth);
-                putCell(ctx, row, XN_DRAINAGE_TUBE_COLOR, entry.colorCode);
-                putCell(ctx, row, XN_DRAINAGE_TUBE_NURSING, entry.nursingCode);
-            } else if (entry.category == TubeCategory.VASCULAR) {
-                putCell(ctx, row, XN_VASCULAR_TUBE_NAME, entry.nameCode);
-                putCell(ctx, row, XN_VASCULAR_TUBE_DEPTH, entry.depth);
-                putCell(ctx, row, XN_VASCULAR_TUBE_NURSING, entry.nursingCode);
-            }
-            if (!row.isEmpty()) rows.add(row);
+            .thenComparing(e -> e.tubeRecordId, Comparator.nullsLast(Long::compareTo))
+            .thenComparing(e -> e.nameCode, Comparator.nullsLast(String::compareTo)));
+        Map<String, List<String>> row = new HashMap<>();
+
+        List<TubeEntry> drainageEntries = bucket.tubeEntries.stream()
+            .filter(entry -> entry.category == TubeCategory.DRAINAGE)
+            .toList();
+        if (!drainageEntries.isEmpty()) {
+            putJoinedCell(ctx, row, XN_DRAINAGE_TUBE_NAME, drainageEntries.stream().map(e -> e.nameCode).toList());
+            putJoinedCell(ctx, row, XN_DRAINAGE_TUBE_DEPTH, drainageEntries.stream().map(e -> e.depth).toList());
+            putJoinedCell(ctx, row, XN_DRAINAGE_TUBE_COLOR, drainageEntries.stream().map(e -> e.colorCode).toList());
+            putJoinedCell(ctx, row, XN_DRAINAGE_TUBE_NURSING, drainageEntries.stream().map(e -> e.nursingCode).toList());
         }
-        return rows;
+
+        List<TubeEntry> vascularEntries = bucket.tubeEntries.stream()
+            .filter(entry -> entry.category == TubeCategory.VASCULAR)
+            .toList();
+        if (!vascularEntries.isEmpty()) {
+            putJoinedCell(ctx, row, XN_VASCULAR_TUBE_NAME, vascularEntries.stream().map(e -> e.nameCode).toList());
+            putJoinedCell(ctx, row, XN_VASCULAR_TUBE_DEPTH, vascularEntries.stream().map(e -> e.depth).toList());
+            putJoinedCell(ctx, row, XN_VASCULAR_TUBE_NURSING, vascularEntries.stream().map(e -> e.nursingCode).toList());
+        }
+        return row.isEmpty() ? new ArrayList<>() : new ArrayList<>(List.of(row));
+    }
+
+    private List<Map<String, List<String>>> buildBalanceRows(Ah2PdfContext ctx, MinuteBucket bucket) {
+        if ((bucket.intakeEntries == null || bucket.intakeEntries.isEmpty()) &&
+            StrUtils.isBlank(bucket.intakeAmount) && bucket.outputEntry == null
+        ) {
+            return new ArrayList<>();
+        }
+
+        Map<String, List<String>> row = new HashMap<>();
+        setIntakeCells(ctx, row, bucket);
+        setOutputCells(ctx, row, bucket.outputEntry);
+        return row.isEmpty() ? new ArrayList<>() : new ArrayList<>(List.of(row));
+    }
+
+    private void setIntakeCells(Ah2PdfContext ctx, Map<String, List<String>> row, MinuteBucket bucket) {
+        if ((bucket.intakeEntries == null || bucket.intakeEntries.isEmpty()) && StrUtils.isBlank(bucket.intakeAmount)) {
+            return;
+        }
+
+        ParamColMetaPB itemColMeta = ctx.colMetaMap.get(XN_INTAKE_ITEM);
+        ParamColMetaPB usageColMeta = ctx.colMetaMap.get(XN_INTAKE_USAGE);
+        List<String> itemLines = new ArrayList<>();
+        List<String> usageLines = new ArrayList<>();
+        if (itemColMeta != null) {
+            bucket.intakeEntries.sort(Comparator
+                .comparing((IntakeEntry entry) -> entry.recordId, Comparator.nullsLast(Long::compareTo))
+                .thenComparing(entry -> entry.item, Comparator.nullsLast(String::compareTo)));
+            for (IntakeEntry entry : bucket.intakeEntries) {
+                List<String> wrapped = wrap(ctx, itemColMeta, entry.item);
+                if (wrapped.isEmpty()) continue;
+                itemLines.addAll(wrapped);
+                if (usageColMeta != null) {
+                    usageLines.add(trim(entry.usage));
+                    for (int i = 1; i < wrapped.size(); i++) usageLines.add("");
+                }
+            }
+        }
+        if (!itemLines.isEmpty()) row.put(XN_INTAKE_ITEM, itemLines);
+        if (!usageLines.isEmpty()) row.put(XN_INTAKE_USAGE, usageLines);
+
+        if (!StrUtils.isBlank(bucket.intakeAmount) && ctx.colMetaMap.containsKey(XN_INTAKE_AMOUNT)) {
+            List<String> amountLines = new ArrayList<>();
+            int amountLineCount = Math.max(1, itemLines.size());
+            amountLines.add(bucket.intakeAmount);
+            for (int i = 1; i < amountLineCount; i++) amountLines.add("");
+            row.put(XN_INTAKE_AMOUNT, amountLines);
+        }
+    }
+
+    private void setOutputCells(Ah2PdfContext ctx, Map<String, List<String>> row, OutputEntry outputEntry) {
+        if (outputEntry == null) return;
+        putCell(ctx, row, XN_OUTPUT_ITEM, outputEntry.getItemText());
+        putCell(ctx, row, XN_OUTPUT_USAGE, outputEntry.getUsageText());
+        putCell(ctx, row, XN_OUTPUT_AMOUNT, outputEntry.amount);
     }
 
     private List<Map<String, List<String>>> buildNursingRows(Ah2PdfContext ctx, MinuteBucket bucket) {
@@ -436,61 +524,81 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         return rowBlock;
     }
 
-    private List<TubeEntry> collectTubeEntries(Long pid, LocalDateTime startUtc, LocalDateTime endUtc) {
-        Map<Long, PatientTubeRecord> tubeRecordMap = ptrRepo.findReportTubeRecords(pid, startUtc, endUtc)
-            .stream()
-            .filter(r -> r.getId() != null)
-            .collect(Collectors.toMap(PatientTubeRecord::getId, r -> r, (a, b) -> a));
-        List<Long> tubeRecordIds = new ArrayList<>(tubeRecordMap.keySet());
-        Map<Long, String> centralBodyPartMap = getCentralVenousBodyPartMap(tubeRecordIds);
+    private TubeReportContext loadTubeReportContext(Long pid, LocalDateTime startUtc, LocalDateTime endUtc) {
+        TubeReportContext ctx = new TubeReportContext();
+        ctx.tubeRecords = ptrRepo.findReportTubeRecords(pid, startUtc, endUtc).stream()
+            .filter(r -> r != null && r.getId() != null)
+            .sorted(Comparator.comparing(PatientTubeRecord::getId, Comparator.nullsLast(Long::compareTo)))
+            .toList();
+        List<Long> tubeRecordIds = ctx.tubeRecords.stream().map(PatientTubeRecord::getId).toList();
+        ctx.centralBodyPartMap = getCentralVenousBodyPartMap(tubeRecordIds);
 
-        Map<TubeStatusKey, TubeStatusGroup> groupMap = new HashMap<>();
-        for (PatientTubeStatusReportBrief brief : ptsrRepo.findPatientTubeStatusReportBrief(pid, startUtc, endUtc)) {
+        LocalDateTime statusStartUtc = startUtc.minusHours(TUBE_STATS_INTERVAL_HOURS);
+        for (PatientTubeStatusReportBrief brief : ptsrRepo.findPatientTubeStatusReportBrief(pid, statusStartUtc, endUtc)) {
             if (brief.getTubeRecordId() == null || brief.getRecordedAt() == null || StrUtils.isBlank(brief.getStatusName())) {
                 continue;
             }
-            TubeStatusKey key = new TubeStatusKey(brief.getTubeRecordId(), truncateToMinute(brief.getRecordedAt()));
-            TubeStatusGroup group = groupMap.computeIfAbsent(key, k -> new TubeStatusGroup(k.tubeRecordId, k.minute));
-            group.tubeName = brief.getTubeName();
-            TubeStatusValue prev = group.statusMap.get(brief.getStatusName());
-            TubeStatusValue next = new TubeStatusValue(brief.getValue(), brief.getStatusRecordId());
-            if (prev != null) {
-                log.warn("Duplicate tube status entry, tubeRecordId={}, minute={}, statusName={}",
-                    brief.getTubeRecordId(), key.minute, brief.getStatusName());
-            }
-            if (prev == null || compareNullableLong(next.statusRecordId, prev.statusRecordId) >= 0) {
-                group.statusMap.put(brief.getStatusName(), next);
-            }
+            ctx.statusByTubeRecordId.computeIfAbsent(brief.getTubeRecordId(), k -> new ArrayList<>()).add(brief);
         }
+        for (List<PatientTubeStatusReportBrief> briefs : ctx.statusByTubeRecordId.values()) {
+            briefs.sort(Comparator
+                .comparing(PatientTubeStatusReportBrief::getRecordedAt, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(PatientTubeStatusReportBrief::getStatusRecordId, Comparator.nullsLast(Long::compareTo)));
+        }
+        return ctx;
+    }
 
+    private List<TubeEntry> collectTubeEntries(
+        TubeReportContext tubeCtx, LocalDateTime startUtc, LocalDateTime endUtc
+    ) {
         List<TubeEntry> entries = new ArrayList<>();
-        for (TubeStatusGroup group : groupMap.values()) {
-            String tubeName = trim(group.tubeName);
-            if (DRAINAGE_TUBE_NAMES.contains(tubeName)) {
-                TubeEntry entry = new TubeEntry(TubeCategory.DRAINAGE, group.tubeRecordId, group.minute);
-                entry.nameCode = tubeName;
-                entry.depth = getStatus(group, TUBE_DEPTH_STATUS_NAME);
-                entry.colorCode = getStatus(group, "颜色");
-                entry.nursingCode = getStatus(group, "护理");
-                entries.add(entry);
-                continue;
-            }
+        if (tubeCtx == null || tubeCtx.tubeRecords == null || tubeCtx.tubeRecords.isEmpty()) return entries;
 
-            String vascularName = mapVascularTubeName(tubeName, centralBodyPartMap.get(group.tubeRecordId));
-            if (!StrUtils.isBlank(vascularName)) {
-                TubeEntry entry = new TubeEntry(TubeCategory.VASCULAR, group.tubeRecordId, group.minute);
-                entry.nameCode = vascularName;
-                entry.depth = getStatus(group, TUBE_DEPTH_STATUS_NAME);
-                entry.nursingCode = getStatus(group, "护理");
-                entries.add(entry);
+        for (LocalDateTime statsTime = startUtc; statsTime.isBefore(endUtc);
+             statsTime = statsTime.plusHours(TUBE_STATS_INTERVAL_HOURS)
+        ) {
+            LocalDateTime windowStartUtc = statsTime.minusHours(TUBE_STATS_INTERVAL_HOURS);
+            for (PatientTubeRecord tubeRecord : tubeCtx.tubeRecords) {
+                if (!isTubeActiveAt(tubeRecord, statsTime)) continue;
+                TubeEntry entry = createTubeEntry(tubeCtx, tubeRecord, statsTime, windowStartUtc);
+                if (entry != null) entries.add(entry);
             }
         }
 
         entries.sort(Comparator
             .comparing((TubeEntry e) -> e.minute)
-            .thenComparing(e -> e.tubeRecordId, Comparator.nullsLast(Long::compareTo))
-            .thenComparing(e -> e.category));
+            .thenComparing(e -> e.category)
+            .thenComparing(e -> e.tubeRecordId, Comparator.nullsLast(Long::compareTo)));
         return entries;
+    }
+
+    private TubeEntry createTubeEntry(
+        TubeReportContext tubeCtx, PatientTubeRecord tubeRecord,
+        LocalDateTime statsTime, LocalDateTime windowStartUtc
+    ) {
+        String tubeName = trim(tubeRecord.getTubeName());
+        TubeCategory category = null;
+        String displayName = "";
+        if (DRAINAGE_TUBE_NAMES.contains(tubeName)) {
+            category = TubeCategory.DRAINAGE;
+            displayName = tubeName;
+        } else {
+            displayName = mapVascularTubeName(tubeName, tubeCtx.centralBodyPartMap.get(tubeRecord.getId()));
+            if (!StrUtils.isBlank(displayName)) category = TubeCategory.VASCULAR;
+        }
+        if (category == null || StrUtils.isBlank(displayName)) return null;
+
+        List<PatientTubeStatusReportBrief> briefs = tubeCtx.statusByTubeRecordId.getOrDefault(
+            tubeRecord.getId(), Collections.emptyList()
+        );
+        TubeEntry entry = new TubeEntry(category, tubeRecord.getId(), statsTime);
+        entry.nameCode = displayName;
+        entry.depth = getNearestStatus(briefs, TUBE_DEPTH_STATUS_NAME, windowStartUtc, statsTime);
+        entry.nursingCode = getNearestStatus(briefs, "护理", windowStartUtc, statsTime);
+        if (category == TubeCategory.DRAINAGE) {
+            entry.colorCode = getNearestStatus(briefs, "颜色", windowStartUtc, statsTime);
+        }
+        return entry;
     }
 
     private Map<Long, String> getCentralVenousBodyPartMap(List<Long> tubeRecordIds) {
@@ -524,12 +632,251 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
     }
 
     private String mapVascularTubeName(String tubeName, String centralBodyPartCode) {
-        if ("中心静脉导管".equals(tubeName)) return centralBodyPartCode;
-        if ("外周静脉针".equals(tubeName)) return "2";
-        if ("PICC管".equals(tubeName)) return "3";
-        if ("动脉导管".equals(tubeName)) return "4";
-        if ("中长导管".equals(tubeName)) return "5";
+        if ("中心静脉导管".equals(tubeName)) {
+            return StrUtils.isBlank(centralBodyPartCode) ? tubeName : (tubeName + '-' + centralBodyPartCode);
+        }
+        if (VASCULAR_TUBE_NAMES.contains(tubeName)) return tubeName;
         return "";
+    }
+
+    private boolean isTubeActiveAt(PatientTubeRecord tubeRecord, LocalDateTime statsTime) {
+        if (tubeRecord == null || tubeRecord.getInsertedAt() == null || statsTime == null) return false;
+        if (tubeRecord.getInsertedAt().isAfter(statsTime)) return false;
+        return tubeRecord.getRemovedAt() == null || statsTime.isBefore(tubeRecord.getRemovedAt());
+    }
+
+    private String getNearestStatus(
+        List<PatientTubeStatusReportBrief> briefs, String statusName,
+        LocalDateTime windowStartUtc, LocalDateTime statsTime
+    ) {
+        if (briefs == null || briefs.isEmpty() || StrUtils.isBlank(statusName) ||
+            windowStartUtc == null || statsTime == null
+        ) {
+            return "";
+        }
+
+        PatientTubeStatusReportBrief selected = null;
+        for (PatientTubeStatusReportBrief brief : briefs) {
+            if (brief == null || !statusName.equals(brief.getStatusName()) || brief.getRecordedAt() == null) {
+                continue;
+            }
+            LocalDateTime recordedAt = brief.getRecordedAt();
+            if (recordedAt.isBefore(windowStartUtc) || !recordedAt.isBefore(statsTime)) continue;
+            if (selected == null ||
+                recordedAt.isAfter(selected.getRecordedAt()) ||
+                (recordedAt.equals(selected.getRecordedAt()) &&
+                    compareNullableLong(brief.getStatusRecordId(), selected.getStatusRecordId()) >= 0)
+            ) {
+                selected = brief;
+            }
+        }
+        return selected == null ? "" : trim(selected.getValue());
+    }
+
+    private void collectBalanceRows(
+        Ah2PdfContext ctx, Map<LocalDateTime, MinuteBucket> buckets,
+        List<PatientMonitoringRecord> pmrs, TubeReportContext tubeCtx, LocalDateTime endUtc
+    ) {
+        Map<LocalDateTime, String> hourlyIntakeByTime = new HashMap<>();
+        Map<LocalDateTime, String> hourlyOutputByTime = new HashMap<>();
+        Map<LocalDateTime, OutputEntry> outputByTime = new HashMap<>();
+
+        for (PatientMonitoringRecord pmr : pmrs) {
+            if (pmr == null || pmr.getEffectiveTime() == null || StrUtils.isBlank(pmr.getMonitoringParamCode())) continue;
+            String paramCode = pmr.getMonitoringParamCode();
+            if (!isXiuningBalanceParam(paramCode)) continue;
+
+            LocalDateTime balanceTime = getBalanceDisplayTime(pmr.getEffectiveTime(), endUtc);
+            if (balanceTime == null) continue;
+            String value = getRecordString(ctx, pmr);
+
+            if (MP_HOURLY_INTAKE.equals(paramCode)) {
+                hourlyIntakeByTime.put(balanceTime, value);
+                continue;
+            }
+            if (MP_HOURLY_OUTPUT.equals(paramCode)) {
+                hourlyOutputByTime.put(balanceTime, value);
+                continue;
+            }
+
+            OutputEntry outputEntry = outputByTime.computeIfAbsent(balanceTime, k -> new OutputEntry());
+            if (paramCode.startsWith(TUBE_OUTPUT_PARAM_PREFIX)) {
+                TubeOutputMapping mapping = TUBE_OUTPUT_MAPPING.getOrDefault(
+                    paramCode, TubeOutputMapping.otherDrainage()
+                );
+                outputEntry.items.add(mapping.outputItem);
+                if (!StrUtils.isBlank(mapping.tubeName)) {
+                    supplementDrainageTube(
+                        buckets.computeIfAbsent(balanceTime, MinuteBucket::new),
+                        createDrainageTubeSupplement(tubeCtx, mapping.tubeName, balanceTime)
+                    );
+                }
+                continue;
+            }
+
+            if (MP_GASTRIC_FLUID_VOLUME.equals(paramCode)) {
+                outputEntry.items.add("胃液量");
+                continue;
+            }
+            if (MP_CRRT_UF.equals(paramCode)) {
+                outputEntry.items.add("超滤量");
+                continue;
+            }
+            if (MP_STOOL_VOLUME.equals(paramCode)) {
+                outputEntry.items.add("大便");
+                if (!StrUtils.isBlank(value)) outputEntry.stoolVolume = value;
+                continue;
+            }
+            if (MP_STOOL_CONSISTENCY.equals(paramCode)) {
+                outputEntry.items.add("大便");
+                if (!StrUtils.isBlank(value)) outputEntry.usages.add(value);
+            }
+        }
+
+        for (Map.Entry<LocalDateTime, String> entry : hourlyIntakeByTime.entrySet()) {
+            if (StrUtils.isBlank(entry.getValue())) continue;
+            buckets.computeIfAbsent(entry.getKey(), MinuteBucket::new).intakeAmount = entry.getValue();
+        }
+        for (Map.Entry<LocalDateTime, OutputEntry> entry : outputByTime.entrySet()) {
+            OutputEntry outputEntry = entry.getValue();
+            String amount = hourlyOutputByTime.get(entry.getKey());
+            if (StrUtils.isBlank(amount) && !StrUtils.isBlank(outputEntry.stoolVolume)) {
+                amount = outputEntry.stoolVolume;
+            }
+            outputEntry.amount = amount;
+            if (!outputEntry.isEmpty()) {
+                buckets.computeIfAbsent(entry.getKey(), MinuteBucket::new).outputEntry = outputEntry;
+            }
+        }
+    }
+
+    private boolean isXiuningBalanceParam(String paramCode) {
+        return MP_HOURLY_INTAKE.equals(paramCode) ||
+            MP_HOURLY_OUTPUT.equals(paramCode) ||
+            paramCode.startsWith(TUBE_OUTPUT_PARAM_PREFIX) ||
+            MP_GASTRIC_FLUID_VOLUME.equals(paramCode) ||
+            MP_CRRT_UF.equals(paramCode) ||
+            MP_STOOL_VOLUME.equals(paramCode) ||
+            MP_STOOL_CONSISTENCY.equals(paramCode);
+    }
+
+    private LocalDateTime getBalanceDisplayTime(LocalDateTime effectiveTime, LocalDateTime endUtc) {
+        if (effectiveTime == null) return null;
+        if (effectiveTime.getMinute() != 0 || effectiveTime.getSecond() != 0 || effectiveTime.getNano() != 0) {
+            log.warn("Xiuning AH2 non-hourly balance effective time: {}", effectiveTime);
+            return null;
+        }
+        if (effectiveTime.equals(endUtc)) return null;
+        return effectiveTime.plusHours(1);
+    }
+
+    private TubeEntry createDrainageTubeSupplement(TubeReportContext tubeCtx, String tubeName, LocalDateTime statsTime) {
+        if (tubeCtx == null || StrUtils.isBlank(tubeName) || statsTime == null) return null;
+        PatientTubeRecord selectedTubeRecord = tubeCtx.tubeRecords.stream()
+            .filter(record -> tubeName.equals(trim(record.getTubeName())))
+            .filter(record -> isTubeActiveAt(record, statsTime))
+            .min(Comparator.comparing(PatientTubeRecord::getId, Comparator.nullsLast(Long::compareTo)))
+            .orElse(null);
+
+        TubeEntry entry = new TubeEntry(TubeCategory.DRAINAGE, selectedTubeRecord == null ? null : selectedTubeRecord.getId(), statsTime);
+        entry.nameCode = tubeName;
+        if (selectedTubeRecord != null) {
+            LocalDateTime windowStartUtc = statsTime.minusHours(TUBE_STATS_INTERVAL_HOURS);
+            List<PatientTubeStatusReportBrief> briefs = tubeCtx.statusByTubeRecordId.getOrDefault(
+                selectedTubeRecord.getId(), Collections.emptyList()
+            );
+            entry.depth = getNearestStatus(briefs, TUBE_DEPTH_STATUS_NAME, windowStartUtc, statsTime);
+            entry.colorCode = getNearestStatus(briefs, "颜色", windowStartUtc, statsTime);
+            entry.nursingCode = getNearestStatus(briefs, "护理", windowStartUtc, statsTime);
+        }
+        return entry;
+    }
+
+    private void supplementDrainageTube(MinuteBucket bucket, TubeEntry supplement) {
+        if (bucket == null || supplement == null || StrUtils.isBlank(supplement.nameCode)) return;
+        for (TubeEntry entry : bucket.tubeEntries) {
+            if (entry.category != TubeCategory.DRAINAGE || !supplement.nameCode.equals(entry.nameCode)) continue;
+            if (StrUtils.isBlank(entry.depth)) entry.depth = supplement.depth;
+            if (StrUtils.isBlank(entry.colorCode)) entry.colorCode = supplement.colorCode;
+            if (StrUtils.isBlank(entry.nursingCode)) entry.nursingCode = supplement.nursingCode;
+            return;
+        }
+        bucket.tubeEntries.add(supplement);
+    }
+
+    private void collectMedicationIntakeRows(
+        Map<LocalDateTime, MinuteBucket> buckets, Long pid,
+        LocalDateTime startUtc, LocalDateTime endUtc, Map<String, Integer> routeIntakeTypeMap
+    ) {
+        List<MedicationExecutionRecord> records = medExeRecordRepo.findStartedRecordsByPatientId(pid, startUtc, endUtc);
+        if (records == null || records.isEmpty()) return;
+
+        Set<Long> orderGroupIds = records.stream()
+            .map(MedicationExecutionRecord::getMedicationOrderGroupId)
+            .filter(Objects::nonNull)
+            .collect(Collectors.toSet());
+        Map<Long, MedicationOrderGroup> orderGroupMap = orderGroupIds.isEmpty() ? new HashMap<>() :
+            medOrderGroupRepo.findByIds(new ArrayList<>(orderGroupIds)).stream()
+                .filter(orderGroup -> orderGroup.getId() != null)
+                .collect(Collectors.toMap(MedicationOrderGroup::getId, orderGroup -> orderGroup, (a, b) -> a));
+
+        records.sort(Comparator
+            .comparing(MedicationExecutionRecord::getStartTime, Comparator.nullsLast(Comparator.naturalOrder()))
+            .thenComparing(MedicationExecutionRecord::getId, Comparator.nullsLast(Long::compareTo)));
+        for (MedicationExecutionRecord record : records) {
+            if (record.getStartTime() == null) continue;
+            MedicationOrderGroup orderGroup = orderGroupMap.get(record.getMedicationOrderGroupId());
+            if (orderGroup == null) {
+                log.warn("Xiuning AH2 medication intake skipped, missing orderGroup: recId={}, orderGroupId={}",
+                    record.getId(), record.getMedicationOrderGroupId());
+                continue;
+            }
+
+            MedicationDosageGroupPB dosageGroup = medMonitoringService.getDosageGroupPB(orderGroup, record);
+            if (dosageGroup == null || dosageGroup.getMdCount() == 0) {
+                log.warn("Xiuning AH2 medication intake skipped, missing dosageGroup: recId={}, orderGroupId={}",
+                    record.getId(), record.getMedicationOrderGroupId());
+                continue;
+            }
+
+            String item = buildIntakeItemText(dosageGroup);
+            if (StrUtils.isBlank(item)) continue;
+            String routeCode = StrUtils.isBlank(record.getAdministrationRouteCode()) ?
+                orderGroup.getAdministrationRouteCode() : record.getAdministrationRouteCode();
+            String usage = mapIntakeUsage(routeIntakeTypeMap == null ? null : routeIntakeTypeMap.get(routeCode));
+
+            IntakeEntry intakeEntry = new IntakeEntry();
+            intakeEntry.recordId = record.getId();
+            intakeEntry.item = item;
+            intakeEntry.usage = usage;
+            buckets.computeIfAbsent(truncateToMinute(record.getStartTime()), MinuteBucket::new)
+                .intakeEntries.add(intakeEntry);
+        }
+    }
+
+    private Map<String, Integer> getRouteIntakeTypeMap(String deptId) {
+        if (StrUtils.isBlank(deptId)) return new HashMap<>();
+        Map<String, Integer> result = new HashMap<>();
+        for (AdministrationRoute route : routeRepo.findByDeptId(deptId)) {
+            if (route == null || StrUtils.isBlank(route.getCode()) || !Boolean.TRUE.equals(route.getIsValid())) continue;
+            result.put(route.getCode(), route.getIntakeTypeId());
+        }
+        return result;
+    }
+
+    private String buildIntakeItemText(MedicationDosageGroupPB dosageGroup) {
+        String displayName = medConfig.getDosageGroupDisplayName(medOrderGroupSettingsPb, dosageGroup);
+        if (StrUtils.isBlank(displayName)) return "";
+        double intakeVolMl = dosageGroup.getMdList().stream()
+            .mapToDouble(MedicationDosagePB::getIntakeVolMl)
+            .sum();
+        return displayName + "(液体总量 " + StrUtils.formatDouble(intakeVolMl, Consts.MED_ML_DECIMAL_PLACES) + " ml)";
+    }
+
+    private String mapIntakeUsage(Integer intakeTypeId) {
+        if (intakeTypeId != null && (intakeTypeId == 1 || intakeTypeId == 2)) return "静脉";
+        if (intakeTypeId != null && intakeTypeId == 3) return "胃肠";
+        return "其他";
     }
 
     private List<Ah2PageData> paginateData(
@@ -756,6 +1103,16 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         if (!lines.isEmpty()) row.put(paramCode, lines);
     }
 
+    private void putJoinedCell(Ah2PdfContext ctx, Map<String, List<String>> row, String paramCode, List<String> segments) {
+        if (segments == null || segments.isEmpty()) return;
+        List<String> normalizedSegments = segments.stream()
+            .map(this::trim)
+            .toList();
+        boolean hasValue = normalizedSegments.stream().anyMatch(v -> !StrUtils.isBlank(v));
+        if (!hasValue && normalizedSegments.size() <= 1) return;
+        putCell(ctx, row, paramCode, String.join("/", normalizedSegments));
+    }
+
     private List<String> wrap(Ah2PdfContext ctx, ParamColMetaPB colMeta, String value) {
         if (StrUtils.isBlank(value)) return new ArrayList<>();
         try {
@@ -788,11 +1145,6 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
             return trimmed;
         }
         return mapped;
-    }
-
-    private String getStatus(TubeStatusGroup group, String statusName) {
-        TubeStatusValue value = group.statusMap.get(statusName);
-        return value == null ? "" : value.value;
     }
 
     private int normalizeHalfDayShiftHours(Ah2PdfContext ctx) {
@@ -867,6 +1219,9 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         LocalDateTime minute;
         Map<String, List<PatientMonitoringRecord>> recordsByCode = new HashMap<>();
         List<TubeEntry> tubeEntries = new ArrayList<>();
+        List<IntakeEntry> intakeEntries = new ArrayList<>();
+        String intakeAmount;
+        OutputEntry outputEntry;
         List<NursingRecord> nursingRecords = new ArrayList<>();
     }
 
@@ -890,45 +1245,48 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         String nursingCode;
     }
 
-    private static class TubeStatusKey {
-        TubeStatusKey(Long tubeRecordId, LocalDateTime minute) {
-            this.tubeRecordId = tubeRecordId;
-            this.minute = minute;
-        }
-        Long tubeRecordId;
-        LocalDateTime minute;
+    private static class TubeReportContext {
+        List<PatientTubeRecord> tubeRecords = new ArrayList<>();
+        Map<Long, String> centralBodyPartMap = new HashMap<>();
+        Map<Long, List<PatientTubeStatusReportBrief>> statusByTubeRecordId = new HashMap<>();
+    }
 
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (!(o instanceof TubeStatusKey that)) return false;
-            return Objects.equals(tubeRecordId, that.tubeRecordId) && Objects.equals(minute, that.minute);
+    private static class IntakeEntry {
+        Long recordId;
+        String item;
+        String usage;
+    }
+
+    private static class OutputEntry {
+        LinkedHashSet<String> items = new LinkedHashSet<>();
+        LinkedHashSet<String> usages = new LinkedHashSet<>();
+        String amount;
+        String stoolVolume;
+
+        String getItemText() {
+            return String.join("+", items);
         }
 
-        @Override
-        public int hashCode() {
-            return Objects.hash(tubeRecordId, minute);
+        String getUsageText() {
+            return String.join("+", usages);
+        }
+
+        boolean isEmpty() {
+            return items.isEmpty() && usages.isEmpty() && StrUtils.isBlank(amount);
         }
     }
 
-    private static class TubeStatusGroup {
-        TubeStatusGroup(Long tubeRecordId, LocalDateTime minute) {
-            this.tubeRecordId = tubeRecordId;
-            this.minute = minute;
+    private static class TubeOutputMapping {
+        TubeOutputMapping(String outputItem, String tubeName) {
+            this.outputItem = outputItem;
+            this.tubeName = tubeName;
         }
-        Long tubeRecordId;
-        LocalDateTime minute;
+        String outputItem;
         String tubeName;
-        Map<String, TubeStatusValue> statusMap = new HashMap<>();
-    }
 
-    private static class TubeStatusValue {
-        TubeStatusValue(String value, Long statusRecordId) {
-            this.value = value;
-            this.statusRecordId = statusRecordId;
+        static TubeOutputMapping otherDrainage() {
+            return new TubeOutputMapping("其他导流液", "");
         }
-        String value;
-        Long statusRecordId;
     }
 
     private final String ZONE_ID;
@@ -949,6 +1307,12 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
     private final TubeTypeAttributeRepository ttaRepo;
     private final AccountRepository accountRepo;
     private final BalanceStatsShiftRepository balanceStatsShiftRepo;
+    private final MedicationExecutionRecordRepository medExeRecordRepo;
+    private final MedicationOrderGroupRepository medOrderGroupRepo;
+    private final AdministrationRouteRepository routeRepo;
+    private final MedMonitoringService medMonitoringService;
+    private final MedicationConfig medConfig;
+    private final MedOrderGroupSettingsPB medOrderGroupSettingsPb;
     private Map<String, Long> accountIdToPk;
 
     public static final String XN_CONSCIOUSNESS = "XN_CONSCIOUSNESS";
@@ -1002,6 +1366,9 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
     private static final String MP_RESTRAINT_STATUS = "restraint_status";
     private static final String MP_BACK_PERCUSSION = "back_percussion";
     private static final String MP_NURSING_ACTIONS = "nursing_actions";
+    private static final String MP_STOOL_CONSISTENCY = "stool_consistency";
+    private static final String TUBE_OUTPUT_PARAM_PREFIX = "tube_ylg_";
+    private static final int TUBE_STATS_INTERVAL_HOURS = 4;
 
     private static final Map<String, String> CONSCIOUSNESS_MAP = Map.of(
         "清醒", "1", "嗜睡", "2", "意识模糊", "3", "昏睡", "4", "浅昏迷", "5", "深昏迷", "6", "镇静", "7"
@@ -1017,6 +1384,18 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
     );
     private static final Set<String> DRAINAGE_TUBE_NAMES = Set.of(
         "导尿管", "胃管", "头部引流管", "胸管", "腹部引流管", "切口管", "空肠管"
+    );
+    private static final Set<String> VASCULAR_TUBE_NAMES = Set.of(
+        "中心静脉导管", "外周静脉针", "PICC管", "动脉导管", "中长导管"
+    );
+    private static final Map<String, TubeOutputMapping> TUBE_OUTPUT_MAPPING = Map.of(
+        "tube_ylg_dng", new TubeOutputMapping("尿量", "导尿管"),
+        "tube_ylg_wg", new TubeOutputMapping("胃液量", "胃管"),
+        "tube_ylg_tbylg", new TubeOutputMapping("其他导流液", "头部引流管"),
+        "tube_ylg_xg", new TubeOutputMapping("其他导流液", "胸管"),
+        "tube_ylg_fbylg", new TubeOutputMapping("其他导流液", "腹部引流管"),
+        "tube_ylg_kcg", new TubeOutputMapping("其他导流液", "空肠管"),
+        "tube_ylg_qkg", new TubeOutputMapping("其他导流液", "切口管")
     );
     private static final Map<String, String> RESTRAINT_MAP = Map.of(
         "上肢", "1", "下肢", "2", "上下肢", "3", "胸部", "4"
