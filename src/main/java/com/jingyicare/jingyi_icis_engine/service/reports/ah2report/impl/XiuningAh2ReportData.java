@@ -273,7 +273,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
             setRawRecord(ctx, row, bucket, MP_SUCTION_XN, XN_SUCTION, rowIdx);
             setRestraint(ctx, row, bucket, rowIdx);
             setRawRecord(ctx, row, bucket, MP_BACK_PERCUSSION, XN_BACK_PERCUSSION, rowIdx);
-            setRawRecord(ctx, row, bucket, MP_SKIN_CARE, XN_SKIN_CARE, rowIdx);
+            setMappedRecord(ctx, row, bucket, MP_SKIN_CARE, XN_SKIN_CARE, rowIdx, SKIN_CARE_MAP);
             setOtherNursing(ctx, row, bucket, rowIdx);
             setMappedRecord(ctx, row, bucket, MP_BODY_POSITION, XN_BODY_POSITION, rowIdx, BODY_POSITION_MAP);
             if (!row.isEmpty()) rows.add(row);
@@ -669,20 +669,17 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
     }
 
     private void setRestraint(Ah2PdfContext ctx, Map<String, List<String>> row, MinuteBucket bucket, int rowIdx) {
-        String restraint = getRecordString(ctx, bucket, MP_RESTRAINT, rowIdx);
         String status = getRecordString(ctx, bucket, MP_RESTRAINT_STATUS, rowIdx);
-        String mappedRestraint = StrUtils.isBlank(restraint) ? "" : mapWithFallback(RESTRAINT_MAP, restraint, MP_RESTRAINT);
+        String mappedRestraint = getMappedMultiSelectRecordString(ctx, bucket, MP_RESTRAINT, rowIdx, RESTRAINT_MAP);
         String mappedStatus = StrUtils.isBlank(status) ? "" : mapWithFallback(RESTRAINT_STATUS_MAP, status, MP_RESTRAINT_STATUS);
         setCombined(ctx, row, XN_RESTRAINT, mappedRestraint, mappedStatus);
     }
 
     private void setOtherNursing(Ah2PdfContext ctx, Map<String, List<String>> row, MinuteBucket bucket, int rowIdx) {
-        List<String> codes = new ArrayList<>();
-        for (Map.Entry<String, String> entry : OTHER_NURSING_PARAM_MAP.entrySet()) {
-            String raw = getRecordString(ctx, bucket, entry.getKey(), rowIdx);
-            if (isTruthyNursingValue(raw)) codes.add(entry.getValue());
-        }
-        if (!codes.isEmpty()) putCell(ctx, row, XN_OTHER_NURSING, String.join(",", codes));
+        putCell(
+            ctx, row, XN_OTHER_NURSING,
+            getMappedMultiSelectRecordString(ctx, bucket, MP_NURSING_ACTIONS, rowIdx, NURSING_ACTION_MAP)
+        );
     }
 
     private String getRecordString(Ah2PdfContext ctx, MinuteBucket bucket, String mpCode, int rowIdx) {
@@ -699,6 +696,58 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         ValueMetaPB valueMeta = ctx.mpVmMap == null ? null : ctx.mpVmMap.get(record.getMonitoringParamCode());
         if (valueMeta == null) return "";
         return ValueMetaUtils.extractAndFormatParamValue(mvPb.getValue(), mvPb.getValuesList(), valueMeta);
+    }
+
+    private String getMappedMultiSelectRecordString(
+        Ah2PdfContext ctx, MinuteBucket bucket, String mpCode, int rowIdx, Map<String, String> valueMap
+    ) {
+        List<PatientMonitoringRecord> records = bucket.recordsByCode.get(mpCode);
+        if (records == null || rowIdx >= records.size()) return "";
+        PatientMonitoringRecord record = records.get(rowIdx);
+        if (record == null) return "";
+
+        MonitoringValuePB mvPb = ProtoUtils.decodeMonitoringValue(record.getParamValue());
+        ValueMetaPB valueMeta = ctx.mpVmMap == null ? null : ctx.mpVmMap.get(mpCode);
+        if (mvPb == null) {
+            return mapDelimitedValues(valueMap, record.getParamValueStr(), mpCode);
+        }
+
+        List<GenericValuePB> values = mvPb.getValuesList();
+        if (values != null && !values.isEmpty()) {
+            List<String> mappedValues = new ArrayList<>();
+            for (GenericValuePB value : values) {
+                String raw = getGenericValueString(value, valueMeta);
+                if (StrUtils.isBlank(raw)) continue;
+                mappedValues.add(mapWithFallback(valueMap, raw, mpCode));
+            }
+            return String.join(",", mappedValues);
+        }
+
+        String raw = getGenericValueString(mvPb.getValue(), valueMeta);
+        if (StrUtils.isBlank(raw)) raw = record.getParamValueStr();
+        return mapDelimitedValues(valueMap, raw, mpCode);
+    }
+
+    private String getGenericValueString(GenericValuePB value, ValueMetaPB valueMeta) {
+        if (value == null) return "";
+        if (valueMeta != null) return ValueMetaUtils.extractAndFormatParamValue(value, valueMeta);
+        if (!StrUtils.isBlank(value.getStrVal())) return value.getStrVal();
+        if (value.getInt32Val() != 0) return String.valueOf(value.getInt32Val());
+        if (value.getInt64Val() != 0L) return String.valueOf(value.getInt64Val());
+        if (value.getFloatVal() != 0f) return String.valueOf(value.getFloatVal());
+        if (value.getDoubleVal() != 0d) return String.valueOf(value.getDoubleVal());
+        if (value.getBoolVal()) return String.valueOf(true);
+        return "";
+    }
+
+    private String mapDelimitedValues(Map<String, String> valueMap, String raw, String codeForLog) {
+        if (StrUtils.isBlank(raw)) return "";
+        List<String> mappedValues = new ArrayList<>();
+        for (String item : raw.split(",")) {
+            if (StrUtils.isBlank(item)) continue;
+            mappedValues.add(mapWithFallback(valueMap, item, codeForLog));
+        }
+        return String.join(",", mappedValues);
     }
 
     private void putCell(Ah2PdfContext ctx, Map<String, List<String>> row, String paramCode, String value) {
@@ -732,6 +781,10 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         if (StrUtils.isBlank(raw)) return "";
         String trimmed = raw.trim();
         String mapped = valueMap.get(trimmed);
+        if (mapped == null) {
+            String normalized = trimmed.replaceAll("\\s+", "");
+            if (!normalized.equals(trimmed)) mapped = valueMap.get(normalized);
+        }
         if (mapped == null) {
             log.warn("Xiuning AH2 enum value not mapped: code={}, value={}", codeForLog, trimmed);
             return trimmed;
@@ -808,12 +861,6 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         if (a == null) return -1;
         if (b == null) return 1;
         return Long.compare(a, b);
-    }
-
-    private boolean isTruthyNursingValue(String raw) {
-        if (StrUtils.isBlank(raw)) return false;
-        String value = raw.trim();
-        return !"false".equalsIgnoreCase(value) && !"0".equals(value) && !"否".equals(value) && !"未做".equals(value);
     }
 
     private String trim(String value) {
@@ -961,6 +1008,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
     private static final String MP_SUCTION_XN = "suction";
     private static final String MP_RESTRAINT_STATUS = "restraint_status";
     private static final String MP_BACK_PERCUSSION = "back_percussion";
+    private static final String MP_NURSING_ACTIONS = "nursing_actions";
 
     private static final Map<String, String> CONSCIOUSNESS_MAP = Map.of(
         "清醒", "1", "嗜睡", "2", "意识模糊", "3", "昏睡", "4", "浅昏迷", "5", "深昏迷", "6", "镇静", "7"
@@ -996,17 +1044,25 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
     private static final Map<String, String> BODY_POSITION_MAP = Map.of(
         "平卧", "1", "左侧卧位", "2.a", "右侧卧位", "2.b", "半卧", "3", "俯卧位", "4"
     );
-    private static final Map<String, String> OTHER_NURSING_PARAM_MAP = new LinkedHashMap<>() {{
-        put("oral_care", "1");
-        put("perineal_care", "2");
-        put("face_cleaning_and_hair_combing", "3");
-        put("bed_bathing", "4");
-        put("feet_cleaning", "5");
-        put("nail_trimming", "6");
-        put("assisted_fluid_and_food_intake", "7");
-        put("back_wiping", "8");
-        put("clothing_change", "9");
-        put("bedpan_assistance", "10");
-        put("incontinence_care", "11");
+    private static final Map<String, String> SKIN_CARE_MAP = Map.of(
+        "皮肤完整/气垫床", "1a",
+        "皮肤完整/温水擦浴", "1b",
+        "皮肤完整/保护膜应用", "1c",
+        "皮肤不完整/贴膜", "2a",
+        "皮肤不完整/伤口处理", "2b"
+    );
+    private static final Map<String, String> NURSING_ACTION_MAP = new LinkedHashMap<>() {{
+        put("口腔护理", "1");
+        put("会阴护理", "2");
+        put("面部清洁和梳头", "3");
+        put("床上擦洗", "4");
+        put("床上洗头", "5");
+        put("足部清洁", "6");
+        put("指甲护理", "7");
+        put("协助进水进食", "8");
+        put("擦背", "9");
+        put("更衣", "10");
+        put("床上使用便器", "11");
+        put("失禁护理", "12");
     }};
 }

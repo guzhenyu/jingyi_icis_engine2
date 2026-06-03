@@ -402,8 +402,8 @@ ICU 护 理 记 录 单
 | 40 | 护理 | 吸痰 | `suction` |
 | 41 | 护理 | 约束部位/约束情况 | `restraint` / `restraint_status` |
 | 42 | 护理 | 扣背/振动 | `back_percussion` |
-| 43 | 护理 | 皮肤护理 | `skin_care` |
-| 44 | 护理 | 其他护理 | 多个护理项组合 |
+| 43 | 护理 | 皮肤护理 | `skin_care`，枚举映射 |
+| 44 | 护理 | 其他护理 | `nursing_actions` 多选项 |
 | 45 | 护理 | 体位 | `body_position`，枚举映射 |
 | 46 | 病情变化及护理措施 | 病情变化及护理措施 | `nursing_records.content` |
 | 47 | 签名 | 签名 | 复用省二院签名逻辑 |
@@ -745,13 +745,15 @@ where ptr.is_deleted = false;
 | 列 | 参数 | 格式或映射 |
 | --- | --- | --- |
 | 吸痰 | `suction` | 普通观察值 |
-| 约束部位/约束情况 | `restraint` / `restraint_status` | `restraint/restraint_status` |
+| 约束部位/约束情况 | `restraint` / `restraint_status` | `restraint/restraint_status`；`restraint` 为多选项 |
 | 扣背/振动 | `back_percussion` | 普通观察值 |
-| 皮肤护理 | `skin_care` | 普通观察值 |
-| 其他护理 | 多个参数 | 多项用 `,` 连接 |
+| 皮肤护理 | `skin_care` | 枚举映射 |
+| 其他护理 | `nursing_actions` | 多选项，值来源为 `mvPb.getValuesList()`；逐项映射后用 `,` 连接 |
 | 体位 | `body_position` | 枚举映射 |
 
 约束部位映射：
+
+`restraint` 对应的 `patient_monitoring_records` 值为多选项，实际选项存放在 `MonitoringValuePB.values`，即实现中的 `mvPb.getValuesList()`。生成报表时逐个读取 `mvPb.getValues(i)`，按下表映射为 `1` 到 `4`，再用 `,` 连接后填入单元格，例如选择“上肢”和“胸部”时输出 `1,4`。
 
 | 原值 | 输出 |
 | --- | --- |
@@ -769,21 +771,34 @@ where ptr.is_deleted = false;
 | 破损 | 3 |
 | 骨折 | 4 |
 
-其他护理参数：
+皮肤护理映射：
 
-| 参数 | 输出 |
+| 原值 | 输出 |
 | --- | --- |
-| `oral_care` | 1 |
-| `perineal_care` | 2 |
-| `face_cleaning_and_hair_combing` | 3 |
-| `bed_bathing` | 4 |
-| `feet_cleaning` | 5 |
-| `nail_trimming` | 6 |
-| `assisted_fluid_and_food_intake` | 7 |
-| `back_wiping` | 8 |
-| `clothing_change` | 9 |
-| `bedpan_assistance` | 10 |
-| `incontinence_care` | 11 |
+| 皮肤完整/气垫床 | 1a |
+| 皮肤完整/温水擦浴 | 1b |
+| 皮肤完整/保护膜应用 | 1c |
+| 皮肤不完整/贴膜 | 2a |
+| 皮肤不完整/伤口处理 | 2b |
+
+其他护理动作映射：
+
+`nursing_actions` 对应的 `patient_monitoring_records` 值为多选项，实际选项存放在 `MonitoringValuePB.values`，即实现中的 `mvPb.getValuesList()`。生成报表时逐个读取 `mvPb.getValues(i)`，按下表映射为 `1` 到 `12`，再用 `,` 连接后填入单元格。
+
+| 原值 | 输出 |
+| --- | --- |
+| 口腔护理 | 1 |
+| 会阴护理 | 2 |
+| 面部清洁和梳头 | 3 |
+| 床上擦洗 | 4 |
+| 床上洗头 | 5 |
+| 足部清洁 | 6 |
+| 指甲护理 | 7 |
+| 协助进水进食 | 8 |
+| 擦背 | 9 |
+| 更衣 | 10 |
+| 床上使用便器 | 11 |
+| 失禁护理 | 12 |
 
 体位映射：
 

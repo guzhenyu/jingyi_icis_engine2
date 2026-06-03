@@ -52,6 +52,7 @@ public class Ah2TableRenderer {
         float summaryColWidth = ctx.tblCommon.getWidth();
         boolean hasDateTimeCols = ctx.table.getColParamCodeList().contains(AH2P_HHMM) ||
             ctx.table.getColParamCodeList().contains(AH2P_MMDD);
+        boolean hasSignatureCol = ctx.table.getColParamCodeList().contains(AH2P_SIGNATURE);
         if (hasDateTimeCols) {
             ParamColMetaPB hhMMCol = ctx.colMetaMap.get(AH2P_HHMM);
             if (hhMMCol != null) {
@@ -71,7 +72,7 @@ public class Ah2TableRenderer {
                 summaryColLeft += mmDDCol.getWidth();
                 summaryColWidth -= mmDDCol.getWidth();
             }
-            ParamColMetaPB signCol = ctx.colMetaMap.get(AH2P_SIGNATURE);
+            ParamColMetaPB signCol = hasSignatureCol ? ctx.colMetaMap.get(AH2P_SIGNATURE) : null;
             if (signCol != null) {
                 summaryColWidth -= signCol.getWidth();
             }
@@ -139,7 +140,7 @@ public class Ah2TableRenderer {
                     ctx.contentStream.stroke();
 
                     // 画签名列
-                    ParamColMetaPB signColMeta = ctx.colMetaMap.get(AH2P_SIGNATURE);
+                    ParamColMetaPB signColMeta = hasSignatureCol ? ctx.colMetaMap.get(AH2P_SIGNATURE) : null;
                     List<String> signatureLines = rowBlock.wrappedLinesByParam.get(AH2P_SIGNATURE);
                     if (signColMeta != null && signatureLines != null && !signatureLines.isEmpty()) {
                         drawSignatureImage(
