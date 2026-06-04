@@ -399,7 +399,7 @@ ICU 护 理 记 录 单
 | 36 | 入量 | 量 | `MP_HOURLY_INTAKE` 统计值 |
 | 37 | 出量 | 项目 | 出量参数项目，多个用 `+` 连接 |
 | 38 | 出量 | 用法 | 性状，多个用 `+` 连接 |
-| 39 | 出量 | 量 | `MP_HOURLY_OUTPUT` 或大便量兜底 |
+| 39 | 出量 | 量 | `MP_HOURLY_OUTPUT`、`stool_volume`，或二者用 `+` 合并 |
 | 40 | 护理 | 吸痰 | `suction` |
 | 41 | 护理 | 约束部位/约束情况 | `restraint` / `restraint_status` |
 | 42 | 护理 | 扣背/振动 | `back_percussion` |
@@ -752,7 +752,7 @@ where ptr.is_deleted = false;
 
 1. 参照 `AnhuiSecondHospitalAh2ReportData` 中 `MP_HOURLY_OUTPUT` 的统计逻辑，找出对应显示时间点 `t` 与 `ml`。
 2. 沿用省二院口径：`hourly_output` 记录的 `effective_time` 表示 `effective_time` 到 `effective_time + 1 hour` 的小时量，报表显示时间点为 `effective_time + 1 hour`。
-3. 下文同一时间点 `t` 的出量项目均使用该 `t` 对应的 `MP_HOURLY_OUTPUT` 值作为“量”，除非明确说明使用 `stool_volume` 兜底。
+3. 下文同一时间点 `t` 的非大便出量项目使用该 `t` 对应的 `MP_HOURLY_OUTPUT` 值作为“量”；大便相关量按“出量额外合并规则”处理。
 
 引流管出量参数：
 
@@ -768,6 +768,16 @@ where ptr.is_deleted = false;
 | `tube_ylg_kcg` | 其他导流液 | 空肠管 |
 | `tube_ylg_qkg` | 其他导流液 | 切口管 |
 | 其他 `tube_ylg_*` | 其他导流液 | 无固定映射时不补充引流管名称 |
+
+上述映射也用于 `小记` 和 `总计` 两个汇总行的出量参数明细。汇总行中不显示具体管道名称，按以下名称聚合：
+
+| 原始出量参数 | 汇总行参数名称 |
+| --- | --- |
+| `tube_ylg_wg` | 胃液 |
+| `tube_ylg_dng` | 尿液 |
+| 其他 `tube_ylg_*` | 其他导流液 |
+
+例如汇总行原本可能显示 `导尿管: 400ml`，休宁版本应显示为 `尿液: 400ml`。
 
 引流管出量填充规则：
 
@@ -798,13 +808,16 @@ stool_consistency
 2. `crrt_UF` 存在时，`项目` 增加 `超滤量`。
 3. `stool_volume` 或 `stool_consistency` 任意存在时，`项目` 增加 `大便`。
 4. `性状`：只填 `stool_consistency` 对应值；如果多个性状值进入同一时间点，用 `+` 连接并去重。
-5. `量`：优先填同一时间点 `t` 的 `MP_HOURLY_OUTPUT`；如果 `MP_HOURLY_OUTPUT` 为空且 `stool_volume` 不为空，填 `stool_volume` 对应值。
+5. `量`：按“出量额外合并规则”处理。
 
 出量额外合并规则：
 
 1. `项目` 和 `性状` 均用 `+` 连接。
-2. `量` 只填一个值：`MP_HOURLY_OUTPUT`，或在 `MP_HOURLY_OUTPUT` 为空且 `stool_volume` 不为空时填 `stool_volume`。
-3. `tube_ylg_*`、`gastric_fluid_volume`、`crrt_UF`、`stool_volume`、`stool_consistency` 同一时间点同时存在时，`项目` 合并为一个 `+` 连接字符串。
+2. `tube_ylg_*`、`gastric_fluid_volume`、`crrt_UF`、`stool_volume`、`stool_consistency` 同一时间点同时存在时，`项目` 合并为一个 `+` 连接字符串。
+3. 如果合并后的 `项目` 只有 `大便`，`量` 填 `stool_volume`。
+4. 如果合并后的 `项目` 包含 `大便` 和其他项目，`项目` 中的 `大便` 固定放到最后，`量` 填 `MP_HOURLY_OUTPUT + "+" + stool_volume`。
+5. 如果合并后的 `项目` 不包含 `大便`，`量` 仍填 `MP_HOURLY_OUTPUT`。
+6. 若第 4 条中 `MP_HOURLY_OUTPUT` 或 `stool_volume` 其中一个为空，只显示非空值，不输出多余的 `+`。
 
 #### 入量
 
@@ -839,7 +852,8 @@ where dept_id = :deptId
 4. `administration_routes` 必须按当前 `dept_id` 和 `is_valid = true` 过滤；当前表唯一索引为 `(dept_id, code)`，不能直接按全院 `code` 建 map。
 5. `intake_type_id == 1` 或 `intake_type_id == 2` 时，用法填 `静脉`。
 6. `intake_type_id == 3` 时，用法填 `胃肠`。
-7. 其他 `intake_type_id` 或未找到 `admin_code` 时，用法填 `其他`。
+7. `intake_type_id == 4` 时，用法填 `雾化`。
+8. 其他 `intake_type_id` 或未找到 `admin_code` 时，用法填 `其他`。
 
 量：
 
@@ -1134,9 +1148,11 @@ half_day_shift_hours
 24. 默认配置和 `ReportProperties` 迁移到 `hospitals` 目录；如存在多环境灰度发布需求，可短期保留旧路径文件作为 `ah2` 兼容副本，后续再删除。
 25. 管道每 4 小时统计窗口为 `[t - 4 hours, t)`；窗口内取离 `t` 最近的一条状态记录。
 26. 出量补充引流管时，同名管道已有非空刻度、引流液颜色或护理时保留原管道统计值。
-27. 入量用法按当前 `dept_id` 且 `is_valid = true` 的 `administration_routes` 建立 `admin_code -> intake_type_id` 映射；`intake_type_id == 1 or 2` 显示 `静脉`。
+27. 入量用法按当前 `dept_id` 且 `is_valid = true` 的 `administration_routes` 建立 `admin_code -> intake_type_id` 映射；`intake_type_id == 1 or 2` 显示 `静脉`，`3` 显示 `胃肠`，`4` 显示 `雾化`。
 28. 同一时间点多个入量用药项目复用省二院 `AH2P_MED_EXEC` 的多行折行展示方式。
 29. 休宁入量项目展示为 `dosageGroupDisplayName(液体总量 xx ml)`，其中 `xx` 取有效 `MedicationDosageGroupPB.md[*].intake_vol_ml` 合计值。
+30. 出量项目包含 `大便` 和其他项目时，`大便` 固定放到项目最后，出量金额显示为 `MP_HOURLY_OUTPUT + "+" + stool_volume`；只有 `大便` 时金额显示 `stool_volume`。
+31. `小记` 和 `总计` 汇总行中，`tube_ylg_*` 出量参数按 `胃液`、`尿液`、`其他导流液` 聚合显示，不显示具体管道名称。
 
 ## 待决策
 

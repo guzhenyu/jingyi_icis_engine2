@@ -6,6 +6,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
@@ -70,7 +71,8 @@ public class MonitoringConfig {
         @Autowired RbacDepartmentRepository departmentRepository,
         @Autowired BgaParamRepository bgaParamRepository,
         @Autowired DeptSystemSettingsRepository deptSettingRepository,
-        @Autowired EntityManager entityManager
+        @Autowired EntityManager entityManager,
+        @Value("${monitoring.enable_drainage_params:true}") boolean enableDrainageParams
     ) {
         this.context = context;
         this.protoService = protoService;
@@ -104,6 +106,7 @@ public class MonitoringConfig {
         this.bgaParamRepository = bgaParamRepository;
         this.deptSettingRepository = deptSettingRepository;
         this.entityManager = entityManager;
+        this.enableDrainageParams = enableDrainageParams;
     }
 
     public Integer getBalanceGroupTypeId() { return GROUP_TYPE_BALANCE_ID; }
@@ -755,11 +758,13 @@ public class MonitoringConfig {
                     MonitoringParamPB paramPb = fromMonitoringParam(
                         param, null/*patientOrDeptParamId*/, valueMeta, nextDisplayOrder++);
                     paramPbList.add(paramPb);
-                    for (MonitoringParamPB tubeParam : tubeParamList) {
-                        MonitoringParamPB newTubeParam = tubeParam.toBuilder()
-                            .setCode(code + "_" + tubeParam.getCode())
-                            .build();
-                        paramPbList.add(newTubeParam);
+                    if (enableDrainageParams) {
+                        for (MonitoringParamPB tubeParam : tubeParamList) {
+                            MonitoringParamPB newTubeParam = tubeParam.toBuilder()
+                                .setCode(code + "_" + tubeParam.getCode())
+                                .build();
+                            paramPbList.add(newTubeParam);
+                        }
                     }
                 }
             }
@@ -961,6 +966,7 @@ public class MonitoringConfig {
     private final String OUT_GROUP_NAME;
     private final String DRAINAGE_TUBE_PREFIX;
     private final List<MonitoringParamPB> tubeParamList;
+    private final boolean enableDrainageParams;
 
     private final Map<String, MonitoringParamModalOptionsPB> paramModalMap;
 

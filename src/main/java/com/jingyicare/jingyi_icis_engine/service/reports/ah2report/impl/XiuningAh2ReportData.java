@@ -142,7 +142,13 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         ctx.mpVmMap = ctx.mpMap.entrySet().stream()
             .filter(e -> e.getValue() != null)
             .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getValueMeta()));
-        Map<String, Integer> routeIntakeTypeMap = getRouteIntakeTypeMap(deptId);
+        Map<String, AdministrationRoute> routeMap = getRouteMap(deptId);
+        Map<String, Integer> routeIntakeTypeMap = routeMap.entrySet().stream()
+            .filter(e -> e.getValue() != null)
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getIntakeTypeId()));
+        Map<String, String> routeNameMap = routeMap.entrySet().stream()
+            .filter(e -> e.getValue() != null)
+            .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getName()));
 
         List<LocalDateTime> balanceStatTimeUtcHistory = configShiftUtils.getBalanceStatTimeUtcHistory(deptId);
         LocalDateTime shiftStartUtc = configShiftUtils.getBalanceStatStartUtc(balanceStatTimeUtcHistory, queryStartUtc);
@@ -158,7 +164,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
             dailyData.pageStartTs = shiftStartUtc;
             dailyData.pageEndTs = shiftEndUtc;
             dailyData.rowBlocks.addAll(collectRows(
-                ctx, pid, deptId, shiftStartUtc, shiftEndUtc, accountId, routeIntakeTypeMap
+                ctx, pid, deptId, shiftStartUtc, shiftEndUtc, accountId, routeIntakeTypeMap, routeNameMap
             ));
             addBalanceSummaryRows(ctx, dailyData.rowBlocks, pid, deptId, shiftStartUtc, shiftEndUtc, accountId);
             dailyData.rowBlocks.sort(this::compareRows);
@@ -206,7 +212,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
 
     private List<Ah2PageData.RowBlock> collectRows(
         Ah2PdfContext ctx, Long pid, String deptId, LocalDateTime startUtc, LocalDateTime endUtc,
-        String accountId, Map<String, Integer> routeIntakeTypeMap
+        String accountId, Map<String, Integer> routeIntakeTypeMap, Map<String, String> routeNameMap
     ) {
         Map<LocalDateTime, MinuteBucket> buckets = new TreeMap<>();
 
@@ -229,7 +235,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
             buckets.computeIfAbsent(entry.minute, MinuteBucket::new).tubeEntries.add(entry);
         }
         collectBalanceRows(ctx, buckets, pmrs, tubeCtx, endUtc);
-        collectMedicationIntakeRows(buckets, pid, startUtc, endUtc, routeIntakeTypeMap);
+        collectMedicationIntakeRows(buckets, pid, startUtc, endUtc, routeIntakeTypeMap, routeNameMap);
 
         List<NursingRecord> nursingRecords = nrRepo.findReportNursingRecords(pid, startUtc, endUtc);
         for (NursingRecord record : nursingRecords) {
@@ -323,7 +329,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
             putJoinedCell(ctx, row, XN_DRAINAGE_TUBE_NAME, drainageEntries.stream().map(e -> e.nameCode).toList());
             putJoinedCell(ctx, row, XN_DRAINAGE_TUBE_DEPTH, drainageEntries.stream().map(e -> e.depth).toList());
             putJoinedCell(ctx, row, XN_DRAINAGE_TUBE_COLOR, drainageEntries.stream().map(e -> e.colorCode).toList());
-            putJoinedCell(ctx, row, XN_DRAINAGE_TUBE_NURSING, drainageEntries.stream().map(e -> e.nursingCode).toList());
+            putNursingCell(ctx, row, XN_DRAINAGE_TUBE_NURSING, drainageEntries.stream().map(e -> e.nursingCode).toList());
         }
 
         List<TubeEntry> vascularEntries = bucket.tubeEntries.stream()
@@ -332,7 +338,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         if (!vascularEntries.isEmpty()) {
             putJoinedCell(ctx, row, XN_VASCULAR_TUBE_NAME, vascularEntries.stream().map(e -> e.nameCode).toList());
             putJoinedCell(ctx, row, XN_VASCULAR_TUBE_DEPTH, vascularEntries.stream().map(e -> e.depth).toList());
-            putJoinedCell(ctx, row, XN_VASCULAR_TUBE_NURSING, vascularEntries.stream().map(e -> e.nursingCode).toList());
+            putNursingCell(ctx, row, XN_VASCULAR_TUBE_NURSING, vascularEntries.stream().map(e -> e.nursingCode).toList());
         }
         return row.isEmpty() ? new ArrayList<>() : new ArrayList<>(List.of(row));
     }
@@ -492,8 +498,18 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
             sb.append(bgs.getDeptMonitoringGroupName()).append(" ");
             sb.append(bgs.getSumStr()).append("ml");
             List<String> paramSummaries = new ArrayList<>();
+            Map<String, SummaryAccumulator> tubeOutputSummaryMap = new LinkedHashMap<>();
             for (BalanceParamRecordPB bpr : bgs.getParamRecordList()) {
+                String tubeSummaryName = getTubeOutputSummaryName(bpr.getParamCode());
+                if (!StrUtils.isBlank(tubeSummaryName)) {
+                    tubeOutputSummaryMap.computeIfAbsent(tubeSummaryName, SummaryAccumulator::new).add(bpr);
+                    continue;
+                }
                 paramSummaries.add(bpr.getParamName() + ": " + bpr.getSumStr() + "ml");
+            }
+            for (String summaryName : TUBE_OUTPUT_SUMMARY_ORDER) {
+                SummaryAccumulator acc = tubeOutputSummaryMap.get(summaryName);
+                if (acc != null) paramSummaries.add(acc.toSummaryText());
             }
             if (!paramSummaries.isEmpty()) {
                 sb.append(" (").append(String.join("; ", paramSummaries)).append(")");
@@ -739,11 +755,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         }
         for (Map.Entry<LocalDateTime, OutputEntry> entry : outputByTime.entrySet()) {
             OutputEntry outputEntry = entry.getValue();
-            String amount = hourlyOutputByTime.get(entry.getKey());
-            if (StrUtils.isBlank(amount) && !StrUtils.isBlank(outputEntry.stoolVolume)) {
-                amount = outputEntry.stoolVolume;
-            }
-            outputEntry.amount = amount;
+            outputEntry.amount = outputEntry.getAmountText(hourlyOutputByTime.get(entry.getKey()));
             if (!outputEntry.isEmpty()) {
                 buckets.computeIfAbsent(entry.getKey(), MinuteBucket::new).outputEntry = outputEntry;
             }
@@ -805,8 +817,8 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
     }
 
     private void collectMedicationIntakeRows(
-        Map<LocalDateTime, MinuteBucket> buckets, Long pid,
-        LocalDateTime startUtc, LocalDateTime endUtc, Map<String, Integer> routeIntakeTypeMap
+        Map<LocalDateTime, MinuteBucket> buckets, Long pid, LocalDateTime startUtc, LocalDateTime endUtc,
+        Map<String, Integer> routeIntakeTypeMap, Map<String, String> routeNameMap
     ) {
         List<MedicationExecutionRecord> records = medExeRecordRepo.findStartedRecordsByPatientId(pid, startUtc, endUtc);
         if (records == null || records.isEmpty()) return;
@@ -839,11 +851,12 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
                 continue;
             }
 
-            String item = buildIntakeItemText(dosageGroup);
-            if (StrUtils.isBlank(item)) continue;
             String routeCode = StrUtils.isBlank(record.getAdministrationRouteCode()) ?
                 orderGroup.getAdministrationRouteCode() : record.getAdministrationRouteCode();
             String usage = mapIntakeUsage(routeIntakeTypeMap == null ? null : routeIntakeTypeMap.get(routeCode));
+            String routeName = routeNameMap == null ? null : routeNameMap.get(routeCode);
+            String item = buildIntakeItemText(dosageGroup, routeName);
+            if (StrUtils.isBlank(item)) continue;
 
             IntakeEntry intakeEntry = new IntakeEntry();
             intakeEntry.recordId = record.getId();
@@ -854,29 +867,46 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         }
     }
 
-    private Map<String, Integer> getRouteIntakeTypeMap(String deptId) {
+    private Map<String, AdministrationRoute> getRouteMap(String deptId) {
         if (StrUtils.isBlank(deptId)) return new HashMap<>();
-        Map<String, Integer> result = new HashMap<>();
+        Map<String, AdministrationRoute> result = new HashMap<>();
         for (AdministrationRoute route : routeRepo.findByDeptId(deptId)) {
             if (route == null || StrUtils.isBlank(route.getCode()) || !Boolean.TRUE.equals(route.getIsValid())) continue;
-            result.put(route.getCode(), route.getIntakeTypeId());
+            result.put(route.getCode(), route);
         }
         return result;
     }
 
-    private String buildIntakeItemText(MedicationDosageGroupPB dosageGroup) {
+    private String buildIntakeItemText(MedicationDosageGroupPB dosageGroup, String routeName) {
         String displayName = medConfig.getDosageGroupDisplayName(medOrderGroupSettingsPb, dosageGroup);
         if (StrUtils.isBlank(displayName)) return "";
         double intakeVolMl = dosageGroup.getMdList().stream()
             .mapToDouble(MedicationDosagePB::getIntakeVolMl)
             .sum();
-        return displayName + "(液体总量 " + StrUtils.formatDouble(intakeVolMl, Consts.MED_ML_DECIMAL_PLACES) + " ml)";
+        return displayName + (StrUtils.isBlank(routeName)? "" : ("("+ routeName + ")")) +
+            "(液体总量 " + StrUtils.formatDouble(intakeVolMl, Consts.MED_ML_DECIMAL_PLACES) + " ml)";
     }
 
     private String mapIntakeUsage(Integer intakeTypeId) {
         if (intakeTypeId != null && (intakeTypeId == 1 || intakeTypeId == 2)) return "静脉";
         if (intakeTypeId != null && intakeTypeId == 3) return "胃肠";
+        if (intakeTypeId != null && intakeTypeId == 4) return "雾化";
         return "其他";
+    }
+
+    private String getTubeOutputSummaryName(String paramCode) {
+        if (StrUtils.isBlank(paramCode) || !paramCode.startsWith(TUBE_OUTPUT_PARAM_PREFIX)) return "";
+        if ("tube_ylg_wg".equals(paramCode)) return "胃液";
+        if ("tube_ylg_dng".equals(paramCode)) return "尿液";
+        return "其他导流液";
+    }
+
+    private String formatSummaryMl(double value) {
+        long rounded = Math.round(value);
+        if (Math.abs(value - rounded) < 0.000001d) {
+            return String.valueOf(rounded);
+        }
+        return StrUtils.formatDouble(value, Consts.MED_ML_DECIMAL_PLACES);
     }
 
     private List<Ah2PageData> paginateData(
@@ -1113,6 +1143,22 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         putCell(ctx, row, paramCode, String.join("/", normalizedSegments));
     }
 
+    private void putNursingCell(Ah2PdfContext ctx, Map<String, List<String>> row, String paramCode, List<String> segments) {
+        if (segments == null || segments.isEmpty()) return;
+        List<String> normalizedSegments = segments.stream()
+            .map(this::trim)
+            .toList();
+        LinkedHashSet<String> uniqueNonBlankValues = normalizedSegments.stream()
+            .filter(v -> !StrUtils.isBlank(v))
+            .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (uniqueNonBlankValues.isEmpty()) return;
+        if (uniqueNonBlankValues.size() == 1) {
+            putCell(ctx, row, paramCode, uniqueNonBlankValues.iterator().next());
+            return;
+        }
+        putJoinedCell(ctx, row, paramCode, normalizedSegments);
+    }
+
     private List<String> wrap(Ah2PdfContext ctx, ParamColMetaPB colMeta, String value) {
         if (StrUtils.isBlank(value)) return new ArrayList<>();
         try {
@@ -1264,7 +1310,24 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         String stoolVolume;
 
         String getItemText() {
-            return String.join("+", items);
+            if (!items.contains("大便") || items.size() <= 1) {
+                return String.join("+", items);
+            }
+            List<String> orderedItems = items.stream()
+                .filter(item -> !"大便".equals(item))
+                .collect(Collectors.toCollection(ArrayList::new));
+            orderedItems.add("大便");
+            return String.join("+", orderedItems);
+        }
+
+        String getAmountText(String hourlyOutput) {
+            boolean hasStool = items.contains("大便");
+            boolean hasOtherItems = items.stream().anyMatch(item -> !"大便".equals(item));
+            if (!hasStool) return hourlyOutput;
+            if (!hasOtherItems) return stoolVolume;
+            if (StrUtils.isBlank(hourlyOutput)) return stoolVolume;
+            if (StrUtils.isBlank(stoolVolume)) return hourlyOutput;
+            return hourlyOutput + "+" + stoolVolume;
         }
 
         String getUsageText() {
@@ -1273,6 +1336,28 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
 
         boolean isEmpty() {
             return items.isEmpty() && usages.isEmpty() && StrUtils.isBlank(amount);
+        }
+    }
+
+    private class SummaryAccumulator {
+        SummaryAccumulator(String name) {
+            this.name = name;
+        }
+        String name;
+        double sumMl;
+        String singleSumStr;
+        int count;
+
+        void add(BalanceParamRecordPB record) {
+            if (record == null) return;
+            sumMl += record.getSumMl();
+            singleSumStr = record.getSumStr();
+            count++;
+        }
+
+        String toSummaryText() {
+            String sumStr = count == 1 ? singleSumStr : formatSummaryMl(sumMl);
+            return name + ": " + sumStr + "ml";
         }
     }
 
@@ -1388,6 +1473,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
     private static final Set<String> VASCULAR_TUBE_NAMES = Set.of(
         "中心静脉导管", "外周静脉针", "PICC管", "动脉导管", "中长导管"
     );
+    private static final List<String> TUBE_OUTPUT_SUMMARY_ORDER = List.of("胃液", "尿液", "其他导流液");
     private static final Map<String, TubeOutputMapping> TUBE_OUTPUT_MAPPING = Map.of(
         "tube_ylg_dng", new TubeOutputMapping("尿量", "导尿管"),
         "tube_ylg_wg", new TubeOutputMapping("胃液量", "胃管"),
