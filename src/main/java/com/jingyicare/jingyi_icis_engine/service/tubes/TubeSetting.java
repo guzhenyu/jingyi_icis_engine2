@@ -74,6 +74,9 @@ public class TubeSetting {
                     .setId(tubeType.getId())
                     .setType(tubeType.getType())
                     .setName(tubeType.getName() != null ? tubeType.getName() : "")
+                    .setDrainageBalanceOutName(
+                        tubeType.getDrainageBalanceOutName() != null ? tubeType.getDrainageBalanceOutName() : ""
+                    )
                     .setCategory(tubeType.getCategory() != null ? tubeType.getCategory() : "")
                     .setIsCommon(tubeType.getIsCommon() != null && tubeType.getIsCommon() ? 1 : 0)
                     .setDisplayOrder(tubeType.getDisplayOrder() != null ? tubeType.getDisplayOrder() : 0)
@@ -141,6 +144,9 @@ public class TubeSetting {
             .deptId(deptId)
             .type(tubeTypePb.getType())
             .name(tubeTypePb.getName() != null ? tubeTypePb.getName() : "")
+            .drainageBalanceOutName(
+                tubeTypePb.getDrainageBalanceOutName() != null ? tubeTypePb.getDrainageBalanceOutName() : ""
+            )
             .category(tubeTypePb.getCategory() != null ? tubeTypePb.getCategory() : "")
             .isCommon(tubeTypePb.getIsCommon() > 0)
             .isDisabled(tubeTypePb.getIsDisabled() > 0)
@@ -156,7 +162,7 @@ public class TubeSetting {
         tubeType = tubeTypeRepo.save(tubeType);
 
         // 如果对应的管道类型是“引流管”，生成对应的monitoring_params
-        updateMonitoringParam(tubeType.getType(), tubeType.getName());
+        updateMonitoringParam(tubeType.getType(), tubeType.getName(), tubeType.getDrainageBalanceOutName());
 
         return tubeType.getId();
     }
@@ -364,10 +370,22 @@ public class TubeSetting {
     }
 
     public void updateMonitoringParam(String tubeType, String tubeName) {
+        updateMonitoringParam(tubeType, tubeName, null);
+    }
+
+    public void updateMonitoringParam(String tubeType, String tubeName, String drainageBalanceOutName) {
         if (!tubeType.equals(DRAINAGE_TUBE_TYPE)) return;
 
         String paramCode = getMonitoringParamCode(tubeType, tubeName);
-        if (monitoringParamRepo.findByCode(paramCode).isPresent()) return;
+        String balanceOutName = StrUtils.isBlank(drainageBalanceOutName) ? tubeName : drainageBalanceOutName;
+        Optional<MonitoringParam> existingParam = monitoringParamRepo.findByCode(paramCode);
+        if (existingParam.isPresent()) {
+            MonitoringParam mp = existingParam.get();
+            mp.setName(balanceOutName);
+            mp.setNameEn(StrUtils.toPinyin(balanceOutName));
+            monitoringParamRepo.save(mp);
+            return;
+        }
 
         Integer displayOrder = 1;
         {
@@ -377,8 +395,8 @@ public class TubeSetting {
 
         MonitoringParam mp = MonitoringParam.builder()
             .code(paramCode)
-            .name(tubeName)
-            .nameEn(StrUtils.toPinyin(tubeName))
+            .name(balanceOutName)
+            .nameEn(StrUtils.toPinyin(balanceOutName))
             .typePb(defaultDrainageParam.getTypePb())
             .balanceType(defaultDrainageParam.getBalanceType())
             .category(defaultDrainageParam.getCategory())

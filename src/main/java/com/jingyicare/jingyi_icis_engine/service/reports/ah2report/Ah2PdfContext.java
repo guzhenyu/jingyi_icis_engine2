@@ -34,6 +34,7 @@ public class Ah2PdfContext {
     public float tableHeaderBottom;
 
     public Ah2PageData pageData;
+    public boolean drawLineForEmptyRows;
 
     // 其他辅助信息
     public Map<String, MonitoringParamPB> mpMap;  // monitoring param map

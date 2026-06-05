@@ -1079,6 +1079,7 @@ CREATE TABLE tube_types (
     dept_id VARCHAR(255) NOT NULL,
     type VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
+    drainage_balance_out_name VARCHAR(255),
     category VARCHAR(255),
     is_common BOOLEAN,
     is_disabled BOOLEAN NOT NULL DEFAULT false,
@@ -1091,6 +1092,7 @@ COMMENT ON TABLE tube_types IS '管道设置表';
 COMMENT ON COLUMN tube_types.dept_id IS '部门代码';
 COMMENT ON COLUMN tube_types.type IS '管道类型';
 COMMENT ON COLUMN tube_types.name IS '管道名称';
+COMMENT ON COLUMN tube_types.drainage_balance_out_name IS '引流管出量观察项显示名称';
 COMMENT ON COLUMN tube_types.category IS '管道分类, I类、II类、III类';
 COMMENT ON COLUMN tube_types.is_common IS '是否为常用管道';
 COMMENT ON COLUMN tube_types.is_disabled IS '是否禁用';

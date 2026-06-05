@@ -28,6 +28,9 @@ public class TubeType {
     @Column(name = "name", nullable = false)
     private String name;  // 管道展示名称
 
+    @Column(name = "drainage_balance_out_name")
+    private String drainageBalanceOutName;  // 引流管出量观察项显示名称
+
     @Column(name = "category")
     private String category;  // 管道分类
 

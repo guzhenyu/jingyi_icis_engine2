@@ -596,6 +596,51 @@ page {
             id: "note_mid"
             type: "text"
             x: 300
+            y: 50
+            width: 280
+            height: 8
+            v_align_id: 2
+            h_align_id: 4
+            font: "Microsoft YaHei"
+            font_size: 6
+            font_color: "#000000"
+            char_spacing: 0.5
+            content: "皮肤：1皮肤完整(护理措施: a气垫床 b温水擦浴 c保护膜应用) 2皮肤不完整(护理措施: a贴膜 b伤口处理)"
+        }
+        text_elem {
+            id: "note_mid2"
+            type: "text"
+            x: 300
+            y: 42
+            width: 280
+            height: 8
+            v_align_id: 2
+            h_align_id: 4
+            font: "Microsoft YaHei"
+            font_size: 6
+            font_color: "#000000"
+            char_spacing: 0.5
+            content: "基础护理其他项目：1口腔护理 2会阴护理 3面部清洁和梳头 4床上擦洗 5床上洗头 6足部清洁 7指甲护理"
+        }
+        text_elem {
+            id: "note_mid3"
+            type: "text"
+            x: 300
+            y: 34
+            width: 280
+            height: 8
+            v_align_id: 2
+            h_align_id: 4
+            font: "Microsoft YaHei"
+            font_size: 6
+            font_color: "#000000"
+            char_spacing: 0.5
+            content: "     8协助进水进食 9擦背 10更衣 11床上使用便器 12失禁护理"
+        }
+        text_elem {
+            id: "note_mid4"
+            type: "text"
+            x: 300
             y: 26
             width: 280
             height: 8
@@ -608,7 +653,7 @@ page {
             content: "约束部位: 1上肢 2下肢 3上下肢 4胸部"
         }
         text_elem {
-            id: "note_mid2"
+            id: "note_mid5"
             type: "text"
             x: 300
             y: 18
@@ -621,51 +666,6 @@ page {
             font_color: "#000000"
             char_spacing: 0.5
             content: "约束情况: 1良好 2青紫 3破损 4骨折"
-        }
-        text_elem {
-            id: "note_mid3"
-            type: "text"
-            x: 300
-            y: 42
-            width: 280
-            height: 8
-            v_align_id: 2
-            h_align_id: 4
-            font: "Microsoft YaHei"
-            font_size: 6
-            font_color: "#000000"
-            char_spacing: 0.5
-            content: "皮肤：1皮肤完整(护理措施: a气垫床 b温水擦浴 c保护膜应用) 2皮肤不完整(护理措施: a贴膜 b伤口处理)"
-        }
-        text_elem {
-            id: "note_mid4"
-            type: "text"
-            x: 300
-            y: 34
-            width: 280
-            height: 8
-            v_align_id: 2
-            h_align_id: 4
-            font: "Microsoft YaHei"
-            font_size: 6
-            font_color: "#000000"
-            char_spacing: 0.5
-            content: "基础护理其他项目：1口腔护理 2会阴护理 3面部清洁和梳头 4床上擦洗 5床上洗头 6足部清洁 7指甲护理"
-        }
-        text_elem {
-            id: "note_mid5"
-            type: "text"
-            x: 300
-            y: 10
-            width: 280
-            height: 8
-            v_align_id: 2
-            h_align_id: 4
-            font: "Microsoft YaHei"
-            font_size: 6
-            font_color: "#000000"
-            char_spacing: 0.5
-            content: "     8协助进水进食 9擦背 10更衣 11床上使用便器 12失禁护理"
         }
     }
     sub_page {

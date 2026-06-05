@@ -53,6 +53,7 @@ public class ReportProperties {
         private String font = "classpath:/fonts/msyh.ttf";
         private String wardReportFont = "classpath:/fonts/msyh.ttf";
         private int generationLockStaleMinutes = 30;
+        private boolean drawLineForEmptyRows = false;
 
         public String getTemplate() {
             return StrUtils.isBlank(template) ? TEMPLATE_AH2 : template.trim();

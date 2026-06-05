@@ -2,6 +2,7 @@ package com.jingyicare.jingyi_icis_engine.service;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -35,7 +36,9 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 
 import com.jingyicare.jingyi_icis_engine.entity.settings.*;
+import com.jingyicare.jingyi_icis_engine.entity.medications.*;
 import com.jingyicare.jingyi_icis_engine.repository.settings.*;
+import com.jingyicare.jingyi_icis_engine.repository.medications.*;
 
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -51,7 +54,8 @@ public class ConfigProtoService {
         @Value("${jingyi.textresources.freq_config}") Resource freqConfigResource,
         @Value("${jingyi.textresources.engine_config}") Resource engineConfigResource,
         @Value("${jingyi.textresources.charset}") String charsetName,
-        @Autowired DeptSystemSettingsRepository deptSettingsRepo
+        @Autowired DeptSystemSettingsRepository deptSettingsRepo,
+        @Autowired IntakeTypeRepository intakeTypeRepo
     ) {
         BufferedReader reader = null;
         try {
@@ -159,6 +163,7 @@ public class ConfigProtoService {
         }
 
         this.deptSettingsRepo = deptSettingsRepo;
+        this.intakeTypeRepo = intakeTypeRepo;
     }
 
     public ReturnCode getReturnCode(StatusCode code) {
@@ -204,7 +209,7 @@ public class ConfigProtoService {
             .setMonitoringEnums(config.getMonitoring().getEnums())
             .setMedicationEnums(config.getMedication().getEnums())
             .addAllDosageUnit(config.getText().getUnits().getUnitList())
-            .addAllIntakeType(config.getMedication().getIntakeTypes().getIntakeTypeList())
+            .addAllIntakeType(getIntakeTypesFromDb())
             .addAllDosageRateUnit(config.getMedication().getEnums().getDoseRateUnitList())
             .addAllSolidUnit(config.getMedication().getEnums().getSolidUnitList())
             .setScoreEnums(config.getScore().getEnums())
@@ -223,6 +228,19 @@ public class ConfigProtoService {
             .addAllPredefinedParamEncoder(config.getUrl().getPredefinedParamEncoderList())
             .addAllSkincareCategory(config.getSkincare().getSkincareCategoryList())
             .build();
+    }
+
+    private List<IntakeTypePB> getIntakeTypesFromDb() {
+        return intakeTypeRepo.findAll().stream()
+            .sorted(Comparator.comparing(IntakeType::getId, Comparator.nullsLast(Integer::compareTo)))
+            .map(intakeType -> IntakeTypePB.newBuilder()
+                .setId(intakeType.getId() == null ? 0 : intakeType.getId())
+                .setName(StrUtils.isBlank(intakeType.getName()) ? "" : intakeType.getName())
+                .setMonitoringParamCode(
+                    StrUtils.isBlank(intakeType.getMonitoringParamCode()) ? "" : intakeType.getMonitoringParamCode()
+                )
+                .build())
+            .collect(Collectors.toList());
     }
 
     public Boolean checkFutureTime(String deptId, LocalDateTime utcToCheck) {
@@ -256,4 +274,5 @@ public class ConfigProtoService {
     private final Map<Integer, String> maritalStatusMap;
 
     private final DeptSystemSettingsRepository deptSettingsRepo;
+    private final IntakeTypeRepository intakeTypeRepo;
 }

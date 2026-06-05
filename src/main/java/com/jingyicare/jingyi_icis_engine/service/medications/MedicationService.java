@@ -1256,6 +1256,12 @@ public class MedicationService {
         List<AdministrationRoutePB> routes = medDict.lookupAdministrationRoute(
             req.getDeptId(), req.getQuery()
         );
+        routes.sort(Comparator
+            .comparingInt((AdministrationRoutePB route) -> {
+                int intakeTypeId = route.getIntakeTypeId();
+                return intakeTypeId == 0 ? Integer.MAX_VALUE : intakeTypeId;
+            })
+            .thenComparing(AdministrationRoutePB::getCode));
         return LookupRouteResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
             .addAllRoute(routes)

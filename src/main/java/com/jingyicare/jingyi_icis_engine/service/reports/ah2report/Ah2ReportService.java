@@ -51,6 +51,7 @@ public class Ah2ReportService {
         this.jfkDataService = jfkDataService;
         this.variant = reportProperties.getAh2().getVariant();
         this.templatePath = reportProperties.getAh2().getTemplate();
+        this.drawLineForEmptyRows = reportProperties.getAh2().isDrawLineForEmptyRows();
         if (!isTemplateCompatible(this.variant, this.templatePath)) {
             log.error(
                 "AH2 template/variant mismatch: variant={}, template={}, expected={}",
@@ -115,6 +116,7 @@ public class Ah2ReportService {
             Ah2PdfContext ctx = new Ah2PdfContext();
             ctx.pid = pid;
             ctx.variant = this.variant;
+            ctx.drawLineForEmptyRows = this.drawLineForEmptyRows;
             ctx.pageRectangle = this.pageRectangle;
             ctx.document = document;
             ctx.font = PDType0Font.load(ctx.document, new ByteArrayInputStream(fontDataBytes));
@@ -510,6 +512,9 @@ public class Ah2ReportService {
     }
 
     private int getEffectiveBodyRows(Ah2PdfContext ctx, int maxBodyRows) {
+        if (ctx != null && ctx.drawLineForEmptyRows) {
+            return maxBodyRows;
+        }
         if (ctx != null && Ah2.VARIANT_XIUNING.equals(ctx.variant)) {
             return maxBodyRows;
         }
@@ -674,4 +679,5 @@ public class Ah2ReportService {
     private final String variant;
     private final String templatePath;
     private final PDRectangle pageRectangle;
+    private final boolean drawLineForEmptyRows;
 }

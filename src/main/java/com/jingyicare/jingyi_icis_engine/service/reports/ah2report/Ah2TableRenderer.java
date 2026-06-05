@@ -79,16 +79,19 @@ public class Ah2TableRenderer {
         }
 
 // log.info("\n\npageData:\n{}\n\n", ProtoUtils.protoToTxt(ctx.pageData.toProto()));
+        if (ctx.drawLineForEmptyRows) {
+            for (int rowIdx = 0; rowIdx < ctx.tblCommon.getBodyRows() - 1; rowIdx++) {
+                drawBodyRowBottomLine(ctx, rowIdx);
+            }
+        }
+
         // 画数据块
         for (Ah2PageData.RowBlock rowBlock : ctx.pageData.rowBlocks) {
             // - 画表体横线
-            for (int i = 0; i < rowBlock.totalRows; i++) {
-                int rowIdx = rowBlock.startRow + i;
-                if (rowIdx == ctx.tblCommon.getBodyRows() - 1) break; // 最后一行不画
-                float y = ctx.tableHeaderBottom - (rowIdx + 1) * ctx.tblCommon.getRowHeight();
-                ctx.contentStream.moveTo(ctx.tblCommon.getLeft(), y);
-                ctx.contentStream.lineTo(ctx.tblCommon.getLeft() + ctx.tblCommon.getWidth(), y);
-                ctx.contentStream.stroke();
+            if (!ctx.drawLineForEmptyRows) {
+                for (int i = 0; i < rowBlock.totalRows; i++) {
+                    drawBodyRowBottomLine(ctx, rowBlock.startRow + i);
+                }
             }
 
             if (rowBlock.isSummaryRow) {  // 画汇总行文字
@@ -323,6 +326,13 @@ public class Ah2TableRenderer {
         return ctx != null && ReportProperties.Ah2.VARIANT_XIUNING.equals(ctx.variant);
     }
 
+    private void drawBodyRowBottomLine(Ah2PdfContext ctx, int rowIdx) throws IOException {
+        if (rowIdx < 0 || rowIdx >= ctx.tblCommon.getBodyRows() - 1) return; // 最后一行由表格外框承担
+        float y = ctx.tableHeaderBottom - (rowIdx + 1) * ctx.tblCommon.getRowHeight();
+        ctx.contentStream.moveTo(ctx.tblCommon.getLeft(), y);
+        ctx.contentStream.lineTo(ctx.tblCommon.getLeft() + ctx.tblCommon.getWidth(), y);
+        ctx.contentStream.stroke();
+    }
 
     private final String ZONE_ID;
 }

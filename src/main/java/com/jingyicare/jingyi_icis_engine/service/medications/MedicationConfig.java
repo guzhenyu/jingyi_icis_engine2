@@ -83,7 +83,7 @@ public class MedicationConfig {
         if (!checkMedicationType() ||
             !checkMedicationFrequency() ||
             !checkAdministrationRouteGroup() ||
-            !checkIntakeType() ||
+            // !checkIntakeType() ||
             !checkOrderDurationType() ||
             !checkMedicationOrderValidityType() ||
             !checkMedicationChannel() ||

@@ -731,7 +731,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
             }
 
             if (MP_GASTRIC_FLUID_VOLUME.equals(paramCode)) {
-                outputEntry.items.add("胃液量");
+                outputEntry.items.add("胃液");
                 continue;
             }
             if (MP_CRRT_UF.equals(paramCode)) {
@@ -1476,7 +1476,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
     private static final List<String> TUBE_OUTPUT_SUMMARY_ORDER = List.of("胃液", "尿液", "其他导流液");
     private static final Map<String, TubeOutputMapping> TUBE_OUTPUT_MAPPING = Map.of(
         "tube_ylg_dng", new TubeOutputMapping("尿量", "导尿管"),
-        "tube_ylg_wg", new TubeOutputMapping("胃液量", "胃管"),
+        "tube_ylg_wg", new TubeOutputMapping("胃液", "胃管"),
         "tube_ylg_tbylg", new TubeOutputMapping("其他导流液", "头部引流管"),
         "tube_ylg_xg", new TubeOutputMapping("其他导流液", "胸管"),
         "tube_ylg_fbylg", new TubeOutputMapping("其他导流液", "腹部引流管"),

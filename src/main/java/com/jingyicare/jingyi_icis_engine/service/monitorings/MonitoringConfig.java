@@ -72,6 +72,7 @@ public class MonitoringConfig {
         @Autowired BgaParamRepository bgaParamRepository,
         @Autowired DeptSystemSettingsRepository deptSettingRepository,
         @Autowired EntityManager entityManager,
+        @Value("${monitoring.enable_drainage:true}") boolean enableDrainage,
         @Value("${monitoring.enable_drainage_params:true}") boolean enableDrainageParams
     ) {
         this.context = context;
@@ -106,6 +107,7 @@ public class MonitoringConfig {
         this.bgaParamRepository = bgaParamRepository;
         this.deptSettingRepository = deptSettingRepository;
         this.entityManager = entityManager;
+        this.enableDrainage = enableDrainage;
         this.enableDrainageParams = enableDrainageParams;
     }
 
@@ -742,7 +744,7 @@ public class MonitoringConfig {
                 }
             }
 
-            if (isBalanceOutGroup && balanceOutTubeParamCodes != null) {
+            if (isBalanceOutGroup && enableDrainage && balanceOutTubeParamCodes != null) {
                 // 如果是平衡量出组，则需要添加引流管道参数
                 for (String code : balanceOutTubeParamCodes) {
                     MonitoringParam param = paramMap.get(code);
@@ -966,6 +968,7 @@ public class MonitoringConfig {
     private final String OUT_GROUP_NAME;
     private final String DRAINAGE_TUBE_PREFIX;
     private final List<MonitoringParamPB> tubeParamList;
+    private final boolean enableDrainage;
     private final boolean enableDrainageParams;
 
     private final Map<String, MonitoringParamModalOptionsPB> paramModalMap;
