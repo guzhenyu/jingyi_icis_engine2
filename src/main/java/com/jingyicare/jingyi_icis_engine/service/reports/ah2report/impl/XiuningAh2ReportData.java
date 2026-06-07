@@ -11,10 +11,13 @@ import org.springframework.stereotype.Component;
 import lombok.extern.slf4j.Slf4j;
 
 import com.jingyicare.jingyi_icis_engine.entity.medications.*;
+import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientBgaRecord;
+import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientBgaRecordDetail;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientMonitoringRecord;
 import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.NursingRecord;
 import com.jingyicare.jingyi_icis_engine.entity.patientshifts.PatientShiftRecord;
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
+import com.jingyicare.jingyi_icis_engine.entity.scores.PatientScore;
 import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
 import com.jingyicare.jingyi_icis_engine.entity.tubes.*;
 import com.jingyicare.jingyi_icis_engine.entity.users.Account;
@@ -25,9 +28,12 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisReportAh2.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
 import com.jingyicare.jingyi_icis_engine.repository.medications.*;
+import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientBgaRecordDetailRepository;
+import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientBgaRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientMonitoringRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.nursingrecords.NursingRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patientshifts.PatientShiftRecordRepository;
+import com.jingyicare.jingyi_icis_engine.repository.scores.PatientScoreRepository;
 import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.repository.tubes.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
@@ -58,6 +64,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         @Autowired PatientMonitoringRecordRepository pmrRepo,
         @Autowired NursingRecordRepository nrRepo,
         @Autowired PatientShiftRecordRepository psrRepo,
+        @Autowired PatientScoreRepository psRepo,
         @Autowired PatientTubeRecordRepository ptrRepo,
         @Autowired PatientTubeStatusRecordRepository ptsrRepo,
         @Autowired PatientTubeAttrRepository ptaRepo,
@@ -68,6 +75,8 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         @Autowired MedicationOrderGroupRepository medOrderGroupRepo,
         @Autowired AdministrationRouteRepository routeRepo,
         @Autowired MedMonitoringService medMonitoringService,
+        @Autowired PatientBgaRecordRepository pbgarRepo,
+        @Autowired PatientBgaRecordDetailRepository pbgardRepo,
         @Autowired MedicationConfig medConfig
     ) {
         this.ZONE_ID = protoService.getConfig().getZoneId();
@@ -83,6 +92,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         this.pmrRepo = pmrRepo;
         this.nrRepo = nrRepo;
         this.psrRepo = psrRepo;
+        this.psRepo = psRepo;
         this.ptrRepo = ptrRepo;
         this.ptsrRepo = ptsrRepo;
         this.ptaRepo = ptaRepo;
@@ -93,6 +103,8 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         this.medOrderGroupRepo = medOrderGroupRepo;
         this.routeRepo = routeRepo;
         this.medMonitoringService = medMonitoringService;
+        this.pbgarRepo = pbgarRepo;
+        this.pbgardRepo = pbgardRepo;
         this.medConfig = medConfig;
     }
 
@@ -228,6 +240,8 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
                 .recordsByCode.computeIfAbsent(pmr.getMonitoringParamCode(), k -> new ArrayList<>())
                 .add(pmr);
         }
+        collectBgaRows(buckets, pid, startUtc, endUtc);
+        collectScoreRows(buckets, pid, startUtc, endUtc);
 
         TubeReportContext tubeCtx = loadTubeReportContext(pid, startUtc, endUtc);
         List<TubeEntry> tubeEntries = collectTubeEntries(tubeCtx, startUtc, endUtc);
@@ -272,8 +286,81 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         return rows;
     }
 
+    private void collectBgaRows(
+        Map<LocalDateTime, MinuteBucket> buckets, Long pid, LocalDateTime startUtc, LocalDateTime endUtc
+    ) {
+        List<PatientBgaRecord> bgaRecords = pbgarRepo
+            .findByPidAndEffectiveTimeGreaterThanEqualAndEffectiveTimeLessThanAndIsDeletedFalseOrderByEffectiveTimeAsc(
+                pid, startUtc, endUtc
+            );
+        if (bgaRecords == null || bgaRecords.isEmpty()) return;
+
+        List<Long> bgaIds = bgaRecords.stream()
+            .map(PatientBgaRecord::getId)
+            .filter(Objects::nonNull)
+            .toList();
+        if (bgaIds.isEmpty()) return;
+
+        Map<Long, List<PatientBgaRecordDetail>> bgaDetailsMap = pbgardRepo.findByRecordIdInAndIsDeletedFalse(bgaIds)
+            .stream()
+            .sorted(Comparator.comparing(PatientBgaRecordDetail::getId, Comparator.nullsLast(Long::compareTo)))
+            .collect(Collectors.groupingBy(PatientBgaRecordDetail::getRecordId));
+
+        for (PatientBgaRecord bgaRecord : bgaRecords) {
+            if (bgaRecord.getEffectiveTime() == null) continue;
+            List<PatientBgaRecordDetail> details = bgaDetailsMap.get(bgaRecord.getId());
+            if (details == null || details.isEmpty()) continue;
+            MinuteBucket bucket = buckets.computeIfAbsent(truncateToMinute(bgaRecord.getEffectiveTime()), MinuteBucket::new);
+            for (PatientBgaRecordDetail detail : details) {
+                if (detail == null ||
+                    StrUtils.isBlank(detail.getMonitoringParamCode()) ||
+                    StrUtils.isBlank(detail.getParamValue())
+                ) {
+                    continue;
+                }
+                GenericValuePB value = ProtoUtils.decodeGenericValue(detail.getParamValue());
+                if (value == null) continue;
+                bucket.bgaValuesByCode.computeIfAbsent(detail.getMonitoringParamCode(), k -> new ArrayList<>())
+                    .add(value);
+            }
+        }
+    }
+
+    private void collectScoreRows(
+        Map<LocalDateTime, MinuteBucket> buckets, Long pid, LocalDateTime startUtc, LocalDateTime endUtc
+    ) {
+        List<PatientScore> scores = psRepo.findByPidAndEffectiveTimeBetweenAndIsDeletedFalse(pid, startUtc, endUtc);
+        if (scores == null || scores.isEmpty()) return;
+        scores.sort(Comparator
+            .comparing(PatientScore::getEffectiveTime, Comparator.nullsLast(Comparator.naturalOrder()))
+            .thenComparing(PatientScore::getScoreGroupCode, Comparator.nullsLast(String::compareTo))
+            .thenComparing(PatientScore::getId, Comparator.nullsLast(Long::compareTo)));
+
+        for (PatientScore score : scores) {
+            if (score == null || score.getEffectiveTime() == null ||
+                score.getEffectiveTime().isBefore(startUtc) || !score.getEffectiveTime().isBefore(endUtc) ||
+                StrUtils.isBlank(score.getScoreGroupCode()) || StrUtils.isBlank(score.getScoreStr())
+            ) {
+                continue;
+            }
+            String scoreStr = score.getScoreStr().trim();
+            if (scoreStr.endsWith("分")) {
+                scoreStr = scoreStr.substring(0, scoreStr.length() - 1);
+            }
+            if (StrUtils.isBlank(scoreStr)) continue;
+            buckets.computeIfAbsent(truncateToMinute(score.getEffectiveTime()), MinuteBucket::new)
+                .scoresByCode.put(score.getScoreGroupCode(), scoreStr);
+        }
+    }
+
     private List<Map<String, List<String>>> buildObservationRows(Ah2PdfContext ctx, MinuteBucket bucket) {
-        int rowCount = bucket.recordsByCode.values().stream().mapToInt(List::size).max().orElse(0);
+        int rowCount = Math.max(
+            Math.max(
+                bucket.recordsByCode.values().stream().mapToInt(List::size).max().orElse(0),
+                bucket.bgaValuesByCode.values().stream().mapToInt(List::size).max().orElse(0)
+            ),
+            bucket.scoresByCode.isEmpty() ? 0 : 1
+        );
         if (rowCount == 0) return new ArrayList<>();
 
         List<Map<String, List<String>>> rows = new ArrayList<>();
@@ -304,11 +391,20 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
             setRawRecord(ctx, row, bucket, MP_VENT_CUFF_PRESSURE, XN_VENT_CUFF_PRESSURE, rowIdx);
             setRawRecord(ctx, row, bucket, MP_BLOOD_GLUCOSE, AH2P_BLOOD_GLUCOSE, rowIdx);
             setRawRecord(ctx, row, bucket, MP_SUCTION_XN, XN_SUCTION, rowIdx);
+            setRawRecord(ctx, row, bucket, MP_SPUTUM_AMOUNT, XN_SPUTUM_AMOUNT, rowIdx);
+            setRawRecord(ctx, row, bucket, MP_SPUTUM_COLOR, XN_SPUTUM_COLOR, rowIdx);
+            setRawRecord(ctx, row, bucket, MP_SPUTUM_CONSISTENCY, XN_SPUTUM_CONSISTENCY, rowIdx);
             setRestraint(ctx, row, bucket, rowIdx);
             setRawRecord(ctx, row, bucket, MP_BACK_PERCUSSION, XN_BACK_PERCUSSION, rowIdx);
             setMappedRecord(ctx, row, bucket, MP_SKIN_CARE, XN_SKIN_CARE, rowIdx, SKIN_CARE_MAP);
             setOtherNursing(ctx, row, bucket, rowIdx);
             setMappedRecord(ctx, row, bucket, MP_BODY_POSITION, XN_BODY_POSITION, rowIdx, BODY_POSITION_MAP);
+            setBgaRecord(ctx, row, bucket, BGA_PH, AH2P_BGA_PH, rowIdx);
+            setBgaRecord(ctx, row, bucket, BGA_PCO2, AH2P_BGA_PCO2, rowIdx);
+            setBgaRecord(ctx, row, bucket, BGA_PO2, AH2P_BGA_PO2, rowIdx);
+            setBgaRecord(ctx, row, bucket, BGA_SO2, AH2P_BGA_SPO2, rowIdx);
+            setBgaRecord(ctx, row, bucket, BGA_LAC, AH2P_BGA_LAC, rowIdx);
+            if (rowIdx == 0) setScoreRecords(ctx, row, bucket);
             if (!row.isEmpty()) rows.add(row);
         }
         return rows;
@@ -500,16 +596,15 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
             List<String> paramSummaries = new ArrayList<>();
             Map<String, SummaryAccumulator> tubeOutputSummaryMap = new LinkedHashMap<>();
             for (BalanceParamRecordPB bpr : bgs.getParamRecordList()) {
-                String tubeSummaryName = getTubeOutputSummaryName(bpr.getParamCode());
+                String tubeSummaryName = getTubeOutputSummaryName(ctx, bpr.getParamCode());
                 if (!StrUtils.isBlank(tubeSummaryName)) {
                     tubeOutputSummaryMap.computeIfAbsent(tubeSummaryName, SummaryAccumulator::new).add(bpr);
                     continue;
                 }
                 paramSummaries.add(bpr.getParamName() + ": " + bpr.getSumStr() + "ml");
             }
-            for (String summaryName : TUBE_OUTPUT_SUMMARY_ORDER) {
-                SummaryAccumulator acc = tubeOutputSummaryMap.get(summaryName);
-                if (acc != null) paramSummaries.add(acc.toSummaryText());
+            for (SummaryAccumulator acc : tubeOutputSummaryMap.values()) {
+                paramSummaries.add(acc.toSummaryText());
             }
             if (!paramSummaries.isEmpty()) {
                 sb.append(" (").append(String.join("; ", paramSummaries)).append(")");
@@ -717,16 +812,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
 
             OutputEntry outputEntry = outputByTime.computeIfAbsent(balanceTime, k -> new OutputEntry());
             if (paramCode.startsWith(TUBE_OUTPUT_PARAM_PREFIX)) {
-                TubeOutputMapping mapping = TUBE_OUTPUT_MAPPING.getOrDefault(
-                    paramCode, TubeOutputMapping.otherDrainage()
-                );
-                outputEntry.items.add(mapping.outputItem);
-                if (!StrUtils.isBlank(mapping.tubeName)) {
-                    supplementDrainageTube(
-                        buckets.computeIfAbsent(balanceTime, MinuteBucket::new),
-                        createDrainageTubeSupplement(tubeCtx, mapping.tubeName, balanceTime)
-                    );
-                }
+                outputEntry.items.add(getMonitoringParamName(ctx, paramCode));
                 continue;
             }
 
@@ -780,40 +866,6 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         }
         if (effectiveTime.equals(endUtc)) return null;
         return effectiveTime.plusHours(1);
-    }
-
-    private TubeEntry createDrainageTubeSupplement(TubeReportContext tubeCtx, String tubeName, LocalDateTime statsTime) {
-        if (tubeCtx == null || StrUtils.isBlank(tubeName) || statsTime == null) return null;
-        PatientTubeRecord selectedTubeRecord = tubeCtx.tubeRecords.stream()
-            .filter(record -> tubeName.equals(trim(record.getTubeName())))
-            .filter(record -> isTubeActiveAt(record, statsTime))
-            .min(Comparator.comparing(PatientTubeRecord::getId, Comparator.nullsLast(Long::compareTo)))
-            .orElse(null);
-
-        TubeEntry entry = new TubeEntry(TubeCategory.DRAINAGE, selectedTubeRecord == null ? null : selectedTubeRecord.getId(), statsTime);
-        entry.nameCode = tubeName;
-        if (selectedTubeRecord != null) {
-            LocalDateTime windowStartUtc = statsTime.minusHours(TUBE_STATS_INTERVAL_HOURS);
-            List<PatientTubeStatusReportBrief> briefs = tubeCtx.statusByTubeRecordId.getOrDefault(
-                selectedTubeRecord.getId(), Collections.emptyList()
-            );
-            entry.depth = getNearestStatus(briefs, TUBE_DEPTH_STATUS_NAME, windowStartUtc, statsTime);
-            entry.colorCode = getNearestStatus(briefs, "颜色", windowStartUtc, statsTime);
-            entry.nursingCode = getNearestStatus(briefs, "护理", windowStartUtc, statsTime);
-        }
-        return entry;
-    }
-
-    private void supplementDrainageTube(MinuteBucket bucket, TubeEntry supplement) {
-        if (bucket == null || supplement == null || StrUtils.isBlank(supplement.nameCode)) return;
-        for (TubeEntry entry : bucket.tubeEntries) {
-            if (entry.category != TubeCategory.DRAINAGE || !supplement.nameCode.equals(entry.nameCode)) continue;
-            if (StrUtils.isBlank(entry.depth)) entry.depth = supplement.depth;
-            if (StrUtils.isBlank(entry.colorCode)) entry.colorCode = supplement.colorCode;
-            if (StrUtils.isBlank(entry.nursingCode)) entry.nursingCode = supplement.nursingCode;
-            return;
-        }
-        bucket.tubeEntries.add(supplement);
     }
 
     private void collectMedicationIntakeRows(
@@ -894,11 +946,16 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         return "其他";
     }
 
-    private String getTubeOutputSummaryName(String paramCode) {
+    private String getTubeOutputSummaryName(Ah2PdfContext ctx, String paramCode) {
         if (StrUtils.isBlank(paramCode) || !paramCode.startsWith(TUBE_OUTPUT_PARAM_PREFIX)) return "";
-        if ("tube_ylg_wg".equals(paramCode)) return "胃液";
-        if ("tube_ylg_dng".equals(paramCode)) return "尿液";
-        return "其他导流液";
+        return getMonitoringParamName(ctx, paramCode);
+    }
+
+    private String getMonitoringParamName(Ah2PdfContext ctx, String paramCode) {
+        if (StrUtils.isBlank(paramCode)) return "";
+        MonitoringParamPB param = ctx == null || ctx.mpMap == null ? null : ctx.mpMap.get(paramCode);
+        if (param == null || StrUtils.isBlank(param.getName())) return paramCode;
+        return param.getName();
     }
 
     private String formatSummaryMl(double value) {
@@ -1022,6 +1079,29 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         putCell(ctx, row, paramCode, getRecordString(ctx, bucket, mpCode, rowIdx));
     }
 
+    private void setBgaRecord(
+        Ah2PdfContext ctx, Map<String, List<String>> row, MinuteBucket bucket,
+        String bgaCode, String paramCode, int rowIdx
+    ) {
+        putCell(ctx, row, paramCode, getBgaRecordString(ctx, bucket, bgaCode, rowIdx));
+    }
+
+    private void setScoreRecords(Ah2PdfContext ctx, Map<String, List<String>> row, MinuteBucket bucket) {
+        putScore(ctx, row, bucket, PS_BRADEN, AH2P_BRADEN);
+        putScore(ctx, row, bucket, PS_MORSE, AH2P_MORSE);
+        putScore(ctx, row, bucket, PS_AODLS, AH2P_AODLS);
+        putScore(ctx, row, bucket, PS_CATHETER_SLIPPAGE, AH2P_CATHETER_SLIPPAGE);
+        putScore(ctx, row, bucket, PS_RASS, AH2P_RASS);
+        putScore(ctx, row, bucket, PS_FRS_V2, AH2P_CPOT_NRS);
+    }
+
+    private void putScore(
+        Ah2PdfContext ctx, Map<String, List<String>> row, MinuteBucket bucket, String scoreCode, String paramCode
+    ) {
+        if (bucket == null || bucket.scoresByCode == null) return;
+        putCell(ctx, row, paramCode, bucket.scoresByCode.get(scoreCode));
+    }
+
     private void setMappedRecord(
         Ah2PdfContext ctx, Map<String, List<String>> row, MinuteBucket bucket,
         String mpCode, String paramCode, int rowIdx, Map<String, String> valueMap
@@ -1061,6 +1141,13 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         List<PatientMonitoringRecord> records = bucket.recordsByCode.get(mpCode);
         if (records == null || rowIdx >= records.size()) return "";
         return getRecordString(ctx, records.get(rowIdx));
+    }
+
+    private String getBgaRecordString(Ah2PdfContext ctx, MinuteBucket bucket, String bgaCode, int rowIdx) {
+        List<GenericValuePB> values = bucket.bgaValuesByCode.get(bgaCode);
+        if (values == null || rowIdx >= values.size()) return "";
+        ValueMetaPB valueMeta = ctx.mpVmMap == null ? null : ctx.mpVmMap.get(bgaCode);
+        return getGenericValueString(values.get(rowIdx), valueMeta);
     }
 
     private String getRecordString(Ah2PdfContext ctx, PatientMonitoringRecord record) {
@@ -1264,6 +1351,8 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         }
         LocalDateTime minute;
         Map<String, List<PatientMonitoringRecord>> recordsByCode = new HashMap<>();
+        Map<String, List<GenericValuePB>> bgaValuesByCode = new HashMap<>();
+        Map<String, String> scoresByCode = new HashMap<>();
         List<TubeEntry> tubeEntries = new ArrayList<>();
         List<IntakeEntry> intakeEntries = new ArrayList<>();
         String intakeAmount;
@@ -1361,19 +1450,6 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         }
     }
 
-    private static class TubeOutputMapping {
-        TubeOutputMapping(String outputItem, String tubeName) {
-            this.outputItem = outputItem;
-            this.tubeName = tubeName;
-        }
-        String outputItem;
-        String tubeName;
-
-        static TubeOutputMapping otherDrainage() {
-            return new TubeOutputMapping("其他导流液", "");
-        }
-    }
-
     private final String ZONE_ID;
     private final List<String> statusCodeMsgs;
     private final Integer BALANCE_GROUP_TYPE_ID;
@@ -1386,6 +1462,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
     private final PatientMonitoringRecordRepository pmrRepo;
     private final NursingRecordRepository nrRepo;
     private final PatientShiftRecordRepository psrRepo;
+    private final PatientScoreRepository psRepo;
     private final PatientTubeRecordRepository ptrRepo;
     private final PatientTubeStatusRecordRepository ptsrRepo;
     private final PatientTubeAttrRepository ptaRepo;
@@ -1396,6 +1473,8 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
     private final MedicationOrderGroupRepository medOrderGroupRepo;
     private final AdministrationRouteRepository routeRepo;
     private final MedMonitoringService medMonitoringService;
+    private final PatientBgaRecordRepository pbgarRepo;
+    private final PatientBgaRecordDetailRepository pbgardRepo;
     private final MedicationConfig medConfig;
     private final MedOrderGroupSettingsPB medOrderGroupSettingsPb;
     private Map<String, Long> accountIdToPk;
@@ -1437,6 +1516,9 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
     public static final String XN_OUTPUT_USAGE = "XN_OUTPUT_USAGE";
     public static final String XN_OUTPUT_AMOUNT = "XN_OUTPUT_AMOUNT";
     public static final String XN_SUCTION = "XN_SUCTION";
+    public static final String XN_SPUTUM_AMOUNT = "XN_SPUTUM_AMOUNT";
+    public static final String XN_SPUTUM_COLOR = "XN_SPUTUM_COLOR";
+    public static final String XN_SPUTUM_CONSISTENCY = "XN_SPUTUM_CONSISTENCY";
     public static final String XN_RESTRAINT = "XN_RESTRAINT";
     public static final String XN_BACK_PERCUSSION = "XN_BACK_PERCUSSION";
     public static final String XN_SKIN_CARE = "XN_SKIN_CARE";
@@ -1472,16 +1554,6 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
     );
     private static final Set<String> VASCULAR_TUBE_NAMES = Set.of(
         "中心静脉导管", "外周静脉针", "PICC管", "动脉导管", "中长导管"
-    );
-    private static final List<String> TUBE_OUTPUT_SUMMARY_ORDER = List.of("胃液", "尿液", "其他导流液");
-    private static final Map<String, TubeOutputMapping> TUBE_OUTPUT_MAPPING = Map.of(
-        "tube_ylg_dng", new TubeOutputMapping("尿量", "导尿管"),
-        "tube_ylg_wg", new TubeOutputMapping("胃液", "胃管"),
-        "tube_ylg_tbylg", new TubeOutputMapping("其他导流液", "头部引流管"),
-        "tube_ylg_xg", new TubeOutputMapping("其他导流液", "胸管"),
-        "tube_ylg_fbylg", new TubeOutputMapping("其他导流液", "腹部引流管"),
-        "tube_ylg_kcg", new TubeOutputMapping("其他导流液", "空肠管"),
-        "tube_ylg_qkg", new TubeOutputMapping("其他导流液", "切口管")
     );
     private static final Map<String, String> RESTRAINT_MAP = Map.of(
         "上肢", "1", "下肢", "2", "上下肢", "3", "胸部", "4"

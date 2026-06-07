@@ -206,6 +206,21 @@ page {
                         width: 15
                     }
                     children {
+                        content: "痰量"
+                        param_code: "XN_SPUTUM_AMOUNT"
+                        width: 15
+                    }
+                    children {
+                        content: "痰液颜色"
+                        param_code: "XN_SPUTUM_COLOR"
+                        width: 15
+                    }
+                    children {
+                        content: "痰液性状"
+                        param_code: "XN_SPUTUM_CONSISTENCY"
+                        width: 15
+                    }
+                    children {
                         content: "约束部位/"
                         content: "约束情况"
                         param_code: "XN_RESTRAINT"
@@ -233,13 +248,42 @@ page {
                         content: "体位"
                         param_code: "XN_BODY_POSITION"
                     }
-                    width: 114
+                    width: 159
+                    height_rows: 1
+                }
+                top_level_cell {
+                    content: "血气"
+                    children {
+                        content: "PH"
+                        param_code: "AH2P_BGA_PH"
+                        width: 15
+                    }
+                    children {
+                        content: "PCO2"
+                        param_code: "AH2P_BGA_PCO2"
+                        width: 15
+                    }
+                    children {
+                        content: "PO2"
+                        param_code: "AH2P_BGA_PO2"
+                        width: 15
+                    }
+                    children {
+                        content: "SpO2"
+                        param_code: "AH2P_BGA_SPO2"
+                        width: 15
+                    }
+                    children {
+                        content: "Lac"
+                        param_code: "AH2P_BGA_LAC"
+                    }
+                    width: 75
                     height_rows: 1
                 }
                 top_level_cell {
                     content: "病情变化及护理措施"
                     param_code: "AH2P_NURSING_RECORD"
-                    width: 246
+                    width: 126
                 }
                 top_level_cell {
                     content: "签名"
@@ -692,12 +736,12 @@ page {
                         children {
                             content: "名称"
                             param_code: "XN_DRAINAGE_TUBE_NAME"
-                            width: 75
+                            width: 60
                         }
                         children {
                             content: "刻度"
                             param_code: "XN_DRAINAGE_TUBE_DEPTH"
-                            width: 45
+                            width: 35
                         }
                         children {
                             content: "引流液颜色"
@@ -709,7 +753,7 @@ page {
                             # 多管道护理值由 XiuningAh2ReportData 做同值合并。
                             param_code: "XN_DRAINAGE_TUBE_NURSING"
                         }
-                        width: 215
+                        width: 190
                         height_rows: 1
                     }
                     children {
@@ -717,22 +761,56 @@ page {
                         children {
                             content: "名称"
                             param_code: "XN_VASCULAR_TUBE_NAME"
-                            width: 75
+                            width: 60
                         }
                         children {
                             content: "刻度"
                             param_code: "XN_VASCULAR_TUBE_DEPTH"
-                            width: 45
+                            width: 35
                         }
                         children {
                             content: "护理"
                             # 多管道护理值由 XiuningAh2ReportData 做同值合并。
                             param_code: "XN_VASCULAR_TUBE_NURSING"
                         }
-                        width: 170
+                        width: 145
                         height_rows: 1
                     }
-                    width: 385
+                    width: 335
+                    height_rows: 1
+                }
+                top_level_cell {
+                    content: "评分"
+                    children {
+                        content: "Braden评分"
+                        param_code: "AH2P_BRADEN"
+                        width: 10
+                    }
+                    children {
+                        content: "Morse跌倒评估"
+                        param_code: "AH2P_MORSE"
+                        width: 10
+                    }
+                    children {
+                        content: "自理评估"
+                        param_code: "AH2P_AODLS"
+                        width: 10
+                    }
+                    children {
+                        content: "导管风险评估"
+                        param_code: "AH2P_CATHETER_SLIPPAGE"
+                        width: 10
+                    }
+                    children {
+                        content: "RASS镇静评估"
+                        param_code: "AH2P_RASS"
+                        width: 10
+                    }
+                    children {
+                        content: "CPOT/NRS"
+                        param_code: "AH2P_CPOT_NRS"
+                    }
+                    width: 60
                     height_rows: 1
                 }
                 top_level_cell {
@@ -740,7 +818,7 @@ page {
                     children {
                         content: "项目"
                         param_code: "XN_INTAKE_ITEM"
-                        width: 196
+                        width: 186
                     }
                     children {
                         content: "用法"
@@ -751,7 +829,7 @@ page {
                         content: "小时量"
                         param_code: "XN_INTAKE_AMOUNT"
                     }
-                    width: 231
+                    width: 221
                     height_rows: 1
                 }
                 top_level_cell {

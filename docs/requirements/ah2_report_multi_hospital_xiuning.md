@@ -394,20 +394,34 @@ ICU 护 理 记 录 单
 | 31 | 动静脉置管 | 刻度 | 管道状态 `置入长度` |
 | 32 | 动静脉置管 | 护理 | 管道状态 `护理`，原文 |
 | 33 | 血糖 | 血糖 | `blood_glucose` |
-| 34 | 入量 | 项目 | 执行用药项目，参考 `AH2P_MED_EXEC` |
-| 35 | 入量 | 用法 | 根据 `administration_routes.intake_type_id` 归类 |
-| 36 | 入量 | 量 | `MP_HOURLY_INTAKE` 统计值 |
-| 37 | 出量 | 项目 | 出量参数项目，多个用 `+` 连接 |
-| 38 | 出量 | 用法 | 性状，多个用 `+` 连接 |
-| 39 | 出量 | 量 | `MP_HOURLY_OUTPUT`、`stool_volume`，或二者用 `+` 合并 |
-| 40 | 护理 | 吸痰 | `suction` |
-| 41 | 护理 | 约束部位/约束情况 | `restraint` / `restraint_status` |
-| 42 | 护理 | 扣背/振动 | `back_percussion` |
-| 43 | 护理 | 皮肤护理 | `skin_care`，枚举映射 |
-| 44 | 护理 | 其他护理 | `nursing_actions` 多选项 |
-| 45 | 护理 | 体位 | `body_position`，枚举映射 |
-| 46 | 病情变化及护理措施 | 病情变化及护理措施 | `nursing_records.content` |
-| 47 | 签名 | 签名 | 复用省二院签名逻辑 |
+| 34 | 评分 | Braden评分 | `patient_scores.score_group_code = braden` |
+| 35 | 评分 | Morse跌倒评估 | `patient_scores.score_group_code = morse` |
+| 36 | 评分 | 自理评估 | `patient_scores.score_group_code = activities_of_daily_living_assessment` |
+| 37 | 评分 | 导管风险评估 | `patient_scores.score_group_code = catheter_slippage` |
+| 38 | 评分 | RASS镇静评估 | `patient_scores.score_group_code = rass` |
+| 39 | 评分 | CPOT/NRS | `patient_scores.score_group_code = frs_v2` |
+| 40 | 入量 | 项目 | 执行用药项目，参考 `AH2P_MED_EXEC` |
+| 41 | 入量 | 用法 | 根据 `administration_routes.intake_type_id` 归类 |
+| 42 | 入量 | 量 | `MP_HOURLY_INTAKE` 统计值 |
+| 43 | 出量 | 项目 | 出量参数项目，多个用 `+` 连接 |
+| 44 | 出量 | 用法 | 性状，多个用 `+` 连接 |
+| 45 | 出量 | 量 | `MP_HOURLY_OUTPUT`、`stool_volume`，或二者用 `+` 合并 |
+| 46 | 护理 | 吸痰 | `suction` |
+| 47 | 护理 | 痰量 | `sputum_amount` |
+| 48 | 护理 | 痰液颜色 | `sputum_color` |
+| 49 | 护理 | 痰液性状 | `sputum_consistency` |
+| 50 | 护理 | 约束部位/约束情况 | `restraint` / `restraint_status` |
+| 51 | 护理 | 扣背/振动 | `back_percussion` |
+| 52 | 护理 | 皮肤护理 | `skin_care`，枚举映射 |
+| 53 | 护理 | 其他护理 | `nursing_actions` 多选项 |
+| 54 | 护理 | 体位 | `body_position`，枚举映射 |
+| 55 | 血气 | PH | `bga_ph` |
+| 56 | 血气 | PCO2 | `bga_pco2` |
+| 57 | 血气 | PO2 | `bga_po2` |
+| 58 | 血气 | SpO2 | `bga_so2` |
+| 59 | 血气 | Lac | `bga_lac` |
+| 60 | 病情变化及护理措施 | 病情变化及护理措施 | `nursing_records.content` |
+| 61 | 签名 | 签名 | 复用省二院签名逻辑 |
 
 ### 列宽调整要求
 
@@ -416,6 +430,11 @@ ICU 护 理 记 录 单
 1. `管道监测/刻度` 和 `动静脉置管/刻度` 从两个文本宽度调整为一个文本宽度，整体 `-2`。
 2. `吸氧方式`、`氧流量` 上层标题改为 `8. 氧疗`，新增 `氧浓度%`，整体 `+1`。
 3. 多出的一个文本宽度扩到 `病情变化及护理措施`，整体 `+1`。
+4. `护理` 分组在 `吸痰` 后新增 `痰量`、`痰液颜色`、`痰液性状` 三列，每列宽度 `15`；`护理` 分组总宽度增加 `45`。
+5. `护理` 分组后新增 `血气` 分组，包含 `PH`、`PCO2`、`PO2`、`SpO2`、`Lac` 五列，每列宽度 `15`，分组总宽度 `75`。
+6. 上述新增 `120` 宽度全部从 `病情变化及护理措施` 列扣减。
+7. 第二个 `sub_page` 中，`XN_DRAINAGE_TUBE_NAME` 宽度为 `60`，`XN_DRAINAGE_TUBE_DEPTH` 宽度为 `35`，`XN_VASCULAR_TUBE_NAME` 宽度为 `60`，`XN_VASCULAR_TUBE_DEPTH` 宽度为 `35`，缩减宽度优先转入 `XN_INTAKE_ITEM`。
+8. 第二个 `sub_page` 在管道监测后新增 `评分` 分组，去掉 VTE，包含 6 个评分列，每列宽度 `10`，总宽度 `60`；该宽度从 `XN_INTAKE_ITEM` 扣减。
 
 实现模板时需要确保最终总宽度仍在 A4 横向页面可打印范围内。
 
@@ -738,11 +757,48 @@ where ptr.is_deleted = false;
 5. 名称来自“名称显示规则”；刻度和护理从 `[t - 4 hours, t)` 内对应管道状态记录中选择离 `t` 最近的一条。
 6. 多根管道之间的合并规则与“同一时刻多动静脉置管合并规则”一致。
 
+### 评分
+
+评分数据取值参考省二院 `AnhuiSecondHospitalAh2ReportData` 中护理评分实现。
+
+1. 数据来源为 `patient_scores`。
+2. 按 `patient_scores.effective_time` 归入同一分钟逻辑时间点。
+3. 使用 `patient_scores.score_group_code` 匹配报表列。
+4. 展示值取 `patient_scores.score_str`；如果末尾带 `分`，展示时去掉末尾 `分`。
+5. 同一分钟内如果多个评分记录命中同一 `score_group_code`，按 `effective_time`、`score_group_code`、`id` 升序处理，后处理的记录覆盖先处理的记录。
+6. 休宁评分分组不展示 VTE。
+
+| 列 | `score_group_code` | 报表列 |
+| --- | --- | --- |
+| Braden评分 | `braden` | `AH2P_BRADEN` |
+| Morse跌倒评估 | `morse` | `AH2P_MORSE` |
+| 自理评估 | `activities_of_daily_living_assessment` | `AH2P_AODLS` |
+| 导管风险评估 | `catheter_slippage` | `AH2P_CATHETER_SLIPPAGE` |
+| RASS镇静评估 | `rass` | `AH2P_RASS` |
+| CPOT/NRS | `frs_v2` | `AH2P_CPOT_NRS` |
+
 ### 血糖
 
 | 列 | 参数 |
 | --- | --- |
 | 血糖 | `blood_glucose` |
+
+### 血气
+
+血气数据取值仿照省二院 `AnhuiSecondHospitalAh2ReportData` 的血气实现：
+
+1. 数据来源为 `patient_bga_records` 及其 `patient_bga_record_details`。
+2. 按 `patient_bga_records.effective_time` 归入同一分钟逻辑时间点。
+3. 明细字段使用 `patient_bga_record_details.monitoring_param_code` 匹配报表列。
+4. 明细值使用对应观察项参数的 `ValueMetaPB` 格式化。
+
+| 列 | `monitoring_param_code` |
+| --- | --- |
+| PH | `bga_ph` |
+| PCO2 | `bga_pco2` |
+| PO2 | `bga_po2` |
+| SpO2 | `bga_so2` |
+| Lac | `bga_lac` |
 
 ### 入量和出量
 
@@ -758,38 +814,17 @@ where ptr.is_deleted = false;
 
 时间范围内查找 `patient_monitoring_records.monitoring_param_code` 以 `tube_ylg_` 开头的记录，例如导尿管为 `tube_ylg_dng`。
 
-| `monitoring_param_code` | 出量项目 | 对应引流管名称 |
-| --- | --- | --- |
-| `tube_ylg_dng` | 尿量 | 导尿管 |
-| `tube_ylg_wg` | 胃液量 | 胃管 |
-| `tube_ylg_tbylg` | 其他导流液 | 头部引流管 |
-| `tube_ylg_xg` | 其他导流液 | 胸管 |
-| `tube_ylg_fbylg` | 其他导流液 | 腹部引流管 |
-| `tube_ylg_kcg` | 其他导流液 | 空肠管 |
-| `tube_ylg_qkg` | 其他导流液 | 切口管 |
-| 其他 `tube_ylg_*` | 其他导流液 | 无固定映射时不补充引流管名称 |
-
-上述映射也用于 `小记` 和 `总计` 两个汇总行的出量参数明细。汇总行中不显示具体管道名称，按以下名称聚合：
-
-| 原始出量参数 | 汇总行参数名称 |
-| --- | --- |
-| `tube_ylg_wg` | 胃液 |
-| `tube_ylg_dng` | 尿液 |
-| 其他 `tube_ylg_*` | 其他导流液 |
-
-例如汇总行原本可能显示 `导尿管: 400ml`，休宁版本应显示为 `尿液: 400ml`。
+1. `项目` 使用对应 `monitoring_params.name`，不再对 `tube_ylg_dng`、`tube_ylg_wg` 等参数做特殊名称映射。
+2. `小记` 和 `总计` 两个汇总行也使用同一逻辑：按对应 `monitoring_params.name` 归并汇总。
+3. 多个 `tube_ylg_*` 参数的 `monitoring_params.name` 相同时，在汇总行合并为一个参数明细；名称不同时分别展示。
+4. 如果无法找到对应观察项参数，或 `monitoring_params.name` 为空，使用原始 `monitoring_param_code` 兜底展示。
 
 引流管出量填充规则：
 
-1. `项目`：按上表输出，多个项目用 `+` 连接并去重。
+1. `项目`：使用对应 `monitoring_params.name`，多个项目用 `+` 连接并去重。
 2. `性状`：为空。
 3. `量`：填同一时间点 `t` 的 `MP_HOURLY_OUTPUT`。
-4. 同时补充“引流管”列：
-   - 名称按上表补充到引流管名称 cell。
-   - 与原管道统计得到的名称重复时不重复写入。
-   - 原管道统计没有的名称追加到 `/` 合并结果末尾。
-   - 刻度、引流液颜色、护理按“引流管”章节的每 4 小时统计取最近值规则获取，并合并到对应 cell。
-   - 若同名管道已经存在，刻度、引流液颜色、护理优先保留原管道统计值；原管道统计值为空时才用出量推导出的最近值补齐。
+4. 不再根据 `tube_ylg_*` 固定映射补充“引流管”列；引流管名称、刻度、引流液颜色、护理仍由“引流管”章节的每 4 小时统计逻辑生成。
 
 其他出量参数：
 
@@ -866,6 +901,9 @@ where dept_id = :deptId
 | 列 | 参数 | 格式或映射 |
 | --- | --- | --- |
 | 吸痰 | `suction` | 普通观察值 |
+| 痰量 | `sputum_amount` | 普通观察值 |
+| 痰液颜色 | `sputum_color` | 普通观察值 |
+| 痰液性状 | `sputum_consistency` | 普通观察值 |
 | 约束部位/约束情况 | `restraint` / `restraint_status` | `restraint/restraint_status`；`restraint` 为多选项 |
 | 扣背/振动 | `back_percussion` | 普通观察值 |
 | 皮肤护理 | `skin_care` | 枚举映射 |
@@ -1147,12 +1185,12 @@ half_day_shift_hours
 23. 休宁模板列宽、字号和表头坐标以 `/Users/guzhenyu/gDocs/jingyi/休宁县人民医院/xiuning_report_template.pb.txt` 为初始基准；首版 PDF 经截图或打印样张确认后固定。
 24. 默认配置和 `ReportProperties` 迁移到 `hospitals` 目录；如存在多环境灰度发布需求，可短期保留旧路径文件作为 `ah2` 兼容副本，后续再删除。
 25. 管道每 4 小时统计窗口为 `[t - 4 hours, t)`；窗口内取离 `t` 最近的一条状态记录。
-26. 出量补充引流管时，同名管道已有非空刻度、引流液颜色或护理时保留原管道统计值。
+26. `tube_ylg_*` 出量参数不再根据固定映射补充“引流管”列；引流管列仍由管道每 4 小时统计逻辑生成。
 27. 入量用法按当前 `dept_id` 且 `is_valid = true` 的 `administration_routes` 建立 `admin_code -> intake_type_id` 映射；`intake_type_id == 1 or 2` 显示 `静脉`，`3` 显示 `胃肠`，`4` 显示 `雾化`。
 28. 同一时间点多个入量用药项目复用省二院 `AH2P_MED_EXEC` 的多行折行展示方式。
 29. 休宁入量项目展示为 `dosageGroupDisplayName(液体总量 xx ml)`，其中 `xx` 取有效 `MedicationDosageGroupPB.md[*].intake_vol_ml` 合计值。
 30. 出量项目包含 `大便` 和其他项目时，`大便` 固定放到项目最后，出量金额显示为 `MP_HOURLY_OUTPUT + "+" + stool_volume`；只有 `大便` 时金额显示 `stool_volume`。
-31. `小记` 和 `总计` 汇总行中，`tube_ylg_*` 出量参数按 `胃液`、`尿液`、`其他导流液` 聚合显示，不显示具体管道名称。
+31. `小记` 和 `总计` 汇总行中，`tube_ylg_*` 出量参数按对应 `monitoring_params.name` 归并汇总，不再使用 `胃液`、`尿液`、`其他导流液` 的特殊名称映射。
 
 ## 待决策
 

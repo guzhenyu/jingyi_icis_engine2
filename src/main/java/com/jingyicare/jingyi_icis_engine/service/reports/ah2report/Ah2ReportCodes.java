@@ -48,6 +48,7 @@ public final class Ah2ReportCodes {
     public static final String MP_ATOMIZATION = "atomization";  // 雾化
     public static final String MP_SPUTUM_AMOUNT = "sputum_amount";  // 痰量
     public static final String MP_SPUTUM_COLOR = "sputum_color";  // 痰颜色  
+    public static final String MP_SPUTUM_CONSISTENCY = "sputum_consistency";  // 痰液性状
     public static final String MP_SUCTION_COUNT = "suction_count";  // 吸痰次数
     public static final String MP_BED_BATHING = "bed_bathing";  // 床上擦洗 | 床上擦浴
     public static final String MP_PERINEAL_CARE = "perineal_care";  // 会阴护理
@@ -77,6 +78,7 @@ public final class Ah2ReportCodes {
     public static final String BGA_BE = "bga_be";  // 血气：BE
     public static final String BGA_HCO3 = "bga_hco3-";  // 血气：HCO3-
     public static final String BGA_SPO2 = "bga_o2sat";  // 血气：SpO2
+    public static final String BGA_SO2 = "bga_so2";  // 血气：SO2
     public static final String BGA_K = "bga_k+";  // 血气：K+
     public static final String BGA_NA = "bga_na+";  // 血气：Na+
     public static final String BGA_CL = "bga_cl-";  // 血气：Cl-

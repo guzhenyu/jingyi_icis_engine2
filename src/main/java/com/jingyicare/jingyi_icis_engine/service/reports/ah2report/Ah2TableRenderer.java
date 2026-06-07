@@ -83,6 +83,7 @@ public class Ah2TableRenderer {
             for (int rowIdx = 0; rowIdx < ctx.tblCommon.getBodyRows() - 1; rowIdx++) {
                 drawBodyRowBottomLine(ctx, rowIdx);
             }
+            drawBodyColumnLines(ctx);
         }
 
         // 画数据块
@@ -196,7 +197,8 @@ public class Ah2TableRenderer {
                         log.error("Ah2ReportService.drawTableBody: colMetaMap missing paramCode=" + paramCode);
                         continue;
                     }
-                    if (!paramCode.equals(AH2P_HHMM) && !paramCode.equals(AH2P_MMDD)
+                    if (!ctx.drawLineForEmptyRows &&
+                        !paramCode.equals(AH2P_HHMM) && !paramCode.equals(AH2P_MMDD)
                         && colIdx != ctx.table.getColParamCodeCount() - 1
                     ) {  // 画列竖线
                         float x = colMeta.getLeft() + colMeta.getWidth();
@@ -332,6 +334,49 @@ public class Ah2TableRenderer {
         ctx.contentStream.moveTo(ctx.tblCommon.getLeft(), y);
         ctx.contentStream.lineTo(ctx.tblCommon.getLeft() + ctx.tblCommon.getWidth(), y);
         ctx.contentStream.stroke();
+    }
+
+    private void drawBodyColumnLines(Ah2PdfContext ctx) throws IOException {
+        int bodyRows = ctx.tblCommon.getBodyRows();
+        boolean[] summaryRows = new boolean[bodyRows];
+        if (ctx.pageData != null && ctx.pageData.rowBlocks != null) {
+            for (Ah2PageData.RowBlock rowBlock : ctx.pageData.rowBlocks) {
+                if (rowBlock == null || !rowBlock.isSummaryRow) continue;
+                int startRow = Math.max(0, rowBlock.startRow);
+                int endRow = Math.min(bodyRows, startRow + Math.max(0, rowBlock.totalRows));
+                for (int rowIdx = startRow; rowIdx < endRow; rowIdx++) {
+                    summaryRows[rowIdx] = true;
+                }
+            }
+        }
+
+        int startRow = 0;
+        while (startRow < bodyRows) {
+            while (startRow < bodyRows && summaryRows[startRow]) startRow++;
+            int endRow = startRow;
+            while (endRow < bodyRows && !summaryRows[endRow]) endRow++;
+            if (startRow < endRow) drawBodyColumnLines(ctx, startRow, endRow);
+            startRow = endRow;
+        }
+    }
+
+    private void drawBodyColumnLines(Ah2PdfContext ctx, int startRow, int endRow) throws IOException {
+        float yTop = ctx.tableHeaderBottom - startRow * ctx.tblCommon.getRowHeight();
+        float yBottom = ctx.tableHeaderBottom - endRow * ctx.tblCommon.getRowHeight();
+        for (int colIdx = 0; colIdx < ctx.table.getColParamCodeCount() - 1; colIdx++) {
+            String paramCode = ctx.table.getColParamCode(colIdx);
+            if (paramCode.equals(AH2P_HHMM) || paramCode.equals(AH2P_MMDD)) continue;
+
+            ParamColMetaPB colMeta = ctx.colMetaMap.get(paramCode);
+            if (colMeta == null) {
+                log.error("Ah2ReportService.drawTableBody: colMetaMap missing paramCode=" + paramCode);
+                continue;
+            }
+            float x = colMeta.getLeft() + colMeta.getWidth();
+            ctx.contentStream.moveTo(x, yTop);
+            ctx.contentStream.lineTo(x, yBottom);
+            ctx.contentStream.stroke();
+        }
     }
 
     private final String ZONE_ID;
