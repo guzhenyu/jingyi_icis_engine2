@@ -1,5 +1,6 @@
 package com.jingyicare.jingyi_icis_engine.service.patients;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -259,19 +260,36 @@ public class PatientService {
             rows.add(rowBuilder.build());
         }
 
-        // 按照床号排序
+        // 按照床号排序。如果所有床号都可以转成数字，则按数字排序；否则按字符串排序。
+        boolean allBedNumbersNumeric = rows.stream()
+            .allMatch(row -> parseBedNumberStr(getBedNumberStr(row)).isPresent());
         rows = rows.stream()
-            .sorted(Comparator.comparing(row -> {
-                for (PatientTableDataCellPB cell : row.getCellList()) {
-                    if (cell.getColId().equals("bed_number_str")) {
-                        return cell.getValue();
-                    }
-                }
-                return "";
-            }))
+            .sorted(allBedNumbersNumeric
+                ? Comparator.comparing(row -> parseBedNumberStr(getBedNumberStr(row)).orElseThrow())
+                : Comparator.comparing(this::getBedNumberStr))
             .toList();
 
         builder.addAllRow(rows);
+    }
+
+    private String getBedNumberStr(PatientTableDataRowPB row) {
+        for (PatientTableDataCellPB cell : row.getCellList()) {
+            if (cell.getColId().equals("bed_number_str")) {
+                return cell.getValue();
+            }
+        }
+        return "";
+    }
+
+    private Optional<BigDecimal> parseBedNumberStr(String bedNumberStr) {
+        if (StrUtils.isBlank(bedNumberStr)) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(new BigDecimal(bedNumberStr.trim()));
+        } catch (NumberFormatException e) {
+            return Optional.empty();
+        }
     }
 
     private void addPatientTableDataRow(

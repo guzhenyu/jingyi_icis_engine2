@@ -44,8 +44,13 @@ public class MedicationDictionary {
         }
 
         // spec: 10ml:1g(10%)/支
-        Pattern pattern3 = Pattern.compile("(\\d+(\\.\\d+)?)ml(:|/)(\\d+(\\.\\d+)?)?(g|mg)(\\(\\d+(\\.\\d+)?\\%\\))?(\\*|/|:)(\\d+)?(支|瓶|支/盒)");
-        matcher = pattern3.matcher(spec);
+        Pattern pattern3_1 = Pattern.compile("(\\d+(\\.\\d+)?)ml(:|/)(\\d+(\\.\\d+)?)?(g|mg)(\\(\\d+(\\.\\d+)?\\%\\))?(\\*|/|:)(\\d+)?(支|瓶|支/盒)");
+        matcher = pattern3_1.matcher(spec);
+        if (!matcher.matches()) {
+            // spec: 10ml:50mg * 1支
+            Pattern pattern3_2 = Pattern.compile("(\\d+(\\.\\d+)?)ml(:|/)(\\d+(\\.\\d+)?)?(g|mg)(\\(\\d+(\\.\\d+)?\\%\\))?\\s*(\\*)\\s*(\\d+)?\\s*(支|瓶|支/盒)");
+            matcher = pattern3_2.matcher(spec);
+        }
         if (matcher.matches()) {
             if (doseUnit.equals(matcher.group(11))) {
                 return dose * Double.parseDouble(matcher.group(1)) /* xx ml */;

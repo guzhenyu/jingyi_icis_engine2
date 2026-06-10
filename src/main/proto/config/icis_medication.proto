@@ -303,4 +303,7 @@ message MedicationConfigPB {
     // 安徽省二院特殊配制
     repeated string med_exe_admin_code = 12;
     repeated string diet_admin_code = 13;
+
+    // 不计入入量的药物名称：当 MedicationDosageGroupPB.md.size()==1 且 md(0).name 命中本列表时生效
+    repeated string medication_names_excluded_from_balance_in = 14;
 }

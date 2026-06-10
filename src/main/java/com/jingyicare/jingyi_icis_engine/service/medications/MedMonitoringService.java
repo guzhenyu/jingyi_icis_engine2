@@ -60,6 +60,11 @@ public class MedMonitoringService {
         this.ACTION_TYPE_ADJUST_SPEED = medEnums.getMedicationExecutionActionTypeAdjustSpeed().getId();
         this.ACTION_TYPE_FAST_PUSH = medEnums.getMedicationExecutionActionTypeFastPush().getId();
         this.ACTION_TYPE_COMPLETE = medEnums.getMedicationExecutionActionTypeComplete().getId();
+        this.medicationNamesExcludedFromBalanceIn = protoService.getConfig().getMedication()
+            .getMedicationNamesExcludedFromBalanceInList().stream()
+            .filter(name -> !StrUtils.isBlank(name))
+            .map(String::trim)
+            .collect(Collectors.toSet());
 
         this.medDict = medDict;
         this.monitoringRecordUtils = monitoringRecordUtils;
@@ -166,6 +171,10 @@ public class MedMonitoringService {
         for (Map.Entry<Long, MedicationExecutionRecord> entry : recordMap.entrySet()) {
             final Long recordId = entry.getKey();
             final MedicationExecutionRecord record = entry.getValue();
+            final MedicationDosageGroupPB dosagePb = getDosageGroupPBOrDefault(
+                record, groupDosageMap.get(record.getMedicationOrderGroupId())
+            );
+            if (isExcludedFromBalanceIn(dosagePb)) continue;
 
             // 获取用药途径信息
             final String routeCode = StrUtils.isBlank(record.getAdministrationRouteCode()) ?
@@ -191,9 +200,6 @@ public class MedMonitoringService {
                     }
                 }
             } else {
-                MedicationDosageGroupPB dosagePb = getDosageGroupPBOrDefault(
-                    record, groupDosageMap.get(record.getMedicationOrderGroupId())
-                );
                 List<MedicationExecutionAction> actions = actionMap.get(recordId);
                 if (actions == null) continue;
                 actions = actions.stream().sorted(Comparator.comparing(MedicationExecutionAction::getId)).toList();
@@ -350,6 +356,14 @@ public class MedMonitoringService {
             }
         }
         return defaultDosageGroup;
+    }
+
+    private Boolean isExcludedFromBalanceIn(MedicationDosageGroupPB dosageGroupPb) {
+        if (dosageGroupPb == null || dosageGroupPb.getMdCount() != 1) return false;
+
+        String medicationName = dosageGroupPb.getMd(0).getName();
+        return !StrUtils.isBlank(medicationName)
+            && medicationNamesExcludedFromBalanceIn.contains(medicationName.trim());
     }
 
     public FluidIntakePB calcFluidIntake(
@@ -538,6 +552,7 @@ public class MedMonitoringService {
     private final Integer ACTION_TYPE_ADJUST_SPEED;
     private final Integer ACTION_TYPE_FAST_PUSH;
     private final Integer ACTION_TYPE_COMPLETE;
+    private final Set<String> medicationNamesExcludedFromBalanceIn;
 
     private final ConfigProtoService protoService;
     private final MedicationDictionary medDict;
