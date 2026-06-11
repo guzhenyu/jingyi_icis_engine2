@@ -772,6 +772,8 @@ public class BgaService {
         existingRecord.setBgaCategoryId(record.getBgaCategoryId());
         existingRecord.setBgaCategoryName(record.getBgaCategoryName());
         existingRecord.setEffectiveTime(effectiveTime);
+        existingRecord.setRawRecordId(null);
+        existingRecord.setLisItemCode(null);
         existingRecord.setModifiedBy(accountId);
         existingRecord.setModifiedByAccountName(accountName);
         existingRecord.setModifiedAt(nowUtc);

@@ -424,6 +424,71 @@ public class BgaServiceTests extends TestsBase {
             .hasSize(2);
     }
 
+    @Test
+    public void testGetPatientBgaRecordsForceSyncDoesNotOverwriteUserUpdatedRecord() {
+        setCurrentUser();
+        String deptId = initDepartment("preserve-user-update");
+        LocalDateTime queryStart = TimeUtils.getNowUtc().minusHours(8).withNano(0);
+        LocalDateTime effectiveTime = queryStart.plusHours(1);
+        PatientRecord patient = initPatient(deptId, "preserve-user-update", queryStart.minusHours(1));
+
+        String paramCode = createBgaParam(deptId, "preserve-user-update", null);
+        RawBgaRecord rawRecord = createRawBgaRecord(patient.getHisMrn(), 1, effectiveTime, paramCode, "10.1");
+
+        GetPatientBgaRecordsReq syncReq = GetPatientBgaRecordsReq.newBuilder()
+            .setPid(patient.getId())
+            .setQueryStartIso8601(TimeUtils.toIso8601String(queryStart, "UTC"))
+            .setQueryEndIso8601(TimeUtils.toIso8601String(effectiveTime.plusHours(1), "UTC"))
+            .setForceSync(true)
+            .build();
+
+        GetPatientBgaRecordsResp initialResp = bgaService.getPatientBgaRecords(ProtoUtils.protoToJson(syncReq));
+        assertThat(initialResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+
+        PatientBgaRecord syncedRecord = patientBgaRecordRepository.findByPidAndBgaCategoryIdAndEffectiveTimeAndIsDeletedFalse(
+            patient.getId(), 1, effectiveTime
+        ).orElseThrow();
+        assertThat(syncedRecord.getRawRecordId()).isEqualTo(rawRecord.getId());
+
+        GenericResp updateResp = bgaService.updatePatientBgaRecord(ProtoUtils.protoToJson(
+            AddPatientBgaRecordReq.newBuilder()
+                .setRecord(PatientBgaRecordPB.newBuilder()
+                    .setId(syncedRecord.getId())
+                    .setPid(patient.getId())
+                    .setBgaCategoryId(1)
+                    .setBgaCategoryName(syncedRecord.getBgaCategoryName())
+                    .setEffectiveTimeIso8601(TimeUtils.toIso8601String(effectiveTime, "UTC"))
+                    .addBgaResult(BgaResultPB.newBuilder()
+                        .setParamCode(paramCode)
+                        .setValue(GenericValuePB.newBuilder().setFloatVal(12.3f).build())
+                        .build())
+                    .build())
+                .build()
+        ));
+        assertThat(updateResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+
+        PatientBgaRecord userUpdatedRecord = patientBgaRecordRepository.findByIdAndIsDeletedFalse(
+            syncedRecord.getId()
+        ).orElseThrow();
+        assertThat(userUpdatedRecord.getRawRecordId()).isNull();
+        assertThat(userUpdatedRecord.getLisItemCode()).isNull();
+        assertThat(patientBgaRecordDetailRepository.findByRecordIdAndIsDeletedFalse(syncedRecord.getId()))
+            .extracting(PatientBgaRecordDetail::getParamValueStr)
+            .containsExactly("12.3");
+
+        GetPatientBgaRecordsResp resyncResp = bgaService.getPatientBgaRecords(ProtoUtils.protoToJson(syncReq));
+        assertThat(resyncResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+
+        PatientBgaRecord preservedRecord = patientBgaRecordRepository.findByIdAndIsDeletedFalse(
+            syncedRecord.getId()
+        ).orElseThrow();
+        assertThat(preservedRecord.getRawRecordId()).isNull();
+        assertThat(preservedRecord.getLisItemCode()).isNull();
+        assertThat(patientBgaRecordDetailRepository.findByRecordIdAndIsDeletedFalse(syncedRecord.getId()))
+            .extracting(PatientBgaRecordDetail::getParamValueStr)
+            .containsExactly("12.3");
+    }
+
     private void setCurrentUser() {
         List<GrantedAuthority> authorities = AuthorityUtils.createAuthorityList("ROLE_1");
         UsernamePasswordAuthenticationToken authentication =
