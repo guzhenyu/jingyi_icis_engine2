@@ -9321,14 +9321,13 @@ nursing_order {
         name: "留置导尿"
         name: "腹内压监测"
         name: "鼻胃管置管"
-        name: "人工中心静脉压测定"
         name: "鼻饲注食"
-        name: "电脑血糖监测"
         name: "吸痰护理"
         name: "肠内营养输注护理"
         name: "胃肠减压"
         name: "造瘘护理"
         name: "压力性损伤护理"
+        name: "中药贴敷"
     }
     allowed_order_type {
         type: "文本"
