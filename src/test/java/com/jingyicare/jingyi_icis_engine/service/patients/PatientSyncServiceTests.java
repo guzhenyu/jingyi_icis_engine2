@@ -95,6 +95,29 @@ public class PatientSyncServiceTests extends TestsBase {
         assertThat(patient.getHisBedNumber()).isEqualTo("hisBedNumber2099");
     }
 
+    @Test
+    public void testIgnoreInIcuHisPatientRecordWithDischargeTime() {
+        String idSuffix = UUID.randomUUID().toString().substring(0, 8);
+        String deptId = "sync-ignore-" + idSuffix;
+        RbacDepartment dept = new RbacDepartment();
+        dept.setDeptId(deptId);
+        dept.setDeptName("dept-" + deptId);
+        deptRepo.save(dept);
+
+        Long hisId = 26000000L + Integer.toUnsignedLong(idSuffix.hashCode()) % 1000000;
+        String mrn = "dirty-his-mrn-" + idSuffix;
+        HisPatientRecord hisPatient = PatientTestUtils.newHisPatientRecord(hisId, 1/*在科*/, deptId);
+        hisPatient.setPid("dirty-his-pid-" + idSuffix);
+        hisPatient.setMrn(mrn);
+        hisPatient.setPatientSerialNumber("dirty-his-serial-" + idSuffix);
+        hisPatient.setDischargeTime(LocalDateTime.of(2026, 5, 27, 5, 20));
+        hisPatientRepo.save(hisPatient);
+
+        patientSyncService.syncPatientRecords(true, deptId);
+
+        assertThat(patientRepo.findByMrnOrName(mrn)).isEmpty();
+    }
+
     private final ConfigProtoService protoService;
     private final PatientSyncService patientSyncService;
 

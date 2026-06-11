@@ -255,7 +255,22 @@ public class PatientSyncService {
             .stream().map(RbacDepartment::getDeptId).toList();
 
         List<HisPatientRecord> hisPatientRecords = hisPatientRepo
-            .findByAdmissionStatusAndDeptCodeInOrderByMrnAsc(IN_ICU_VAL, deptIds);
+            .findByAdmissionStatusAndDeptCodeInOrderByMrnAsc(IN_ICU_VAL, deptIds)
+            .stream()
+            .filter(record -> {
+                if (record.getDischargeTime() == null) {
+                    return true;
+                }
+                log.warn(
+                    "Ignoring HIS in-ICU patient record with discharge time. hisPatientRecordId={}, mrn={}, pid={}, dischargeTime={}",
+                    record.getId(),
+                    record.getMrn(),
+                    record.getPid(),
+                    record.getDischargeTime()
+                );
+                return false;
+            })
+            .toList();
 
         String prevMrn = null;
         List<HisPatientRecord> filteredRecords = new ArrayList<>();
