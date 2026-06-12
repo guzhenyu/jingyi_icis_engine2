@@ -58,7 +58,7 @@ public class ProtoUtils {
         String resultStr = "";
         try {
             StringWriter writer = new StringWriter();
-            TextFormat.printer().print(msg, writer);
+            TextFormat.printer().escapingNonAscii(false).print(msg, writer);
             resultStr = writer.toString();
         } catch (Exception e) {
             log.error("Failed to convert proto to text format: ", e, "\n", e.getStackTrace());

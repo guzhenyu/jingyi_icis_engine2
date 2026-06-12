@@ -16,6 +16,7 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 
 import com.jingyicare.jingyi_icis_engine.grpc.*;
 import com.jingyicare.jingyi_icis_engine.service.checklists.*;
+import com.jingyicare.jingyi_icis_engine.service.debug.*;
 import com.jingyicare.jingyi_icis_engine.service.doctors.*;
 import com.jingyicare.jingyi_icis_engine.service.exturls.*;
 import com.jingyicare.jingyi_icis_engine.service.lis.*;
@@ -70,6 +71,7 @@ public class WebApiService {
         @Autowired QualityControlService qualityControlService,
         @Autowired SettingService settingService,
         @Autowired ReportService reportService,
+        @Autowired MedicationDebugger medicationDebugger,
         @Autowired Ah2ReportService ah2ReportService,
         @Autowired EngineExtClient engineExtClient,
         @Autowired PrometheusMetricService metricService
@@ -104,6 +106,7 @@ public class WebApiService {
         this.settingService = settingService;
 
         this.reportService = reportService;
+        this.medicationDebugger = medicationDebugger;
         this.ah2ReportService = ah2ReportService;
         this.engineExtClient = engineExtClient;
 
@@ -2052,6 +2055,10 @@ public class WebApiService {
         return  reportService.debugForm(jfkFormId);
     }
 
+    public String debugGetMedOrdGroups(Long patientId) {
+        return medicationDebugger.getMedOrdGroups(patientId);
+    }
+
     public GenericResp test() {
         String str = "灵敏";
         float pt = ah2ReportService.calcCellTextWidthPt(str);
@@ -2118,6 +2125,7 @@ public class WebApiService {
     private SettingService settingService;
 
     private ReportService reportService;
+    private MedicationDebugger medicationDebugger;
     private Ah2ReportService ah2ReportService;
     private EngineExtClient engineExtClient;
 

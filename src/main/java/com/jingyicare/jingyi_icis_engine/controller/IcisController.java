@@ -1,6 +1,9 @@
 package com.jingyicare.jingyi_icis_engine.controller;
 
+import java.nio.charset.StandardCharsets;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -1643,6 +1646,13 @@ public class IcisController {
     @GetMapping("/debugform")
     public ResponseEntity<String> debugForm(@RequestParam("id") Long id) {
         return ResponseEntity.ok(ProtoUtils.protoToTxt(webApiService.debugForm(id)));
+    }
+
+    @GetMapping("/debug/getmedordgroups")
+    public ResponseEntity<String> getMedOrdGroups(@RequestParam("patient_id") Long patientId) {
+        return ResponseEntity.ok()
+            .contentType(new MediaType(MediaType.TEXT_HTML, StandardCharsets.UTF_8))
+            .body(webApiService.debugGetMedOrdGroups(patientId));
     }
 
     @GetMapping("/test")

@@ -39,6 +39,8 @@ public interface MedicationOrderGroupRepository extends JpaRepository<Medication
     @Query("SELECT mog FROM MedicationOrderGroup mog WHERE mog.id IN :ids")
     List<MedicationOrderGroup> findByIds(@Param("ids") List<Long> ids);
 
+    List<MedicationOrderGroup> findByPatientIdOrderByIdAsc(Long patientId);
+
     // for tests
     List<MedicationOrderGroup> findByPatientId(Long patientId);
 }
