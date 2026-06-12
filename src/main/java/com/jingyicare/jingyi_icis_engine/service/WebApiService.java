@@ -1095,10 +1095,40 @@ public class WebApiService {
     }
 
     public GenericResp deleteNursingOrderTemplate(String deleteNursingOrderTemplateReqJson) {
-    GenericResp resp = nursingOrderService.deleteNursingOrderTemplate(deleteNursingOrderTemplateReqJson);
-    resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
-    return resp;
-}
+        GenericResp resp = nursingOrderService.deleteNursingOrderTemplate(deleteNursingOrderTemplateReqJson);
+        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
+        return resp;
+    }
+
+    public GetNursingOrderNotesResp getNursingOrderNotes(String getNursingOrderNotesReqJson) {
+        GetNursingOrderNotesResp resp = nursingOrderService.getNursingOrderNotes(getNursingOrderNotesReqJson);
+        resp = metricService.recordApiMetrics(resp, GetNursingOrderNotesResp::getRt);
+        return resp;
+    }
+
+    public AddNursingOrderNoteResp addNursingOrderNote(String addNursingOrderNoteReqJson) {
+        AddNursingOrderNoteResp resp = nursingOrderService.addNursingOrderNote(addNursingOrderNoteReqJson);
+        resp = metricService.recordApiMetrics(resp, AddNursingOrderNoteResp::getRt);
+        return resp;
+    }
+
+    public GenericResp updateNursingOrderNote(String updateNursingOrderNoteReqJson) {
+        GenericResp resp = nursingOrderService.updateNursingOrderNote(updateNursingOrderNoteReqJson);
+        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
+        return resp;
+    }
+
+    public GenericResp deleteNursingOrderNote(String deleteNursingOrderNoteReqJson) {
+        GenericResp resp = nursingOrderService.deleteNursingOrderNote(deleteNursingOrderNoteReqJson);
+        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
+        return resp;
+    }
+
+    public GenericResp reorderNursingOrderNotes(String reorderNursingOrderNotesReqJson) {
+        GenericResp resp = nursingOrderService.reorderNursingOrderNotes(reorderNursingOrderNotesReqJson);
+        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
+        return resp;
+    }
 
     public GetNursingOrderDetailsResp getNursingOrderDetails(String getNursingOrderDetailsReqJson) {
         GetNursingOrderDetailsResp resp = nursingOrderService.getNursingOrderDetails(getNursingOrderDetailsReqJson);

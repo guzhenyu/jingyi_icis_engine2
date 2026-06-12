@@ -850,6 +850,31 @@ public class IcisController {
         return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.deleteNursingOrderTemplate(deleteNursingOrderTemplateReqJson)));
     }
 
+    @PostMapping("/nursingorder/getnursingordernotes")
+    public ResponseEntity<String> getNursingOrderNotes(@RequestBody String getNursingOrderNotesReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getNursingOrderNotes(getNursingOrderNotesReqJson)));
+    }
+
+    @PostMapping("/nursingorder/addnursingordernote")
+    public ResponseEntity<String> addNursingOrderNote(@RequestBody String addNursingOrderNoteReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.addNursingOrderNote(addNursingOrderNoteReqJson)));
+    }
+
+    @PostMapping("/nursingorder/updatenursingordernote")
+    public ResponseEntity<String> updateNursingOrderNote(@RequestBody String updateNursingOrderNoteReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.updateNursingOrderNote(updateNursingOrderNoteReqJson)));
+    }
+
+    @PostMapping("/nursingorder/deletenursingordernote")
+    public ResponseEntity<String> deleteNursingOrderNote(@RequestBody String deleteNursingOrderNoteReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.deleteNursingOrderNote(deleteNursingOrderNoteReqJson)));
+    }
+
+    @PostMapping("/nursingorder/reordernursingordernotes")
+    public ResponseEntity<String> reorderNursingOrderNotes(@RequestBody String reorderNursingOrderNotesReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.reorderNursingOrderNotes(reorderNursingOrderNotesReqJson)));
+    }
+
     @PostMapping("/nursingorder/getnursingorderdetails")
     public ResponseEntity<String> getNursingOrderDetails(@RequestBody String getNursingOrderDetailsReqJson) {
         return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getNursingOrderDetails(getNursingOrderDetailsReqJson)));

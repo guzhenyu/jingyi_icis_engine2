@@ -1939,6 +1939,28 @@ CREATE UNIQUE INDEX idx_nursing_order_templates_dept_name
     ON nursing_order_templates (dept_id, group_id, name)
     WHERE is_deleted = FALSE;
 
+CREATE TABLE nursing_order_notes (
+    id SERIAL PRIMARY KEY,  -- 自增id
+    dept_id VARCHAR(255) NOT NULL,  -- 部门id
+    content VARCHAR(1000) NOT NULL,  -- 备注内容
+    display_order INTEGER,  -- 显示顺序，可为空
+    is_deleted BOOLEAN NOT NULL,  -- 是否已删除
+    deleted_by VARCHAR(255),  -- 删除人
+    deleted_at TIMESTAMP,  -- 删除时间
+    modified_by VARCHAR(255),  -- 最后修改人
+    modified_at TIMESTAMP  -- 最后修改时间
+);
+COMMENT ON TABLE nursing_order_notes IS '护嘱执行备注模板表';
+COMMENT ON COLUMN nursing_order_notes.id IS '自增id';
+COMMENT ON COLUMN nursing_order_notes.dept_id IS '部门id';
+COMMENT ON COLUMN nursing_order_notes.content IS '备注内容';
+COMMENT ON COLUMN nursing_order_notes.display_order IS '显示顺序，可为空';
+COMMENT ON COLUMN nursing_order_notes.is_deleted IS '是否已删除';
+COMMENT ON COLUMN nursing_order_notes.deleted_by IS '删除人';
+COMMENT ON COLUMN nursing_order_notes.deleted_at IS '删除时间';
+COMMENT ON COLUMN nursing_order_notes.modified_by IS '最后修改人';
+COMMENT ON COLUMN nursing_order_notes.modified_at IS '最后修改时间';
+
 CREATE TABLE nursing_orders (
     id BIGSERIAL PRIMARY KEY,  -- 自增id
     pid BIGINT NOT NULL,  -- 患者id

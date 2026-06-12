@@ -6,6 +6,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -41,6 +42,8 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 @Service
 @Slf4j
 public class NursingOrderService {
+    private static final int MAX_NURSING_ORDER_NOTE_CONTENT_LENGTH = 1000;
+
     public NursingOrderService(
         @Autowired ConfigProtoService protoService,
         @Autowired UserService userService,
@@ -53,6 +56,7 @@ public class NursingOrderService {
         @Autowired NursingOrderTemplateRepository templateRepo,
         @Autowired NursingOrderRepository orderRepo,
         @Autowired NursingExecutionRecordRepository recordRepo,
+        @Autowired NursingOrderNoteRepository noteRepo,
         @Autowired MedicationFrequencyRepository medFreqRepo
     ) {
         this.ZONE_ID = protoService.getConfig().getZoneId();
@@ -68,6 +72,7 @@ public class NursingOrderService {
         this.templateRepo = templateRepo;
         this.orderRepo = orderRepo;
         this.recordRepo = recordRepo;
+        this.noteRepo = noteRepo;
         this.medFreqRepo = medFreqRepo;
     }
 
@@ -440,6 +445,273 @@ public class NursingOrderService {
         template.setModifiedBy(accountId);
         templateRepo.save(template);
         log.info("Deleted nursing order template: {}, by {}\n, ", template, accountId);
+
+        return GenericResp.newBuilder()
+            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .build();
+    }
+
+    @Transactional
+    public GetNursingOrderNotesResp getNursingOrderNotes(String getNursingOrderNotesReqJson) {
+        GetNursingOrderNotesReq req;
+        try {
+            req = ProtoUtils.parseJsonToProto(getNursingOrderNotesReqJson, GetNursingOrderNotesReq.newBuilder());
+        } catch (Exception e) {
+            log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
+            return GetNursingOrderNotesResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .build();
+        }
+
+        if (StrUtils.isBlank(req.getDeptId())) {
+            log.error("deptId is empty.");
+            return GetNursingOrderNotesResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.DEPT_IS_EMPTY))
+                .build();
+        }
+
+        List<NursingOrderNotePB> notePBs = noteRepo
+            .findByDeptIdAndIsDeletedFalseOrdered(req.getDeptId()).stream()
+            .map(this::buildNursingOrderNotePB)
+            .toList();
+
+        return GetNursingOrderNotesResp.newBuilder()
+            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .addAllNote(notePBs)
+            .build();
+    }
+
+    @Transactional
+    public AddNursingOrderNoteResp addNursingOrderNote(String addNursingOrderNoteReqJson) {
+        AddNursingOrderNoteReq req;
+        try {
+            req = ProtoUtils.parseJsonToProto(addNursingOrderNoteReqJson, AddNursingOrderNoteReq.newBuilder());
+        } catch (Exception e) {
+            log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
+            return AddNursingOrderNoteResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .build();
+        }
+
+        Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        if (accountWithAutoId == null) {
+            log.error("accountId is empty.");
+            return AddNursingOrderNoteResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
+                .build();
+        }
+        String accountId = accountWithAutoId.getFirst();
+
+        if (StrUtils.isBlank(req.getDeptId())) {
+            log.error("deptId is empty.");
+            return AddNursingOrderNoteResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.DEPT_IS_EMPTY))
+                .build();
+        }
+
+        String content = normalizeNoteContent(req.getContent());
+        StatusCode contentStatus = validateNoteContent(content);
+        if (contentStatus != StatusCode.OK) {
+            return AddNursingOrderNoteResp.newBuilder()
+                .setRt(protoService.getReturnCode(contentStatus))
+                .build();
+        }
+        if (noteRepo.findByDeptIdAndContentAndIsDeletedFalse(req.getDeptId(), content).isPresent()) {
+            log.error("Nursing order note already exists, deptId={}, content={}", req.getDeptId(), content);
+            return AddNursingOrderNoteResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.NURSING_ORDER_NOTE_ALREADY_EXISTS))
+                .build();
+        }
+
+        LocalDateTime nowUtc = TimeUtils.getNowUtc();
+        Integer displayOrder = noteRepo.findMaxDisplayOrderByDeptId(req.getDeptId()) + 1;
+        NursingOrderNote note = NursingOrderNote.builder()
+            .deptId(req.getDeptId())
+            .content(content)
+            .displayOrder(displayOrder)
+            .isDeleted(false)
+            .modifiedBy(accountId)
+            .modifiedAt(nowUtc)
+            .build();
+        note = noteRepo.save(note);
+        log.info("Added nursing order note: {}, by {}", note, accountId);
+
+        return AddNursingOrderNoteResp.newBuilder()
+            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setId(note.getId())
+            .build();
+    }
+
+    @Transactional
+    public GenericResp updateNursingOrderNote(String updateNursingOrderNoteReqJson) {
+        UpdateNursingOrderNoteReq req;
+        try {
+            req = ProtoUtils.parseJsonToProto(updateNursingOrderNoteReqJson, UpdateNursingOrderNoteReq.newBuilder());
+        } catch (Exception e) {
+            log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .build();
+        }
+
+        Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        if (accountWithAutoId == null) {
+            log.error("accountId is empty.");
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
+                .build();
+        }
+        String accountId = accountWithAutoId.getFirst();
+
+        if (StrUtils.isBlank(req.getDeptId())) {
+            log.error("deptId is empty.");
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.DEPT_IS_EMPTY))
+                .build();
+        }
+
+        NursingOrderNote note = noteRepo.findByIdAndIsDeletedFalse(req.getId()).orElse(null);
+        if (note == null || !req.getDeptId().equals(note.getDeptId())) {
+            log.error("Nursing order note not exists or dept mismatch, id={}, deptId={}", req.getId(), req.getDeptId());
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.NURSING_ORDER_NOTE_NOT_EXISTS))
+                .build();
+        }
+
+        String content = normalizeNoteContent(req.getContent());
+        StatusCode contentStatus = validateNoteContent(content);
+        if (contentStatus != StatusCode.OK) {
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(contentStatus))
+                .build();
+        }
+
+        NursingOrderNote duplicate = noteRepo
+            .findByDeptIdAndContentAndIsDeletedFalse(req.getDeptId(), content)
+            .orElse(null);
+        if (duplicate != null && !duplicate.getId().equals(note.getId())) {
+            log.error("Nursing order note already exists, deptId={}, content={}", req.getDeptId(), content);
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.NURSING_ORDER_NOTE_ALREADY_EXISTS))
+                .build();
+        }
+
+        LocalDateTime nowUtc = TimeUtils.getNowUtc();
+        note.setContent(content);
+        note.setModifiedBy(accountId);
+        note.setModifiedAt(nowUtc);
+        noteRepo.save(note);
+        log.info("Updated nursing order note: {}, by {}", note, accountId);
+
+        return GenericResp.newBuilder()
+            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .build();
+    }
+
+    @Transactional
+    public GenericResp deleteNursingOrderNote(String deleteNursingOrderNoteReqJson) {
+        DeleteNursingOrderNoteReq req;
+        try {
+            req = ProtoUtils.parseJsonToProto(deleteNursingOrderNoteReqJson, DeleteNursingOrderNoteReq.newBuilder());
+        } catch (Exception e) {
+            log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .build();
+        }
+
+        Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        if (accountWithAutoId == null) {
+            log.error("accountId is empty.");
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
+                .build();
+        }
+        String accountId = accountWithAutoId.getFirst();
+
+        if (StrUtils.isBlank(req.getDeptId())) {
+            log.error("deptId is empty.");
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.DEPT_IS_EMPTY))
+                .build();
+        }
+
+        NursingOrderNote note = noteRepo.findByIdAndIsDeletedFalse(req.getId()).orElse(null);
+        if (note == null || !req.getDeptId().equals(note.getDeptId())) {
+            log.error("Nursing order note not exists or dept mismatch, id={}, deptId={}", req.getId(), req.getDeptId());
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.NURSING_ORDER_NOTE_NOT_EXISTS))
+                .build();
+        }
+
+        LocalDateTime nowUtc = TimeUtils.getNowUtc();
+        note.setIsDeleted(true);
+        note.setDeletedBy(accountId);
+        note.setDeletedAt(nowUtc);
+        note.setModifiedBy(accountId);
+        note.setModifiedAt(nowUtc);
+        noteRepo.save(note);
+        log.info("Deleted nursing order note: {}, by {}", note, accountId);
+
+        return GenericResp.newBuilder()
+            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .build();
+    }
+
+    @Transactional
+    public GenericResp reorderNursingOrderNotes(String reorderNursingOrderNotesReqJson) {
+        ReorderNursingOrderNotesReq req;
+        try {
+            req = ProtoUtils.parseJsonToProto(reorderNursingOrderNotesReqJson, ReorderNursingOrderNotesReq.newBuilder());
+        } catch (Exception e) {
+            log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .build();
+        }
+
+        Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        if (accountWithAutoId == null) {
+            log.error("accountId is empty.");
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
+                .build();
+        }
+        String accountId = accountWithAutoId.getFirst();
+
+        if (StrUtils.isBlank(req.getDeptId())) {
+            log.error("deptId is empty.");
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.DEPT_IS_EMPTY))
+                .build();
+        }
+
+        Set<Integer> seenIds = new HashSet<>();
+        List<NursingOrderNote> notesToSave = new ArrayList<>();
+        LocalDateTime nowUtc = TimeUtils.getNowUtc();
+        for (ReorderNursingOrderNotePB noteOrder : req.getNoteOrderList()) {
+            if (noteOrder.getDisplayOrder() <= 0 || !seenIds.add(noteOrder.getId())) {
+                log.error("Invalid nursing order note display order: {}", noteOrder);
+                return GenericResp.newBuilder()
+                    .setRt(protoService.getReturnCode(StatusCode.INVALID_NURSING_ORDER_NOTE_DISPLAY_ORDER))
+                    .build();
+            }
+
+            NursingOrderNote note = noteRepo.findByIdAndIsDeletedFalse(noteOrder.getId()).orElse(null);
+            if (note == null || !req.getDeptId().equals(note.getDeptId())) {
+                log.error("Nursing order note not exists or dept mismatch, id={}, deptId={}", noteOrder.getId(), req.getDeptId());
+                return GenericResp.newBuilder()
+                    .setRt(protoService.getReturnCode(StatusCode.NURSING_ORDER_NOTE_NOT_EXISTS))
+                    .build();
+            }
+            note.setDisplayOrder(noteOrder.getDisplayOrder());
+            note.setModifiedBy(accountId);
+            note.setModifiedAt(nowUtc);
+            notesToSave.add(note);
+        }
+
+        noteRepo.saveAll(notesToSave);
+        log.info("Reordered nursing order notes, deptId={}, count={}, by {}", req.getDeptId(), notesToSave.size(), accountId);
 
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -1238,6 +1510,29 @@ public class NursingOrderService {
         return StrUtils.isBlank(accountName) ? accountRef : accountName;
     }
 
+    private NursingOrderNotePB buildNursingOrderNotePB(NursingOrderNote note) {
+        NursingOrderNotePB.Builder builder = NursingOrderNotePB.newBuilder()
+            .setId(note.getId())
+            .setDeptId(note.getDeptId())
+            .setContent(note.getContent());
+        if (note.getDisplayOrder() != null) {
+            builder.setDisplayOrder(note.getDisplayOrder());
+        }
+        return builder.build();
+    }
+
+    private String normalizeNoteContent(String content) {
+        return content == null ? "" : content.trim();
+    }
+
+    private StatusCode validateNoteContent(String content) {
+        if (StrUtils.isBlank(content)) return StatusCode.NURSING_ORDER_NOTE_CONTENT_EMPTY;
+        if (content.length() > MAX_NURSING_ORDER_NOTE_CONTENT_LENGTH) {
+            return StatusCode.NURSING_ORDER_NOTE_CONTENT_TOO_LONG;
+        }
+        return StatusCode.OK;
+    }
+
     private final String ZONE_ID;
 
     private final ConfigProtoService protoService;
@@ -1252,5 +1547,6 @@ public class NursingOrderService {
     private final NursingOrderTemplateRepository templateRepo;
     private final NursingOrderRepository orderRepo;
     private final NursingExecutionRecordRepository recordRepo;
+    private final NursingOrderNoteRepository noteRepo;
     private final MedicationFrequencyRepository medFreqRepo;
 }

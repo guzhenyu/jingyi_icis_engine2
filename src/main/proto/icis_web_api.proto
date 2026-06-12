@@ -320,7 +320,12 @@ enum StatusCode {
     INVALID_SKINCARE_CATEGORY_ID = 283; // 无效的皮肤护理分类ID
     NURSING_ORDER_HIS_SYNCED_NOT_EDITABLE = 284; // HIS同步护嘱不允许手工停止或删除
     DEVICE_SOURCE_CONFIG_INVALID = 285; // 设备数据源配置无效
-    LAST_CODE = 286;
+    NURSING_ORDER_NOTE_NOT_EXISTS = 286; // 护嘱执行备注模板不存在
+    NURSING_ORDER_NOTE_ALREADY_EXISTS = 287; // 护嘱执行备注模板已存在
+    NURSING_ORDER_NOTE_CONTENT_EMPTY = 288; // 护嘱执行备注内容为空
+    NURSING_ORDER_NOTE_CONTENT_TOO_LONG = 289; // 护嘱执行备注内容过长
+    INVALID_NURSING_ORDER_NOTE_DISPLAY_ORDER = 290; // 无效的护嘱执行备注显示顺序
+    LAST_CODE = 291;
 }
 
 /*****************************************************************************
@@ -2943,6 +2948,78 @@ message UpdateNursingOrderTemplateReq {
  */
 message DeleteNursingOrderTemplateReq {
     int32 id = 1;
+}
+
+/*
+ * /api/nursingorder/getnursingordernotes
+ *  input: GetNursingOrderNotesReq
+ *  output: GetNursingOrderNotesResp
+ */
+message NursingOrderNotePB {
+    int32 id = 1;
+    string dept_id = 2;
+    string content = 3;
+    optional int32 display_order = 4;
+}
+
+message GetNursingOrderNotesReq {
+    string dept_id = 1;
+}
+
+message GetNursingOrderNotesResp {
+    shared.ReturnCode rt = 1;
+    repeated NursingOrderNotePB note = 2;
+}
+
+/*
+ * /api/nursingorder/addnursingordernote
+ *  input: AddNursingOrderNoteReq
+ *  output: AddNursingOrderNoteResp
+ */
+message AddNursingOrderNoteReq {
+    string dept_id = 1;
+    string content = 2;
+}
+
+message AddNursingOrderNoteResp {
+    shared.ReturnCode rt = 1;
+    int32 id = 2;
+}
+
+/*
+ * /api/nursingorder/updatenursingordernote
+ *  input: UpdateNursingOrderNoteReq
+ *  output: GenericResp
+ */
+message UpdateNursingOrderNoteReq {
+    int32 id = 1;
+    string dept_id = 2;
+    string content = 3;
+}
+
+/*
+ * /api/nursingorder/deletenursingordernote
+ *  input: DeleteNursingOrderNoteReq
+ *  output: GenericResp
+ */
+message DeleteNursingOrderNoteReq {
+    int32 id = 1;
+    string dept_id = 2;
+}
+
+message ReorderNursingOrderNotePB {
+    int32 id = 1;
+    int32 display_order = 2;
+}
+
+/*
+ * /api/nursingorder/reordernursingordernotes
+ *  input: ReorderNursingOrderNotesReq
+ *  output: GenericResp
+ */
+message ReorderNursingOrderNotesReq {
+    string dept_id = 1;
+    repeated ReorderNursingOrderNotePB note_order = 2;
 }
 
 /*
