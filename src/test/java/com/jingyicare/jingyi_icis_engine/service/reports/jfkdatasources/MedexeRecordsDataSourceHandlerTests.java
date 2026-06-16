@@ -29,6 +29,7 @@ import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkFieldDataPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.MedOrderGroupSettingsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.MedicationDosageGroupPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.MedicationDosagePB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
@@ -38,11 +39,13 @@ import com.jingyicare.jingyi_icis_engine.repository.medications.MedicationExecut
 import com.jingyicare.jingyi_icis_engine.repository.medications.MedicationExecutionRecordStatRepository;
 import com.jingyicare.jingyi_icis_engine.repository.medications.MedicationOrderGroupRepository;
 import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
+import com.jingyicare.jingyi_icis_engine.service.medications.MedicationConfig;
 import com.jingyicare.jingyi_icis_engine.service.medications.MedMonitoringService;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
+import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
 public class MedexeRecordsDataSourceHandlerTests {
     @Test
@@ -105,6 +108,28 @@ public class MedexeRecordsDataSourceHandlerTests {
         assertThat(output.get("med_order_txt")).containsExactly(List.of("临时计算补液"));
         assertThat(output.get("hour3")).containsExactly(List.of("7"));
         verify(ctx.medMonitoringService).calcFluidIntakeImpl(eq(true), eq(dosage), any(), eq(END_UTC));
+    }
+
+    @Test
+    public void handleUsesRecordDosageDisplayNameWhenRecordDosageHasNoMd() {
+        TestContext ctx = new TestContext();
+        ctx.withShift(7);
+
+        MedicationOrderGroup group = group(201L, "iv");
+        MedicationExecutionRecord record = record(301L, 201L, "iv", true, LocalDateTime.of(2026, 4, 15, 23, 10));
+        MedicationDosageGroupPB effectiveDosage = dosage("有效补液");
+        record.setMedicationDosageGroup(ProtoUtils.encodeDosageGroup(displayNameOnlyDosage("执行记录显示名")));
+        ctx.withRecords(List.of(record), List.of(group));
+        ctx.withRoutes(route("iv", "静脉滴注", true, 1));
+        ctx.withStats(List.of(stat(401L, 201L, 301L, START_UTC, 10d)));
+        ctx.withActions(List.of());
+        when(ctx.medMonitoringService.getDosageGroupPB(group, record)).thenReturn(effectiveDosage);
+
+        Pair<ReturnCode, JfkDataSourcePB> result = ctx.handler().handle(input());
+
+        assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        Map<String, List<List<String>>> output = toOutputMap(result.getSecond());
+        assertThat(output.get("med_order_txt")).containsExactly(List.of("执行记录显示名"));
     }
 
     @Test
@@ -314,7 +339,13 @@ public class MedexeRecordsDataSourceHandlerTests {
             .addMd(MedicationDosagePB.newBuilder()
                 .setName(displayName)
                 .setIntakeVolMl(100d)
-                .build())
+            .build())
+            .build();
+    }
+
+    private static MedicationDosageGroupPB displayNameOnlyDosage(String displayName) {
+        return MedicationDosageGroupPB.newBuilder()
+            .setDisplayName(displayName)
             .build();
     }
 
@@ -375,6 +406,7 @@ public class MedexeRecordsDataSourceHandlerTests {
         private final MedicationOrderGroupRepository orderGroupRepo = mock(MedicationOrderGroupRepository.class);
         private final MedicationExecutionActionRepository actionRepo = mock(MedicationExecutionActionRepository.class);
         private final AdministrationRouteRepository routeRepo = mock(AdministrationRouteRepository.class);
+        private final MedicationConfig medConfig = mock(MedicationConfig.class);
         private final MedMonitoringService medMonitoringService = mock(MedMonitoringService.class);
 
         private TestContext() {
@@ -392,6 +424,11 @@ public class MedexeRecordsDataSourceHandlerTests {
                     .setMetaId(input.getMetaId())
                     .addAllInputData(input.getInputDataList());
             });
+            when(medConfig.getMedOrderGroupSettings(any()))
+                .thenReturn(MedOrderGroupSettingsPB.getDefaultInstance());
+            when(medConfig.getDosageGroupDisplayName(
+                any(MedOrderGroupSettingsPB.class), any(MedicationDosageGroupPB.class)))
+                .thenAnswer(invocation -> invocation.<MedicationDosageGroupPB>getArgument(1).getDisplayName());
         }
 
         private MedexeRecordsDataSourceHandler handler() {
@@ -406,6 +443,7 @@ public class MedexeRecordsDataSourceHandlerTests {
                 orderGroupRepo,
                 actionRepo,
                 routeRepo,
+                medConfig,
                 medMonitoringService,
                 properties,
                 new DefaultResourceLoader()
@@ -450,7 +488,9 @@ public class MedexeRecordsDataSourceHandlerTests {
             MedicationExecutionRecord record,
             String displayName
         ) {
-            when(medMonitoringService.getDosageGroupPB(group, record)).thenReturn(dosage(displayName));
+            MedicationDosageGroupPB dosage = dosage(displayName);
+            record.setMedicationDosageGroup(ProtoUtils.encodeDosageGroup(dosage));
+            when(medMonitoringService.getDosageGroupPB(group, record)).thenReturn(dosage);
         }
     }
 

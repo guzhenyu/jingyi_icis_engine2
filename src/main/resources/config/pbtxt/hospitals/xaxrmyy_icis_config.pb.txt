@@ -9327,7 +9327,6 @@ nursing_order {
         name: "腹内压监测"
         name: "鼻胃管置管"
         name: "鼻饲注食"
-        name: "吸痰护理"
         name: "肠内营养输注护理"
         name: "胃肠减压"
         name: "造瘘护理"

@@ -36,6 +36,7 @@ import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkFieldDataPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.MedOrderGroupSettingsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.MedicationDosageGroupPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.repository.medications.AdministrationRouteRepository;
@@ -44,11 +45,13 @@ import com.jingyicare.jingyi_icis_engine.repository.medications.MedicationExecut
 import com.jingyicare.jingyi_icis_engine.repository.medications.MedicationExecutionRecordStatRepository;
 import com.jingyicare.jingyi_icis_engine.repository.medications.MedicationOrderGroupRepository;
 import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
+import com.jingyicare.jingyi_icis_engine.service.medications.MedicationConfig;
 import com.jingyicare.jingyi_icis_engine.service.medications.MedMonitoringService;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
+import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
@@ -63,6 +66,7 @@ public class MedexeRecordsDataSourceHandler extends AbstractJfkDataSourceHandler
         MedicationOrderGroupRepository orderGroupRepo,
         MedicationExecutionActionRepository actionRepo,
         AdministrationRouteRepository routeRepo,
+        MedicationConfig medConfig,
         MedMonitoringService medMonitoringService,
         ReportProperties reportProperties,
         ResourceLoader resourceLoader
@@ -74,6 +78,7 @@ public class MedexeRecordsDataSourceHandler extends AbstractJfkDataSourceHandler
         this.orderGroupRepo = orderGroupRepo;
         this.actionRepo = actionRepo;
         this.routeRepo = routeRepo;
+        this.medConfig = medConfig;
         this.medMonitoringService = medMonitoringService;
         this.reportProperties = reportProperties;
         this.resourceLoader = resourceLoader;
@@ -217,13 +222,14 @@ public class MedexeRecordsDataSourceHandler extends AbstractJfkDataSourceHandler
                     Collectors.toList()
                 ));
         Map<Long, List<MedicationExecutionAction>> actionsByRecordId = findActions(records);
+        MedOrderGroupSettingsPB medOrderGroupSettings = medConfig.getMedOrderGroupSettings(deptId);
 
         List<RowData> rows = new ArrayList<>();
         for (Map.Entry<Long, List<MedicationExecutionRecord>> entry : recordsByGroupId.entrySet()) {
             MedicationOrderGroup group = groupById.get(entry.getKey());
             RowData row = buildRow(
                 tableId, deptId, intakeTypeId, group, entry.getValue(),
-                routeByCode, statsByRecordId, actionsByRecordId, startUtc, endUtc
+                routeByCode, statsByRecordId, actionsByRecordId, medOrderGroupSettings, startUtc, endUtc
             );
             if (row != null) {
                 rows.add(row);
@@ -325,6 +331,7 @@ public class MedexeRecordsDataSourceHandler extends AbstractJfkDataSourceHandler
         Map<String, AdministrationRoute> routeByCode,
         Map<Long, List<MedicationExecutionRecordStat>> statsByRecordId,
         Map<Long, List<MedicationExecutionAction>> actionsByRecordId,
+        MedOrderGroupSettingsPB medOrderGroupSettings,
         LocalDateTime startUtc,
         LocalDateTime endUtc
     ) {
@@ -357,7 +364,7 @@ public class MedexeRecordsDataSourceHandler extends AbstractJfkDataSourceHandler
                 continue;
             }
             if (StrUtils.isBlank(row.medOrderText())) {
-                row.medOrderText = dosageGroup.getDisplayName();
+                row.medOrderText = medOrderText(medOrderGroupSettings, record, dosageGroup);
             }
 
             List<MedicationExecutionAction> actions = actionsByRecordId.getOrDefault(record.getId(), List.of());
@@ -365,6 +372,31 @@ public class MedexeRecordsDataSourceHandler extends AbstractJfkDataSourceHandler
                 statsByRecordId.getOrDefault(record.getId(), List.of()), startUtc, endUtc);
         }
         return row.hasAnyDisplayableRecord() ? row : null;
+    }
+
+    private String medOrderText(
+        MedOrderGroupSettingsPB medOrderGroupSettings,
+        MedicationExecutionRecord record,
+        MedicationDosageGroupPB effectiveDosageGroup
+    ) {
+        MedicationDosageGroupPB recordDosageGroup = decodeRecordDosageGroup(record);
+        if (recordDosageGroup != null) {
+            if (recordDosageGroup.getMdCount() == 0) {
+                return recordDosageGroup.getDisplayName();
+            }
+            return medConfig.getDosageGroupDisplayName(medOrderGroupSettings, recordDosageGroup);
+        }
+
+        if (effectiveDosageGroup == null) return "";
+        if (effectiveDosageGroup.getMdCount() == 0) {
+            return effectiveDosageGroup.getDisplayName();
+        }
+        return medConfig.getDosageGroupDisplayName(medOrderGroupSettings, effectiveDosageGroup);
+    }
+
+    private MedicationDosageGroupPB decodeRecordDosageGroup(MedicationExecutionRecord record) {
+        if (record == null || StrUtils.isBlank(record.getMedicationDosageGroup())) return null;
+        return ProtoUtils.decodeDosageGroup(record.getMedicationDosageGroup());
     }
 
     private void addStatsOrCalculated(
@@ -739,6 +771,7 @@ public class MedexeRecordsDataSourceHandler extends AbstractJfkDataSourceHandler
     private final MedicationOrderGroupRepository orderGroupRepo;
     private final MedicationExecutionActionRepository actionRepo;
     private final AdministrationRouteRepository routeRepo;
+    private final MedicationConfig medConfig;
     private final MedMonitoringService medMonitoringService;
     private final ReportProperties reportProperties;
     private final ResourceLoader resourceLoader;
