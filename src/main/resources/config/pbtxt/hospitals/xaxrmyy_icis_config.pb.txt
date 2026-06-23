@@ -12455,6 +12455,10 @@ device {
                 driver_name: "Evita"
             }
             driver {
+                driver_code: "jd_vent_drager_savina"
+                driver_name: "Savina"
+            }
+            driver {
                 driver_code: "jd_vent_drager_infinity"
                 driver_name: "Infinity"
             }
