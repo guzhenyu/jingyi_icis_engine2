@@ -62,7 +62,7 @@ public class JfkTextRenderer {
         Color color = JfkRenderUtils.parseColor(fontColor);
         contentStream.setNonStrokingColor(color);
         for (int i = 0; i < lineCount; i++) {
-            String line = lines.get(i) == null ? "" : lines.get(i);
+            String line = JfkRenderUtils.sanitizeText(lines.get(i));
             float lineWidth = JfkRenderUtils.textWidth(font, fontSize, line, charSpacing);
             float x = left;
             if (hAlignId == JfkRenderUtils.H_ALIGN_CENTER) {

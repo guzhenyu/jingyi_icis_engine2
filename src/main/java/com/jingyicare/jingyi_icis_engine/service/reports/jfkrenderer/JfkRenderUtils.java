@@ -71,10 +71,16 @@ final class JfkRenderUtils {
     }
 
     static float textWidth(PDFont font, float fontSize, String text, float charSpacing) throws IOException {
-        if (text == null || text.isEmpty()) return 0f;
-        float base = font.getStringWidth(text) / 1000f * fontSize;
-        int len = text.length();
+        String safeText = sanitizeText(text);
+        if (safeText.isEmpty()) return 0f;
+        float base = font.getStringWidth(safeText) / 1000f * fontSize;
+        int len = safeText.length();
         return base + (len > 1 ? charSpacing * (len - 1) : 0f);
+    }
+
+    static String sanitizeText(String text) {
+        if (text == null || text.isEmpty()) return "";
+        return text.replace("\t", "    ");
     }
 
     static float ascent(PDFont font, float fontSize) {

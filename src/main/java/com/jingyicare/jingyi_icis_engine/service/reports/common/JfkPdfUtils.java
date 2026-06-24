@@ -26,7 +26,7 @@ public class JfkPdfUtils {
         float left = textPb.getX();
         float bottom = textPb.getY();
 
-        String line = textPb.getContent() == null ? "" : textPb.getContent();
+        String line = sanitizeText(textPb.getContent());
         float ascent = getAscent(font, fontSize);
         float descent = getDescentAbs(font, fontSize);
         float lineWidth = textWidth(font, fontSize, line, charSpacing);
@@ -83,11 +83,17 @@ public class JfkPdfUtils {
     }
 
     public static float textWidth(PDFont font, float fontSize, String s, float charSpacing) throws IOException {
-        if (s == null || s.isEmpty()) return 0f;
-        float base = font.getStringWidth(s) / 1000f * fontSize;
-        int len = s.length();
+        String safeText = sanitizeText(s);
+        if (safeText.isEmpty()) return 0f;
+        float base = font.getStringWidth(safeText) / 1000f * fontSize;
+        int len = safeText.length();
         float extra = (len > 1) ? charSpacing * (len - 1) : 0f;
         return base + extra;
+    }
+
+    public static String sanitizeText(String text) {
+        if (text == null || text.isEmpty()) return "";
+        return text.replace("\t", "    ");
     }
 
     public static float getAscent(PDFont font, float fontSize) {
@@ -109,6 +115,7 @@ public class JfkPdfUtils {
         List<String> out, String text,
         PDFont font, float fontSize, float maxWidth, float charSpacing
     ) throws IOException {
+        text = sanitizeText(text);
         StringBuilder line = new StringBuilder();
         for (int i = 0; i < text.length(); i++) {
             char ch = text.charAt(i);
@@ -136,6 +143,7 @@ public class JfkPdfUtils {
             out.add("");
             return;
         }
+        text = sanitizeText(text);
 
         String[] tokens = new String[] { text };
         // 按空格保留分隔符（把空格也当作词的一部分，便于累计宽度）
@@ -183,7 +191,13 @@ public class JfkPdfUtils {
         List<String> lines
     ) throws IOException {
         if (lines == null || lines.isEmpty()) return List.of("");
-        if (maxWidth <= 0f) return new ArrayList<>(lines); // 宽度无效就原样返回
+        if (maxWidth <= 0f) {
+            List<String> sanitized = new ArrayList<>(lines.size());
+            for (String line : lines) {
+                sanitized.add(sanitizeText(line));
+            }
+            return sanitized;
+        }
 
         List<String> out = new ArrayList<>();
         for (String src : lines) {

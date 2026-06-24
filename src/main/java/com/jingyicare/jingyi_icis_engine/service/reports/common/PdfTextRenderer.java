@@ -86,7 +86,7 @@ public class PdfTextRenderer {
 
         float currentX = x0;
         for (int i = 0; i < n; i++) {
-            cs.showText(wrappedLines.get(i));
+            cs.showText(JfkPdfUtils.sanitizeText(wrappedLines.get(i)));
             if (i != n - 1) {
                 float dx = 0f;
                 if (hAlign == HorizontalAlign.CENTER) {
@@ -109,7 +109,7 @@ public class PdfTextRenderer {
         cs.setFont(font, fontSize);
         cs.setCharacterSpacing(charSpacing);
         cs.newLineAtOffset(x, y1);
-        cs.showText(line == null ? "" : line);
+        cs.showText(JfkPdfUtils.sanitizeText(line));
         cs.endText();
     }
 }
