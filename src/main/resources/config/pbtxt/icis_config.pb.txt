@@ -3116,17 +3116,6 @@ monitoring {
     }
 
     monitoring_param {
-        code: "vent_fio2"
-        name: "FiO2"
-        value_meta {
-            value_type: FLOAT
-            tooltip: "吸氧浓度"
-            decimal_places: 0
-            unit: "%"
-        }
-    }
-
-    monitoring_param {
         code: "vent_respiratory_mode"
         name: "呼吸模式"
         value_meta {
@@ -3146,19 +3135,46 @@ monitoring {
     }
 
     monitoring_param {
-        code: "vent_respiratory_rate"
-        name: "呼吸频率"
+        code: "vent_fio2_set"
+        name: "FiO2_set"
         value_meta {
             value_type: FLOAT
-            tooltip: "呼吸机测量出的呼吸频率"
+            tooltip: "吸氧浓度(设定值)"
             decimal_places: 0
-            unit: "bpm"
-            upper_limit: {
-                float_val: 40
-            }
-            lower_limit: {
-                float_val: 5
-            }
+            unit: "%"
+        }
+    }
+
+    monitoring_param {
+        code: "vent_fio2"
+        name: "FiO2"
+        value_meta {
+            value_type: FLOAT
+            tooltip: "吸氧浓度"
+            decimal_places: 0
+            unit: "%"
+        }
+    }
+
+    monitoring_param {
+        code: "vent_vt_set"
+        name: "设置潮气量"
+        value_meta {
+            value_type: FLOAT
+            tooltip: "设置的潮气量sVt"
+            decimal_places: 0
+            unit: "ml"
+        }
+    }
+
+    monitoring_param {
+        code: "vent_measured_tidal_volume"
+        name: "mVt"
+        value_meta {
+            value_type: FLOAT
+            tooltip: "测量潮气量（Measured Tidal Volume）"
+            decimal_places: 0
+            unit: "ml"
         }
     }
 
@@ -3202,34 +3218,80 @@ monitoring {
     }
 
     monitoring_param {
-        code: "vent_set_tidal_volume"
-        name: "sVt"
+        code: "vent_respiratory_rate"
+        name: "呼吸频率"
         value_meta {
             value_type: FLOAT
-            tooltip: "设置的潮气量（Set Tidal Volume）"
+            tooltip: "呼吸机测量出的呼吸频率"
             decimal_places: 0
-            unit: "ml"
+            unit: "bpm"
+            upper_limit: {
+                float_val: 40
+            }
+            lower_limit: {
+                float_val: 5
+            }
         }
     }
 
     monitoring_param {
-        code: "vent_measured_tidal_volume"
-        name: "mVt"
+        code: "vent_inspiratory_time_set"
+        name: "设置吸气时长（秒）"
         value_meta {
             value_type: FLOAT
-            tooltip: "测量潮气量（Measured Tidal Volume）"
-            decimal_places: 0
-            unit: "ml"
+            tooltip: "呼吸机设置的吸气时长"
+            decimal_places: 1
+            unit: "秒"
         }
     }
 
     monitoring_param {
-        code: "vent_PC"
-        name: "PC"
+        code: "vent_inspiratory_time"
+        name: "吸气时长（秒）"
         value_meta {
             value_type: FLOAT
-            tooltip: "压力控制（Pressure Control）"
-            decimal_places: 0
+            tooltip: "呼吸机测量的吸气时长"
+            decimal_places: 1
+            unit: "秒"
+        }
+    }
+
+    monitoring_param {
+        code: "I:E_set"
+        name: "I:E_set"
+        value_meta {
+            value_type: STRING
+            tooltip: "设置的吸气时间与呼气时间相比"
+        }
+    }
+
+    monitoring_param {
+        code: "I:E"
+        name: "I:E"
+        value_meta {
+            value_type: STRING
+            tooltip: "测量的吸气时间与呼气时间相比"
+        }
+    }
+
+    monitoring_param {
+        code: "vent_PEEP_Set"
+        name: "PEEP(Set)"
+        value_meta {
+            value_type: FLOAT
+            tooltip: "设置的呼气末正压（Positive End-Expiratory Pressure）"
+            decimal_places: 2
+            unit: "cmH2O"
+        }
+    }
+
+    monitoring_param {
+        code: "vent_PEEP"
+        name: "PEEP"
+        value_meta {
+            value_type: FLOAT
+            tooltip: "测量的呼气末正压（Positive End-Expiratory Pressure）"
+            decimal_places: 2
             unit: "cmH2O"
         }
     }
@@ -3240,7 +3302,7 @@ monitoring {
         value_meta {
             value_type: FLOAT
             tooltip: "压力辅助自主呼吸（Pressure Assisted Spontaneous Breathing）"
-            decimal_places: 0
+            decimal_places: 2
             unit: "cmH2O"
         }
     }
@@ -3251,7 +3313,7 @@ monitoring {
         value_meta {
             value_type: FLOAT
             tooltip: "压力支持（Pressure Support）"
-            decimal_places: 0
+            decimal_places: 2
             unit: "cmH2O"
         }
     }
@@ -3262,6 +3324,83 @@ monitoring {
         value_meta {
             value_type: FLOAT
             tooltip: "压力支持通气（Pressure Support Ventilation）"
+            decimal_places: 2
+            unit: "cmH2O"
+        }
+    }
+
+    monitoring_param {
+        code: "vent_Pplat"
+        name: "Pplat"
+        value_meta {
+            value_type: FLOAT
+            tooltip: "平台压（Plateau Pressure）"
+            decimal_places: 2
+            unit: "cmH2O"
+        }
+    }
+
+    monitoring_param {
+        code: "vent_Tplat"
+        name: "Tplat"
+        value_meta {
+            value_type: FLOAT
+            tooltip: "平台压（Plateau Pressure）时长"
+            decimal_places: 1
+            unit: "秒"
+        }
+    }
+
+    monitoring_param {
+        code: "vent_PIP"
+        name: "PIP"
+        value_meta {
+            value_type: FLOAT
+            tooltip: "峰值吸气压（Peak Inspiratory Pressure）"
+            decimal_places: 2
+            unit: "cmH2O"
+        }
+    }
+
+    monitoring_param {
+        code: "vent_Pmean"
+        name: "Pmean"
+        value_meta {
+            value_type: FLOAT
+            tooltip: "平均气道压力"
+            decimal_places: 2
+            unit: "cmH2O"
+        }
+    }
+
+    monitoring_param {
+        code: "vent_Pmax_set"
+        name: "Pmax"
+        value_meta {
+            value_type: FLOAT
+            tooltip: "设置的最大气道压力"
+            decimal_places: 2
+            unit: "cmH2O"
+        }
+    }
+
+    monitoring_param {
+        code: "vent_peak_flow_rate"
+        name: "峰值流速"
+        value_meta {
+            value_type: FLOAT
+            tooltip: "测量的峰值流速"
+            decimal_places: 0
+            unit: "L/min"
+        }
+    }
+
+    monitoring_param {
+        code: "vent_PC"
+        name: "PC"
+        value_meta {
+            value_type: FLOAT
+            tooltip: "压力控制（Pressure Control）"
             decimal_places: 0
             unit: "cmH2O"
         }
@@ -3278,61 +3417,6 @@ monitoring {
     }
 
     monitoring_param {
-        code: "vent_PEEP_Set"
-        name: "PEEP(Set)"
-        value_meta {
-            value_type: FLOAT
-            tooltip: "设置的呼气末正压（Positive End-Expiratory Pressure）"
-            decimal_places: 0
-            unit: "cmH2O"
-        }
-    }
-
-    monitoring_param {
-        code: "vent_PEEP"
-        name: "PEEP"
-        value_meta {
-            value_type: FLOAT
-            tooltip: "测量的呼气末正压（Positive End-Expiratory Pressure）"
-            decimal_places: 0
-            unit: "cmH2O"
-        }
-    }
-
-    monitoring_param {
-        code: "vent_Pmean"
-        name: "Pmean"
-        value_meta {
-            value_type: FLOAT
-            tooltip: "平均气道压力"
-            decimal_places: 0
-            unit: "cmH2O"
-        }
-    }
-
-    monitoring_param {
-        code: "vent_PIP"
-        name: "PIP"
-        value_meta {
-            value_type: FLOAT
-            tooltip: "峰值吸气压（Peak Inspiratory Pressure）"
-            decimal_places: 0
-            unit: "cmH2O"
-        }
-    }
-
-    monitoring_param {
-        code: "vent_Pplat"
-        name: "Pplat"
-        value_meta {
-            value_type: FLOAT
-            tooltip: "平台压（Plateau Pressure）"
-            decimal_places: 0
-            unit: "cmH2O"
-        }
-    }
-
-    monitoring_param {
         code: "vent_MV"
         name: "MV"
         value_meta {
@@ -3340,15 +3424,6 @@ monitoring {
             tooltip: "分钟潮气量(Minute Ventilation)"
             decimal_places: 1
             unit: "L/min"
-        }
-    }
-
-    monitoring_param {
-        code: "I:E"
-        name: "I:E"
-        value_meta {
-            value_type: STRING
-            tooltip: "吸气时间与呼气时间相比"
         }
     }
 
@@ -3379,17 +3454,6 @@ monitoring {
         name: "氧流量"
         value_meta {
             value_type: FLOAT
-            decimal_places: 0
-            unit: "L/min"
-        }
-    }
-
-    monitoring_param {
-        code: "vent_peak_flow_rate"
-        name: "峰值流速"
-        value_meta {
-            value_type: FLOAT
-            tooltip: "测量的峰值流速"
             decimal_places: 0
             unit: "L/min"
         }
