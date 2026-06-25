@@ -662,20 +662,22 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
     private List<TubeEntry> collectTubeEntries(
         TubeReportContext tubeCtx, LocalDateTime startUtc, LocalDateTime endUtc
     ) {
-        List<TubeEntry> entries = new ArrayList<>();
-        if (tubeCtx == null || tubeCtx.tubeRecords == null || tubeCtx.tubeRecords.isEmpty()) return entries;
+        Map<String, TubeEntry> entryMap = new LinkedHashMap<>();
+        if (tubeCtx == null || tubeCtx.tubeRecords == null || tubeCtx.tubeRecords.isEmpty()) return new ArrayList<>();
 
-        for (LocalDateTime statsTime = startUtc; statsTime.isBefore(endUtc);
-             statsTime = statsTime.plusHours(TUBE_STATS_INTERVAL_HOURS)
-        ) {
+        for (LocalDateTime statsTime : getFixedTubeStatsTimes(startUtc, endUtc)) {
             LocalDateTime windowStartUtc = statsTime.minusHours(TUBE_STATS_INTERVAL_HOURS);
             for (PatientTubeRecord tubeRecord : tubeCtx.tubeRecords) {
                 if (!isTubeActiveAt(tubeRecord, statsTime)) continue;
-                TubeEntry entry = createTubeEntry(tubeCtx, tubeRecord, statsTime, windowStartUtc);
-                if (entry != null) entries.add(entry);
+                putTubeEntry(entryMap, createTubeEntry(tubeCtx, tubeRecord, statsTime, windowStartUtc));
             }
         }
 
+        for (PatientTubeRecord tubeRecord : tubeCtx.tubeRecords) {
+            putTubeEntry(entryMap, createTubeInsertionEntry(tubeCtx, tubeRecord, startUtc, endUtc));
+        }
+
+        List<TubeEntry> entries = new ArrayList<>(entryMap.values());
         entries.sort(Comparator
             .comparing((TubeEntry e) -> e.minute)
             .thenComparing(e -> e.category)
@@ -683,10 +685,85 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         return entries;
     }
 
+    private void putTubeEntry(Map<String, TubeEntry> entryMap, TubeEntry entry) {
+        if (entry == null || entryMap == null) return;
+        entryMap.put(entry.tubeRecordId + "@" + entry.minute, entry);
+    }
+
+    private List<LocalDateTime> getFixedTubeStatsTimes(LocalDateTime startUtc, LocalDateTime endUtc) {
+        List<LocalDateTime> statsTimes = new ArrayList<>();
+        if (startUtc == null || endUtc == null || !endUtc.isAfter(startUtc)) return statsTimes;
+
+        LocalDateTime startLocal = TimeUtils.getLocalDateTimeFromUtc(startUtc, ZONE_ID);
+        LocalDateTime endLocal = TimeUtils.getLocalDateTimeFromUtc(endUtc, ZONE_ID);
+        if (startLocal == null || endLocal == null) return statsTimes;
+
+        LocalDateTime dayLocal = TimeUtils.truncateToDay(startLocal).minusDays(1);
+        LocalDateTime lastDayLocal = TimeUtils.truncateToDay(endLocal).plusDays(1);
+        while (!dayLocal.isAfter(lastDayLocal)) {
+            for (Integer hour : TUBE_STATS_LOCAL_HOURS) {
+                LocalDateTime statsLocal = dayLocal.withHour(hour).withMinute(0).withSecond(0).withNano(0);
+                LocalDateTime statsUtc = TimeUtils.getUtcFromLocalDateTime(statsLocal, ZONE_ID);
+                if (statsUtc != null && !statsUtc.isBefore(startUtc) && statsUtc.isBefore(endUtc)) {
+                    statsTimes.add(statsUtc);
+                }
+            }
+            dayLocal = dayLocal.plusDays(1);
+        }
+
+        statsTimes.sort(Comparator.naturalOrder());
+        return statsTimes;
+    }
+
     private TubeEntry createTubeEntry(
         TubeReportContext tubeCtx, PatientTubeRecord tubeRecord,
         LocalDateTime statsTime, LocalDateTime windowStartUtc
     ) {
+        TubeEntry entry = createBaseTubeEntry(tubeCtx, tubeRecord, statsTime);
+        if (entry == null) return null;
+
+        List<PatientTubeStatusReportBrief> briefs = tubeCtx.statusByTubeRecordId.getOrDefault(
+            tubeRecord.getId(), Collections.emptyList()
+        );
+        entry.depth = getNearestStatus(briefs, TUBE_DEPTH_STATUS_NAME, windowStartUtc, statsTime);
+        entry.nursingCode = getNearestStatus(briefs, "护理", windowStartUtc, statsTime);
+        if (entry.category == TubeCategory.DRAINAGE) {
+            entry.colorCode = getNearestStatus(briefs, "颜色", windowStartUtc, statsTime);
+        }
+        return entry;
+    }
+
+    private TubeEntry createTubeInsertionEntry(
+        TubeReportContext tubeCtx, PatientTubeRecord tubeRecord,
+        LocalDateTime startUtc, LocalDateTime endUtc
+    ) {
+        if (tubeRecord == null || tubeRecord.getInsertedAt() == null ||
+            startUtc == null || endUtc == null ||
+            tubeRecord.getInsertedAt().isBefore(startUtc) || !tubeRecord.getInsertedAt().isBefore(endUtc)
+        ) {
+            return null;
+        }
+
+        LocalDateTime insertedMinute = truncateToMinute(tubeRecord.getInsertedAt());
+        TubeEntry entry = createBaseTubeEntry(tubeCtx, tubeRecord, insertedMinute);
+        if (entry == null) return null;
+
+        List<PatientTubeStatusReportBrief> briefs = tubeCtx.statusByTubeRecordId.getOrDefault(
+            tubeRecord.getId(), Collections.emptyList()
+        );
+        entry.depth = getStatusAtMinute(briefs, TUBE_DEPTH_STATUS_NAME, insertedMinute);
+        entry.nursingCode = getStatusAtMinute(briefs, "护理", insertedMinute);
+        if (entry.category == TubeCategory.DRAINAGE) {
+            entry.colorCode = getStatusAtMinute(briefs, "颜色", insertedMinute);
+        }
+        return entry;
+    }
+
+    private TubeEntry createBaseTubeEntry(
+        TubeReportContext tubeCtx, PatientTubeRecord tubeRecord, LocalDateTime minute
+    ) {
+        if (tubeCtx == null || tubeRecord == null || tubeRecord.getId() == null || minute == null) return null;
+
         String tubeName = trim(tubeRecord.getTubeName());
         TubeCategory category = null;
         String displayName = "";
@@ -699,16 +776,8 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         }
         if (category == null || StrUtils.isBlank(displayName)) return null;
 
-        List<PatientTubeStatusReportBrief> briefs = tubeCtx.statusByTubeRecordId.getOrDefault(
-            tubeRecord.getId(), Collections.emptyList()
-        );
-        TubeEntry entry = new TubeEntry(category, tubeRecord.getId(), statsTime);
+        TubeEntry entry = new TubeEntry(category, tubeRecord.getId(), minute);
         entry.nameCode = displayName;
-        entry.depth = getNearestStatus(briefs, TUBE_DEPTH_STATUS_NAME, windowStartUtc, statsTime);
-        entry.nursingCode = getNearestStatus(briefs, "护理", windowStartUtc, statsTime);
-        if (category == TubeCategory.DRAINAGE) {
-            entry.colorCode = getNearestStatus(briefs, "颜色", windowStartUtc, statsTime);
-        }
         return entry;
     }
 
@@ -773,6 +842,30 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
             }
             LocalDateTime recordedAt = brief.getRecordedAt();
             if (recordedAt.isBefore(windowStartUtc) || !recordedAt.isBefore(statsTime)) continue;
+            if (selected == null ||
+                recordedAt.isAfter(selected.getRecordedAt()) ||
+                (recordedAt.equals(selected.getRecordedAt()) &&
+                    compareNullableLong(brief.getStatusRecordId(), selected.getStatusRecordId()) >= 0)
+            ) {
+                selected = brief;
+            }
+        }
+        return selected == null ? "" : trim(selected.getValue());
+    }
+
+    private String getStatusAtMinute(
+        List<PatientTubeStatusReportBrief> briefs, String statusName, LocalDateTime minute
+    ) {
+        if (briefs == null || briefs.isEmpty() || StrUtils.isBlank(statusName) || minute == null) return "";
+
+        LocalDateTime minuteEnd = minute.plusMinutes(1);
+        PatientTubeStatusReportBrief selected = null;
+        for (PatientTubeStatusReportBrief brief : briefs) {
+            if (brief == null || !statusName.equals(brief.getStatusName()) || brief.getRecordedAt() == null) {
+                continue;
+            }
+            LocalDateTime recordedAt = brief.getRecordedAt();
+            if (recordedAt.isBefore(minute) || !recordedAt.isBefore(minuteEnd)) continue;
             if (selected == null ||
                 recordedAt.isAfter(selected.getRecordedAt()) ||
                 (recordedAt.equals(selected.getRecordedAt()) &&
@@ -1536,6 +1629,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
     private static final String MP_STOOL_CONSISTENCY = "stool_consistency";
     private static final String TUBE_OUTPUT_PARAM_PREFIX = "tube_ylg_";
     private static final int TUBE_STATS_INTERVAL_HOURS = 4;
+    private static final List<Integer> TUBE_STATS_LOCAL_HOURS = List.of(4, 8, 12, 16, 20, 0);
 
     private static final Map<String, String> CONSCIOUSNESS_MAP = Map.of(
         "清醒", "1", "嗜睡", "2", "意识模糊", "3", "昏睡", "4", "浅昏迷", "5", "深昏迷", "6", "镇静", "7"

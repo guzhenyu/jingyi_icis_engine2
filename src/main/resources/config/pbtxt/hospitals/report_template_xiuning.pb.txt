@@ -80,7 +80,7 @@ page {
                 top_level_cell {
                     content: "基本生命体征"
                     children {
-                        content: "体温℃"
+                        content: "体温(腋)℃"
                         param_code: "XN_TEMPERATURE"
                         width: 14
                     }

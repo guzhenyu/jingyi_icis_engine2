@@ -333,8 +333,9 @@ ICU 护 理 记 录 单
 | 数据源 | 事件时间字段 |
 | --- | --- |
 | `patient_monitoring_records` | `effective_time` |
+| `patient_tube_records` 插管事件 | `inserted_at` |
 | `patient_tube_status_records` | `recorded_at` |
-| 每 4 小时管道统计 | 由 `balance_stats_shifts.start_hour` 推导出的统计时刻 |
+| 每 4 小时管道统计 | 固定本地时钟 `4:00`、`8:00`、`12:00`、`16:00`、`20:00`、次日 `0:00` |
 | `nursing_records` | `effective_time` |
 
 规则：
@@ -670,15 +671,17 @@ List<(ptr.id, ptr.tube_name, recorded_at, Map<tts.name, ptsr.value>)>
 
 每 4 小时管道统计规则：
 
-1. 从 `balance_stats_shifts.start_hour` 开始，每 4 小时统计一次管道情况。
-2. 例如 `start_hour = 7`，则一个 24 小时班次内统计时刻为 `7:00`、`11:00`、`15:00`、`19:00`、`23:00`、次日 `3:00`。
-3. 给定统计时刻 `t`，统计窗口为 `[t - 4 hours, t)`。
-4. 满足 `patient_tube_records.inserted_at <= t < patient_tube_records.removed_at` 的管道进入统计；`removed_at is null` 视为无限大。
-5. 如果统计时刻没有任何有效管道，则跳过该管道统计行。
-6. 名称来自有效管道本身；刻度、引流液颜色、护理从 `[t - 4 hours, t)` 内对应管道状态记录中选择离 `t` 最近的一条。
-7. 因窗口右开，离 `t` 最近的一条即该窗口内 `recorded_at < t` 且 `recorded_at` 最大的记录；若同一字段存在同一 `recorded_at` 的多条状态，仍按“同一 entry 中同一个 `tts.name` 多条记录的取值规则”取最新记录。
-8. 若某字段在统计窗口内没有值，则该字段为空，并在 `/` 合并时保留空位。
-9. 多根管道之间的合并规则与“同一时刻多引流管合并规则”一致。
+1. 不再按 `balance_stats_shifts.start_hour` 偏移；管道情况固定在本地时钟 `4:00`、`8:00`、`12:00`、`16:00`、`20:00`、次日 `0:00` 统计。
+2. 例如一个 24 小时班次为 `7:00` 到次日 `7:00`，则班次内统计时刻为 `8:00`、`12:00`、`16:00`、`20:00`、次日 `0:00`、次日 `4:00`。
+3. 除固定统计点外，白名单内的管道在 `patient_tube_records.inserted_at` 所在分钟也生成一条管道行，用于体现插管当时的管道及状态。
+4. 插管事件行的名称来自管道本身；刻度、引流液颜色、护理从同一分钟内对应管道状态记录取最新一条；如果没有对应状态则留空。
+5. 给定固定统计时刻 `t`，统计窗口为 `[t - 4 hours, t)`。
+6. 满足 `patient_tube_records.inserted_at <= t < patient_tube_records.removed_at` 的管道进入固定统计；`removed_at is null` 视为无限大。
+7. 如果统计时刻没有任何有效管道，则跳过该管道统计行。
+8. 固定统计行名称来自有效管道本身；刻度、引流液颜色、护理从 `[t - 4 hours, t)` 内对应管道状态记录中选择离 `t` 最近的一条。
+9. 因窗口右开，离 `t` 最近的一条即该窗口内 `recorded_at < t` 且 `recorded_at` 最大的记录；若同一字段存在同一 `recorded_at` 的多条状态，仍按“同一 entry 中同一个 `tts.name` 多条记录的取值规则”取最新记录。
+10. 若某字段在统计窗口或插管事件分钟内没有值，则该字段为空，并在 `/` 合并时保留空位。
+11. 多根管道之间的合并规则与“同一时刻多引流管合并规则”一致。
 
 ### 动静脉置管
 
@@ -750,12 +753,14 @@ where ptr.is_deleted = false;
 
 每 4 小时管道统计规则：
 
-1. 与引流管相同，从 `balance_stats_shifts.start_hour` 开始，每 4 小时统计一次。
-2. 给定统计时刻 `t`，统计窗口为 `[t - 4 hours, t)`。
-3. 满足 `patient_tube_records.inserted_at <= t < patient_tube_records.removed_at` 的动静脉置管进入统计；`removed_at is null` 视为无限大。
-4. 如果统计时刻没有任何有效动静脉置管，则跳过该管道统计行。
-5. 名称来自“名称显示规则”；刻度和护理从 `[t - 4 hours, t)` 内对应管道状态记录中选择离 `t` 最近的一条。
-6. 多根管道之间的合并规则与“同一时刻多动静脉置管合并规则”一致。
+1. 与引流管相同，不按 `balance_stats_shifts.start_hour` 偏移，固定在本地时钟 `4:00`、`8:00`、`12:00`、`16:00`、`20:00`、次日 `0:00` 统计。
+2. 除固定统计点外，白名单内的动静脉置管在 `patient_tube_records.inserted_at` 所在分钟也生成一条管道行，用于体现插管当时的管道及状态。
+3. 插管事件行的名称来自“名称显示规则”；刻度和护理从同一分钟内对应管道状态记录取最新一条；如果没有对应状态则留空。
+4. 给定统计时刻 `t`，统计窗口为 `[t - 4 hours, t)`。
+5. 满足 `patient_tube_records.inserted_at <= t < patient_tube_records.removed_at` 的动静脉置管进入统计；`removed_at is null` 视为无限大。
+6. 如果统计时刻没有任何有效动静脉置管，则跳过该管道统计行。
+7. 固定统计行名称来自“名称显示规则”；刻度和护理从 `[t - 4 hours, t)` 内对应管道状态记录中选择离 `t` 最近的一条。
+8. 多根管道之间的合并规则与“同一时刻多动静脉置管合并规则”一致。
 
 ### 评分
 
