@@ -1,0 +1,151 @@
+item {
+    code: "icu_bed_utilization_rate"
+    name: "ICU 床位使用率"
+    description: ""
+    calc_formula: "ICU床位使用率 = ICU实际占用总床日数 / 同期 ICU实际开放总床日数 × 100%"
+}
+item {
+    code: "icu_doctor_bed_ratio"
+    name: "ICU 医师床位比"
+    description: ""
+    calc_formula: "ICU医师床位比 = ICU医师总数 / ICU实际开放床位数"
+}
+item {
+    code: "icu_nurse_bed_ratio"
+    name: "ICU 护士床位比"
+    description: ""
+    calc_formula: "ICU护士床位比 = ICU护士总数 / ICU实际开放床位数"
+}
+item {
+    code: "apache2_over15_admission_rate"
+    name: "APACHEⅡ评分 ≥ 15分患者收治率"
+    description: "APACHEⅡ评分 ≥ 15分"
+    calc_formula: "APACHEⅡ评分 ≥ 15分患者收治率 = 入 ICU后首次 APACHEⅡ评分 ≥ 15分患者人数 / 同期 ICU收治患者总数 × 100%"
+}
+item {
+    code: "septic_shock_bundle_completion_rate"
+    name: "感染性休克患者集束化治疗（bundle）完成率"
+    description: ""
+    calc_formula: "感染性休克患者 bundle完成率 = 入 ICU诊断为感染性休克并完成 bundle的患者人数 / 同期入 ICU诊断为感染性休克的患者总人数 × 100%"
+}
+item {
+    code: "pre_antibiotic_pathogen_test_rate"
+    name: "抗菌药物治疗前病原学送检率"
+    description: ""
+    calc_formula: "抗菌药物治疗前病原学送检率 = 以治疗为目的使用抗菌药物前病原学送检的ICU患者人数 / 同期使用抗菌药物治疗的ICU患者总人数 × 100%"
+}
+item {
+    code: "dvt_prevention_rate"
+    name: "深静脉血栓（DVT）预防率"
+    description: ""
+    calc_formula: "DVT预防率 = 进行 DVT预防的 ICU患者人数 / 同期 ICU患者总人数 × 100%"
+}
+item {
+    code: "ards_prone_position_rate"
+    name: "中重度急性呼吸窘迫综合征（ARDS）患者俯卧位通气实施率"
+    description: ""
+    calc_formula: "中重度 ARDS患者俯卧位通气实施率 = ICU中重度 ARDS患者中实施俯卧位通气治疗的人数 / 同期 ICU应实施俯卧位通气治疗的中重度 ARDS患者总人数 × 100%"
+}
+item {
+    code: "pain_assessment_rate"
+    name: "ICU 镇痛评估率"
+    description: ""
+    calc_formula: "ICU镇痛评估率 = 进行镇痛评估的 ICU患者人数 / 同期 ICU患者总人数 × 100%"
+}
+item {
+    code: "sedation_assessment_rate"
+    name: "ICU 镇静评估率"
+    description: ""
+    calc_formula: "ICU镇静评估率 = 进行镇静评估的 ICU患者人数 / 同期 ICU患者总人数 × 100%"
+}
+item {
+    code: "standardized_mortality_ratio"
+    name: "ICU 患者标化病死指数"
+    description: ""
+    calc_formula: "ICU患者标化病死指数 = ICU患者实际病死率 / 同期 ICU患者预计病死率"
+}
+item {
+    code: "unplanned_extubation_rate"
+    name: "ICU 非计划气管插管拔管率"
+    description: ""
+    calc_formula: "ICU非计划气管插管拔管率 = ICU患者非计划气管插管拔管例数 / 同期 ICU患者气管插管拔管总例数 × 100%"
+}
+item {
+    code: "reintubation_within_48h_rate"
+    name: "ICU 气管插管拔管后 48h 再插管率"
+    description: ""
+    calc_formula: "ICU气管插管拔后 48h再插管率 = ICU患者气管插管拔管后 48h内再插管例数 / 同期 ICU患者气管插管拔管总例数 × 100%"
+}
+item {
+    code: "unplanned_icu_admission_rate"
+    name: "非计划转入 ICU 率"
+    description: ""
+    calc_formula: "非计划转入 ICU率 = 非计划转入 ICU的手术患者人数 / 同期转入 ICU的手术患者总人数 × 100%"
+}
+item {
+    code: "icu_readmission_within_48h_rate"
+    name: "转出 ICU 后 48h 内重返率"
+    description: ""
+    calc_formula: "转出 ICU后 48h内重返率 = 转出 ICU后 48h内重返 ICU的患者人数 / 同期转出 ICU的患者总人数 × 100%"
+}
+item {
+    code: "vap_incidence_rate"
+    name: "ICU 呼吸机相关肺炎（VAP）发病率"
+    description: ""
+    calc_formula: "ICU呼吸机相关肺炎发病率 = ICU相关肺炎新发病例例次数 / 同期 ICU患者有创呼吸机累计使用天数 × 1000‰"
+}
+item {
+    code: "crbsi_incidence_rate"
+    name: "ICU 血管导管相关血流感染（CRBSI）发病率"
+    description: ""
+    calc_formula: "ICU血管导管相关血流感染发病率 = ICU相关血流感染新发病例例次数 / 同期 ICU患者血管导管累计使用天数 × 1000‰"
+}
+item {
+    code: "brain_injury_consciousness_assessment_rate"
+    name: "ICU 急性脑损伤患者意识评估率"
+    description: ""
+    calc_formula: "ICU急性脑损伤患者意识评估率 = ICU内完成意识评估的急性脑损伤患者人数 / 同期 ICU急性脑损伤患者总人数 × 100%"
+}
+item {
+    code: "enteral_nutrition_within_48h_rate"
+    name: "48h 内肠内营养（EN）启动率"
+    description: ""
+    calc_formula: "48h内肠内营养启动率 = 入住 ICU超过 48h的患者中 48h内启动 EN的患者人数 / 同期入住 ICU超过 48h的患者总人数 × 100%"
+}
+
+doctor_role_id: 2
+doctor_role_id: 7
+nurse_role_id: 3
+nurse_role_id: 4
+nurse_role_id: 5
+nurse_role_id: 6
+pain_score_group_code: "cpot"
+pain_score_group_code: "bps"
+pain_score_group_code: "nrs"
+pain_score_group_code: "pain_assessment"
+sedation_score_group_code: "rass"
+sedation_score_group_code: "sas_sedation_agitation_assessment"
+
+bed_utilization {
+    shared_day_mode: ICU_QC_BED_SHARED_DAY_MODE_FRACTION
+}
+doctor_bed_ratio {}
+nurse_bed_ratio {}
+apache2_over15_admission_rate {
+    count_by_admission_time: true
+}
+septic_shock_bundle_completion_rate {}
+pre_antibiotic_pathogen_test_rate {}
+dvt_prevention_rate {}
+ards_prone_position_rate {}
+pain_assessment_rate {}
+sedation_assessment_rate {}
+standardized_mortality_ratio {}
+unplanned_extubation_rate {}
+reintubation_within_48h_rate {}
+unplanned_icu_admission_rate {}
+icu_readmission_within_48h_rate {}
+vap_incidence_rate {}
+crbsi_incidence_rate {}
+brain_injury_consciousness_assessment_rate {}
+enteral_nutrition_within_48h_rate {}

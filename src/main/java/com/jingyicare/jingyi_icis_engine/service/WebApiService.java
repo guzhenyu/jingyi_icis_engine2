@@ -69,6 +69,7 @@ public class WebApiService {
         @Autowired SkincareService skincareService,
         @Autowired ExtUrlService extUrlService,
         @Autowired QualityControlService qualityControlService,
+        @Autowired GenericIcuQcService genericIcuQcService,
         @Autowired SettingService settingService,
         @Autowired ReportService reportService,
         @Autowired MedicationDebugger medicationDebugger,
@@ -103,6 +104,7 @@ public class WebApiService {
         this.skincareService = skincareService;
         this.extUrlService = extUrlService;
         this.qualityControlService = qualityControlService;
+        this.genericIcuQcService = genericIcuQcService;
         this.settingService = settingService;
 
         this.reportService = reportService;
@@ -2027,6 +2029,12 @@ public class WebApiService {
         return resp;
     }
 
+    public GetGenericIcuQcResp getGenericIcuQc(String getGenericIcuQcReqJson) {
+        GetGenericIcuQcResp resp = genericIcuQcService.getGenericIcuQc(getGenericIcuQcReqJson);
+        resp = metricService.recordApiMetrics(resp, GetGenericIcuQcResp::getRt);
+        return resp;
+    }
+
     public GetAppSettingsResp getAppSettings(String getAppSettingsReqJson) {
         GetAppSettingsResp resp = settingService.getAppSettings(getAppSettingsReqJson);
         resp = metricService.recordApiMetrics(resp, GetAppSettingsResp::getRt);
@@ -2122,6 +2130,7 @@ public class WebApiService {
     private SkincareService skincareService;
     private ExtUrlService extUrlService;
     private QualityControlService qualityControlService;
+    private GenericIcuQcService genericIcuQcService;
     private SettingService settingService;
 
     private ReportService reportService;

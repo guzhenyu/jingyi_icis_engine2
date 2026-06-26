@@ -147,11 +147,21 @@ public class BedUtilizationCalc {
         String deptId, List<PatientRecord> patients,
         LocalDateTime startUtc, LocalDateTime endUtc, String zoneId
     ) {
+        return calcRates(deptId, patients, startUtc, endUtc, zoneId,
+            IcuQcBedSharedDayModePB.ICU_QC_BED_SHARED_DAY_MODE_FRACTION);
+    }
+
+    public List<QcICUBedUtilizationRatioPB> calcRates(
+        String deptId, List<PatientRecord> patients,
+        LocalDateTime startUtc, LocalDateTime endUtc, String zoneId,
+        IcuQcBedSharedDayModePB bedSharedDayMode
+    ) {
         // 计算整体可用床位数
         Map<LocalDateTime, List<QcICUBedAvailablePB>> bedAvailableMap = calcAvailableBeds(deptId, startUtc, endUtc, zoneId);
 
         // 计算床位使用情况
-        Map<LocalDateTime, List<QcICUBedUsagePB>> bedUsageMap = calcBedUsage(deptId, patients, startUtc, endUtc, zoneId);
+        Map<LocalDateTime, List<QcICUBedUsagePB>> bedUsageMap = calcBedUsage(
+            deptId, patients, startUtc, endUtc, zoneId, bedSharedDayMode);
 
         // 统计月份
         Set<LocalDateTime> months = new HashSet<>();
@@ -275,6 +285,7 @@ public class BedUtilizationCalc {
                         TimeUtils.getUtcFromLocalDateTime(overlapEnd, zoneId),
                         zoneId
                     ))
+                    .setBedCount(bedCount)
                     .setBedDays(daysInOverlap * bedCount)
                     .build()
             );
@@ -302,6 +313,16 @@ public class BedUtilizationCalc {
     public Map<LocalDateTime, List<QcICUBedUsagePB>> calcBedUsage(
         String deptId, List<PatientRecord> patients,
         LocalDateTime startUtc, LocalDateTime endUtc, String zoneId
+    ) {
+        return calcBedUsage(deptId, patients, startUtc, endUtc, zoneId,
+            IcuQcBedSharedDayModePB.ICU_QC_BED_SHARED_DAY_MODE_FRACTION);
+    }
+
+    @Transactional
+    public Map<LocalDateTime, List<QcICUBedUsagePB>> calcBedUsage(
+        String deptId, List<PatientRecord> patients,
+        LocalDateTime startUtc, LocalDateTime endUtc, String zoneId,
+        IcuQcBedSharedDayModePB bedSharedDayMode
     ) {
         // 获取本地时间
         LocalDateTime startLocal = TimeUtils.truncateToDay(TimeUtils.getLocalDateTimeFromUtc(startUtc, zoneId));
@@ -369,7 +390,7 @@ public class BedUtilizationCalc {
         Map<LocalDateTime, List<QcICUBedUsagePB>> bedUsagePBMap = new HashMap<>();
         for (Map.Entry<LocalDateTime, List<QcICUBedUsage>> entry : bedUsageMap.entrySet()) {
             LocalDateTime monthUtc = TimeUtils.getUtcFromLocalDateTime(entry.getKey(), zoneId);
-            List<QcICUBedUsagePB> usagePBList = toProtoList(entry.getValue(), zoneId);
+            List<QcICUBedUsagePB> usagePBList = toProtoList(entry.getValue(), zoneId, bedSharedDayMode);
             bedUsagePBMap.put(monthUtc, usagePBList);
         }
 
@@ -405,7 +426,7 @@ public class BedUtilizationCalc {
 
     // 计算bedUsageList中的bedDays，转化成PB
     private List<QcICUBedUsagePB> toProtoList(
-        List<QcICUBedUsage> bedUsageList, String zoneId
+        List<QcICUBedUsage> bedUsageList, String zoneId, IcuQcBedSharedDayModePB bedSharedDayMode
     ) {
         Map<String/*displayBedNumber*/, List<QcICUBedUsage>> groupedByBed = bedUsageList.stream()
             .collect(Collectors.groupingBy(QcICUBedUsage::getDisplayBedNumber));
@@ -449,14 +470,14 @@ public class BedUtilizationCalc {
                         // 同一天
                         if (curIdx == usageList.size() - 1) {
                             // 最后一个
-                            applySharedDayAdjustment(usageList, sharedIdx, curIdx);
+                            applySharedDayAdjustment(usageList, sharedIdx, curIdx, bedSharedDayMode);
                             break;
                         } else {
                             curIdx++;
                         }
                     } else if (sharedUsage.endLocal.isBefore(curUsage.startLocal)) {
                         // 在前面
-                        applySharedDayAdjustment(usageList, sharedIdx, curIdx);
+                        applySharedDayAdjustment(usageList, sharedIdx, curIdx, bedSharedDayMode);
                         sharedIdx = curIdx;
                         curIdx++;
                     } else {
@@ -480,6 +501,7 @@ public class BedUtilizationCalc {
                     ))
                     .setBedDays(usage.getBedDays())
                     .setException(usage.getException())
+                    .setPatientId(usage.getPid())
                     .build()
                 );
             }
@@ -491,7 +513,10 @@ public class BedUtilizationCalc {
         return usagePBList;
     }
 
-    private void applySharedDayAdjustment(List<QcICUBedUsage> list, int startIdx, int endIdx) {
+    private void applySharedDayAdjustment(
+        List<QcICUBedUsage> list, int startIdx, int endIdx, IcuQcBedSharedDayModePB bedSharedDayMode
+    ) {
+        if (bedSharedDayMode == IcuQcBedSharedDayModePB.ICU_QC_BED_SHARED_DAY_MODE_FULL) return;
         for (int i = startIdx; i <= endIdx; i++) {
             list.get(i).bedDays -= 1f;
             list.get(i).bedDays += 1f / (endIdx - startIdx + 1);

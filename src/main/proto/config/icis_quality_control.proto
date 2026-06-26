@@ -44,12 +44,14 @@ message QcICUBedUsagePB {
     // 默认用第一个算法
     float bed_days = 5;  // 总床位天数
     string exception = 6;  // 异常信息
+    int64 patient_id = 7;  // 患者ID
 }
 
 message QcICUBedAvailablePB {
     string start_date_iso8601 = 1;  // 本月开始日期，ISO 8601 格式
     string end_date_iso8601 = 2;   // 本月结束日期，ISO 8601 格式
     float bed_days = 3;  // 总床位天数
+    int32 bed_count = 4;  // 开放床位数
 }
 
 message QcICUBedUtilizationRatioPB {
@@ -133,4 +135,244 @@ message QcConfigPB {
     repeated int32 nurse_role_id = 3;  // 属于护士的角色ID
     repeated string pain_score_group_code = 4;  // 镇痛评分分组代码
     repeated string sedation_score_group_code = 5;  // 镇静评分分组代码
+    repeated string stats_dept_id = 6;  // dept_id = "0" 时允许参与统计的 ICU 科室；为空时默认所有未删除科室
+    IcuQcBedSharedDayModePB bed_shared_day_mode = 7;  // 同床同日多个患者的床日计算方式
+}
+
+/*****************************************************************************
+ * Generic ICU QC 结构化统计
+ **/
+
+enum IcuQcValueKindPB {
+    ICU_QC_VALUE_KIND_UNSPECIFIED = 0;
+    ICU_QC_VALUE_KIND_PERCENT = 1;
+    ICU_QC_VALUE_KIND_RATIO = 2;
+    ICU_QC_VALUE_KIND_INDEX = 3;
+    ICU_QC_VALUE_KIND_PER_MILLE = 4;
+    ICU_QC_VALUE_KIND_BED_DAY = 5;
+}
+
+enum IcuQcBedSharedDayModePB {
+    ICU_QC_BED_SHARED_DAY_MODE_FRACTION = 0;  // 同一床同一自然日被 x 个患者使用时，每个患者计 1/x 床日
+    ICU_QC_BED_SHARED_DAY_MODE_FULL = 1;      // 同一床同一自然日被多个患者使用时，每个患者均计 1 床日
+}
+
+message IcuQcBedUtilizationConfigPB {
+    IcuQcBedSharedDayModePB shared_day_mode = 1;  // 同床同日多个患者的床日计算方式
+}
+
+message IcuQcStaffBedRatioConfigPB {}
+
+message IcuQcApache2Over15AdmissionRateConfigPB {
+    bool count_by_admission_time = 1;  // true: 按入科时间归属统计期；false: 按首次有效 APACHEII 评分时间归属统计期
+}
+
+message IcuQcSepticShockBundleCompletionRateConfigPB {}
+message IcuQcPreAntibioticPathogenTestRateConfigPB {}
+message IcuQcDvtPreventionRateConfigPB {}
+message IcuQcArdsPronePositionRateConfigPB {}
+message IcuQcPainAssessmentRateConfigPB {}
+message IcuQcSedationAssessmentRateConfigPB {}
+message IcuQcStandardizedMortalityRatioConfigPB {}
+message IcuQcUnplannedExtubationRateConfigPB {}
+message IcuQcReintubationWithin48hRateConfigPB {}
+message IcuQcUnplannedIcuAdmissionRateConfigPB {}
+message IcuQcReadmissionWithin48hRateConfigPB {}
+message IcuQcVapIncidenceRateConfigPB {}
+message IcuQcCrbsiIncidenceRateConfigPB {}
+message IcuQcBrainInjuryConsciousnessAssessmentRateConfigPB {}
+message IcuQcEnteralNutritionWithin48hRateConfigPB {}
+
+message IcuQcConfigPB {
+    repeated QcItemPB item = 1;  // 质控项配置
+    repeated int32 doctor_role_id = 2;  // 属于医生的角色ID
+    repeated int32 nurse_role_id = 3;  // 属于护士的角色ID
+    repeated string pain_score_group_code = 4;  // 镇痛评分分组代码
+    repeated string sedation_score_group_code = 5;  // 镇静评分分组代码
+    repeated string stats_dept_id = 6;  // dept_id = "0" 时允许参与统计的 ICU 科室；为空时默认所有未删除科室
+
+    IcuQcBedUtilizationConfigPB bed_utilization = 11;
+    IcuQcStaffBedRatioConfigPB doctor_bed_ratio = 12;
+    IcuQcStaffBedRatioConfigPB nurse_bed_ratio = 13;
+    IcuQcApache2Over15AdmissionRateConfigPB apache2_over15_admission_rate = 14;
+    IcuQcSepticShockBundleCompletionRateConfigPB septic_shock_bundle_completion_rate = 15;
+    IcuQcPreAntibioticPathogenTestRateConfigPB pre_antibiotic_pathogen_test_rate = 16;
+    IcuQcDvtPreventionRateConfigPB dvt_prevention_rate = 17;
+    IcuQcArdsPronePositionRateConfigPB ards_prone_position_rate = 18;
+    IcuQcPainAssessmentRateConfigPB pain_assessment_rate = 19;
+    IcuQcSedationAssessmentRateConfigPB sedation_assessment_rate = 20;
+    IcuQcStandardizedMortalityRatioConfigPB standardized_mortality_ratio = 21;
+    IcuQcUnplannedExtubationRateConfigPB unplanned_extubation_rate = 22;
+    IcuQcReintubationWithin48hRateConfigPB reintubation_within_48h_rate = 23;
+    IcuQcUnplannedIcuAdmissionRateConfigPB unplanned_icu_admission_rate = 24;
+    IcuQcReadmissionWithin48hRateConfigPB icu_readmission_within_48h_rate = 25;
+    IcuQcVapIncidenceRateConfigPB vap_incidence_rate = 26;
+    IcuQcCrbsiIncidenceRateConfigPB crbsi_incidence_rate = 27;
+    IcuQcBrainInjuryConsciousnessAssessmentRateConfigPB brain_injury_consciousness_assessment_rate = 28;
+    IcuQcEnteralNutritionWithin48hRateConfigPB enteral_nutrition_within_48h_rate = 29;
+}
+
+message IcuQcIdPB {
+    string code = 1;
+    string seq_code = 2;
+    string name = 3;
+    string description = 4;
+    string calc_formula = 5;
+    bool implemented = 6;
+    IcuQcValueKindPB value_kind = 7;
+    string display_unit = 8;
+}
+
+message IcuQcMetricItemPB {
+    string stats_start_iso8601 = 1;
+    string stats_end_iso8601 = 2;
+    double numerator = 3;
+    double denominator = 4;
+    double ratio = 5;
+}
+
+message IcuQcPatientPB {
+    int64 patient_id = 1;
+    string his_mrn = 2;
+    string patient_name = 3;
+    string admission_time_iso8601 = 4;
+    string discharge_time_iso8601 = 5;
+    int32 admission_status = 6;
+    string admission_source_dept_name = 7;
+    string admission_types = 8;
+    bool is_dead = 9;
+    string death_time_iso8601 = 10;
+}
+
+message IcuQcPatientMetricDetailPB {
+    IcuQcPatientPB patient = 1;
+    bool is_in_numerator = 2;
+    bool shown_in_numerator = 3;
+    bool is_in_denominator = 4;
+    string numerator_time_iso8601 = 5;
+    string denominator_time_iso8601 = 6;
+    string evidence_type = 7;
+    double evidence_value = 8;
+    string evidence_text = 9;
+    int32 apache2_score = 10;
+    double predicted_mortality_rate = 11;
+    string readmission_time_iso8601 = 12;
+}
+
+message IcuQcPatientMetricItemPB {
+    string stats_start_iso8601 = 1;
+    string stats_end_iso8601 = 2;
+    repeated IcuQcPatientMetricDetailPB detail = 3;
+    double numerator = 4;
+    double denominator = 5;
+    double ratio = 6;
+}
+
+message IcuQcGenericPB {
+    IcuQcIdPB id = 1;
+    repeated IcuQcMetricItemPB month_item = 2;
+    IcuQcMetricItemPB total_item = 3;
+    string slot_note = 4;
+}
+
+message IcuQcBedUsagePB {
+    string display_bed_number = 1;
+    int64 patient_id = 2;
+    string patient_name = 3;
+    string start_time_iso8601 = 4;
+    string end_time_iso8601 = 5;
+    double bed_days = 6;
+    string exception = 7;
+}
+
+message IcuQcBedAvailablePB {
+    string start_time_iso8601 = 1;
+    string end_time_iso8601 = 2;
+    int32 bed_count = 3;
+    double bed_days = 4;
+}
+
+message IcuQcBedUtilizationItemPB {
+    string stats_start_iso8601 = 1;
+    string stats_end_iso8601 = 2;
+    repeated IcuQcBedUsagePB usage = 3;
+    repeated IcuQcBedAvailablePB available = 4;
+    double numerator = 5;
+    double denominator = 6;
+    double ratio = 7;
+}
+
+message IcuQcBedUtilizationPB {
+    IcuQcIdPB id = 1;
+    repeated IcuQcBedUtilizationItemPB month_item = 2;
+    IcuQcBedUtilizationItemPB total_item = 3;
+}
+
+message IcuQcStaffRoleItemPB {
+    int64 employee_id = 1;
+    string account_id = 2;
+    string account_name = 3;
+    string dept_id = 4;
+    string primary_role_name = 5;
+    string start_time_iso8601 = 6;
+    string end_time_iso8601 = 7;
+    double active_days = 8;
+}
+
+message IcuQcStaffBedRatioItemPB {
+    string stats_start_iso8601 = 1;
+    string stats_end_iso8601 = 2;
+    repeated IcuQcStaffRoleItemPB staff = 3;
+    int32 bed_count = 4;
+    double numerator = 5;
+    double denominator = 6;
+    double ratio = 7;
+}
+
+message IcuQcStaffBedRatioPB {
+    IcuQcIdPB id = 1;
+    repeated IcuQcStaffBedRatioItemPB month_item = 2;
+    IcuQcStaffBedRatioItemPB total_item = 3;
+}
+
+message IcuQcApache2Over15AdmissionRatePB {
+    IcuQcIdPB id = 1;
+    repeated IcuQcPatientMetricItemPB month_item = 2;
+    IcuQcPatientMetricItemPB total_item = 3;
+}
+
+message IcuQcDvtPreventionRatePB {
+    IcuQcIdPB id = 1;
+    repeated IcuQcPatientMetricItemPB month_item = 2;
+    IcuQcPatientMetricItemPB total_item = 3;
+}
+
+message IcuQcPainAssessmentRatePB {
+    IcuQcIdPB id = 1;
+    repeated IcuQcPatientMetricItemPB month_item = 2;
+    IcuQcPatientMetricItemPB total_item = 3;
+}
+
+message IcuQcSedationAssessmentRatePB {
+    IcuQcIdPB id = 1;
+    repeated IcuQcPatientMetricItemPB month_item = 2;
+    IcuQcPatientMetricItemPB total_item = 3;
+}
+
+message IcuQcStandardizedMortalityRatioPB {
+    IcuQcIdPB id = 1;
+    repeated IcuQcPatientMetricItemPB month_item = 2;
+    IcuQcPatientMetricItemPB total_item = 3;
+}
+
+message IcuQcUnplannedIcuAdmissionRatePB {
+    IcuQcIdPB id = 1;
+    repeated IcuQcPatientMetricItemPB month_item = 2;
+    IcuQcPatientMetricItemPB total_item = 3;
+}
+
+message IcuQcReadmissionWithin48hRatePB {
+    IcuQcIdPB id = 1;
+    repeated IcuQcPatientMetricItemPB month_item = 2;
+    IcuQcPatientMetricItemPB total_item = 3;
 }

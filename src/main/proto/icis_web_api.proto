@@ -5347,6 +5347,42 @@ message GetNHCQCDataResp {
     string calc_formula = 4; // 计算公式，比如: "ICU 床位使用率 = ICU 实际占用总床日数 / 同期 ICU 实际开放总床日数 * 100%"
 }
 
+/*
+ * /api/nhcqc/getgenericicuqc
+ * input: GetGenericIcuQcReq
+ * output: GetGenericIcuQcResp
+ */
+message GetGenericIcuQcReq {
+    string dept_id = 1; // 科室ID；"0" 表示所有允许统计的 ICU 科室
+    string query_start_iso8601 = 2; // 查询开始时间 (ISO 8601 UTC)
+    string query_end_iso8601 = 3; // 查询结束时间，半开区间右边界 (ISO 8601 UTC)
+    repeated string item_code = 4; // 为空表示返回所有配置项
+}
+
+message GetGenericIcuQcResp {
+    shared.ReturnCode rt = 1; // 返回码
+
+    config.IcuQcBedUtilizationPB bed_utilization = 2;
+    config.IcuQcStaffBedRatioPB doctor_bed_ratio = 3;
+    config.IcuQcStaffBedRatioPB nurse_bed_ratio = 4;
+    config.IcuQcApache2Over15AdmissionRatePB apache2_over15_admission_rate = 5;
+    config.IcuQcGenericPB septic_shock_bundle_completion_rate = 6;
+    config.IcuQcGenericPB pre_antibiotic_pathogen_test_rate = 7;
+    config.IcuQcDvtPreventionRatePB dvt_prevention_rate = 8;
+    config.IcuQcGenericPB ards_prone_position_rate = 9;
+    config.IcuQcPainAssessmentRatePB pain_assessment_rate = 10;
+    config.IcuQcSedationAssessmentRatePB sedation_assessment_rate = 11;
+    config.IcuQcStandardizedMortalityRatioPB standardized_mortality_ratio = 12;
+    config.IcuQcGenericPB unplanned_extubation_rate = 13;
+    config.IcuQcGenericPB reintubation_within_48h_rate = 14;
+    config.IcuQcUnplannedIcuAdmissionRatePB unplanned_icu_admission_rate = 15;
+    config.IcuQcReadmissionWithin48hRatePB icu_readmission_within_48h_rate = 16;
+    config.IcuQcGenericPB vap_incidence_rate = 17;
+    config.IcuQcGenericPB crbsi_incidence_rate = 18;
+    config.IcuQcGenericPB brain_injury_consciousness_assessment_rate = 19;
+    config.IcuQcGenericPB enteral_nutrition_within_48h_rate = 20;
+}
+
 /******************************************************************************
  * /api/settings/
  **/
