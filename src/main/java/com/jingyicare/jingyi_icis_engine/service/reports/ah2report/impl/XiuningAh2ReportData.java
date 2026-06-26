@@ -17,6 +17,7 @@ import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientMonitoringRec
 import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.NursingRecord;
 import com.jingyicare.jingyi_icis_engine.entity.patientshifts.PatientShiftRecord;
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
+import com.jingyicare.jingyi_icis_engine.entity.patients.PatientSettings;
 import com.jingyicare.jingyi_icis_engine.entity.scores.PatientScore;
 import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
 import com.jingyicare.jingyi_icis_engine.entity.tubes.*;
@@ -24,6 +25,7 @@ import com.jingyicare.jingyi_icis_engine.entity.users.Account;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.PatientReportConfigPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisReportAh2.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
@@ -33,6 +35,7 @@ import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientBgaRecord
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientMonitoringRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.nursingrecords.NursingRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patientshifts.PatientShiftRecordRepository;
+import com.jingyicare.jingyi_icis_engine.repository.patients.PatientSettingsRepository;
 import com.jingyicare.jingyi_icis_engine.repository.scores.PatientScoreRepository;
 import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.repository.tubes.*;
@@ -77,7 +80,8 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         @Autowired MedMonitoringService medMonitoringService,
         @Autowired PatientBgaRecordRepository pbgarRepo,
         @Autowired PatientBgaRecordDetailRepository pbgardRepo,
-        @Autowired MedicationConfig medConfig
+        @Autowired MedicationConfig medConfig,
+        @Autowired PatientSettingsRepository patientSettingsRepository
     ) {
         this.ZONE_ID = protoService.getConfig().getZoneId();
         this.statusCodeMsgs = protoService.getConfig().getText().getStatusCodeMsgList();
@@ -106,6 +110,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         this.pbgarRepo = pbgarRepo;
         this.pbgardRepo = pbgardRepo;
         this.medConfig = medConfig;
+        this.patientSettingsRepository = patientSettingsRepository;
     }
 
     @Override
@@ -162,9 +167,11 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
             .filter(e -> e.getValue() != null)
             .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getName()));
 
+        LocalDateTime pageBaseStartUtc = admissionTimeUtc == null ? queryStartUtc : admissionTimeUtc;
         List<LocalDateTime> balanceStatTimeUtcHistory = configShiftUtils.getBalanceStatTimeUtcHistory(deptId);
-        LocalDateTime shiftStartUtc = configShiftUtils.getBalanceStatStartUtc(balanceStatTimeUtcHistory, queryStartUtc);
-        if (shiftStartUtc == null) shiftStartUtc = queryStartUtc;
+        LocalDateTime shiftStartUtc = configShiftUtils.getBalanceStatStartUtc(balanceStatTimeUtcHistory, pageBaseStartUtc);
+        if (shiftStartUtc == null) shiftStartUtc = pageBaseStartUtc;
+        LocalDateTime firstPageStartUtc = shiftStartUtc;
 
         List<Ah2PageData> dailyDataList = new ArrayList<>();
         while (shiftStartUtc.isBefore(queryEndUtc)) {
@@ -185,9 +192,10 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
             shiftStartUtc = shiftEndUtc;
         }
 
+        int nursingReportStartId = getNursingReportStartId(pid);
         List<Ah2PageData> pageDataList = paginateData(
-            dailyDataList, queryStartUtc, admissionTimeUtc == null ? queryStartUtc : admissionTimeUtc,
-            ctx.tblCommon.getBodyRows(), 1
+            dailyDataList, firstPageStartUtc, pageBaseStartUtc,
+            ctx.tblCommon.getBodyRows(), nursingReportStartId
         );
         final LocalDateTime finalQueryStartUtc = queryStartUtc;
         final LocalDateTime finalQueryEndUtc = queryEndUtc;
@@ -197,6 +205,18 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
             .toList();
 
         return new Pair<>(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.OK), pageDataList);
+    }
+
+    private int getNursingReportStartId(Long pid) {
+        int nursingReportStartId = 1;
+        PatientSettings settings = patientSettingsRepository.findByPid(pid).orElse(null);
+        if (settings != null) {
+            PatientReportConfigPB reportCfgPb = ProtoUtils.decodePatientReportConfigPB(settings.getReportCfg());
+            if (reportCfgPb != null && reportCfgPb.getNursingReportStartId() > 0) {
+                nursingReportStartId = reportCfgPb.getNursingReportStartId();
+            }
+        }
+        return nursingReportStartId;
     }
 
     private void loadAccountSignatureMap(Ah2PdfContext ctx) {
@@ -1570,6 +1590,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
     private final PatientBgaRecordDetailRepository pbgardRepo;
     private final MedicationConfig medConfig;
     private final MedOrderGroupSettingsPB medOrderGroupSettingsPb;
+    private final PatientSettingsRepository patientSettingsRepository;
     private Map<String, Long> accountIdToPk;
 
     public static final String XN_CONSCIOUSNESS = "XN_CONSCIOUSNESS";

@@ -386,6 +386,61 @@ spec {
     }
 }
 spec {
+    code: "q2h"
+    name: "一次/2小时"
+    by_interval {
+        interval_days: 0
+    }
+    time {
+        hour: 8
+        minute: 0
+    }
+    time {
+        hour: 10
+        minute: 0
+    }
+    time {
+        hour: 12
+        minute: 0
+    }
+    time {
+        hour: 14
+        minute: 0
+    }
+    time {
+        hour: 16
+        minute: 0
+    }
+    time {
+        hour: 18
+        minute: 0
+    }
+    time {
+        hour: 20
+        minute: 0
+    }
+    time {
+        hour: 22
+        minute: 0
+    }
+    time {
+        hour: 0
+        minute: 0
+    }
+    time {
+        hour: 2
+        minute: 0
+    }
+    time {
+        hour: 4
+        minute: 0
+    }
+    time {
+        hour: 6
+        minute: 0
+    }
+}
+spec {
     code: "q2d"
     name: "一次/隔两天"
     by_interval {
