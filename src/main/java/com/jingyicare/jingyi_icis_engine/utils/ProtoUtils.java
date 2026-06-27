@@ -30,6 +30,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingOrder.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingRecord.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingScore.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisQualityControl.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisShift.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisTube.*;
@@ -322,6 +323,19 @@ public class ProtoUtils {
     }
 
     static public String encodeAppGeneralSettings(AppGeneralSettingsPB pb) {
+        return Base64.getEncoder().encodeToString(pb.toByteArray());
+    }
+
+    static public IcuQcConfigPB decodeIcuQcConfig(String base64) {
+        try {
+            return IcuQcConfigPB.parseFrom(Base64.getDecoder().decode(base64));
+        } catch (Exception e) {
+            log.error("Failed to decode IcuQcConfigPB from base64 string ", e);
+            return null;
+        }
+    }
+
+    static public String encodeIcuQcConfig(IcuQcConfigPB pb) {
         return Base64.getEncoder().encodeToString(pb.toByteArray());
     }
 

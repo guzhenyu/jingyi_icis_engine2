@@ -5415,6 +5415,19 @@ message GetLogoResp {
 }
 
 /*
+ * /api/settings/getiqcconfig
+ * input: GetIqcConfigReq
+ * output: GetIqcConfigResp
+ */
+message GetIqcConfigReq {
+}
+
+message GetIqcConfigResp {
+    shared.ReturnCode rt = 1;  // 返回码
+    config.IcuQcConfigPB iqc_config = 2;  // 全局ICU质控配置，存储于 system_settings.settings_pb
+}
+
+/*
  * /api/settings/updateappsettings
  * input: UpdateAppSettingsReq
  * output: GenericResp
@@ -5433,4 +5446,13 @@ message UpdateAppSettingsReq {
  */
 message UpdateLogoReq {
     string custom_logo_b64 = 3;
+}
+
+/*
+ * /api/settings/updateiqcconfig
+ * input: UpdateIqcConfigReq
+ * output: GenericResp
+ */
+message UpdateIqcConfigReq {
+    config.IcuQcConfigPB iqc_config = 1;  // 全局ICU质控配置，存储于 system_settings.settings_pb
 }

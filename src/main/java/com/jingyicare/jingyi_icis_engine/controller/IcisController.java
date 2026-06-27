@@ -1638,6 +1638,11 @@ public class IcisController {
         return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getLogo(getLogoReqJson)));
     }
 
+    @PostMapping("/settings/getiqcconfig")
+    public ResponseEntity<String> getIqcConfig(@RequestBody String getIqcConfigReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getIqcConfig(getIqcConfigReqJson)));
+    }
+
     @PostMapping("/settings/updateappsettings")
     public ResponseEntity<String> updateAppSettings(@RequestBody String updateAppSettingsReqJson) {
         return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.updateAppSettings(updateAppSettingsReqJson)));
@@ -1646,6 +1651,11 @@ public class IcisController {
     @PostMapping("/settings/updatelogo")
     public ResponseEntity<String> updateLogo(@RequestBody String updateLogoReqJson) {
         return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.updateLogo(updateLogoReqJson)));
+    }
+
+    @PostMapping("/settings/updateiqcconfig")
+    public ResponseEntity<String> updateIqcConfig(@RequestBody String updateIqcConfigReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.updateIqcConfig(updateIqcConfigReqJson)));
     }
 
     @GetMapping("/debugform")

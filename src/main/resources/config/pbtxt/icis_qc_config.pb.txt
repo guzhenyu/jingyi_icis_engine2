@@ -149,3 +149,9 @@ vap_incidence_rate {}
 crbsi_incidence_rate {}
 brain_injury_consciousness_assessment_rate {}
 enteral_nutrition_within_48h_rate {}
+sepsis_septic_shock_diagnosis {
+    age_lower_bound: 18
+    grace_period_hours_from_admission_time: 24
+    diagnosis_keyword: "脓毒症"
+    diagnosis_keyword: "感染性休克"
+}

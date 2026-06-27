@@ -309,7 +309,9 @@ message IcuQcReadmissionWithin48hRatePB {
 
 ### 配置
 
-配置根消息为 `IcuQcConfigPB`，默认配置文件为 `src/main/resources/config/pbtxt/icis_qc_config.pb.txt`。运行时通过 `application.properties` 中的 `jingyi.textresources.icis_qc_config` 指定配置路径，医院扩展时覆盖该属性即可。
+配置根消息为 `IcuQcConfigPB`，默认配置文件为 `src/main/resources/config/pbtxt/icis_qc_config.pb.txt`。运行时通过 `application.properties` 中的 `jingyi.textresources.icis_qc_config` 指定默认配置路径。
+
+启动时先读取默认文件，再读取 `SystemSettings(function_id = GET_IQC_CONFIG)`；DB 有值时整体覆盖默认文件。保存后写回 DB，并刷新内存中的 `IcuQcConfigService`。
 
 ```proto
 message IcuQcConfigPB {
@@ -324,15 +326,24 @@ message IcuQcConfigPB {
     IcuQcStaffBedRatioConfigPB doctor_bed_ratio = 12;
     IcuQcStaffBedRatioConfigPB nurse_bed_ratio = 13;
     IcuQcApache2Over15AdmissionRateConfigPB apache2_over15_admission_rate = 14;
+    SepsisSepticShockDiagnosisConfigPB sepsis_septic_shock_diagnosis = 30;
     // 其余指标均保留独立配置字段，未实现指标先允许空配置。
 }
 
 message IcuQcApache2Over15AdmissionRateConfigPB {
     bool count_by_admission_time = 1;
 }
+
+message SepsisSepticShockDiagnosisConfigPB {
+    int32 age_lower_bound = 1;
+    int32 grace_period_hours_from_admission_time = 2;
+    repeated string diagnosis_keyword = 3;
+}
 ```
 
 `count_by_admission_time = true` 表示 APACHEII >= 15 收治率按入科时间归属统计期；`false` 表示按入 ICU 后首次有效 APACHEII 评分时间归属统计期。
+
+`SepsisSepticShockDiagnosisConfigPB` 默认值为：`age_lower_bound = 18`、`grace_period_hours_from_admission_time = 24`、`diagnosis_keyword = ["脓毒症", "感染性休克"]`。`patient_records.diagnosis` 不做时间限制；`patient_diagnoses.diagnosis` 按 `patient_records.admission_time + grace_period_hours_from_admission_time` 限制。
 
 ### Web API
 
@@ -373,6 +384,22 @@ message GetGenericIcuQcResp {
     config.IcuQcGenericPB crbsi_incidence_rate = 18;
     config.IcuQcGenericPB brain_injury_consciousness_assessment_rate = 19;
     config.IcuQcGenericPB enteral_nutrition_within_48h_rate = 20;
+}
+```
+
+设置接口独立于现有 `getAppSettings/updateAppSettings`：
+
+```proto
+// /api/settings/getiqcconfig
+message GetIqcConfigReq {}
+message GetIqcConfigResp {
+    shared.ReturnCode rt = 1;
+    config.IcuQcConfigPB iqc_config = 2;
+}
+
+// /api/settings/updateiqcconfig
+message UpdateIqcConfigReq {
+    config.IcuQcConfigPB iqc_config = 1;
 }
 ```
 
@@ -676,6 +703,9 @@ message GetGenericIcuQcResp {
 5. 未实现 slot 显示为禁用或“待实现”，不展示空图表误导用户。
 6. CSV 导出由前端基于当前总述表格或当前明细表格生成。
 7. 前端日期选择仍可使用月份范围，但提交给后端时应使用半开区间。
+8. 基础功能配置页在“医嘱配置”和“归档配置”之间增加“质控配置”。
+9. “质控配置”只允许编辑安全配置字段：`stats_dept_id`、医师/护士角色 ID、镇痛/镇静评分分组 code、床日分摊模式、APACHEII 统计归属、脓毒症/感染性休克诊断配置。
+10. 19 个质控项的 code、名称、公式、描述只展示不编辑。
 
 ## 迁移要求
 
@@ -733,5 +763,25 @@ message GetGenericIcuQcResp {
 11. 新配置拆分为独立 `icis_qc_config.pb.txt`。
     - `application.properties` 通过 `jingyi.textresources.icis_qc_config` 指定默认配置路径。
     - 医院扩展时覆盖该路径配置，减少主 `icis_config.pb.txt` 膨胀。
+
+12. `IcuQcConfigPB` 在 DB 中存储为 `SystemSettings(function_id = GET_IQC_CONFIG)`。
+    - `GET_IQC_CONFIG = 13`。
+    - 默认文件先加载，DB 有值时覆盖默认文件。
+    - 更新配置时写回 DB，并刷新内存配置。
+
+13. 质控配置使用独立设置接口。
+    - 查询：`/api/settings/getiqcconfig`。
+    - 更新：`/api/settings/updateiqcconfig`。
+
+14. 脓毒症/感染性休克诊断配置命名为 `SepsisSepticShockDiagnosisConfigPB sepsis_septic_shock_diagnosis`。
+    - 年龄下限默认 18。
+    - 入科后诊断宽限期默认 24 小时。
+    - 诊断关键词默认 `脓毒症`、`感染性休克`。
+
+15. 诊断来源口径：
+    - `patient_records.diagnosis` 不做时间限制。
+    - `patient_diagnoses.diagnosis` 按入科后诊断宽限期限制。
+
+16. 本次不实现脓毒症和感染性休克 bundle，仅提供配置，为后续实现准备。
 
 ## 待决策

@@ -48,9 +48,8 @@ public class GenericIcuQcService {
     ) {
         this.zoneId = protoService.getConfig().getZoneId();
         this.statusMsgList = protoService.getConfig().getText().getStatusCodeMsgList();
-        this.qcConfig = icuQcConfigService.getIcuQcConfigPb();
-        this.qcItemMap = qcConfig.getItemList().stream()
-            .collect(Collectors.toMap(QcItemPB::getCode, item -> item, (a, b) -> a));
+        this.icuQcConfigService = icuQcConfigService;
+        refreshQcConfig();
         this.patientService = patientService;
         this.patientConfig = patientConfig;
         this.bedUtilizationCalc = bedUtilizationCalc;
@@ -67,6 +66,8 @@ public class GenericIcuQcService {
 
     @Transactional(readOnly = true)
     public GetGenericIcuQcResp getGenericIcuQc(String reqJson) {
+        refreshQcConfig();
+
         final GetGenericIcuQcReq req;
         try {
             req = ProtoUtils.parseJsonToProto(reqJson, GetGenericIcuQcReq.newBuilder());
@@ -177,6 +178,13 @@ public class GenericIcuQcService {
         }
 
         return builder.build();
+    }
+
+    private void refreshQcConfig() {
+        IcuQcConfigPB currentConfig = icuQcConfigService.getIcuQcConfigPb();
+        this.qcConfig = currentConfig;
+        this.qcItemMap = currentConfig.getItemList().stream()
+            .collect(Collectors.toMap(QcItemPB::getCode, item -> item, (a, b) -> a));
     }
 
     private boolean shouldCalculate(Set<String> requestedCodes, String code) {
@@ -1051,8 +1059,9 @@ public class GenericIcuQcService {
 
     private final String zoneId;
     private final List<String> statusMsgList;
-    private final IcuQcConfigPB qcConfig;
-    private final Map<String, QcItemPB> qcItemMap;
+    private final IcuQcConfigService icuQcConfigService;
+    private volatile IcuQcConfigPB qcConfig;
+    private volatile Map<String, QcItemPB> qcItemMap;
 
     private final PatientService patientService;
     private final PatientConfig patientConfig;

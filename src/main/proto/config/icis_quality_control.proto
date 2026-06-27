@@ -183,6 +183,12 @@ message IcuQcCrbsiIncidenceRateConfigPB {}
 message IcuQcBrainInjuryConsciousnessAssessmentRateConfigPB {}
 message IcuQcEnteralNutritionWithin48hRateConfigPB {}
 
+message SepsisSepticShockDiagnosisConfigPB {
+    int32 age_lower_bound = 1;  // 默认 18，年龄 >= 该值纳入统计；年龄按 now - patient_records.icu_date_of_birth 计算
+    int32 grace_period_hours_from_admission_time = 2;  // 默认 24，patient_diagnoses.diagnosis 在入科后该小时数内纳入诊断判断
+    repeated string diagnosis_keyword = 3;  // 脓毒症/感染性休克诊断关键词；patient_records.diagnosis 不做时间限制，patient_diagnoses.diagnosis 按宽限期限制
+}
+
 message IcuQcConfigPB {
     repeated QcItemPB item = 1;  // 质控项配置
     repeated int32 doctor_role_id = 2;  // 属于医生的角色ID
@@ -210,6 +216,7 @@ message IcuQcConfigPB {
     IcuQcCrbsiIncidenceRateConfigPB crbsi_incidence_rate = 27;
     IcuQcBrainInjuryConsciousnessAssessmentRateConfigPB brain_injury_consciousness_assessment_rate = 28;
     IcuQcEnteralNutritionWithin48hRateConfigPB enteral_nutrition_within_48h_rate = 29;
+    SepsisSepticShockDiagnosisConfigPB sepsis_septic_shock_diagnosis = 30;
 }
 
 message IcuQcIdPB {

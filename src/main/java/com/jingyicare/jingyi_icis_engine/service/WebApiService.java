@@ -70,6 +70,7 @@ public class WebApiService {
         @Autowired ExtUrlService extUrlService,
         @Autowired QualityControlService qualityControlService,
         @Autowired GenericIcuQcService genericIcuQcService,
+        @Autowired IcuQcConfigService icuQcConfigService,
         @Autowired SettingService settingService,
         @Autowired ReportService reportService,
         @Autowired MedicationDebugger medicationDebugger,
@@ -105,6 +106,7 @@ public class WebApiService {
         this.extUrlService = extUrlService;
         this.qualityControlService = qualityControlService;
         this.genericIcuQcService = genericIcuQcService;
+        this.icuQcConfigService = icuQcConfigService;
         this.settingService = settingService;
 
         this.reportService = reportService;
@@ -2047,6 +2049,12 @@ public class WebApiService {
         return resp;
     }
 
+    public GetIqcConfigResp getIqcConfig(String getIqcConfigReqJson) {
+        GetIqcConfigResp resp = icuQcConfigService.getIqcConfig(getIqcConfigReqJson);
+        resp = metricService.recordApiMetrics(resp, GetIqcConfigResp::getRt);
+        return resp;
+    }
+
     public GenericResp updateAppSettings(String updateAppSettingsReqJson) {
         GenericResp resp = settingService.updateAppSettings(updateAppSettingsReqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
@@ -2055,6 +2063,12 @@ public class WebApiService {
 
     public GenericResp updateLogo(String updateLogoReqJson) {
         GenericResp resp = settingService.updateLogo(updateLogoReqJson);
+        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
+        return resp;
+    }
+
+    public GenericResp updateIqcConfig(String updateIqcConfigReqJson) {
+        GenericResp resp = icuQcConfigService.updateIqcConfig(updateIqcConfigReqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
@@ -2131,6 +2145,7 @@ public class WebApiService {
     private ExtUrlService extUrlService;
     private QualityControlService qualityControlService;
     private GenericIcuQcService genericIcuQcService;
+    private IcuQcConfigService icuQcConfigService;
     private SettingService settingService;
 
     private ReportService reportService;
