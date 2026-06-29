@@ -6,11 +6,11 @@
 
 - 后端计算：`src/main/java/com/jingyicare/jingyi_icis_engine/service/qcs/`
 - 协议配置：`src/main/proto/config/icis_quality_control.proto`
-- Web API：`src/main/proto/icis_web_api.proto` 的 `/api/nhcqc/getqcitems`、`/api/nhcqc/getqcdata`
+- Web API：`src/main/proto/icis_web_api.proto` 的 `/api/nhcqc/getgenericicuqc`
 - 前端页面：`jingyi_icis_frontend/src/pages/home/tabs/statistics/QualityControlStatistics/`
 - 质控配置：`src/main/resources/config/pbtxt/icis_qc_config.pb.txt`
 
-现有接口按“先取质控项列表，再按单个 `item_code` 取月度数据”的模式工作。返回结构 `QcMonthDataPB` 同时包含数值、单位、分子表格、分母表格、表头和行数据，导致后端承担了表格列定义、行文本、日期格式化等前端展示职责。前端为了展示所有指标，又需要循环调用同一个接口，接口交互和数据结构都偏冗余。
+旧接口曾按“先取质控项列表，再按单个 `item_code` 取月度数据”的模式工作。返回结构 `QcMonthDataPB` 同时包含数值、单位、分子表格、分母表格、表头和行数据，导致后端承担了表格列定义、行文本、日期格式化等前端展示职责。该旧接口已被 `/api/nhcqc/getgenericicuqc` 替代。
 
 参考手麻 Generic AQI 的方式，本需求规划重症质控统计改为“一个通用查询接口返回所有指标的结构化结果”，每个指标有独立配置、月度项、总计项和结构化明细；前端负责表格列、格式化、筛选、CSV 导出和图表展示。
 
@@ -52,7 +52,7 @@
 3. 后端返回结构化明细，不返回前端表格头、表格行 map、展示用日期文本或分子/分母表格。
 4. 前端根据指标 code 本地定义列、格式化、明细筛选、图表和 CSV 导出。
 5. 未实现指标也返回配置 `id` 和空数据，前端可显示为“未实现/待扩展”，不需要额外接口获取菜单。
-6. 新接口上线后，旧的 `/api/nhcqc/getqcitems`、`/api/nhcqc/getqcdata` 只作为迁移兼容，新的统计页面不再依赖它们。
+6. 旧的 `/api/nhcqc/getqcitems`、`/api/nhcqc/getqcdata` 已删除，统计页面只依赖 `/api/nhcqc/getgenericicuqc`。
 
 ## 非目标
 
@@ -309,7 +309,7 @@ message IcuQcReadmissionWithin48hRatePB {
 
 ### 配置
 
-配置根消息为 `IcuQcConfigPB`，默认配置文件为 `src/main/resources/config/pbtxt/icis_qc_config.pb.txt`。运行时通过 `application.properties` 中的 `jingyi.textresources.icis_qc_config` 指定默认配置路径。
+配置根消息为 `IcuQcConfigPB`，默认配置文件为 `src/main/resources/config/pbtxt/icis_qc_config.pb.txt`。运行时通过 `application.properties` 中的 `jingyi.textresources.icis_qc_config` 指定默认配置路径。`icis_config.proto` 中不再承载质控配置，原 `quality_control = 22` 保留为 `reserved 22`。
 
 启动时先读取默认文件，再读取 `SystemSettings(function_id = GET_IQC_CONFIG)`；DB 有值时整体覆盖默认文件。保存后写回 DB，并刷新内存中的 `IcuQcConfigService`。
 
@@ -437,7 +437,7 @@ message UpdateIqcConfigReq {
   - `accounts`：账号姓名。
   - `rbac_roles`：角色名称。
   - `bed_counts`：床位数时间线。
-  - `quality_control.doctor_role_id`：医生角色 ID 配置。
+  - `IcuQcConfigPB.doctor_role_id`：医生角色 ID 配置。
 - 明细：返回每个计入医师的工号、姓名、主角色、有效起止时间、科室。
 - 口径要求：
   - 月度项按该月统计结束时刻的有效人员和床位数计算。
@@ -451,7 +451,7 @@ message UpdateIqcConfigReq {
 - 展示类型：`RATIO`
 - 分子：统计时间点 ICU 护士人数。
 - 分母：统计时间点 ICU 实际开放床位数。
-- 当前数据源同 ICU-QC-02，角色配置改用 `quality_control.nurse_role_id`。
+- 当前数据源同 ICU-QC-02，角色配置改用 `IcuQcConfigPB.nurse_role_id`。
 - 明细同 ICU-QC-02。
 - 口径要求同 ICU-QC-02。
 
@@ -532,7 +532,7 @@ message UpdateIqcConfigReq {
 - 当前数据源：
   - `patient_records`：统计期在 ICU 患者。
   - `patient_scores`：护理评分。
-  - `quality_control.pain_score_group_code`：镇痛评分分组配置，当前包含 `cpot`、`bps`、`nrs`、`pain_assessment`。
+  - `IcuQcConfigPB.pain_score_group_code`：镇痛评分分组配置，当前包含 `cpot`、`bps`、`nrs`、`pain_assessment`。
 - 明细：
   - 患者基础信息。
   - `evidence_type`：评分分组 code。
@@ -552,7 +552,7 @@ message UpdateIqcConfigReq {
 - 当前数据源：
   - `patient_records`：统计期在 ICU 患者。
   - `patient_scores`：护理评分。
-  - `quality_control.sedation_score_group_code`：镇静评分分组配置，当前包含 `rass`、`sas_sedation_agitation_assessment`。
+  - `IcuQcConfigPB.sedation_score_group_code`：镇静评分分组配置，当前包含 `rass`、`sas_sedation_agitation_assessment`。
 - 明细和口径同 ICU-QC-09。
 - 当前实现同样会漏掉没有任何镇静评分记录的患者分母，需要在重写时修正。
 
@@ -688,7 +688,7 @@ message UpdateIqcConfigReq {
 3. 每个已实现指标使用独立 calculator，calculator 只负责数据查询、业务口径和结构化 PB 组装。
 4. calculator 不允许构造前端表格头、表格行 map、展示用日期、前端文案。
 5. 患者数据、床位数据、人员数据查询应尽量在每个统计请求内批量完成，避免按月重复查库。
-6. 旧 `QualityControlService` 可保留适配旧接口；新页面不再使用旧接口。
+6. 旧 `QualityControlService` 和旧 `/api/nhcqc/getqcitems`、`/api/nhcqc/getqcdata` 接口已删除。
 
 ## 前端需求
 
@@ -709,10 +709,10 @@ message UpdateIqcConfigReq {
 
 ## 迁移要求
 
-1. 第一阶段仅新增文档和新协议，不删除旧协议。
-2. 第二阶段实现新后端接口，旧接口继续可用。
-3. 第三阶段前端页面切到新接口，删除 `QUALITY_CONTROL_GET_ALL_DATA` 下循环请求旧接口的逻辑。
-4. 第四阶段确认没有调用方后，再考虑删除旧 `QcTablePB`、`QcRowPB`、`QcMonthDataPB` 和旧接口。
+1. `Config.quality_control` 已删除并保留 `reserved 22`，`QcConfigPB` 已删除。
+2. 默认配置只保留在 `src/main/resources/config/pbtxt/icis_qc_config.pb.txt`。
+3. DB 覆盖只走 `SystemSettings(function_id = GET_IQC_CONFIG)`。
+4. 前后端均不再调用旧 `/api/nhcqc/getqcitems`、`/api/nhcqc/getqcdata`。
 
 ## 验收标准
 

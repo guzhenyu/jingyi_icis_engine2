@@ -5310,42 +5310,9 @@ message ComposeExtUrlResp {
 }
 
 /******************************************************************************
- * NHCQC = (national health commission quality control)
- * 国家卫生健康委员会质控模块
+ * ICU quality control statistics
  * /api/nhcqc/
  ******************************************************************************/
-
-/*
- * /api/nhcqc/getqcitems
- * input: GetNHCQCItemsReq
- * output: GetNHCQCItemsResp
- */
-message GetNHCQCItemsReq {
-}
-
-message GetNHCQCItemsResp {
-    shared.ReturnCode rt = 1; // 返回码
-    repeated shared.StrKeyValPB item = 2; // NHC质控项列表, item.key: 质控项代码, item.val: 质控项名称
-}
-
-/*
- * /api/nhcqc/getqcdata
- * input: GetNHCQCDataReq
- * output: GetNHCQCDataResp
- */
-message GetNHCQCDataReq {
-    string dept_id = 1; // 科室ID
-    string item_code = 2; // 质控项代码
-    string query_start_iso8601 = 3; // 查询开始时间 (ISO 8601 UTC)
-    string query_end_iso8601 = 4; // 查询结束时间 (ISO 8601 UTC)
-}
-
-message GetNHCQCDataResp {
-    shared.ReturnCode rt = 1; // 返回码
-    repeated config.QcMonthDataPB month_data = 2; // 月度质控数据
-    string item_description = 3; // 质控项描述, 比如："apacheII评分10-14"
-    string calc_formula = 4; // 计算公式，比如: "ICU 床位使用率 = ICU 实际占用总床日数 / 同期 ICU 实际开放总床日数 * 100%"
-}
 
 /*
  * /api/nhcqc/getgenericicuqc

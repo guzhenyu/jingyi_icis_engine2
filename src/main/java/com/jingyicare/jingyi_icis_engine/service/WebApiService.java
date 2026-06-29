@@ -68,7 +68,6 @@ public class WebApiService {
         @Autowired ChecklistService checklistService,
         @Autowired SkincareService skincareService,
         @Autowired ExtUrlService extUrlService,
-        @Autowired QualityControlService qualityControlService,
         @Autowired GenericIcuQcService genericIcuQcService,
         @Autowired IcuQcConfigService icuQcConfigService,
         @Autowired SettingService settingService,
@@ -104,7 +103,6 @@ public class WebApiService {
         this.checklistService = checklistService;
         this.skincareService = skincareService;
         this.extUrlService = extUrlService;
-        this.qualityControlService = qualityControlService;
         this.genericIcuQcService = genericIcuQcService;
         this.icuQcConfigService = icuQcConfigService;
         this.settingService = settingService;
@@ -2019,18 +2017,6 @@ public class WebApiService {
         return resp;
     }
 
-    public GetNHCQCItemsResp getNHCQCItems(String getNHCQCItemsReqJson) {
-        GetNHCQCItemsResp resp = qualityControlService.getNHCQCItems(getNHCQCItemsReqJson);
-        resp = metricService.recordApiMetrics(resp, GetNHCQCItemsResp::getRt);
-        return resp;
-    }
-
-    public GetNHCQCDataResp getNHCQCData(String getNHCQCDataReqJson) {
-        GetNHCQCDataResp resp = qualityControlService.getNHCQCData(getNHCQCDataReqJson);
-        resp = metricService.recordApiMetrics(resp, GetNHCQCDataResp::getRt);
-        return resp;
-    }
-
     public GetGenericIcuQcResp getGenericIcuQc(String getGenericIcuQcReqJson) {
         GetGenericIcuQcResp resp = genericIcuQcService.getGenericIcuQc(getGenericIcuQcReqJson);
         resp = metricService.recordApiMetrics(resp, GetGenericIcuQcResp::getRt);
@@ -2143,7 +2129,6 @@ public class WebApiService {
     private ChecklistService checklistService;
     private SkincareService skincareService;
     private ExtUrlService extUrlService;
-    private QualityControlService qualityControlService;
     private GenericIcuQcService genericIcuQcService;
     private IcuQcConfigService icuQcConfigService;
     private SettingService settingService;

@@ -16,7 +16,6 @@ import "config/icis_nursing_record.proto";
 import "config/icis_nursing_score.proto";
 import "config/icis_overview.proto";
 import "config/icis_patient.proto";
-import "config/icis_quality_control.proto";
 import "config/icis_skincare.proto";
 import "config/icis_shift.proto";
 import "config/icis_text.proto";
@@ -49,7 +48,7 @@ message Config {
     config.LisConfigPB lis = 19;
     config.OverviewConfigPB overview = 20;
     config.ChecklistConfigPB checklist = 21;
-    config.QcConfigPB quality_control = 22; // 质控配置
+    reserved 22; // 原 quality_control，已迁移到独立 IcuQcConfigPB 配置
     config.UrlConfigPB url = 23;
     repeated shared.StrKeyValPB ui_modal = 24;  // UI 模态对话: key - ui_modal_code, val - ui_modal_name
     config.SkinCareConfigPB skincare = 25;

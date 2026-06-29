@@ -1613,16 +1613,6 @@ public class IcisController {
         return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.composeExtUrl(composeExtUrlReqJson)));
     }
 
-    @PostMapping("/nhcqc/getqcitems")
-    public ResponseEntity<String> getNHCQCItems(@RequestBody String getNHCQCItemsReqJson) {
-        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getNHCQCItems(getNHCQCItemsReqJson)));
-    }
-
-    @PostMapping("/nhcqc/getqcdata")
-    public ResponseEntity<String> getNHCQCData(@RequestBody String getNHCQCDataReqJson) {
-        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getNHCQCData(getNHCQCDataReqJson)));
-    }
-
     @PostMapping("/nhcqc/getgenericicuqc")
     public ResponseEntity<String> getGenericIcuQc(@RequestBody String getGenericIcuQcReqJson) {
         return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getGenericIcuQc(getGenericIcuQcReqJson)));

@@ -154,4 +154,13 @@ sepsis_septic_shock_diagnosis {
     grace_period_hours_from_admission_time: 24
     diagnosis_keyword: "脓毒症"
     diagnosis_keyword: "感染性休克"
+    hypotension_criteria {
+        mbp_threshold: 65
+        sbp_threshold: 90
+        decrease_sbp_threshold: 40
+    }
+    blood_culture_keyword: "细菌培养"
+    abx_board_keyword: "哌拉西林"
+    abx_board_keyword: "他佐巴坦钠"
+    vasopressor_keyword: "去甲肾上腺素"
 }

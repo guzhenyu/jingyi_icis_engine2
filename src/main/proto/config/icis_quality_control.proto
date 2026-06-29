@@ -129,16 +129,6 @@ message QcItemPB {
     string calc_formula = 4;  // 计算公式
 }
 
-message QcConfigPB {
-    repeated QcItemPB item = 1;  // 质控项配置
-    repeated int32 doctor_role_id = 2;  // 属于医生的角色ID
-    repeated int32 nurse_role_id = 3;  // 属于护士的角色ID
-    repeated string pain_score_group_code = 4;  // 镇痛评分分组代码
-    repeated string sedation_score_group_code = 5;  // 镇静评分分组代码
-    repeated string stats_dept_id = 6;  // dept_id = "0" 时允许参与统计的 ICU 科室；为空时默认所有未删除科室
-    IcuQcBedSharedDayModePB bed_shared_day_mode = 7;  // 同床同日多个患者的床日计算方式
-}
-
 /*****************************************************************************
  * Generic ICU QC 结构化统计
  **/
@@ -183,10 +173,21 @@ message IcuQcCrbsiIncidenceRateConfigPB {}
 message IcuQcBrainInjuryConsciousnessAssessmentRateConfigPB {}
 message IcuQcEnteralNutritionWithin48hRateConfigPB {}
 
+message HypotensionCriteriaPB {
+    int32 mbp_threshold = 1;  // 单位：mmHg，平均压小于这个值时，患者有低血压风险
+    int32 sbp_threshold = 2;  // 单位：mmHg，舒张压小于这个值时，患者有低血压风险
+    int32 decrease_sbp_threshold = 3;  // 单位：mmHg，收缩压下降大于这个值时，患者有低血压风险
+}
+
 message SepsisSepticShockDiagnosisConfigPB {
     int32 age_lower_bound = 1;  // 默认 18，年龄 >= 该值纳入统计；年龄按 now - patient_records.icu_date_of_birth 计算
     int32 grace_period_hours_from_admission_time = 2;  // 默认 24，patient_diagnoses.diagnosis 在入科后该小时数内纳入诊断判断
     repeated string diagnosis_keyword = 3;  // 脓毒症/感染性休克诊断关键词；patient_records.diagnosis 不做时间限制，patient_diagnoses.diagnosis 按宽限期限制
+
+    HypotensionCriteriaPB hypotension_criteria = 4;  // 低血压标准
+    repeated string blood_culture_keyword = 5;  // 血培养关键字，patient_lis_items.lis_item_name 包含任一关键字即认为已经行血培养
+    repeated string abx_board_keyword = 6;  // 光谱抗菌药关键字，medication_order_groups.medication_dosage_group.md.name 包含任一关键字即认为已进行光谱抗菌
+    repeated string vasopressor_keyword = 7;  // 升压药关键字，medication_order_groups.medication_dosage_group.md.name 包含任一关键字即认为已进行光谱抗菌
 }
 
 message IcuQcConfigPB {

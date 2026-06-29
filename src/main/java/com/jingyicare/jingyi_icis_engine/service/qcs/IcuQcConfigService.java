@@ -45,7 +45,7 @@ public class IcuQcConfigService {
         this.userService = userService;
 
         this.defaultIcuQcConfigPb = normalizeConfig(
-            loadDefaultIcuQcConfig(icuQcConfigResource, charsetName, protoService.getConfig().getQualityControl()),
+            loadDefaultIcuQcConfig(icuQcConfigResource, charsetName),
             null
         );
         this.icuQcConfigPb = loadCurrentIcuQcConfig(defaultIcuQcConfigPb);
@@ -127,7 +127,7 @@ public class IcuQcConfigService {
             .build();
     }
 
-    private IcuQcConfigPB loadDefaultIcuQcConfig(Resource configResource, String charsetName, QcConfigPB legacyConfig) {
+    private IcuQcConfigPB loadDefaultIcuQcConfig(Resource configResource, String charsetName) {
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(
             configResource.getInputStream(), charsetName))) {
             IcuQcConfigPB.Builder builder = IcuQcConfigPB.newBuilder();
@@ -135,8 +135,16 @@ public class IcuQcConfigService {
             log.info("ICU QC config loaded successfully: {}", configResource.getDescription());
             return builder.build();
         } catch (Exception e) {
-            log.error("Failed to load ICU QC config; using legacy quality_control config: {}", e.getMessage(), e);
-            return fromLegacyConfig(legacyConfig);
+            log.error("Failed to load ICU QC config: {}", e.getMessage(), e);
+            return IcuQcConfigPB.newBuilder()
+                .setBedUtilization(IcuQcBedUtilizationConfigPB.newBuilder()
+                    .setSharedDayMode(IcuQcBedSharedDayModePB.ICU_QC_BED_SHARED_DAY_MODE_FRACTION))
+                .setDoctorBedRatio(IcuQcStaffBedRatioConfigPB.newBuilder())
+                .setNurseBedRatio(IcuQcStaffBedRatioConfigPB.newBuilder())
+                .setApache2Over15AdmissionRate(IcuQcApache2Over15AdmissionRateConfigPB.newBuilder()
+                    .setCountByAdmissionTime(true))
+                .setSepsisSepticShockDiagnosis(defaultSepsisDiagnosisConfig())
+                .build();
         }
     }
 
@@ -154,24 +162,6 @@ public class IcuQcConfigService {
         }
         log.info("ICU QC config loaded from SystemSettings({})", functionId);
         return normalizeConfig(storedConfig, defaultConfig);
-    }
-
-    private IcuQcConfigPB fromLegacyConfig(QcConfigPB legacyConfig) {
-        return IcuQcConfigPB.newBuilder()
-            .addAllItem(legacyConfig.getItemList())
-            .addAllDoctorRoleId(legacyConfig.getDoctorRoleIdList())
-            .addAllNurseRoleId(legacyConfig.getNurseRoleIdList())
-            .addAllPainScoreGroupCode(legacyConfig.getPainScoreGroupCodeList())
-            .addAllSedationScoreGroupCode(legacyConfig.getSedationScoreGroupCodeList())
-            .addAllStatsDeptId(legacyConfig.getStatsDeptIdList())
-            .setBedUtilization(IcuQcBedUtilizationConfigPB.newBuilder()
-                .setSharedDayMode(legacyConfig.getBedSharedDayMode()))
-            .setDoctorBedRatio(IcuQcStaffBedRatioConfigPB.newBuilder())
-            .setNurseBedRatio(IcuQcStaffBedRatioConfigPB.newBuilder())
-            .setApache2Over15AdmissionRate(IcuQcApache2Over15AdmissionRateConfigPB.newBuilder()
-                .setCountByAdmissionTime(true))
-            .setSepsisSepticShockDiagnosis(defaultSepsisDiagnosisConfig())
-            .build();
     }
 
     private IcuQcConfigPB normalizeConfig(IcuQcConfigPB config, IcuQcConfigPB fallbackConfig) {
