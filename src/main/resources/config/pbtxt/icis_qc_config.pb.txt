@@ -163,4 +163,6 @@ sepsis_septic_shock_diagnosis {
     abx_board_keyword: "哌拉西林"
     abx_board_keyword: "他佐巴坦钠"
     vasopressor_keyword: "去甲肾上腺素"
+    fluid_keyword: "氯化钠"
+    fluid_keyword: "格林"
 }

@@ -186,8 +186,9 @@ message SepsisSepticShockDiagnosisConfigPB {
 
     HypotensionCriteriaPB hypotension_criteria = 4;  // 低血压标准
     repeated string blood_culture_keyword = 5;  // 血培养关键字，patient_lis_items.lis_item_name 包含任一关键字即认为已经行血培养
-    repeated string abx_board_keyword = 6;  // 光谱抗菌药关键字，medication_order_groups.medication_dosage_group.md.name 包含任一关键字即认为已进行光谱抗菌
-    repeated string vasopressor_keyword = 7;  // 升压药关键字，medication_order_groups.medication_dosage_group.md.name 包含任一关键字即认为已进行光谱抗菌
+    repeated string abx_board_keyword = 6;  // 光谱抗菌药关键字，medication_order_groups.medication_dosage_group.md.name 包含任一关键字即认为已进行广谱抗菌
+    repeated string vasopressor_keyword = 7;  // 升压药关键字，medication_order_groups.medication_dosage_group.md.name 包含任一关键字即认为已进行升压
+    repeated string fluid_keyword = 8;  // 晶体液药品关键字，medication_order_groups.medication_dosage_group.md.name 包含任一关键字即认为已进行晶体液补充
 }
 
 message IcuQcConfigPB {

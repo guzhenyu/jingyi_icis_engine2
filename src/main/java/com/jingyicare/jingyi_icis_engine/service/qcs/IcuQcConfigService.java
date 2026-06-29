@@ -32,6 +32,14 @@ import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 public class IcuQcConfigService {
     private static final int DEFAULT_SEPSIS_AGE_LOWER_BOUND = 18;
     private static final int DEFAULT_SEPSIS_GRACE_PERIOD_HOURS = 24;
+    private static final int DEFAULT_SEPSIS_MBP_THRESHOLD = 65;
+    private static final int DEFAULT_SEPSIS_SBP_THRESHOLD = 90;
+    private static final int DEFAULT_SEPSIS_DECREASE_SBP_THRESHOLD = 40;
+    private static final List<String> DEFAULT_SEPSIS_DIAGNOSIS_KEYWORDS = List.of("脓毒症", "感染性休克");
+    private static final List<String> DEFAULT_SEPSIS_BLOOD_CULTURE_KEYWORDS = List.of("细菌培养");
+    private static final List<String> DEFAULT_SEPSIS_ABX_BOARD_KEYWORDS = List.of("哌拉西林", "他佐巴坦钠");
+    private static final List<String> DEFAULT_SEPSIS_VASOPRESSOR_KEYWORDS = List.of("去甲肾上腺素");
+    private static final List<String> DEFAULT_SEPSIS_FLUID_KEYWORDS = List.of("氯化钠", "格林");
 
     public IcuQcConfigService(
         @Value("${jingyi.textresources.icis_qc_config}") Resource icuQcConfigResource,
@@ -186,13 +194,15 @@ public class IcuQcConfigService {
         }
         setDefaultEmptyMetricConfigs(builder, fallbackConfig);
 
+        SepsisSepticShockDiagnosisConfigPB fallbackSepsisConfig =
+            fallbackConfig != null && fallbackConfig.hasSepsisSepticShockDiagnosis()
+                ? fallbackConfig.getSepsisSepticShockDiagnosis()
+                : defaultSepsisDiagnosisConfig();
         SepsisSepticShockDiagnosisConfigPB sepsisConfig =
             builder.hasSepsisSepticShockDiagnosis()
                 ? builder.getSepsisSepticShockDiagnosis()
-                : (fallbackConfig != null && fallbackConfig.hasSepsisSepticShockDiagnosis()
-                    ? fallbackConfig.getSepsisSepticShockDiagnosis()
-                    : defaultSepsisDiagnosisConfig());
-        builder.setSepsisSepticShockDiagnosis(normalizeSepsisDiagnosisConfig(sepsisConfig));
+                : fallbackSepsisConfig;
+        builder.setSepsisSepticShockDiagnosis(normalizeSepsisDiagnosisConfig(sepsisConfig, fallbackSepsisConfig));
 
         return builder.build();
     }
@@ -248,28 +258,95 @@ public class IcuQcConfigService {
     }
 
     private SepsisSepticShockDiagnosisConfigPB normalizeSepsisDiagnosisConfig(
-        SepsisSepticShockDiagnosisConfigPB config
+        SepsisSepticShockDiagnosisConfigPB config,
+        SepsisSepticShockDiagnosisConfigPB fallbackConfig
     ) {
         SepsisSepticShockDiagnosisConfigPB.Builder builder = config.toBuilder();
         if (builder.getAgeLowerBound() <= 0) {
-            builder.setAgeLowerBound(DEFAULT_SEPSIS_AGE_LOWER_BOUND);
+            builder.setAgeLowerBound(fallbackConfig.getAgeLowerBound() > 0
+                ? fallbackConfig.getAgeLowerBound()
+                : DEFAULT_SEPSIS_AGE_LOWER_BOUND);
         }
         if (builder.getGracePeriodHoursFromAdmissionTime() <= 0) {
-            builder.setGracePeriodHoursFromAdmissionTime(DEFAULT_SEPSIS_GRACE_PERIOD_HOURS);
+            builder.setGracePeriodHoursFromAdmissionTime(fallbackConfig.getGracePeriodHoursFromAdmissionTime() > 0
+                ? fallbackConfig.getGracePeriodHoursFromAdmissionTime()
+                : DEFAULT_SEPSIS_GRACE_PERIOD_HOURS);
         }
         if (builder.getDiagnosisKeywordCount() == 0) {
-            builder.addDiagnosisKeyword("脓毒症");
-            builder.addDiagnosisKeyword("感染性休克");
+            builder.addAllDiagnosisKeyword(fallbackConfig.getDiagnosisKeywordCount() > 0
+                ? fallbackConfig.getDiagnosisKeywordList()
+                : DEFAULT_SEPSIS_DIAGNOSIS_KEYWORDS);
+        }
+        builder.setHypotensionCriteria(normalizeHypotensionCriteria(
+            builder.hasHypotensionCriteria() ? builder.getHypotensionCriteria() : HypotensionCriteriaPB.getDefaultInstance(),
+            fallbackConfig.hasHypotensionCriteria()
+                ? fallbackConfig.getHypotensionCriteria()
+                : defaultHypotensionCriteria()
+        ));
+        if (builder.getBloodCultureKeywordCount() == 0) {
+            builder.addAllBloodCultureKeyword(fallbackConfig.getBloodCultureKeywordCount() > 0
+                ? fallbackConfig.getBloodCultureKeywordList()
+                : DEFAULT_SEPSIS_BLOOD_CULTURE_KEYWORDS);
+        }
+        if (builder.getAbxBoardKeywordCount() == 0) {
+            builder.addAllAbxBoardKeyword(fallbackConfig.getAbxBoardKeywordCount() > 0
+                ? fallbackConfig.getAbxBoardKeywordList()
+                : DEFAULT_SEPSIS_ABX_BOARD_KEYWORDS);
+        }
+        if (builder.getVasopressorKeywordCount() == 0) {
+            builder.addAllVasopressorKeyword(fallbackConfig.getVasopressorKeywordCount() > 0
+                ? fallbackConfig.getVasopressorKeywordList()
+                : DEFAULT_SEPSIS_VASOPRESSOR_KEYWORDS);
+        }
+        if (builder.getFluidKeywordCount() == 0) {
+            builder.addAllFluidKeyword(fallbackConfig.getFluidKeywordCount() > 0
+                ? fallbackConfig.getFluidKeywordList()
+                : DEFAULT_SEPSIS_FLUID_KEYWORDS);
         }
         return builder.build();
+    }
+
+    private HypotensionCriteriaPB normalizeHypotensionCriteria(
+        HypotensionCriteriaPB config,
+        HypotensionCriteriaPB fallbackConfig
+    ) {
+        HypotensionCriteriaPB.Builder builder = config.toBuilder();
+        if (builder.getMbpThreshold() <= 0) {
+            builder.setMbpThreshold(fallbackConfig.getMbpThreshold() > 0
+                ? fallbackConfig.getMbpThreshold()
+                : DEFAULT_SEPSIS_MBP_THRESHOLD);
+        }
+        if (builder.getSbpThreshold() <= 0) {
+            builder.setSbpThreshold(fallbackConfig.getSbpThreshold() > 0
+                ? fallbackConfig.getSbpThreshold()
+                : DEFAULT_SEPSIS_SBP_THRESHOLD);
+        }
+        if (builder.getDecreaseSbpThreshold() <= 0) {
+            builder.setDecreaseSbpThreshold(fallbackConfig.getDecreaseSbpThreshold() > 0
+                ? fallbackConfig.getDecreaseSbpThreshold()
+                : DEFAULT_SEPSIS_DECREASE_SBP_THRESHOLD);
+        }
+        return builder.build();
+    }
+
+    private HypotensionCriteriaPB defaultHypotensionCriteria() {
+        return HypotensionCriteriaPB.newBuilder()
+            .setMbpThreshold(DEFAULT_SEPSIS_MBP_THRESHOLD)
+            .setSbpThreshold(DEFAULT_SEPSIS_SBP_THRESHOLD)
+            .setDecreaseSbpThreshold(DEFAULT_SEPSIS_DECREASE_SBP_THRESHOLD)
+            .build();
     }
 
     private SepsisSepticShockDiagnosisConfigPB defaultSepsisDiagnosisConfig() {
         return SepsisSepticShockDiagnosisConfigPB.newBuilder()
             .setAgeLowerBound(DEFAULT_SEPSIS_AGE_LOWER_BOUND)
             .setGracePeriodHoursFromAdmissionTime(DEFAULT_SEPSIS_GRACE_PERIOD_HOURS)
-            .addDiagnosisKeyword("脓毒症")
-            .addDiagnosisKeyword("感染性休克")
+            .addAllDiagnosisKeyword(DEFAULT_SEPSIS_DIAGNOSIS_KEYWORDS)
+            .setHypotensionCriteria(defaultHypotensionCriteria())
+            .addAllBloodCultureKeyword(DEFAULT_SEPSIS_BLOOD_CULTURE_KEYWORDS)
+            .addAllAbxBoardKeyword(DEFAULT_SEPSIS_ABX_BOARD_KEYWORDS)
+            .addAllVasopressorKeyword(DEFAULT_SEPSIS_VASOPRESSOR_KEYWORDS)
+            .addAllFluidKeyword(DEFAULT_SEPSIS_FLUID_KEYWORDS)
             .build();
     }
 
