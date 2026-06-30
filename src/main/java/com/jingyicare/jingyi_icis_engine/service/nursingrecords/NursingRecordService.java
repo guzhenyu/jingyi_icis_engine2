@@ -775,6 +775,13 @@ public class NursingRecordService {
                 .setRt(protoService.getReturnCode(StatusCode.NURSING_RECORD_NOT_EXISTS))
                 .build();
         }
+        boolean reviewTimeBeforeRecordTime = recordsToUpdate.stream()
+            .anyMatch(record -> record.getEffectiveTime() != null && reviewTime.isBefore(record.getEffectiveTime()));
+        if (reviewTimeBeforeRecordTime) {
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.NURSING_RECORD_REVIEW_TIME_BEFORE_RECORD_TIME))
+                .build();
+        }
 
         for (NursingRecord record : recordsToUpdate) {
             record.setReviewedBy(accountId);
