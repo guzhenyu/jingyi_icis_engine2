@@ -217,6 +217,16 @@ public class OrderExecutor {
         return optRecord.orElse(null);
     }
 
+    public MedicationExecutionRecord getExeRecordForUpdate(Long exeRecordId) {
+        Optional<MedicationExecutionRecord> optRecord = medExeRecordRepo.findByIdForUpdate(exeRecordId);
+        return optRecord.orElse(null);
+    }
+
+    public MedicationExecutionRecord getExeRecordForUpdateByActionId(Long exeActionId) {
+        Optional<MedicationExecutionRecord> optRecord = medExeRecordRepo.findByActionIdForUpdate(exeActionId);
+        return optRecord.orElse(null);
+    }
+
     public List<MedicationExecutionAction> getExeActions(Long exeRecordId) {
         return medExeActionRepo.findByMedicationExecutionRecordId(exeRecordId);
     }

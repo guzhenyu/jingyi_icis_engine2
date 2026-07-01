@@ -481,7 +481,7 @@ public class MedicationService {
 
         // 查找 MedicationExecutionRecord, MedicationOrderGroup, List<MedicationExecutionAction>
         final Long medExeRecId = req.getMedExeRecId();
-        MedicationExecutionRecord exeRec = ordExecutor.getExeRecord(medExeRecId);
+        MedicationExecutionRecord exeRec = ordExecutor.getExeRecordForUpdate(medExeRecId);
         if (exeRec == null) {
             log.error("ExecutionRecord not found: ", medExeRecId);
             return SaveOrderExeActionResp.newBuilder()
@@ -539,7 +539,6 @@ public class MedicationService {
 
         // 通过用药途径是否是持续用药, 检查执行动作是否合规
         final Integer actionType = req.getActionType();
-        final boolean isCompleteAction = actionType.equals(ACTION_TYPE_COMPLETE);
         final Map<String, RouteDetails> routeDetailsMap = routeRepo.findRouteDetailsByDeptId(orderGroup.getDeptId())
             .stream().collect(Collectors.toMap(RouteDetails::getCode, rd -> rd));
         final Boolean isContinuous = medMonitoringService.isRouteContinuous(routeDetailsMap, orderGroup, exeRec);
@@ -591,19 +590,33 @@ public class MedicationService {
             updatedExeActions.add(savedAction);
         }
 
-        // 更新exeRecord统计信息
+        // 更新exeRecord统计信息，兼容历史脏数据：有active actions但start_time为空。
         boolean updateExeRecord = false;
-        if (baseExeActions.isEmpty()) {
-            exeRec.setStartTime(createdAtUtc);
+        if (!updatedExeActions.isEmpty()) {
+            LocalDateTime expectedStartTime = updatedExeActions.get(0).getCreatedAt();
+            if (exeRec.getStartTime() == null || !exeRec.getStartTime().equals(expectedStartTime)) {
+                exeRec.setStartTime(expectedStartTime);
+                updateExeRecord = true;
+            }
+        }
+
+        MedicationExecutionAction lastUpdatedAction = updatedExeActions.isEmpty()
+            ? null
+            : updatedExeActions.get(updatedExeActions.size() - 1);
+        LocalDateTime expectedEndTime =
+            lastUpdatedAction != null && ACTION_TYPE_COMPLETE.equals(lastUpdatedAction.getActionType())
+                ? lastUpdatedAction.getCreatedAt()
+                : null;
+        if (expectedEndTime == null) {
+            if (exeRec.getEndTime() != null) {
+                exeRec.setEndTime(null);
+                updateExeRecord = true;
+            }
+        } else if (exeRec.getEndTime() == null || !exeRec.getEndTime().equals(expectedEndTime)) {
+            exeRec.setEndTime(expectedEndTime);
             updateExeRecord = true;
         }
-        if (isCompleteAction) {
-            exeRec.setEndTime(createdAtUtc);
-            updateExeRecord = true;
-        } else if (actionId > 0 && exeRec.getEndTime() != null) {
-            exeRec.setEndTime(null);
-            updateExeRecord = true;
-        }
+
         if (updateExeRecord) {
             ordExecutor.updateExeRecord(exeRec);
         }
@@ -658,23 +671,22 @@ public class MedicationService {
         final String accountId = accountWithAutoId.getFirst();
 
         // 查找MedicationExecutionAction, MedicationExecutionRecord, MedicationOrderGroup, List<MedicationExecutionAction>
+        MedicationExecutionRecord exeRec = ordExecutor.getExeRecordForUpdateByActionId(req.getMedExeActionId());
+        if (exeRec == null) {
+            log.error("ExecutionRecord not found by action: ", req.getMedExeActionId());
+            return DelOrderExeActionResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.EXECUTION_ACTION_NOT_FOUND))
+                .build();
+        }
         MedicationExecutionAction targetDelAction = ordExecutor.getExeAction(req.getMedExeActionId());
-        boolean isCompleteAction = targetDelAction.getActionType().equals(ACTION_TYPE_COMPLETE);
-        if (targetDelAction == null) {
+        if (targetDelAction == null || Boolean.TRUE.equals(targetDelAction.getIsDeleted())) {
             log.error("ExecutionAction not found: ", req.getMedExeActionId());
             return DelOrderExeActionResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.EXECUTION_ACTION_NOT_FOUND))
                 .build();
         }
-
-        final Long medExeRecId = targetDelAction.getMedicationExecutionRecordId();
-        MedicationExecutionRecord exeRec = ordExecutor.getExeRecord(medExeRecId);
-        if (exeRec == null) {
-            log.error("ExecutionRecord not found: ", medExeRecId);
-            return DelOrderExeActionResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.EXECUTION_RECORD_NOT_FOUND))
-                .build();
-        }
+        final Long medExeRecId = exeRec.getId();
+        boolean isCompleteAction = targetDelAction.getActionType().equals(ACTION_TYPE_COMPLETE);
 
         MedicationOrderGroup orderGroup = ordGroupGenerator.getOrderGroup(exeRec.getMedicationOrderGroupId());
         if (orderGroup == null) {

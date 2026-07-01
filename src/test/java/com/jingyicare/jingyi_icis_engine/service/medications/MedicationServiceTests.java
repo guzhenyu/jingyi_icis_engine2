@@ -1126,6 +1126,12 @@ public class MedicationServiceTests extends TestsBase {
         saveOrderExeActionResp = medService.saveOrderExeAction(saveOrderExeActionReqJson);
         assertThat(saveOrderExeActionResp.getRt().getCode()).isEqualTo(StatusCode.ACTION_TIME_BEFORE_LAST_ACTION_TIME.ordinal());
 
+        // 兼容历史脏数据：已有开始动作，但执行记录的start_time为空
+        medExeRec = medExeRecRepo.findById(medExeRecId).orElse(null);
+        assertThat(medExeRec).isNotNull();
+        medExeRec.setStartTime(null);
+        medExeRecRepo.save(medExeRec);
+
         // 新增执行过程COMPLETE
         actionEndTime = TimeUtils.getUtcFromLocalDateTime(
             TimeUtils.getLocalTime(2024, 10, 10, 17, 40), ZONE_ID);

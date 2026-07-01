@@ -4,7 +4,9 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -16,6 +18,14 @@ public interface MedicationExecutionRecordRepository extends JpaRepository<Medic
     List<MedicationExecutionRecord> findByPatientIdAndMedicationOrderGroupId(Long patientId, Long orderGroupId);
 
     Optional<MedicationExecutionRecord> findById(Long Id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM MedicationExecutionRecord r WHERE r.id = :id")
+    Optional<MedicationExecutionRecord> findByIdForUpdate(@Param("id") Long id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT r FROM MedicationExecutionRecord r, MedicationExecutionAction a WHERE a.medicationExecutionRecordId = r.id AND a.id = :actionId")
+    Optional<MedicationExecutionRecord> findByActionIdForUpdate(@Param("actionId") Long actionId);
 
     @Query("SELECT r FROM MedicationExecutionRecord r WHERE r.hisOrderGroupId = :hisOrdGroupId AND r.planTime >= :startUtcTime AND r.planTime < :endUtcTime")
     List<MedicationExecutionRecord> findByHisGroupIdAndTimeRange(
