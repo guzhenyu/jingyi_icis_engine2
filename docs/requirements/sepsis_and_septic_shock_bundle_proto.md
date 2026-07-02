@@ -538,25 +538,28 @@ jingyi_icis_engine2/src/main/resources/config/pbtxt/icis_config.pb.txt
 jingyi_icis_engine2/src/test/resources/text_resources/icis_config.pb.txt
 ```
 
-这会导致 `text { status_code_msg: ... }` 在多份 pbtxt 中重复维护。下一阶段建议做公共文本抽取：
+这会导致 `text { status_code_msg: ... }` 与 `user { ... }` 在多份 pbtxt 中重复维护。下一阶段建议做公共配置抽取：
 
 1. 新增 `jingyi_icis_engine2/src/main/resources/config/pbtxt/common_text.pb.txt`，内容类型为 `config.Text`，承载 `status_code_msg`、`units`、`web_api_message`。
-2. 从 `icis_config.pb.txt`、三个医院级 `*_icis_config.pb.txt`、测试用 `src/test/resources/text_resources/icis_config.pb.txt` 中移除顶层 `text { ... }`。
-3. `ConfigProtoService` 增加 `@Value("${jingyi.textresources.common_text}") Resource commonTextResource`，启动时解析 `common_text.pb.txt` 为 `Text`，再设置到 `Config.text`。
-4. `application-prod.properties` 增加：
+2. 新增 `common_user.pb.txt`，内容类型为 `config.UserConfigPB`；医院配置默认复用该公共 user 配置。测试资源存在菜单/权限差异，单独抽到 `src/test/resources/text_resources/test_user.pb.txt`。
+3. 从 `icis_config.pb.txt`、三个医院级 `*_icis_config.pb.txt`、测试用 `src/test/resources/text_resources/icis_config.pb.txt` 中移除顶层 `text { ... }` 与 `user { ... }`。
+4. `ConfigProtoService` 增加 `common_text` 与 `user_config` 资源加载；启动时分别解析为 `Text` 与 `UserConfigPB`，在主配置缺失对应字段时写回 `Config`。
+5. `application-prod.properties` 增加：
 
 ```properties
 jingyi.textresources.common_text=classpath:/config/pbtxt/common_text.pb.txt
+jingyi.textresources.user_config=classpath:/config/pbtxt/common_user.pb.txt
 ```
 
-5. `application-test.properties` 也显式配置 `jingyi.textresources.common_text=classpath:/config/pbtxt/common_text.pb.txt`，让测试和正式错误码文案保持一致。
-6. 新增错误码时，只修改 `icis_web_api.proto:StatusCode` 和 `common_text.pb.txt` 的 `status_code_msg`，不再多处复制。
-7. `ConfigProtoService.getReturnCode(StatusCode code)` 仍按 `status_code_msg(code.getNumber())` 取文案，所以 `StatusCode` number 与 `status_code_msg` 下标必须保持一致。新增枚举值只能追加，不能插入重排。
+6. `application-test.properties` 显式配置 `common_text.pb.txt` 与 `classpath:/text_resources/test_user.pb.txt`，让测试和正式错误码文案保持一致，同时保留测试菜单/权限差异，且不把测试专用 user 配置放入主资源。
+7. 新增错误码时，只修改 `icis_web_api.proto:StatusCode` 和 `common_text.pb.txt` 的 `status_code_msg`，不再多处复制。
+8. `ConfigProtoService.getReturnCode(StatusCode code)` 仍按 `status_code_msg(code.getNumber())` 取文案，所以 `StatusCode` number 与 `status_code_msg` 下标必须保持一致。新增枚举值只能追加，不能插入重排。
 
 兼容要求：
 
 1. 如果某个外部 `config_pb_txt` 仍包含完整 `text { ... }`，启动时优先使用外部配置中的完整 `text`；没有 text 时才使用 `common_text.pb.txt`。
-2. 不支持“部分 text override”，避免 repeated `status_code_msg` 被 protobuf merge 追加后出现下标错位。
+2. 如果某个外部 `config_pb_txt` 仍包含完整 `user { ... }`，启动时优先使用外部配置中的完整 `user`；没有 user 时才使用 `jingyi.textresources.user_config` 指向的独立配置。
+3. 不支持“部分 text/user override”，避免 repeated 字段被 protobuf merge 追加后出现下标错位或菜单权限重复。
 
 ## 验收口径
 

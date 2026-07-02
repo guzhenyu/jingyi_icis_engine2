@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import com.google.protobuf.TextFormat;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisText.Text;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.UserConfigPB;
 
 class ConfigPbtxtTests {
     @Test
@@ -40,5 +41,24 @@ class ConfigPbtxtTests {
 
         assertThat(builder.getStatusCodeMsgList()).contains("ok", "患者不存在");
         assertThat(builder.getWebApiMessage().getYesStr()).isNotBlank();
+    }
+
+    @Test
+    void shouldParseExtractedUserConfigs() throws Exception {
+        for (String path : new String[] {
+            "config/pbtxt/common_user.pb.txt",
+            "text_resources/test_user.pb.txt",
+        }) {
+            UserConfigPB.Builder builder = UserConfigPB.newBuilder();
+            try (InputStream input = Objects.requireNonNull(
+                getClass().getClassLoader().getResourceAsStream(path), path
+            )) {
+                TextFormat.getParser().merge(new InputStreamReader(input, StandardCharsets.UTF_8), builder);
+            }
+
+            assertThat(builder.getAdminAccountId()).isEqualTo("admin");
+            assertThat(builder.getMenu().getGroupCount()).isGreaterThan(0);
+            assertThat(builder.getRoleCount()).isGreaterThan(0);
+        }
     }
 }
