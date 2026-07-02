@@ -100,27 +100,33 @@ public class SepsisAndSepticShockBundleService {
             PatientRecord patient = patientByPid.get(pid);
             if (patient == null) continue;
 
+            SepsisAndSepticShockBundle entity = entityByPid.get(pid);
             List<DiagnosisHistory> diagnoses = diagnosisHistoryRepo.findByPatientIdAndIsDeletedFalse(pid);
             EligibilityResult eligibility = evaluateBundleEligibility(patient, diagnoses, config);
+            LocalDateTime effectiveT0 = entity != null && entity.getT0() != null
+                ? entity.getT0()
+                : eligibility.t0();
+            boolean effectiveNeedBundle = entity != null && entity.getNeedBundle() != null
+                ? entity.getNeedBundle()
+                : eligibility.needBundle();
+            EligibilityResult effectiveEligibility = new EligibilityResult(
+                pid,
+                effectiveT0,
+                effectiveNeedBundle,
+                eligibility.reason());
+
             SepsisAndSepticShockInfoPB info = SepsisAndSepticShockInfoPB.newBuilder()
                 .setPid(pid)
                 .build();
-            SepsisAndSepticShockBundlePB autoBundle = buildBaseBundle(pid, eligibility);
+            SepsisAndSepticShockBundlePB autoBundle = buildBaseBundle(pid, effectiveEligibility);
 
-            if (eligibility.needBundle() && eligibility.t0() != null) {
-                LocalDateTime windowEnd = eligibility.t0().plusHours(6);
-                info = collectInfo(patient, eligibility.t0(), windowEnd, config);
-                autoBundle = calculateAutoBundle(autoBundle, eligibility.t0(), info, config);
+            if (effectiveNeedBundle && effectiveT0 != null) {
+                LocalDateTime windowEnd = effectiveT0.plusHours(6);
+                info = collectInfo(patient, effectiveT0, windowEnd, config);
+                autoBundle = calculateAutoBundle(autoBundle, effectiveT0, info, config);
             }
 
-            SepsisAndSepticShockBundle entity = entityByPid.get(pid);
             if (!autoBundle.getNeedBundle()) {
-                if (entity != null && Boolean.TRUE.equals(entity.getNeedBundle())) {
-                    entity.setNeedBundle(false);
-                    entity.setModifiedAt(TimeUtils.getNowUtc());
-                    entity.setModifiedBy(SYSTEM_MODIFIED_BY);
-                    bundleRepo.save(entity);
-                }
                 cases.add(SepsisAndSepticShockCasePB.newBuilder()
                     .setBundle(mergeWithPersistedBundle(autoBundle, entity))
                     .setInfo(info)
@@ -239,6 +245,12 @@ public class SepsisAndSepticShockBundleService {
                 .modifiedAt(TimeUtils.getNowUtc())
                 .modifiedBy(account.getFirst())
                 .build());
+        String validationError = validateCompletionTimes(entity, patch);
+        if (!StrUtils.isBlank(validationError)) {
+            return SaveSepticShockCaseResp.newBuilder()
+                .setRt(returnCode(StatusCode.INVALID_TIME_FORMAT, validationError))
+                .build();
+        }
         applyPatch(entity, patch, account.getFirst());
         bundleRepo.save(entity);
 
@@ -527,7 +539,7 @@ public class SepsisAndSepticShockBundleService {
 
     private String medicationDisplayName(MedicationExecutionRecord record, MedicationOrderGroup group) {
         MedicationDosageGroupPB dosageGroup = ProtoUtils.decodeDosageGroup(record.getMedicationDosageGroup());
-        if (dosageGroup == null && group != null) {
+        if (!hasMedicationDisplayName(dosageGroup) && group != null) {
             dosageGroup = ProtoUtils.decodeDosageGroup(group.getMedicationDosageGroup());
         }
         if (dosageGroup == null) return "";
@@ -536,6 +548,14 @@ public class SepsisAndSepticShockBundleService {
             .map(MedicationDosagePB::getName)
             .filter(name -> !StrUtils.isBlank(name))
             .collect(Collectors.joining(" + "));
+    }
+
+    private boolean hasMedicationDisplayName(MedicationDosageGroupPB dosageGroup) {
+        if (dosageGroup == null) return false;
+        if (!StrUtils.isBlank(dosageGroup.getDisplayName())) return true;
+        return dosageGroup.getMdList().stream()
+            .map(MedicationDosagePB::getName)
+            .anyMatch(name -> !StrUtils.isBlank(name));
     }
 
     private List<SepsisMedicationEvidencePB> filterMedications(
@@ -674,7 +694,9 @@ public class SepsisAndSepticShockBundleService {
     }
 
     private void fillEntityFromAuto(SepsisAndSepticShockBundle entity, SepsisAndSepticShockBundlePB autoBundle) {
-        if (entity.getT0() == null) entity.setT0(parseIso(autoBundle.getT0Iso8601()));
+        if (entity.getT0() == null && !StrUtils.isBlank(autoBundle.getT0Iso8601())) {
+            entity.setT0(parseIso(autoBundle.getT0Iso8601()));
+        }
         entity.setNeedBundle(autoBundle.getNeedBundle());
         if (entity.getH1LactateInitial() == null && autoBundle.getH1LactateInitial()) {
             entity.setH1LactateInitial(true);
@@ -805,10 +827,112 @@ public class SepsisAndSepticShockBundleService {
         entity.setModifiedBy(accountId);
     }
 
+    private String validateCompletionTimes(
+        SepsisAndSepticShockBundle entity,
+        SepsisAndSepticShockBundlePatchPB patch
+    ) {
+        SepsisAndSepticShockBundlePB bundle = patch.getBundle();
+        Set<String> paths = normalizedMaskPaths(patch.getUpdateMask());
+
+        String error = validateCompletionTime(
+            paths,
+            "h1_lactate_initial",
+            bundle.getH1LactateInitial(),
+            entity.getH1LactateInitial(),
+            "h1_lactate_initial_iso8601",
+            bundle.getH1LactateInitialIso8601(),
+            entity.getH1LactateInitialTime(),
+            "初始乳酸测定完成时间不能为空");
+        if (!StrUtils.isBlank(error)) return error;
+
+        error = validateCompletionTime(
+            paths,
+            "h1_culture_before_abx",
+            bundle.getH1CultureBeforeAbx(),
+            entity.getH1CultureBeforeAbx(),
+            "h1_culture_before_abx_iso8601",
+            bundle.getH1CultureBeforeAbxIso8601(),
+            entity.getH1CultureBeforeAbxTime(),
+            "血培养完成时间不能为空");
+        if (!StrUtils.isBlank(error)) return error;
+
+        error = validateCompletionTime(
+            paths,
+            "h1_abx_broad",
+            bundle.getH1AbxBroad(),
+            entity.getH1AbxBroad(),
+            "h1_abx_broad_iso8601",
+            bundle.getH1AbxBroadIso8601(),
+            entity.getH1AbxBroadTime(),
+            "广谱抗菌药完成时间不能为空");
+        if (!StrUtils.isBlank(error)) return error;
+
+        error = validateCompletionTime(
+            paths,
+            "fluid_30mlkg",
+            bundle.getFluid30Mlkg(),
+            entity.getFluid30mlkg(),
+            "fluid_30mlkg_iso8601",
+            bundle.getFluid30MlkgIso8601(),
+            entity.getFluid30mlkgTime(),
+            "晶体液补充完成时间不能为空");
+        if (!StrUtils.isBlank(error)) return error;
+
+        error = validateCompletionTime(
+            paths,
+            "vasopressor",
+            bundle.getVasopressor(),
+            entity.getVasopressor(),
+            "vasopressor_iso8601",
+            bundle.getVasopressorIso8601(),
+            entity.getVasopressorTime(),
+            "升压药使用完成时间不能为空");
+        if (!StrUtils.isBlank(error)) return error;
+
+        return validateCompletionTime(
+            paths,
+            "relactate",
+            bundle.getRelactate(),
+            entity.getRelactate(),
+            "relactate_iso8601",
+            bundle.getRelactateIso8601(),
+            entity.getRelactateTime(),
+            "复测乳酸完成时间不能为空");
+    }
+
+    private String validateCompletionTime(
+        Set<String> paths,
+        String boolPath,
+        boolean patchBool,
+        Boolean persistedBool,
+        String timePath,
+        String patchTimeIso8601,
+        LocalDateTime persistedTime,
+        String errorMessage
+    ) {
+        boolean effectiveCompleted = paths.contains(boolPath) ? patchBool : Boolean.TRUE.equals(persistedBool);
+        if (!effectiveCompleted) return "";
+
+        boolean hasEffectiveTime = paths.contains(timePath)
+            ? !StrUtils.isBlank(patchTimeIso8601) || persistedTime != null
+            : persistedTime != null;
+        return hasEffectiveTime ? "" : errorMessage;
+    }
+
     private Set<String> normalizedMaskPaths(FieldMask mask) {
         return mask.getPathsList().stream()
             .map(this::toSnakeCase)
+            .map(this::normalizeMaskPath)
             .collect(Collectors.toSet());
+    }
+
+    private String normalizeMaskPath(String path) {
+        return switch (path) {
+            case "fluid30mlkg", "fluid30_mlkg", "fluid_30_mlkg" -> "fluid_30mlkg";
+            case "fluid30mlkg_iso8601", "fluid30_mlkg_iso8601", "fluid_30_mlkg_iso8601" -> "fluid_30mlkg_iso8601";
+            case "fluid30mlkg_note", "fluid30_mlkg_note", "fluid_30_mlkg_note" -> "fluid_30mlkg_note";
+            default -> path;
+        };
     }
 
     private String toSnakeCase(String path) {
@@ -903,6 +1027,10 @@ public class SepsisAndSepticShockBundleService {
 
     private ReturnCode returnCode(StatusCode code) {
         return ReturnCodeUtils.getReturnCode(statusCodeMsgList, code);
+    }
+
+    private ReturnCode returnCode(StatusCode code, String msg) {
+        return ReturnCodeUtils.getReturnCode(statusCodeMsgList, code, msg);
     }
 
     private record EligibilityResult(Long pid, LocalDateTime t0, boolean needBundle, String reason) {

@@ -3,11 +3,14 @@ package com.jingyicare.jingyi_icis_engine.service.therapies;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.jingyicare.jingyi_icis_engine.entity.lis.*;
@@ -15,6 +18,7 @@ import com.jingyicare.jingyi_icis_engine.entity.medications.*;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.entity.therapies.SepsisAndSepticShockBundle;
+import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisQualityControl.*;
@@ -56,6 +60,7 @@ public class SepsisAndSepticShockBundleServiceTests extends TestsBase {
     @AfterEach
     void clearDiagnosisConfigOverride() {
         service.setDiagnosisConfigOverrideForTest(null);
+        SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -128,6 +133,32 @@ public class SepsisAndSepticShockBundleServiceTests extends TestsBase {
     }
 
     @Test
+    void buildCasesUsesOrderGroupMedicationNameWhenExecutionDosageGroupIsBlank() {
+        service.setDiagnosisConfigOverrideForTest(testDiagnosisConfig().toBuilder()
+            .addAbxBoardKeyword("哌拉西林")
+            .build());
+        long seed = 890006L;
+        LocalDateTime admissionTime = LocalDateTime.of(2026, 1, 15, 8, 0);
+        LocalDateTime t0 = admissionTime;
+
+        PatientRecord patient = savePatient(seed, admissionTime);
+        long pid = patient.getId();
+        saveDiagnosis(pid, t0, "感染性休克");
+        saveMedication(pid, patient.getHisPatientId(), "哌拉西林", t0.plusMinutes(25), false);
+
+        SepsisAndSepticShockCasePB septicShockCase = service.buildSepticShockCases(List.of(pid)).get(0);
+
+        assertThat(septicShockCase.getInfo().getAllMedicationsList())
+            .extracting(SepsisMedicationEvidencePB::getMedicationDisplayName)
+            .containsExactly("哌拉西林");
+        assertThat(septicShockCase.getInfo().getAbxHistoryList())
+            .extracting(SepsisMedicationEvidencePB::getMedicationDisplayName)
+            .containsExactly("哌拉西林");
+        assertThat(septicShockCase.getBundle().getH1AbxBroad()).isTrue();
+        assertThat(septicShockCase.getBundle().getH1AbxBroadIso8601()).isNotBlank();
+    }
+
+    @Test
     void buildCasesKeepsPersistedManualValuesOverAutoValues() {
         service.setDiagnosisConfigOverrideForTest(testDiagnosisConfig());
         long seed = 890002L;
@@ -161,6 +192,110 @@ public class SepsisAndSepticShockBundleServiceTests extends TestsBase {
         SepsisAndSepticShockBundle entity = bundleRepo.findByPid(pid).orElseThrow();
         assertThat(entity.getH1LactateInitial()).isFalse();
         assertThat(entity.getH1LactateInitialNote()).isEqualTo("人工判定乳酸不计入");
+    }
+
+    @Test
+    void buildCasesKeepsManualNeedBundleTrueWhenAutoEligibilityIsFalse() {
+        service.setDiagnosisConfigOverrideForTest(testDiagnosisConfig());
+        long seed = 890003L;
+        LocalDateTime admissionTime = LocalDateTime.of(2026, 1, 12, 8, 0);
+        LocalDateTime manualT0 = admissionTime.plusHours(1);
+
+        PatientRecord patient = savePatient(seed, admissionTime);
+        long pid = patient.getId();
+        saveDiagnosis(pid, admissionTime.plusMinutes(10), "重症肺炎");
+        saveLactate(patient, manualT0.plusMinutes(30), "R-LAC-MANUAL-" + pid, "3.1");
+
+        bundleRepo.save(SepsisAndSepticShockBundle.builder()
+            .pid(pid)
+            .t0(manualT0)
+            .needBundle(true)
+            .noBundleReason("人工纳入")
+            .modifiedAt(TimeUtils.getNowUtc())
+            .modifiedBy("tester")
+            .build());
+
+        SepsisAndSepticShockCasePB septicShockCase = service.buildSepticShockCases(List.of(pid)).get(0);
+
+        assertThat(septicShockCase.getBundle().getNeedBundle()).isTrue();
+        assertThat(septicShockCase.getBundle().getT0Iso8601()).isNotBlank();
+        assertThat(septicShockCase.getBundle().getNoBundleReason()).isEqualTo("人工纳入");
+        assertThat(septicShockCase.getInfo().getLactateList()).hasSize(1);
+
+        SepsisAndSepticShockBundle entity = bundleRepo.findByPid(pid).orElseThrow();
+        assertThat(entity.getNeedBundle()).isTrue();
+        assertThat(entity.getT0()).isEqualTo(manualT0);
+    }
+
+    @Test
+    void saveCaseRejectsCompletedTaskWithoutTime() {
+        service.setDiagnosisConfigOverrideForTest(testDiagnosisConfig());
+        LocalDateTime admissionTime = LocalDateTime.of(2026, 1, 13, 8, 0);
+        PatientRecord patient = savePatient(890004L, admissionTime);
+        authenticateAsAdmin();
+
+        SaveSepticShockCaseResp resp = service.saveSepticShockCase(String.format("""
+            {"bundlePatch":{"bundle":{"pid":"%d","h1LactateInitial":true},"updateMask":"h1LactateInitial"}}
+            """, patient.getId()));
+
+        assertThat(resp.getRt().getCode()).isEqualTo(StatusCode.INVALID_TIME_FORMAT.getNumber());
+        assertThat(resp.getRt().getMsg()).contains("初始乳酸测定完成时间不能为空");
+        assertThat(bundleRepo.findByPid(patient.getId())).isEmpty();
+    }
+
+    @Test
+    void saveCaseAllowsCompletedTaskWhenPersistedTimeExists() {
+        service.setDiagnosisConfigOverrideForTest(testDiagnosisConfig());
+        LocalDateTime admissionTime = LocalDateTime.of(2026, 1, 14, 8, 0);
+        LocalDateTime t0 = admissionTime.plusMinutes(10);
+        LocalDateTime lactateTime = t0.plusMinutes(20);
+        PatientRecord patient = savePatient(890005L, admissionTime);
+        bundleRepo.save(SepsisAndSepticShockBundle.builder()
+            .pid(patient.getId())
+            .t0(t0)
+            .needBundle(true)
+            .h1LactateInitial(false)
+            .h1LactateInitialTime(lactateTime)
+            .modifiedAt(TimeUtils.getNowUtc())
+            .modifiedBy("tester")
+            .build());
+        authenticateAsAdmin();
+
+        SaveSepticShockCaseResp resp = service.saveSepticShockCase(String.format("""
+            {"bundlePatch":{"bundle":{"pid":"%d","h1LactateInitial":true},"updateMask":"h1LactateInitial"}}
+            """, patient.getId()));
+
+        assertThat(resp.getRt().getCode()).isEqualTo(StatusCode.OK.getNumber());
+        SepsisAndSepticShockBundle entity = bundleRepo.findByPid(patient.getId()).orElseThrow();
+        assertThat(entity.getH1LactateInitial()).isTrue();
+        assertThat(entity.getH1LactateInitialTime()).isEqualTo(lactateTime);
+    }
+
+    @Test
+    void saveCaseAcceptsFluid30mlkgJsonNameAndMask() {
+        service.setDiagnosisConfigOverrideForTest(testDiagnosisConfig());
+        LocalDateTime admissionTime = LocalDateTime.of(2026, 1, 16, 8, 0);
+        LocalDateTime t0 = admissionTime;
+        LocalDateTime fluidTime = t0.plusHours(2).plusMinutes(8);
+        PatientRecord patient = savePatient(890007L, admissionTime);
+        bundleRepo.save(SepsisAndSepticShockBundle.builder()
+            .pid(patient.getId())
+            .t0(t0)
+            .needBundle(true)
+            .fluidQualified(true)
+            .modifiedAt(TimeUtils.getNowUtc())
+            .modifiedBy("tester")
+            .build());
+        authenticateAsAdmin();
+
+        SaveSepticShockCaseResp resp = service.saveSepticShockCase(String.format("""
+            {"bundlePatch":{"bundle":{"pid":"%d","fluid30mlkg":true,"fluid30mlkgIso8601":"%s"},"updateMask":"fluid30mlkg,fluid30mlkgIso8601"}}
+            """, patient.getId(), TimeUtils.toIso8601String(fluidTime, "UTC")));
+
+        assertThat(resp.getRt().getCode()).isEqualTo(StatusCode.OK.getNumber());
+        SepsisAndSepticShockBundle entity = bundleRepo.findByPid(patient.getId()).orElseThrow();
+        assertThat(entity.getFluid30mlkg()).isTrue();
+        assertThat(entity.getFluid30mlkgTime()).isEqualTo(fluidTime);
     }
 
     private SepsisSepticShockDiagnosisConfigPB testDiagnosisConfig() {
@@ -261,6 +396,16 @@ public class SepsisAndSepticShockBundleServiceTests extends TestsBase {
     }
 
     private void saveMedication(long pid, String hisPatientId, String displayName, LocalDateTime startTime) {
+        saveMedication(pid, hisPatientId, displayName, startTime, true);
+    }
+
+    private void saveMedication(
+        long pid,
+        String hisPatientId,
+        String displayName,
+        LocalDateTime startTime,
+        boolean copyDosageGroupToExecutionRecord
+    ) {
         MedicationDosageGroupPB dosageGroup = MedicationDosageGroupPB.newBuilder()
             .setDisplayName(displayName)
             .addMd(MedicationDosagePB.newBuilder().setName(displayName).build())
@@ -293,11 +438,16 @@ public class SepsisAndSepticShockBundleServiceTests extends TestsBase {
             .startTime(startTime)
             .isDeleted(false)
             .userTouched(false)
-            .medicationDosageGroup(encodedDosageGroup)
+            .medicationDosageGroup(copyDosageGroupToExecutionRecord ? encodedDosageGroup : "")
             .isContinuous(false)
             .createAccountId("tester")
             .createdAt(TimeUtils.getNowUtc())
             .build());
+    }
+
+    private void authenticateAsAdmin() {
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken("admin", null, Collections.emptyList()));
     }
 
     private final SepsisAndSepticShockBundleService service;
