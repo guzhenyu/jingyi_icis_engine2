@@ -35,6 +35,7 @@ import com.jingyicare.jingyi_icis_engine.service.scores.ScoreService;
 import com.jingyicare.jingyi_icis_engine.service.settings.*;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
 import com.jingyicare.jingyi_icis_engine.service.skincares.*;
+import com.jingyicare.jingyi_icis_engine.service.therapies.*;
 import com.jingyicare.jingyi_icis_engine.service.tubes.*;
 import com.jingyicare.jingyi_icis_engine.service.users.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -71,6 +72,7 @@ public class WebApiService {
         @Autowired GenericIcuQcService genericIcuQcService,
         @Autowired IcuQcConfigService icuQcConfigService,
         @Autowired SettingService settingService,
+        @Autowired SepsisAndSepticShockBundleService sepsisAndSepticShockBundleService,
         @Autowired ReportService reportService,
         @Autowired MedicationDebugger medicationDebugger,
         @Autowired Ah2ReportService ah2ReportService,
@@ -106,6 +108,7 @@ public class WebApiService {
         this.genericIcuQcService = genericIcuQcService;
         this.icuQcConfigService = icuQcConfigService;
         this.settingService = settingService;
+        this.sepsisAndSepticShockBundleService = sepsisAndSepticShockBundleService;
 
         this.reportService = reportService;
         this.medicationDebugger = medicationDebugger;
@@ -2023,6 +2026,18 @@ public class WebApiService {
         return resp;
     }
 
+    public GetSepticShockCaseResp getSepticShockCase(String getSepticShockCaseReqJson) {
+        GetSepticShockCaseResp resp = sepsisAndSepticShockBundleService.getSepticShockCase(getSepticShockCaseReqJson);
+        resp = metricService.recordApiMetrics(resp, GetSepticShockCaseResp::getRt);
+        return resp;
+    }
+
+    public SaveSepticShockCaseResp saveSepticShockCase(String saveSepticShockCaseReqJson) {
+        SaveSepticShockCaseResp resp = sepsisAndSepticShockBundleService.saveSepticShockCase(saveSepticShockCaseReqJson);
+        resp = metricService.recordApiMetrics(resp, SaveSepticShockCaseResp::getRt);
+        return resp;
+    }
+
     public GetAppSettingsResp getAppSettings(String getAppSettingsReqJson) {
         GetAppSettingsResp resp = settingService.getAppSettings(getAppSettingsReqJson);
         resp = metricService.recordApiMetrics(resp, GetAppSettingsResp::getRt);
@@ -2132,6 +2147,7 @@ public class WebApiService {
     private GenericIcuQcService genericIcuQcService;
     private IcuQcConfigService icuQcConfigService;
     private SettingService settingService;
+    private SepsisAndSepticShockBundleService sepsisAndSepticShockBundleService;
 
     private ReportService reportService;
     private MedicationDebugger medicationDebugger;

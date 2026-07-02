@@ -1618,6 +1618,16 @@ public class IcisController {
         return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getGenericIcuQc(getGenericIcuQcReqJson)));
     }
 
+    @PostMapping("/therapy/getsepticshockcase")
+    public ResponseEntity<String> getSepticShockCase(@RequestBody String getSepticShockCaseReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getSepticShockCase(getSepticShockCaseReqJson)));
+    }
+
+    @PostMapping("/therapy/savesepticshockcase")
+    public ResponseEntity<String> saveSepticShockCase(@RequestBody String saveSepticShockCaseReqJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.saveSepticShockCase(saveSepticShockCaseReqJson)));
+    }
+
     @PostMapping("/settings/getappsettings")
     public ResponseEntity<String> getAppSettings(@RequestBody String getAppSettingsReqJson) {
         return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getAppSettings(getAppSettingsReqJson)));

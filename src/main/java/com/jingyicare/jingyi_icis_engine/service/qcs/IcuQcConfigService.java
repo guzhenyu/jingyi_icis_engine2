@@ -35,11 +35,13 @@ public class IcuQcConfigService {
     private static final int DEFAULT_SEPSIS_MBP_THRESHOLD = 65;
     private static final int DEFAULT_SEPSIS_SBP_THRESHOLD = 90;
     private static final int DEFAULT_SEPSIS_DECREASE_SBP_THRESHOLD = 40;
-    private static final List<String> DEFAULT_SEPSIS_DIAGNOSIS_KEYWORDS = List.of("脓毒症", "感染性休克");
+    private static final int DEFAULT_SEPSIS_DIAGNOSIS_LOOKBACK_HOURS = 0;
+    private static final List<String> DEFAULT_SEPSIS_DIAGNOSIS_KEYWORDS = List.of("感染性休克");
     private static final List<String> DEFAULT_SEPSIS_BLOOD_CULTURE_KEYWORDS = List.of("细菌培养");
     private static final List<String> DEFAULT_SEPSIS_ABX_BOARD_KEYWORDS = List.of("哌拉西林", "他佐巴坦钠");
     private static final List<String> DEFAULT_SEPSIS_VASOPRESSOR_KEYWORDS = List.of("去甲肾上腺素");
     private static final List<String> DEFAULT_SEPSIS_FLUID_KEYWORDS = List.of("氯化钠", "格林");
+    private static final List<String> DEFAULT_SEPSIS_LAC_EXTERNAL_PARAM_CODES = List.of();
 
     public IcuQcConfigService(
         @Value("${jingyi.textresources.icis_qc_config}") Resource icuQcConfigResource,
@@ -303,6 +305,17 @@ public class IcuQcConfigService {
                 ? fallbackConfig.getFluidKeywordList()
                 : DEFAULT_SEPSIS_FLUID_KEYWORDS);
         }
+        if (builder.getLacExternalParamCodeCount() == 0) {
+            builder.addAllLacExternalParamCode(fallbackConfig.getLacExternalParamCodeCount() > 0
+                ? fallbackConfig.getLacExternalParamCodeList()
+                : DEFAULT_SEPSIS_LAC_EXTERNAL_PARAM_CODES);
+        }
+        if (builder.getDiagnosisLookbackHoursBeforeAdmissionTime() < 0) {
+            builder.setDiagnosisLookbackHoursBeforeAdmissionTime(
+                fallbackConfig.getDiagnosisLookbackHoursBeforeAdmissionTime() >= 0
+                    ? fallbackConfig.getDiagnosisLookbackHoursBeforeAdmissionTime()
+                    : DEFAULT_SEPSIS_DIAGNOSIS_LOOKBACK_HOURS);
+        }
         return builder.build();
     }
 
@@ -347,6 +360,9 @@ public class IcuQcConfigService {
             .addAllAbxBoardKeyword(DEFAULT_SEPSIS_ABX_BOARD_KEYWORDS)
             .addAllVasopressorKeyword(DEFAULT_SEPSIS_VASOPRESSOR_KEYWORDS)
             .addAllFluidKeyword(DEFAULT_SEPSIS_FLUID_KEYWORDS)
+            .addAllLacExternalParamCode(DEFAULT_SEPSIS_LAC_EXTERNAL_PARAM_CODES)
+            .setDiagnosisLookbackHoursBeforeAdmissionTime(DEFAULT_SEPSIS_DIAGNOSIS_LOOKBACK_HOURS)
+            .setEnableAlarm(false)
             .build();
     }
 

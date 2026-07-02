@@ -32,6 +32,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingScore.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisQualityControl.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisSepticShock.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisShift.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisTube.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUrl.*;
@@ -337,6 +338,23 @@ public class ProtoUtils {
 
     static public String encodeIcuQcConfig(IcuQcConfigPB pb) {
         return Base64.getEncoder().encodeToString(pb.toByteArray());
+    }
+
+    static public PerfusionReassessmentPB decodePerfusionReassessmentPB(String txt) {
+        if (txt == null || txt.trim().isEmpty()) return null;
+
+        try {
+            PerfusionReassessmentPB.Builder builder = PerfusionReassessmentPB.newBuilder();
+            TextFormat.getParser().merge(txt, builder);
+            return builder.build();
+        } catch (Exception e) {
+            log.error("Failed to decode PerfusionReassessmentPB from pbtxt string ", e);
+            return null;
+        }
+    }
+
+    static public String encodePerfusionReassessmentPB(PerfusionReassessmentPB pb) {
+        return protoToTxt(pb);
     }
 
     static public MedicalOrderIdsPB decodeOrderIds(String base64) {

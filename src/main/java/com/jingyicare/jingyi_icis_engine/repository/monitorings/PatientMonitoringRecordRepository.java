@@ -55,6 +55,16 @@ public interface PatientMonitoringRecordRepository extends JpaRepository<Patient
         @Param("end") LocalDateTime end
     );
 
+    @Query("SELECT p FROM PatientMonitoringRecord p WHERE p.pid = :pid " +
+        "AND p.monitoringParamCode IN :paramCodes " +
+        "AND p.effectiveTime >= :start AND p.effectiveTime <= :end AND p.isDeleted = false")
+    List<PatientMonitoringRecord> findByPidAndParamCodesAndEffectiveTimeClosedRange(
+        @Param("pid") Long pid,
+        @Param("paramCodes") List<String> paramCodes,
+        @Param("start") LocalDateTime start,
+        @Param("end") LocalDateTime end
+    );
+
     List<PatientMonitoringRecord> findByPidAndEffectiveTimeAndIsDeletedFalse(Long pid, LocalDateTime effectiveTime);
 
     List<PatientMonitoringRecord> findByPidAndIsDeletedFalse(Long pid);  // for testing

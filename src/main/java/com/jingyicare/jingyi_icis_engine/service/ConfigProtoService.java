@@ -49,6 +49,7 @@ public class ConfigProtoService {
         ConfigurableApplicationContext context,
         @Value("${config_pb_txt}") String configPbTxtPath,
         @Value("${jingyi.textresources.icis_config}") Resource configResource,
+        @Value("${jingyi.textresources.common_text}") Resource commonTextResource,
         @Value("${hospital_pb_txt}") Resource hospitalPbResource,
         @Value("${jingyi.textresources.common_config}") Resource commonConfigResource,
         @Value("${jingyi.textresources.freq_config}") Resource freqConfigResource,
@@ -77,6 +78,23 @@ public class ConfigProtoService {
             this.config = builder.build();
             reader.close();
             log.info("Config loaded successfully");
+
+            if (this.config.getText().getStatusCodeMsgCount() == 0
+                && commonTextResource != null && commonTextResource.exists()
+            ) {
+                reader = new BufferedReader(new InputStreamReader(
+                    commonTextResource.getInputStream(), charsetName));
+                Text.Builder textBuilder = Text.newBuilder();
+                TextFormat.getParser().merge(reader, textBuilder);
+                reader.close();
+
+                this.config = this.config.toBuilder()
+                    .setText(textBuilder.build())
+                    .build();
+                log.info("Common text config loaded successfully");
+            } else if (this.config.getText().getStatusCodeMsgCount() > 0) {
+                log.info("Using text config from primary config resource");
+            }
 
             // 医院特定配置
             if (hospitalPbResource != null && hospitalPbResource.exists()) {

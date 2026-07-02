@@ -1,0 +1,180 @@
+syntax = "proto3";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+import "google/protobuf/field_mask.proto";
+
+message SepsisAndSepticShockBundlePB {
+    int64 pid = 1;
+    string t0_iso8601 = 2;
+    bool need_bundle = 3;  // 是否需要集束治疗
+    string no_bundle_reason = 4;  // 不需要集束治疗的理由。手动将 need_bundle 设置为 false 时，可填写说明
+
+    // 1小时任务
+    bool h1_lactate_initial = 5;  // t0开始的1小时内，是否完成初始乳酸测定
+    string h1_lactate_initial_iso8601 = 6;  // 初始乳酸测定完成时间
+    string h1_lactate_initial_note = 7;  // 初始乳酸测定说明
+
+    bool h1_culture_before_abx = 8;  // t0开始的1小时内，是否完成抗菌药前病原学/血培养
+    string h1_culture_before_abx_iso8601 = 9;  // 抗菌药前病原学/血培养完成时间
+    string h1_culture_before_abx_note = 10;  // 抗菌药前病原学/血培养说明
+
+    bool h1_abx_broad = 11;  // t0开始的1小时内，是否完成广谱抗菌药
+    string h1_abx_broad_iso8601 = 12;  // 广谱抗菌药完成时间
+    string h1_abx_broad_note = 13;  // 广谱抗菌药说明
+
+    // 3小时任务
+    bool fluid_qualified = 14;  // t0开始的3小时内，低血压或乳酸>=4时记为 true
+    bool fluid_30mlkg = 15;  // fluid_qualified 为 true 时有意义，表示已经开始/完成晶体液补液
+    string fluid_30mlkg_iso8601 = 16;  // 晶体液补液时间
+    string fluid_30mlkg_note = 17;  // 晶体液补液说明
+
+    // 6小时任务
+    bool vasopressor_qualified = 18;  // t0开始的6小时内，是否满足升压药条件
+    bool vasopressor = 19;  // vasopressor_qualified 为 true 时有意义，表示已经给升压药
+    string vasopressor_iso8601 = 20;  // 给升压药时间
+    string vasopressor_note = 21;  // 给升压药说明
+
+    bool relactate_qualified = 22;  // t0开始的6小时内，是否需要复测乳酸（初始乳酸>2时需要复测）
+    bool relactate = 23;  // relactate_qualified 为 true 时有意义，表示已经复测乳酸
+    string relactate_iso8601 = 24;  // 复测乳酸时间
+    string relactate_note = 25;  // 复测乳酸说明
+
+    PerfusionReassessmentPB perfusion_reassessment_details = 26;  // 灌注/容量反应性再评估
+}
+
+message PerfusionReassessmentPB {
+    SepsisAssessmentMethodPB assessment_method = 1;  // 评估方法
+    SepsisFluidResponsivenessPB fluid_responsiveness = 2;  // 容量反应性
+    SepsisPerfusionAssessmentPB perfusion_assessment = 3;  // 灌注改善情况
+    string physician_conclusion = 4;  // 医生结论
+    string assessment_time_iso8601 = 5;  // 评估时间
+
+    // 可选客观指标
+    double map_mmhg = 6;  // 平均动脉压 MAP，单位 mmHg
+    double lactate_mmol_l = 7;  // 乳酸，单位 mmol/L
+    double urine_ml_kg_h = 8;  // 尿量，单位 ml/kg/h
+    int32 capillary_refill_time_seconds = 9;  // 毛细血管再充盈时间，单位秒
+    bool mottling = 10;  // 是否皮肤花斑
+    bool cold_extremities = 11;  // 是否四肢湿冷
+    bool consciousness_changed = 12;  // 是否意识改变
+
+    SepsisNextActionPB next_action = 13;  // 下一步处理建议
+    string note = 14;  // 其他说明
+}
+
+enum SepsisAssessmentMethodPB {
+    SEPSIS_ASSESSMENT_METHOD_UNSPECIFIED = 0;
+    SEPSIS_ASSESSMENT_METHOD_PASSIVE_LEG_RAISING = 1;  // 被动抬腿试验 PLR
+    SEPSIS_ASSESSMENT_METHOD_FLUID_CHALLENGE = 2;  // 补液试验
+    SEPSIS_ASSESSMENT_METHOD_ULTRASOUND = 3;  // 床旁超声
+    SEPSIS_ASSESSMENT_METHOD_PICCO = 4;  // PICCO 监测
+    SEPSIS_ASSESSMENT_METHOD_SWAN_GANZ = 5;  // Swan-Ganz 导管
+    SEPSIS_ASSESSMENT_METHOD_CAPILLARY_REFILL_TIME = 6;  // 毛细血管再充盈时间 CRT
+    SEPSIS_ASSESSMENT_METHOD_CLINICAL_ASSESSMENT = 7;  // 临床综合判断
+    SEPSIS_ASSESSMENT_METHOD_OTHER = 8;  // 其他
+}
+
+enum SepsisFluidResponsivenessPB {
+    SEPSIS_FLUID_RESPONSIVENESS_UNSPECIFIED = 0;
+    SEPSIS_FLUID_RESPONSIVENESS_RESPONSIVE = 1;  // 有容量反应性，继续补液预计有效
+    SEPSIS_FLUID_RESPONSIVENESS_NON_RESPONSIVE = 2;  // 无容量反应性，继续补液预计效果不明显
+    SEPSIS_FLUID_RESPONSIVENESS_INDETERMINATE = 3;  // 结果不确定
+    SEPSIS_FLUID_RESPONSIVENESS_NOT_ASSESSED = 4;  // 尚未评估
+}
+
+enum SepsisPerfusionAssessmentPB {
+    SEPSIS_PERFUSION_ASSESSMENT_UNSPECIFIED = 0;
+    SEPSIS_PERFUSION_ASSESSMENT_IMPROVED = 1;  // 灌注改善
+    SEPSIS_PERFUSION_ASSESSMENT_UNCHANGED = 2;  // 灌注无明显变化
+    SEPSIS_PERFUSION_ASSESSMENT_WORSENED = 3;  // 灌注恶化
+    SEPSIS_PERFUSION_ASSESSMENT_UNKNOWN = 4;  // 尚未评估或无法判断
+}
+
+enum SepsisNextActionPB {
+    SEPSIS_NEXT_ACTION_UNSPECIFIED = 0;
+    SEPSIS_NEXT_ACTION_CONTINUE_FLUID = 1;  // 继续补液
+    SEPSIS_NEXT_ACTION_START_VASOPRESSOR = 2;  // 开始升压药
+    SEPSIS_NEXT_ACTION_INCREASE_VASOPRESSOR = 3;  // 增加升压药剂量
+    SEPSIS_NEXT_ACTION_OBSERVE = 4;  // 继续观察
+    SEPSIS_NEXT_ACTION_OTHER = 5;  // 其他处理
+}
+
+message SepsisAndSepticShockInfoPB {
+    int64 pid = 1;
+    string t0_iso8601 = 2;
+    string window_start_iso8601 = 3;  // 等于 t0
+    string window_end_iso8601 = 4;  // 等于 t0 + 6h
+
+    repeated SepsisBloodPressureTimePointPB blood_pressure = 10;
+
+    repeated SepsisLactateEvidencePB lactate = 20;
+
+    reserved 30;
+    reserved "all_lis_items";
+    repeated SepsisLisItemEvidencePB culture_lis_items = 31;
+
+    repeated SepsisMedicationEvidencePB all_medications = 40;
+    repeated SepsisMedicationEvidencePB abx_history = 41;
+    repeated SepsisMedicationEvidencePB fluid_history = 42;
+    repeated SepsisMedicationEvidencePB vasopressor_history = 43;
+}
+
+message SepsisAndSepticShockCasePB {
+    SepsisAndSepticShockBundlePB bundle = 1;
+    SepsisAndSepticShockInfoPB info = 2;
+}
+
+message SepsisAndSepticShockBundlePatchPB {
+    SepsisAndSepticShockBundlePB bundle = 1;
+    google.protobuf.FieldMask update_mask = 2;
+}
+
+message SepsisMonitoringParamValuePB {
+    string param_code = 1;
+    double param_value = 2;
+    string param_value_str = 3;
+    string unit = 4;
+    bool derived = 5;
+    repeated string derived_from_param_code = 6;
+}
+
+message SepsisBloodPressureTimePointPB {
+    string time_iso8601 = 1;
+
+    // 同一时间点的原始血压记录。可同时包含 ibp_* 和 nibp_*。
+    repeated SepsisMonitoringParamValuePB param_value = 2;
+
+    // 规则引擎实际采用的血压来源；同一时间点 ibp 优先于 nibp。
+    string selected_source = 3;  // ibp / nibp / empty
+    double selected_sbp_mmhg = 4;
+    double selected_dbp_mmhg = 5;
+    double selected_map_mmhg = 6;
+    bool selected_map_derived = 7;
+}
+
+message SepsisLactateEvidencePB {
+    int64 pid = 1;
+    string auth_time_iso8601 = 2;
+    string result_str = 3;
+    double lactate_mmol_l = 4;
+    bool lactate_numeric_parsed = 5;
+    string unit = 6;
+    string report_id = 7;
+    string external_param_code = 8;
+}
+
+message SepsisLisItemEvidencePB {
+    string time_iso8601 = 1;
+    string lis_item_name = 2;
+    string report_id = 3;
+    repeated string matched_keyword = 4;
+}
+
+message SepsisMedicationEvidencePB {
+    string started_at_iso8601 = 1;
+    string medication_display_name = 2;
+    int64 medication_order_group_id = 3;
+    int64 medication_execution_record_id = 4;
+    repeated string matched_keyword = 5;
+}

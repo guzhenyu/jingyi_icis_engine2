@@ -152,8 +152,8 @@ enteral_nutrition_within_48h_rate {}
 sepsis_septic_shock_diagnosis {
     age_lower_bound: 18
     grace_period_hours_from_admission_time: 24
-    diagnosis_keyword: "脓毒症"
     diagnosis_keyword: "感染性休克"
+    diagnosis_lookback_hours_before_admission_time: 0
     hypotension_criteria {
         mbp_threshold: 65
         sbp_threshold: 90
@@ -165,4 +165,5 @@ sepsis_septic_shock_diagnosis {
     vasopressor_keyword: "去甲肾上腺素"
     fluid_keyword: "氯化钠"
     fluid_keyword: "格林"
+    enable_alarm: false
 }

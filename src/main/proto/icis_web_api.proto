@@ -1,6 +1,7 @@
 syntax = "proto3";
 
 import "config/icis_bga.proto";
+import "config/icis_alarm.proto";
 import "config/icis_checklist.proto";
 import "config/icis_common.proto";
 import "config/icis_device.proto";
@@ -16,6 +17,7 @@ import "config/icis_nursing_score.proto";
 import "config/icis_overview.proto";
 import "config/icis_patient.proto";
 import "config/icis_quality_control.proto";
+import "config/icis_septic_shock.proto";
 import "config/icis_skincare.proto";
 import "config/icis_settings.proto";
 import "config/icis_shift.proto";
@@ -5349,6 +5351,38 @@ message GetGenericIcuQcResp {
     config.IcuQcGenericPB crbsi_incidence_rate = 18;
     config.IcuQcGenericPB brain_injury_consciousness_assessment_rate = 19;
     config.IcuQcGenericPB enteral_nutrition_within_48h_rate = 20;
+}
+
+/******************************************************************************
+ * /api/therapy/
+ **/
+
+/*
+ * /api/therapy/getsepticshockcase
+ * input: GetSepticShockCaseReq
+ * output: GetSepticShockCaseResp
+ */
+message GetSepticShockCaseReq {
+    int64 pid = 1;
+}
+
+message GetSepticShockCaseResp {
+    shared.ReturnCode rt = 1;
+    config.SepsisAndSepticShockCasePB septic_shock_case = 2;
+}
+
+/*
+ * /api/therapy/savesepticshockcase
+ * input: SaveSepticShockCaseReq
+ * output: SaveSepticShockCaseResp
+ */
+message SaveSepticShockCaseReq {
+    config.SepsisAndSepticShockBundlePatchPB bundle_patch = 1;
+}
+
+message SaveSepticShockCaseResp {
+    shared.ReturnCode rt = 1;
+    config.SepsisAndSepticShockCasePB septic_shock_case = 2;
 }
 
 /******************************************************************************

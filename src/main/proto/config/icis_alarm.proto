@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+enum AlarmTypePB {
+    ALARM_TYPE_UNSPECIFIED = 0;
+    ALARM_TYPE_SEPSIS_AND_SEPTIC_SHOCK = 1;
+}
+
+message AlarmPB {
+    int64 pid = 1;
+    string his_bed_number = 2;
+    string patient_name = 3;
+    AlarmTypePB alarm_type = 4;
+    string alarm_message = 5;
+}
