@@ -13,4 +13,5 @@ message AlarmPB {
     string patient_name = 3;
     AlarmTypePB alarm_type = 4;
     string alarm_message = 5;
+    string display_bed_number = 6;
 }

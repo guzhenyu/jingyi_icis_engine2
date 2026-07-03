@@ -32,6 +32,7 @@ import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.therapies.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientConfig;
 import com.jingyicare.jingyi_icis_engine.service.qcs.IcuQcConfigService;
 import com.jingyicare.jingyi_icis_engine.service.users.UserService;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -53,6 +54,7 @@ public class SepsisAndSepticShockBundleService {
         ConfigProtoService protoService,
         IcuQcConfigService icuQcConfigService,
         UserService userService,
+        PatientConfig patientConfig,
         PatientRecordRepository patientRecordRepo,
         DiagnosisHistoryRepository diagnosisHistoryRepo,
         PatientMonitoringRecordRepository patientMonitoringRecordRepo,
@@ -66,6 +68,7 @@ public class SepsisAndSepticShockBundleService {
         this.protoService = protoService;
         this.icuQcConfigService = icuQcConfigService;
         this.userService = userService;
+        this.patientConfig = patientConfig;
         this.patientRecordRepo = patientRecordRepo;
         this.diagnosisHistoryRepo = diagnosisHistoryRepo;
         this.patientMonitoringRecordRepo = patientMonitoringRecordRepo;
@@ -146,7 +149,7 @@ public class SepsisAndSepticShockBundleService {
 
     @Transactional(readOnly = true)
     public List<AlarmPB> buildSepticShockAlarms(List<SepsisAndSepticShockCasePB> cases) {
-        if (!getDiagnosisConfig().getEnableAlarm() || cases == null || cases.isEmpty()) return List.of();
+        if (!isSepticShockAlarmEnabled() || cases == null || cases.isEmpty()) return List.of();
 
         List<Long> pids = cases.stream()
             .filter(c -> c.hasBundle() && c.getBundle().getNeedBundle())
@@ -158,6 +161,11 @@ public class SepsisAndSepticShockBundleService {
 
         Map<Long, PatientRecord> patientByPid = patientRecordRepo.findByIdIn(pids).stream()
             .collect(Collectors.toMap(PatientRecord::getId, Function.identity(), (a, b) -> a));
+        Map<String, Map<String, BedConfig>> bedConfigByDept = patientByPid.values().stream()
+            .map(PatientRecord::getDeptId)
+            .filter(Objects::nonNull)
+            .distinct()
+            .collect(Collectors.toMap(Function.identity(), patientConfig::getBedConfigMap));
 
         List<AlarmPB> alarms = new ArrayList<>();
         for (Long pid : pids) {
@@ -165,13 +173,47 @@ public class SepsisAndSepticShockBundleService {
             if (patient == null) continue;
             alarms.add(AlarmPB.newBuilder()
                 .setPid(pid)
-                .setHisBedNumber(patient.getHisBedNumber())
-                .setPatientName(patient.getIcuName())
+                .setHisBedNumber(safeString(patient.getHisBedNumber()))
+                .setDisplayBedNumber(displayBedNumber(patient, bedConfigByDept))
+                .setPatientName(safeString(patient.getIcuName()))
                 .setAlarmType(AlarmTypePB.ALARM_TYPE_SEPSIS_AND_SEPTIC_SHOCK)
                 .setAlarmMessage(SEPTIC_SHOCK_ALARM_MESSAGE)
                 .build());
         }
-        return alarms;
+        return sortAlarmsByDisplayBedNumber(alarms);
+    }
+
+    private String displayBedNumber(PatientRecord patient, Map<String, Map<String, BedConfig>> bedConfigByDept) {
+        String hisBedNumber = patient.getHisBedNumber();
+        BedConfig bedConfig = bedConfigByDept
+            .getOrDefault(patient.getDeptId(), Map.of())
+            .get(hisBedNumber);
+        if (bedConfig == null || StrUtils.isBlank(bedConfig.getDisplayBedNumber())) return safeString(hisBedNumber);
+        return bedConfig.getDisplayBedNumber();
+    }
+
+    private String safeString(String value) {
+        return value == null ? "" : value;
+    }
+
+    private List<AlarmPB> sortAlarmsByDisplayBedNumber(List<AlarmPB> alarms) {
+        boolean allBedNumbersNumeric = alarms.stream()
+            .allMatch(alarm -> parseBedNumberStr(alarm.getDisplayBedNumber()).isPresent());
+        Comparator<AlarmPB> comparator = allBedNumbersNumeric
+            ? Comparator.comparing(alarm -> parseBedNumberStr(alarm.getDisplayBedNumber()).orElseThrow())
+            : Comparator.comparing(AlarmPB::getDisplayBedNumber);
+        return alarms.stream()
+            .sorted(comparator.thenComparing(AlarmPB::getPid))
+            .toList();
+    }
+
+    private Optional<java.math.BigDecimal> parseBedNumberStr(String bedNumberStr) {
+        if (StrUtils.isBlank(bedNumberStr)) return Optional.empty();
+        try {
+            return Optional.of(new java.math.BigDecimal(bedNumberStr.trim()));
+        } catch (NumberFormatException e) {
+            return Optional.empty();
+        }
     }
 
     @Transactional
@@ -277,6 +319,11 @@ public class SepsisAndSepticShockBundleService {
                 .setSbpThreshold(90)
                 .build())
             .build();
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isSepticShockAlarmEnabled() {
+        return getDiagnosisConfig().getEnableAlarm();
     }
 
     public void setDiagnosisConfigOverrideForTest(SepsisSepticShockDiagnosisConfigPB diagnosisConfigOverrideForTest) {
@@ -1044,6 +1091,7 @@ public class SepsisAndSepticShockBundleService {
     private final ConfigProtoService protoService;
     private final IcuQcConfigService icuQcConfigService;
     private final UserService userService;
+    private final PatientConfig patientConfig;
     private final PatientRecordRepository patientRecordRepo;
     private final DiagnosisHistoryRepository diagnosisHistoryRepo;
     private final PatientMonitoringRecordRepository patientMonitoringRecordRepo;

@@ -17,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisSepticShock.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisShift.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 
@@ -25,6 +26,7 @@ import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.certs.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
+import com.jingyicare.jingyi_icis_engine.service.therapies.SepsisAndSepticShockBundleService;
 import com.jingyicare.jingyi_icis_engine.service.users.*;
 import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -54,7 +56,8 @@ public class PatientService {
         @Autowired DiagnosisHistoryRepository diagnosisHistoryRepository,
         @Autowired PatientDeviceRepository patientDeviceRepository,
         @Autowired ReadmissionHistoryRepository readmissionHistoryRepository,
-        @Autowired PatientSettingsRepository patientSettingsRepository
+        @Autowired PatientSettingsRepository patientSettingsRepository,
+        @Autowired SepsisAndSepticShockBundleService sepsisAndSepticShockBundleService
     ) {
         this.enumsV2 = protoService.getConfig().getPatient().getEnumsV2();
         this.ZONE_ID = protoService.getConfig().getZoneId();
@@ -125,6 +128,7 @@ public class PatientService {
         this.patientDeviceRepository = patientDeviceRepository;
         this.readmissionHistoryRepository = readmissionHistoryRepository;
         this.patientSettingsRepository = patientSettingsRepository;
+        this.sepsisAndSepticShockBundleService = sepsisAndSepticShockBundleService;
     }
 
     @Transactional
@@ -147,8 +151,27 @@ public class PatientService {
         addPatientTableForStatus(deptId, PENDING_ADMISSION_VAL, patientConfig.getPatientSettingsPB(deptId, 2), builder);
         addPatientTableForStatus(deptId, PENDING_DISCHARGED_VAL, patientConfig.getPatientSettingsPB(deptId, 3), builder);
 
+        appendSepticShockAlarms(builder);
+
         return builder.setRt(protoService.getReturnCode(StatusCode.OK))
             .build();
+    }
+
+    private void appendSepticShockAlarms(GetInlinePatientsV2Resp.Builder builder) {
+        try {
+            if (!sepsisAndSepticShockBundleService.isSepticShockAlarmEnabled()) return;
+
+            List<Long> pids = builder.getInIcu().getBasicsList().stream()
+                .map(PatientBasicsPB::getId)
+                .filter(pid -> pid > 0)
+                .toList();
+            if (pids.isEmpty()) return;
+
+            List<SepsisAndSepticShockCasePB> cases = sepsisAndSepticShockBundleService.buildSepticShockCases(pids);
+            builder.addAllAlarm(sepsisAndSepticShockBundleService.buildSepticShockAlarms(cases));
+        } catch (Exception e) {
+            log.error("Failed to build septic shock alarms for getInlinePatientsV2", e);
+        }
     }
 
     private void addPatientTableForStatus(
@@ -260,13 +283,8 @@ public class PatientService {
             rows.add(rowBuilder.build());
         }
 
-        // 按照床号排序。如果所有床号都可以转成数字，则按数字排序；否则按字符串排序。
-        boolean allBedNumbersNumeric = rows.stream()
-            .allMatch(row -> parseBedNumberStr(getBedNumberStr(row)).isPresent());
         rows = rows.stream()
-            .sorted(allBedNumbersNumeric
-                ? Comparator.comparing(row -> parseBedNumberStr(getBedNumberStr(row)).orElseThrow())
-                : Comparator.comparing(this::getBedNumberStr))
+            .sorted(bedNumberComparator(rows, this::getBedNumberStr))
             .toList();
 
         builder.addAllRow(rows);
@@ -290,6 +308,15 @@ public class PatientService {
         } catch (NumberFormatException e) {
             return Optional.empty();
         }
+    }
+
+    private <T> Comparator<T> bedNumberComparator(List<T> items, java.util.function.Function<T, String> bedNumberGetter) {
+        // 如果所有床号都可以转成数字，则按数字排序；否则按字符串排序。
+        boolean allBedNumbersNumeric = items.stream()
+            .allMatch(item -> parseBedNumberStr(bedNumberGetter.apply(item)).isPresent());
+        return allBedNumbersNumeric
+            ? Comparator.comparing(item -> parseBedNumberStr(bedNumberGetter.apply(item)).orElseThrow())
+            : Comparator.comparing(item -> Optional.ofNullable(bedNumberGetter.apply(item)).orElse(""));
     }
 
     private void addPatientTableDataRow(
@@ -341,7 +368,7 @@ public class PatientService {
                 patient.getIcuDateOfBirth() == null ? -1 : TimeUtils.getAge(patient.getIcuDateOfBirth()));
             basicsList.add(basicsBuilder.build());
         }
-        basicsList.sort(Comparator.comparing(PatientBasicsPB::getBedNumberStr));
+        basicsList.sort(bedNumberComparator(basicsList, PatientBasicsPB::getBedNumberStr));
         builder.addAllBasics(basicsList);
     }
 
@@ -2227,4 +2254,5 @@ public class PatientService {
     private PatientDeviceRepository patientDeviceRepository;
     private ReadmissionHistoryRepository readmissionHistoryRepository;
     private PatientSettingsRepository patientSettingsRepository;
+    private SepsisAndSepticShockBundleService sepsisAndSepticShockBundleService;
 }

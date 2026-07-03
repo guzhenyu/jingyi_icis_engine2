@@ -892,6 +892,7 @@ message GetInlinePatientsV2Resp {
     PatientTablePB in_icu = 3;
     PatientTablePB pending_admission = 4;
     PatientTablePB pending_discharged = 5;
+    repeated config.AlarmPB alarm = 6;
 }
 
 /*
