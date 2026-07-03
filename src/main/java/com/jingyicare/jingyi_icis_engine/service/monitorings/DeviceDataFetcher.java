@@ -165,7 +165,7 @@ public class DeviceDataFetcher {
             ctx, toDeviceDataList(hourlyDataList), hourlyEffectiveTimes, targetParamCodes
         );
         Map<String, Set<LocalDateTime>> existingTimes = getExistingRecordTimesByParam(
-            ctx, targetParamCodes.stream().toList(), false /* includeDeleted */
+            ctx, targetParamCodes.stream().toList(), true /* includeDeleted */
         );
         Set<String> targetKeys = getMissingHourlyApproxKeys(
             targetParamCodes, hourlyEffectiveTimes, existingTimes, hourlyDataTimes
@@ -206,7 +206,7 @@ public class DeviceDataFetcher {
         }
 
         List<PatientMonitoringRecord> recordsToAdd = generateMonitoringRecords(
-            ctx, approxDataMap, noteByRecordKey, false /* includeDeletedExistingRecords */
+            ctx, approxDataMap, noteByRecordKey, true /* includeDeletedExistingRecords */
         );
         return new Pair<>(StatusCode.OK, recordsToAdd);
     }
@@ -445,7 +445,9 @@ public class DeviceDataFetcher {
         if (paramCodes.isEmpty()) return Collections.emptyMap();
 
         List<PatientMonitoringRecord> records = includeDeleted
-            ? monRecRepo.findAllByPidAndEffectiveTimeRange(ctx.pid, ctx.from, ctx.to)
+            ? monRecRepo.findAllByPidAndParamCodesAndEffectiveTimeRange(
+                ctx.pid, paramCodes, ctx.from, ctx.to
+            )
             : monRecRepo.findByPidAndParamCodesAndEffectiveTimeRange(
                 ctx.pid, paramCodes, ctx.from, ctx.to
             );

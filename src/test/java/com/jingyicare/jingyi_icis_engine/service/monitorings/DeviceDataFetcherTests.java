@@ -887,6 +887,66 @@ public class DeviceDataFetcherTests extends TestsBase {
         );
     }
 
+    @Test
+    void testFetchHourlyApproxRecordsSkipsSoftDeletedRecord() {
+        fetcher.resetHourlyApproxConfigForTesting(true, 10);
+        fetcher.resetParamCodesToApproxForTesting(Collections.emptySet());
+        fetcher.resetAliasCodeMapForTesting(Collections.emptyMap());
+
+        Long hisPid = 2208L;
+        PatientRecord patient = PatientTestUtils.newPatientRecord(hisPid, 3, deptId);
+        patient.setAdmissionTime(TimeUtils.getLocalTime(2025, 8, 6, 0, 30));
+        patient = patientRepo.save(patient);
+
+        bedConfigRepo.save(BedConfig.builder()
+            .departmentId(deptId)
+            .hisBedNumber("hisBedNumber" + hisPid)
+            .deviceBedNumber("deviceBedNumber" + hisPid)
+            .displayBedNumber("displayBedNumber" + hisPid)
+            .bedType(1)
+            .isDeleted(false)
+            .build());
+
+        devDataRepo.save(DeviceData.builder()
+            .departmentId(deptId)
+            .deviceId(null)
+            .deviceType(1)
+            .deviceBedNumber("deviceBedNumber" + hisPid)
+            .paramCode("code1")
+            .recordedAt(TimeUtils.getLocalTime(2025, 8, 6, 1, 55))
+            .recordedStr("raw-left")
+            .build());
+
+        monRecRepo.save(PatientMonitoringRecord.builder()
+            .pid(patient.getId())
+            .deptId(deptId)
+            .monitoringParamCode("code1")
+            .effectiveTime(TimeUtils.getLocalTime(2025, 8, 6, 2, 0))
+            .paramValue("deleted-value")
+            .paramValueStr("deleted")
+            .source("")
+            .modifiedAt(TimeUtils.getLocalTime(2025, 8, 6, 2, 10))
+            .isDeleted(true)
+            .build());
+
+        List<MonitoringGroupBetaPB> paramGroups = List.of(MonitoringGroupBetaPB.newBuilder()
+            .addParam(MonitoringParamPB.newBuilder().setCode("code1")
+                .setValueMeta(ValueMetaPB.newBuilder().setValueType(TypeEnumPB.STRING))
+            )
+            .build());
+
+        Pair<StatusCode, List<PatientMonitoringRecord>> resultPair = fetcher.fetchHourlyApproxRecords(
+            patient.getId(),
+            TimeUtils.getLocalTime(2025, 8, 6, 1, 0),
+            TimeUtils.getLocalTime(2025, 8, 6, 3, 0),
+            paramGroups,
+            "admin"
+        );
+
+        assertThat(resultPair.getFirst()).isEqualTo(StatusCode.OK);
+        assertThat(resultPair.getSecond()).isEmpty();
+    }
+
 
     private final String deptId;
 
