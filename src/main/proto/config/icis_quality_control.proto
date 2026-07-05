@@ -179,6 +179,13 @@ message HypotensionCriteriaPB {
     int32 decrease_sbp_threshold = 3;  // 单位：mmHg，收缩压下降大于这个值时，患者有低血压风险
 }
 
+enum SepsisSepticShockAlarmFilterPB {
+    SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_UNLIMITED = 0;       // 无限制：need_bundle == true 即告警
+    SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_H1_UNFINISHED = 1;   // 1小时任务未完成
+    SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_H3_UNFINISHED = 2;   // 3小时任务未完成
+    SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_H6_UNFINISHED = 3;   // 6小时任务未完成
+}
+
 message SepsisSepticShockDiagnosisConfigPB {
     int32 age_lower_bound = 1;  // 默认 18，年龄 >= 该值纳入统计；年龄优先按入科时间计算，入科时间缺失时按T0计算
     int32 grace_period_hours_from_admission_time = 2;  // 默认 24，diagnosis_history.diagnosis 在入科后该小时数内纳入诊断判断
@@ -192,6 +199,7 @@ message SepsisSepticShockDiagnosisConfigPB {
     repeated string lac_external_param_code = 9;  // 乳酸LIS外部参数编码，匹配patient_lis_results.external_param_code
     int32 diagnosis_lookback_hours_before_admission_time = 10;  // 诊断时间允许早于入科时间的小时数，默认0
     bool enable_alarm = 20;  // 是否启用脓毒症/感染性休克集束告警
+    SepsisSepticShockAlarmFilterPB alarm_filter = 21;  // 告警筛选范围
 }
 
 message IcuQcConfigPB {
@@ -285,6 +293,33 @@ message IcuQcGenericPB {
     repeated IcuQcMetricItemPB month_item = 2;
     IcuQcMetricItemPB total_item = 3;
     string slot_note = 4;
+}
+
+message IcuQcSepticShockBundleCompletionRateDetailPB {
+    IcuQcPatientPB patient = 1;
+    string display_bed_number = 2;
+    bool bundle_completed = 3;
+    bool is_in_numerator = 4;
+    bool is_in_denominator = 5;
+    string t0_iso8601 = 6;
+    bool h1_completed = 7;
+    bool h3_completed = 8;
+    bool h6_completed = 9;
+}
+
+message IcuQcSepticShockBundleCompletionRateItemPB {
+    string stats_start_iso8601 = 1;
+    string stats_end_iso8601 = 2;
+    repeated IcuQcSepticShockBundleCompletionRateDetailPB detail = 3;
+    double numerator = 4;
+    double denominator = 5;
+    double ratio = 6;
+}
+
+message IcuQcSepticShockBundleCompletionRatePB {
+    IcuQcIdPB id = 1;
+    repeated IcuQcSepticShockBundleCompletionRateItemPB month_item = 2;
+    IcuQcSepticShockBundleCompletionRateItemPB total_item = 3;
 }
 
 message IcuQcBedUsagePB {

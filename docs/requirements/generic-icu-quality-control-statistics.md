@@ -12,36 +12,36 @@
 
 旧接口曾按“先取质控项列表，再按单个 `item_code` 取月度数据”的模式工作。返回结构 `QcMonthDataPB` 同时包含数值、单位、分子表格、分母表格、表头和行数据，导致后端承担了表格列定义、行文本、日期格式化等前端展示职责。该旧接口已被 `/api/nhcqc/getgenericicuqc` 替代。
 
-参考手麻 Generic AQI 的方式，本需求规划重症质控统计改为“一个通用查询接口返回所有指标的结构化结果”，每个指标有独立配置、月度项、总计项和结构化明细；前端负责表格列、格式化、筛选、CSV 导出和图表展示。
+参考手麻 Generic AQI 的方式，本需求规划重症质控统计改为“一个通用查询接口返回所有指标的结构化结果”，每个指标有独立配置、月度项、总计项，并在需要下钻的指标中返回结构化明细；前端负责表格列、格式化、筛选、CSV 导出和图表展示。
 
 本文档只整理需求，不做 Java、proto、pbtxt 或前端实现。
 
 ## 范围
 
-本期重写范围限定为当前已经实现的 10 个重症质控项：
+本期重写范围限定为当前已经实现的 10 个重症质控项，以及本次新增计算口径的 ICU-QC-05：
 
 1. `icu_bed_utilization_rate` ICU 床位使用率
 2. `icu_doctor_bed_ratio` ICU 医师床位比
 3. `icu_nurse_bed_ratio` ICU 护士床位比
 4. `apache2_over15_admission_rate` APACHEII 评分 >= 15 分患者收治率
-5. `dvt_prevention_rate` 深静脉血栓（DVT）预防率
-6. `pain_assessment_rate` ICU 镇痛评估率
-7. `sedation_assessment_rate` ICU 镇静评估率
-8. `standardized_mortality_ratio` ICU 患者标化病死指数
-9. `unplanned_icu_admission_rate` 非计划转入 ICU 率
-10. `icu_readmission_within_48h_rate` 转出 ICU 后 48h 内重返率
+5. `septic_shock_bundle_completion_rate` 感染性休克患者 bundle 完成率
+6. `dvt_prevention_rate` 深静脉血栓（DVT）预防率
+7. `pain_assessment_rate` ICU 镇痛评估率
+8. `sedation_assessment_rate` ICU 镇静评估率
+9. `standardized_mortality_ratio` ICU 患者标化病死指数
+10. `unplanned_icu_admission_rate` 非计划转入 ICU 率
+11. `icu_readmission_within_48h_rate` 转出 ICU 后 48h 内重返率
 
-以下 9 个已配置但当前未实现的指标仅预留 slot，不要求本期计算：
+以下 8 个已配置但当前未实现的指标仅预留 slot，不要求本期计算：
 
-1. `septic_shock_bundle_completion_rate`
-2. `pre_antibiotic_pathogen_test_rate`
-3. `ards_prone_position_rate`
-4. `unplanned_extubation_rate`
-5. `reintubation_within_48h_rate`
-6. `vap_incidence_rate`
-7. `crbsi_incidence_rate`
-8. `brain_injury_consciousness_assessment_rate`
-9. `enteral_nutrition_within_48h_rate`
+1. `pre_antibiotic_pathogen_test_rate`
+2. `ards_prone_position_rate`
+3. `unplanned_extubation_rate`
+4. `reintubation_within_48h_rate`
+5. `vap_incidence_rate`
+6. `crbsi_incidence_rate`
+7. `brain_injury_consciousness_assessment_rate`
+8. `enteral_nutrition_within_48h_rate`
 
 ## 目标
 
@@ -49,14 +49,14 @@
 
 1. 前端一次请求指定科室和时间范围，后端返回所有已配置指标的月度数据和总计数据。
 2. 所有指标响应都包含 `id`、`month_item`、`total_item`，其中 `id` 来自配置，`month_item` 按本地自然月切分，`total_item` 按请求整体时间段计算。
-3. 后端返回结构化明细，不返回前端表格头、表格行 map、展示用日期文本或分子/分母表格。
+3. 后端在需要下钻的指标中返回结构化明细，不返回前端表格头、表格行 map、展示用日期文本或分子/分母表格。
 4. 前端根据指标 code 本地定义列、格式化、明细筛选、图表和 CSV 导出。
 5. 未实现指标也返回配置 `id` 和空数据，前端可显示为“未实现/待扩展”，不需要额外接口获取菜单。
 6. 旧的 `/api/nhcqc/getqcitems`、`/api/nhcqc/getqcdata` 已删除，统计页面只依赖 `/api/nhcqc/getgenericicuqc`。
 
 ## 非目标
 
-1. 本期不补齐 9 个未实现 slot 的计算逻辑。
+1. 本期除 ICU-QC-05 `septic_shock_bundle_completion_rate` 外，不补齐其余 8 个未实现 slot 的计算逻辑。
 2. 本期不新建感染、呼吸机、导管、抗菌药、营养等复杂数据源。
 3. 本期不要求修改国家质控指标口径，仅在文档中标出当前实现与公式不一致或不确定的地方。
 4. 本期不做实际代码重构、接口删除或前端改造。
@@ -188,6 +188,33 @@ message IcuQcGenericPB {
     repeated IcuQcMetricItemPB month_item = 2;
     IcuQcMetricItemPB total_item = 3;
     string slot_note = 4;
+}
+
+message IcuQcSepticShockBundleCompletionRateDetailPB {
+    IcuQcPatientPB patient = 1;
+    string display_bed_number = 2;  // 统计页面展示床号，优先使用床位配置后的 display bed number
+    bool bundle_completed = 3;      // 是否完成集束；按当前 alarm_filter 对应未完成条件取反
+    bool is_in_numerator = 4;       // 是否计入当前统计分子
+    bool is_in_denominator = 5;     // 是否计入当前统计分母
+    string t0_iso8601 = 6;
+    bool h1_completed = 7;          // 1h 任务是否完成
+    bool h3_completed = 8;          // 3h 任务是否完成
+    bool h6_completed = 9;          // 6h 任务是否完成
+}
+
+message IcuQcSepticShockBundleCompletionRateItemPB {
+    string stats_start_iso8601 = 1;
+    string stats_end_iso8601 = 2;
+    repeated IcuQcSepticShockBundleCompletionRateDetailPB detail = 3;
+    double numerator = 4;
+    double denominator = 5;
+    double ratio = 6;
+}
+
+message IcuQcSepticShockBundleCompletionRatePB {
+    IcuQcIdPB id = 1;
+    repeated IcuQcSepticShockBundleCompletionRateItemPB month_item = 2;
+    IcuQcSepticShockBundleCompletionRateItemPB total_item = 3;
 }
 ```
 
@@ -334,16 +361,25 @@ message IcuQcApache2Over15AdmissionRateConfigPB {
     bool count_by_admission_time = 1;
 }
 
+enum SepsisSepticShockAlarmFilterPB {
+    SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_UNLIMITED = 0;
+    SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_H1_UNFINISHED = 1;
+    SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_H3_UNFINISHED = 2;
+    SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_H6_UNFINISHED = 3;
+}
+
 message SepsisSepticShockDiagnosisConfigPB {
     int32 age_lower_bound = 1;
     int32 grace_period_hours_from_admission_time = 2;
     repeated string diagnosis_keyword = 3;
+    bool enable_alarm = 20;
+    SepsisSepticShockAlarmFilterPB alarm_filter = 21;
 }
 ```
 
 `count_by_admission_time = true` 表示 APACHEII >= 15 收治率按入科时间归属统计期；`false` 表示按入 ICU 后首次有效 APACHEII 评分时间归属统计期。
 
-`SepsisSepticShockDiagnosisConfigPB` 默认值为：`age_lower_bound = 18`、`grace_period_hours_from_admission_time = 24`、`diagnosis_keyword = ["脓毒症", "感染性休克"]`。`patient_records.diagnosis` 不做时间限制；`patient_diagnoses.diagnosis` 按 `patient_records.admission_time + grace_period_hours_from_admission_time` 限制。
+`SepsisSepticShockDiagnosisConfigPB` 默认值为：`age_lower_bound = 18`、`grace_period_hours_from_admission_time = 24`、`diagnosis_keyword = ["脓毒症", "感染性休克"]`、`alarm_filter = SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_UNLIMITED`。`patient_records.diagnosis` 不做时间限制；`patient_diagnoses.diagnosis` 按 `patient_records.admission_time + grace_period_hours_from_admission_time` 限制。
 
 ### Web API
 
@@ -369,7 +405,7 @@ message GetGenericIcuQcResp {
     config.IcuQcStaffBedRatioPB doctor_bed_ratio = 3;
     config.IcuQcStaffBedRatioPB nurse_bed_ratio = 4;
     config.IcuQcApache2Over15AdmissionRatePB apache2_over15_admission_rate = 5;
-    config.IcuQcGenericPB septic_shock_bundle_completion_rate = 6;
+    config.IcuQcSepticShockBundleCompletionRatePB septic_shock_bundle_completion_rate = 6;
     config.IcuQcGenericPB pre_antibiotic_pathogen_test_rate = 7;
     config.IcuQcDvtPreventionRatePB dvt_prevention_rate = 8;
     config.IcuQcGenericPB ards_prone_position_rate = 9;
@@ -476,12 +512,39 @@ message UpdateIqcConfigReq {
 ### ICU-QC-05 感染性休克患者 bundle 完成率
 
 - code：`septic_shock_bundle_completion_rate`
-- 状态：slot，未实现。
+- 状态：新增实现，使用 `IcuQcSepticShockBundleCompletionRatePB` 返回月度项、总计项和病例明细。
 - 展示类型：`PERCENT`
-- 分子：入 ICU 诊断为感染性休克并完成 bundle 的患者人数。
-- 分母：同期入 ICU 诊断为感染性休克的患者总人数。
-- 预留：`IcuQcGenericPB septic_shock_bundle_completion_rate`。
-- 待补数据源：诊断、感染性休克识别规则、bundle 完成记录或结构化表单。
+- 分母：统计期内 `patient_records.admission_time` 落在统计段 `[start, end)` 内，且 `SepsisAndSepticShockBundlePB.need_bundle == true` 的病例数。
+- 分子：分母病例中 `bundle_completed == true` 的病例数。
+- 当前数据源：
+  - `patient_records`：以 `admission_time` 作为统计期归属依据，并按请求科室范围筛选。
+  - `bed_configs`：后端生成明细中的 `display_bed_number`，前端不再自行做床位映射。
+  - `SystemSettings(function_id = GET_IQC_CONFIG)` / 默认 `icis_qc_config.pb.txt`：读取查询时当前 `IcuQcConfigPB.sepsis_septic_shock_diagnosis`，不按统计期追溯历史配置版本。
+  - `SepsisAndSepticShockBundleService.buildSepticShockCases`：根据候选患者生成 `SepsisAndSepticShockCasePB`，从中读取 `SepsisAndSepticShockBundlePB`。
+- 明细：
+  - 每条明细对应一个计入分母的 `patient_records` 入科记录。
+  - 返回 `patient` 基础信息，其中前端展示 `patient.patient_name`、`patient.admission_time_iso8601`。
+  - 返回 `display_bed_number`，作为前端“床号”列；为空时前端展示 `-`。
+  - 返回 `bundle_completed`，作为前端“是否完成集束”列。
+  - 返回 `h1_completed`、`h3_completed`、`h6_completed`，分别作为前端“1h完成”“3h完成”“6h完成”列。
+  - 返回 `is_in_numerator`、`is_in_denominator`，便于后续分子/分母筛选和 CSV 导出。
+- 口径要求：
+  - 月度项按每个月度统计段单独过滤 `patient_records.admission_time`；总计项按请求整体时间段过滤。
+  - 计数单位为 `patient_records` 入科记录；同一 HIS 患者在统计期内多次入 ICU 时，按多条入科记录分别计数，不按患者去重。
+  - 分母只由 `SepsisAndSepticShockBundlePB.need_bundle == true` 决定，不再直接使用诊断关键字人数作为分母。
+  - `ratio = numerator / denominator`，表示按当前 `alarm_filter` 口径计算的完成率。
+  - 默认配置和 DB 配置中的 `calc_formula` 需要同步调整为完成率公式：`感染性休克患者集束化治疗（bundle）完成率 = bundle_completed == true 的病例数 / need_bundle == true 的病例数 × 100%`。
+  - 历史查询重算时也使用该完成率口径，不再沿用旧的未完成/告警命中比例口径。
+  - `is_in_numerator = bundle_completed`，`is_in_denominator = true`。
+  - `enable_alarm` 只控制右上角告警展示，不控制 ICU-QC-05 统计计算。
+  - `h1_completed = h1_lactate_initial && h1_culture_before_abx && h1_abx_broad`。
+  - `h3_completed = fluid_qualified`，与当前 3h 未完成条件 `!fluid_qualified` 取反保持一致。
+  - `h6_completed = !((vasopressor_qualified && !vasopressor) || (relactate_qualified && !relactate) || perfusion_reassessment_details.assessment_time_iso8601 为空)`。
+  - `alarm_filter = SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_UNLIMITED` 或 `SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_H1_UNFINISHED` 时，`bundle_completed = h1_completed`。
+  - `alarm_filter = SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_H3_UNFINISHED` 时，`bundle_completed = h3_completed`。
+  - `alarm_filter = SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_H6_UNFINISHED` 时，`bundle_completed = h6_completed`。
+  - `denominator = 0` 时 `ratio = 0`，前端按通用约定展示为 `-`。
+  - 明细排序建议按 `display_bed_number` 排序：全部可转数字时按数字排序，否则按字符串排序；床号为空排在最后。
 
 ### ICU-QC-06 抗菌药物治疗前病原学送检率
 
@@ -688,7 +751,10 @@ message UpdateIqcConfigReq {
 3. 每个已实现指标使用独立 calculator，calculator 只负责数据查询、业务口径和结构化 PB 组装。
 4. calculator 不允许构造前端表格头、表格行 map、展示用日期、前端文案。
 5. 患者数据、床位数据、人员数据查询应尽量在每个统计请求内批量完成，避免按月重复查库。
-6. 旧 `QualityControlService` 和旧 `/api/nhcqc/getqcitems`、`/api/nhcqc/getqcdata` 接口已删除。
+6. ICU-QC-05 不再作为未实现 slot 返回，需要按上文口径填充 `septic_shock_bundle_completion_rate.month_item`、`total_item` 和 `detail`。
+7. ICU-QC-05 短期优先复用 `SepsisAndSepticShockBundleService.buildSepticShockCases`，保证与告警模块病例判定一致。
+8. 如果实现时确认 `buildSepticShockCases` 存在写库副作用，应抽出只读 evaluator，供告警和质控统计共同使用，避免统计查询产生业务写入。
+9. 旧 `QualityControlService` 和旧 `/api/nhcqc/getqcitems`、`/api/nhcqc/getqcdata` 接口已删除。
 
 ## 前端需求
 
@@ -706,6 +772,23 @@ message UpdateIqcConfigReq {
 8. 基础功能配置页在“医嘱配置”和“归档配置”之间增加“质控配置”。
 9. “质控配置”只允许编辑安全配置字段：`stats_dept_id`、医师/护士角色 ID、镇痛/镇静评分分组 code、床日分摊模式、APACHEII 统计归属、脓毒症/感染性休克诊断配置。
 10. 19 个质控项的 code、名称、公式、描述只展示不编辑。
+11. ICU-QC-05 在统计页面展示名称使用 `感染性休克患者集束化治疗（bundle）完成率`，不得在指标名称或图表标题后追加 `（未完成/告警口径）`。
+12. 选择 ICU-QC-05 时，右下角明细区域展示专属明细表，不显示“暂无明细”。
+13. ICU-QC-05 明细表第一版只展示 7 列：床号、姓名、入科时间、是否完成集束、1h完成、3h完成、6h完成。
+14. ICU-QC-05 明细列映射：
+    - 床号：`detail.display_bed_number`，为空时展示 `-`。
+    - 姓名：`detail.patient.patient_name`。
+    - 入科时间：`detail.patient.admission_time_iso8601`，前端按现有日期时间格式化。
+    - 是否完成集束：`detail.bundle_completed`，展示为“是/否”。
+    - 1h完成：`detail.h1_completed`，展示为“是/否”。
+    - 3h完成：`detail.h3_completed`，展示为“是/否”。
+    - 6h完成：`detail.h6_completed`，展示为“是/否”。
+15. 前端关键数据结构调整：
+    - `MetricPB` union 需要包含 `IcuQcSepticShockBundleCompletionRatePB`。
+    - `MetricItemPB` union 需要包含 `IcuQcSepticShockBundleCompletionRateItemPB`。
+    - `DetailKind` 增加 ICU-QC-05 专用类型，例如 `septicShockBundle`，不要继续使用 `generic` 或 `slot`。
+    - `METRIC_DEFINITIONS` 中 `septicShockBundleCompletionRate.detailKind = 'septicShockBundle'`。
+    - 前端明细行可映射为 `{ bedNumber, patientName, admissionTime, bundleCompleted, h1Completed, h3Completed, h6Completed }`。
 
 ## 迁移要求
 
@@ -713,16 +796,21 @@ message UpdateIqcConfigReq {
 2. 默认配置只保留在 `src/main/resources/config/pbtxt/icis_qc_config.pb.txt`。
 3. DB 覆盖只走 `SystemSettings(function_id = GET_IQC_CONFIG)`。
 4. 前后端均不再调用旧 `/api/nhcqc/getqcitems`、`/api/nhcqc/getqcdata`。
+5. ICU-QC-05 的默认 `calc_formula` 需要改为完成率公式；若 DB 中已有旧 `IcuQcConfigPB` 覆盖配置，也需要同步更新该项公式描述，避免前端展示旧口径。
 
 ## 验收标准
 
-1. 新需求对应的协议能表达 19 个配置指标，其中 10 个已实现指标有结构化明细，9 个未实现指标有 slot。
+1. 新需求对应的协议能表达 19 个配置指标，其中 10 个已实现指标有结构化明细，ICU-QC-05 返回专属月度/总计计算值和病例明细，8 个未实现指标有 slot。
 2. 新接口一次请求即可返回所有指标，不需要前端按 `item_code` 循环调用。
 3. 后端响应不包含前端表格头、表格行 map 或展示格式化文本。
 4. 前端可以仅依赖结构化字段渲染总述表格、图表、指标明细和 CSV。
 5. 患者类指标的明细必须随响应返回，不再出现汇总有数值但明细为空的问题。
 6. 百分比、普通比值、指数、千分率指标能按各自 `value_kind` 正确展示。
 7. 未实现指标不会触发计算错误，前端能明确展示为待实现。
+8. ICU-QC-05 使用 `patient_records.admission_time` 归属统计段，按 `patient_records` 入科记录计数，分母为 `need_bundle == true` 的病例数，分子为 `bundle_completed == true` 的病例数。
+9. ICU-QC-05 统计页面展示名称为 `感染性休克患者集束化治疗（bundle）完成率`，不追加 `（未完成/告警口径）`。
+10. ICU-QC-05 被选中时，右下角明细区域展示床号、姓名、入科时间、是否完成集束、1h完成、3h完成、6h完成。
+11. ICU-QC-05 配置公式和历史查询重算口径均使用完成率口径，不再展示或计算旧的未完成/告警命中比例。
 
 ## 已决策
 
@@ -753,7 +841,7 @@ message UpdateIqcConfigReq {
 8. ICU-QC-14 手术相关转入 ICU 短期保留当前科室名称关键字作为默认识别方式。
    - 长期改为配置手术来源科室 code、入科类型或上游手术关联字段。
 
-9. 未实现 slot 本期只保留 `IcuQcGenericPB` slot。
+9. 其余未实现 slot 本期只保留 `IcuQcGenericPB` slot。
    - 每个指标真正实现时再补专属 detail 消息，避免提前设计错误字段。
 
 10. `GetGenericIcuQcReq.item_code` 保留为可选过滤字段。
@@ -782,6 +870,38 @@ message UpdateIqcConfigReq {
     - `patient_records.diagnosis` 不做时间限制。
     - `patient_diagnoses.diagnosis` 按入科后诊断宽限期限制。
 
-16. 本次不实现脓毒症和感染性休克 bundle，仅提供配置，为后续实现准备。
+16. ICU-QC-05 本次纳入实现，统计期归属使用 `patient_records.admission_time`。
+    - 月度项按月度统计段过滤入科时间。
+    - 总计项按请求整体时间段过滤入科时间。
+    - 同一 HIS 患者在统计期内多次入 ICU 时，按 `patient_records` 入科记录分别计数，不按患者去重。
+
+17. ICU-QC-05 需要从 DB 中读取当前 `SepsisSepticShockDiagnosisConfigPB`。
+    - DB 未配置时沿用默认 `icis_qc_config.pb.txt`。
+    - 查询历史时间段时仍使用查询时 DB 中的当前配置，不追溯统计期当时的历史配置。
+    - 统计计算只使用 `alarm_filter`，不受 `enable_alarm` 开关影响。
+
+18. ICU-QC-05 分母使用 `SepsisAndSepticShockBundlePB.need_bundle == true` 的病例数。
+    - 不再直接以诊断关键词命中人数作为分母。
+    - `buildSepticShockCases` 生成的 `SepsisAndSepticShockCasePB` 是本指标的病例判定来源。
+    - 短期优先复用 `SepsisAndSepticShockBundleService.buildSepticShockCases` 保证病例判定一致。
+    - 如果实现时确认 `buildSepticShockCases` 存在写库副作用，应抽出只读 evaluator，供告警和质控统计共同使用。
+
+19. ICU-QC-05 分子使用完成病例数。
+    - `bundle_completed` 按当前 `alarm_filter` 对应未完成条件取反。
+    - `SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_UNLIMITED` 与 `SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_H1_UNFINISHED` 下，`bundle_completed = h1_completed`。
+    - `SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_H3_UNFINISHED` 下，`bundle_completed = h3_completed`。
+    - `SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_H6_UNFINISHED` 下，`bundle_completed = h6_completed`。
+    - `numerator = bundle_completed == true` 的病例数。
+    - `ratio = numerator / denominator`，表示按当前 `alarm_filter` 口径计算的完成率。
+    - 历史查询重算和配置公式均同步使用该完成率口径。
+
+20. ICU-QC-05 需要提供病例级明细。
+    - 后端使用 `IcuQcSepticShockBundleCompletionRatePB` 专属结构返回明细。
+    - 明细行只包含计入分母的病例。
+    - 明细床号由后端输出 `display_bed_number`，前端不做床位配置映射。
+    - 明细提供 `bundle_completed`、`h1_completed`、`h3_completed`、`h6_completed`。
+    - 前端明细表只展示床号、姓名、入科时间、是否完成集束、1h完成、3h完成、6h完成。
 
 ## 待决策
+
+暂无。

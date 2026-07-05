@@ -133,6 +133,159 @@ public class SepsisAndSepticShockBundleServiceTests extends TestsBase {
     }
 
     @Test
+    void buildAlarmsAppliesConfiguredFilter() {
+        PatientRecord h1MissingPatient = savePatient(890008L, LocalDateTime.of(2026, 1, 10, 8, 0));
+        PatientRecord h3MissingPatient = savePatient(890009L, LocalDateTime.of(2026, 1, 10, 8, 0));
+        PatientRecord h6MissingPatient = savePatient(890010L, LocalDateTime.of(2026, 1, 10, 8, 0));
+        PatientRecord completePatient = savePatient(890011L, LocalDateTime.of(2026, 1, 10, 8, 0));
+
+        SepsisAndSepticShockCasePB h1MissingCase = septicShockCase(h1MissingPatient.getId(),
+            SepsisAndSepticShockBundlePB.newBuilder()
+                .setNeedBundle(true)
+                .setH1LactateInitial(false)
+                .setH1CultureBeforeAbx(true)
+                .setH1AbxBroad(true)
+                .setFluidQualified(true)
+                .setPerfusionReassessmentDetails(PerfusionReassessmentPB.newBuilder()
+                    .setAssessmentTimeIso8601("2026-01-10T12:00:00Z")
+                    .build())
+                .build());
+        SepsisAndSepticShockCasePB h3MissingCase = septicShockCase(h3MissingPatient.getId(),
+            SepsisAndSepticShockBundlePB.newBuilder()
+                .setNeedBundle(true)
+                .setH1LactateInitial(true)
+                .setH1CultureBeforeAbx(true)
+                .setH1AbxBroad(true)
+                .setFluidQualified(false)
+                .setPerfusionReassessmentDetails(PerfusionReassessmentPB.newBuilder()
+                    .setAssessmentTimeIso8601("2026-01-10T12:00:00Z")
+                    .build())
+                .build());
+        SepsisAndSepticShockCasePB h6MissingCase = septicShockCase(h6MissingPatient.getId(),
+            SepsisAndSepticShockBundlePB.newBuilder()
+                .setNeedBundle(true)
+                .setH1LactateInitial(true)
+                .setH1CultureBeforeAbx(true)
+                .setH1AbxBroad(true)
+                .setFluidQualified(true)
+                .setVasopressorQualified(true)
+                .setVasopressor(false)
+                .build());
+        SepsisAndSepticShockCasePB completeCase = septicShockCase(completePatient.getId(),
+            SepsisAndSepticShockBundlePB.newBuilder()
+                .setNeedBundle(true)
+                .setH1LactateInitial(true)
+                .setH1CultureBeforeAbx(true)
+                .setH1AbxBroad(true)
+                .setFluidQualified(true)
+                .setVasopressorQualified(true)
+                .setVasopressor(true)
+                .setRelactateQualified(true)
+                .setRelactate(true)
+                .setPerfusionReassessmentDetails(PerfusionReassessmentPB.newBuilder()
+                    .setAssessmentTimeIso8601("2026-01-10T12:00:00Z")
+                    .build())
+                .build());
+        List<SepsisAndSepticShockCasePB> cases = List.of(
+            h1MissingCase, h3MissingCase, h6MissingCase, completeCase);
+
+        service.setDiagnosisConfigOverrideForTest(testDiagnosisConfig().toBuilder()
+            .setEnableAlarm(true)
+            .setAlarmFilter(SepsisSepticShockAlarmFilterPB.SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_UNLIMITED)
+            .build());
+        assertThat(service.buildSepticShockAlarms(cases))
+            .extracting(alarm -> alarm.getPid())
+            .containsExactly(
+                h1MissingPatient.getId(),
+                h3MissingPatient.getId(),
+                h6MissingPatient.getId(),
+                completePatient.getId());
+
+        service.setDiagnosisConfigOverrideForTest(testDiagnosisConfig().toBuilder()
+            .setEnableAlarm(true)
+            .setAlarmFilter(SepsisSepticShockAlarmFilterPB.SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_H1_UNFINISHED)
+            .build());
+        assertThat(service.buildSepticShockAlarms(cases))
+            .extracting(alarm -> alarm.getPid())
+            .containsExactly(h1MissingPatient.getId());
+
+        service.setDiagnosisConfigOverrideForTest(testDiagnosisConfig().toBuilder()
+            .setEnableAlarm(true)
+            .setAlarmFilter(SepsisSepticShockAlarmFilterPB.SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_H3_UNFINISHED)
+            .build());
+        assertThat(service.buildSepticShockAlarms(cases))
+            .extracting(alarm -> alarm.getPid())
+            .containsExactly(h3MissingPatient.getId());
+
+        service.setDiagnosisConfigOverrideForTest(testDiagnosisConfig().toBuilder()
+            .setEnableAlarm(true)
+            .setAlarmFilter(SepsisSepticShockAlarmFilterPB.SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_H6_UNFINISHED)
+            .build());
+        assertThat(service.buildSepticShockAlarms(cases))
+            .extracting(alarm -> alarm.getPid())
+            .containsExactly(h6MissingPatient.getId());
+    }
+
+    @Test
+    void qcCompletionFilterTreatsUnlimitedAsH1Completion() {
+        SepsisAndSepticShockBundlePB h1MissingBundle = SepsisAndSepticShockBundlePB.newBuilder()
+            .setNeedBundle(true)
+            .setH1LactateInitial(false)
+            .setH1CultureBeforeAbx(true)
+            .setH1AbxBroad(true)
+            .setFluidQualified(true)
+            .setPerfusionReassessmentDetails(PerfusionReassessmentPB.newBuilder()
+                .setAssessmentTimeIso8601("2026-01-10T12:00:00Z")
+                .build())
+            .build();
+        SepsisAndSepticShockBundlePB h1CompleteBundle = SepsisAndSepticShockBundlePB.newBuilder()
+            .setNeedBundle(true)
+            .setH1LactateInitial(true)
+            .setH1CultureBeforeAbx(true)
+            .setH1AbxBroad(true)
+            .setFluidQualified(true)
+            .setPerfusionReassessmentDetails(PerfusionReassessmentPB.newBuilder()
+                .setAssessmentTimeIso8601("2026-01-10T12:00:00Z")
+                .build())
+            .build();
+
+        assertThat(SepsisAndSepticShockBundleService.isSepticShockBundleCompletedForQc(
+            h1MissingBundle,
+            SepsisSepticShockAlarmFilterPB.SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_UNLIMITED))
+            .isFalse();
+        assertThat(SepsisAndSepticShockBundleService.isSepticShockBundleCompletedForQc(
+            h1CompleteBundle,
+            SepsisSepticShockAlarmFilterPB.SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_UNLIMITED))
+            .isTrue();
+        assertThat(SepsisAndSepticShockBundleService.isSepticShockBundleCompletedForQc(
+            h1MissingBundle.toBuilder().setNeedBundle(false).build(),
+            SepsisSepticShockAlarmFilterPB.SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_H1_UNFINISHED))
+            .isFalse();
+        assertThat(SepsisAndSepticShockBundleService.isSepticShockH1Completed(h1CompleteBundle)).isTrue();
+        assertThat(SepsisAndSepticShockBundleService.isSepticShockH1Completed(h1MissingBundle)).isFalse();
+        assertThat(SepsisAndSepticShockBundleService.isSepticShockH3Completed(h1MissingBundle)).isTrue();
+        assertThat(SepsisAndSepticShockBundleService.isSepticShockH6Completed(h1MissingBundle)).isTrue();
+    }
+
+    @Test
+    void buildCasesReadOnlyDoesNotPersistAutoBundle() {
+        service.setDiagnosisConfigOverrideForTest(testDiagnosisConfig());
+        long seed = 890012L;
+        LocalDateTime admissionTime = LocalDateTime.of(2026, 1, 16, 8, 0);
+        LocalDateTime t0 = admissionTime.plusMinutes(10);
+
+        PatientRecord patient = savePatient(seed, admissionTime);
+        long pid = patient.getId();
+        saveDiagnosis(pid, t0, "感染性休克");
+
+        List<SepsisAndSepticShockCasePB> cases = service.buildSepticShockCasesReadOnly(List.of(pid));
+
+        assertThat(cases).hasSize(1);
+        assertThat(cases.get(0).getBundle().getNeedBundle()).isTrue();
+        assertThat(bundleRepo.findByPid(pid)).isEmpty();
+    }
+
+    @Test
     void buildCasesUsesOrderGroupMedicationNameWhenExecutionDosageGroupIsBlank() {
         service.setDiagnosisConfigOverrideForTest(testDiagnosisConfig().toBuilder()
             .addAbxBoardKeyword("哌拉西林")
@@ -325,6 +478,12 @@ public class SepsisAndSepticShockBundleServiceTests extends TestsBase {
         patient.setHisPatientId("his-sepsis-" + pid);
         patient.setDiagnosis("感染性休克");
         return patientRecordRepo.save(patient);
+    }
+
+    private SepsisAndSepticShockCasePB septicShockCase(long pid, SepsisAndSepticShockBundlePB bundle) {
+        return SepsisAndSepticShockCasePB.newBuilder()
+            .setBundle(bundle.toBuilder().setPid(pid).build())
+            .build();
     }
 
     private void saveDiagnosis(long pid, LocalDateTime diagnosisTime, String diagnosis) {

@@ -5337,7 +5337,7 @@ message GetGenericIcuQcResp {
     config.IcuQcStaffBedRatioPB doctor_bed_ratio = 3;
     config.IcuQcStaffBedRatioPB nurse_bed_ratio = 4;
     config.IcuQcApache2Over15AdmissionRatePB apache2_over15_admission_rate = 5;
-    config.IcuQcGenericPB septic_shock_bundle_completion_rate = 6;
+    config.IcuQcSepticShockBundleCompletionRatePB septic_shock_bundle_completion_rate = 6;
     config.IcuQcGenericPB pre_antibiotic_pathogen_test_rate = 7;
     config.IcuQcDvtPreventionRatePB dvt_prevention_rate = 8;
     config.IcuQcGenericPB ards_prone_position_rate = 9;

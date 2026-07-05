@@ -316,6 +316,12 @@ public class IcuQcConfigService {
                     ? fallbackConfig.getDiagnosisLookbackHoursBeforeAdmissionTime()
                     : DEFAULT_SEPSIS_DIAGNOSIS_LOOKBACK_HOURS);
         }
+        if (builder.getAlarmFilter() == SepsisSepticShockAlarmFilterPB.UNRECOGNIZED) {
+            builder.setAlarmFilter(
+                fallbackConfig.getAlarmFilter() == SepsisSepticShockAlarmFilterPB.UNRECOGNIZED
+                    ? SepsisSepticShockAlarmFilterPB.SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_UNLIMITED
+                    : fallbackConfig.getAlarmFilter());
+        }
         return builder.build();
     }
 
@@ -363,6 +369,7 @@ public class IcuQcConfigService {
             .addAllLacExternalParamCode(DEFAULT_SEPSIS_LAC_EXTERNAL_PARAM_CODES)
             .setDiagnosisLookbackHoursBeforeAdmissionTime(DEFAULT_SEPSIS_DIAGNOSIS_LOOKBACK_HOURS)
             .setEnableAlarm(false)
+            .setAlarmFilter(SepsisSepticShockAlarmFilterPB.SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_UNLIMITED)
             .build();
     }
 

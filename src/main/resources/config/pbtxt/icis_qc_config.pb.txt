@@ -25,8 +25,8 @@ item {
 item {
     code: "septic_shock_bundle_completion_rate"
     name: "感染性休克患者集束化治疗（bundle）完成率"
-    description: ""
-    calc_formula: "感染性休克患者 bundle完成率 = 入 ICU诊断为感染性休克并完成 bundle的患者人数 / 同期入 ICU诊断为感染性休克的患者总人数 × 100%"
+    description: "按当前脓毒症与感染性休克告警筛选口径判断 bundle 是否完成"
+    calc_formula: "感染性休克患者集束化治疗（bundle）完成率 = 入科时间落在统计期内、need_bundle=true 且未命中当前 alarm_filter 对应未完成条件的病例数 / 入科时间落在统计期内且 need_bundle=true 的病例数 × 100%"
 }
 item {
     code: "pre_antibiotic_pathogen_test_rate"

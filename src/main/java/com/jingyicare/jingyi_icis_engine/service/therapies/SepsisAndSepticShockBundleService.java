@@ -84,6 +84,15 @@ public class SepsisAndSepticShockBundleService {
 
     @Transactional
     public List<SepsisAndSepticShockCasePB> buildSepticShockCases(List<Long> pids) {
+        return buildSepticShockCases(pids, true);
+    }
+
+    @Transactional(readOnly = true)
+    public List<SepsisAndSepticShockCasePB> buildSepticShockCasesReadOnly(List<Long> pids) {
+        return buildSepticShockCases(pids, false);
+    }
+
+    private List<SepsisAndSepticShockCasePB> buildSepticShockCases(List<Long> pids, boolean persistAutoBundle) {
         if (pids == null || pids.isEmpty()) return List.of();
 
         List<Long> distinctPids = pids.stream()
@@ -137,7 +146,9 @@ public class SepsisAndSepticShockBundleService {
                 continue;
             }
 
-            entity = persistAutoBundleIfNeeded(autoBundle, entity);
+            if (persistAutoBundle) {
+                entity = persistAutoBundleIfNeeded(autoBundle, entity);
+            }
             cases.add(SepsisAndSepticShockCasePB.newBuilder()
                 .setBundle(mergeWithPersistedBundle(autoBundle, entity))
                 .setInfo(info)
@@ -149,10 +160,11 @@ public class SepsisAndSepticShockBundleService {
 
     @Transactional(readOnly = true)
     public List<AlarmPB> buildSepticShockAlarms(List<SepsisAndSepticShockCasePB> cases) {
-        if (!isSepticShockAlarmEnabled() || cases == null || cases.isEmpty()) return List.of();
+        SepsisSepticShockDiagnosisConfigPB config = getDiagnosisConfig();
+        if (!config.getEnableAlarm() || cases == null || cases.isEmpty()) return List.of();
 
         List<Long> pids = cases.stream()
-            .filter(c -> c.hasBundle() && c.getBundle().getNeedBundle())
+            .filter(c -> c.hasBundle() && shouldBuildSepticShockAlarm(c.getBundle(), config.getAlarmFilter()))
             .map(c -> c.getBundle().getPid())
             .filter(pid -> pid > 0)
             .distinct()
@@ -181,6 +193,84 @@ public class SepsisAndSepticShockBundleService {
                 .build());
         }
         return sortAlarmsByDisplayBedNumber(alarms);
+    }
+
+    public static boolean isSepticShockBundleCompletedForQc(
+        SepsisAndSepticShockBundlePB bundle,
+        SepsisSepticShockAlarmFilterPB alarmFilter
+    ) {
+        if (!bundle.getNeedBundle()) return false;
+        return !matchesSepticShockQcUnfinished(bundle, alarmFilter);
+    }
+
+    public static boolean isSepticShockH1Completed(SepsisAndSepticShockBundlePB bundle) {
+        return !hasH1Unfinished(bundle);
+    }
+
+    public static boolean isSepticShockH3Completed(SepsisAndSepticShockBundlePB bundle) {
+        return !hasH3Unfinished(bundle);
+    }
+
+    public static boolean isSepticShockH6Completed(SepsisAndSepticShockBundlePB bundle) {
+        return !hasH6Unfinished(bundle);
+    }
+
+    private static boolean matchesSepticShockQcUnfinished(
+        SepsisAndSepticShockBundlePB bundle,
+        SepsisSepticShockAlarmFilterPB alarmFilter
+    ) {
+        switch (alarmFilter) {
+            case SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_H3_UNFINISHED:
+                return hasH3Unfinished(bundle);
+            case SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_H6_UNFINISHED:
+                return hasH6Unfinished(bundle);
+            case SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_UNLIMITED:
+            case SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_H1_UNFINISHED:
+            case UNRECOGNIZED:
+            default:
+                return hasH1Unfinished(bundle);
+        }
+    }
+
+    private boolean shouldBuildSepticShockAlarm(
+        SepsisAndSepticShockBundlePB bundle,
+        SepsisSepticShockAlarmFilterPB alarmFilter
+    ) {
+        if (!bundle.getNeedBundle()) return false;
+
+        switch (alarmFilter) {
+            case SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_H1_UNFINISHED:
+                return hasH1Unfinished(bundle);
+            case SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_H3_UNFINISHED:
+                return hasH3Unfinished(bundle);
+            case SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_H6_UNFINISHED:
+                return hasH6Unfinished(bundle);
+            case SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_UNLIMITED:
+            case UNRECOGNIZED:
+            default:
+                return true;
+        }
+    }
+
+    private static boolean hasH1Unfinished(SepsisAndSepticShockBundlePB bundle) {
+        return !bundle.getH1LactateInitial()
+            || !bundle.getH1CultureBeforeAbx()
+            || !bundle.getH1AbxBroad();
+    }
+
+    private static boolean hasH3Unfinished(SepsisAndSepticShockBundlePB bundle) {
+        return !bundle.getFluidQualified();
+    }
+
+    private static boolean hasH6Unfinished(SepsisAndSepticShockBundlePB bundle) {
+        return (bundle.getVasopressorQualified() && !bundle.getVasopressor())
+            || (bundle.getRelactateQualified() && !bundle.getRelactate())
+            || !hasPerfusionReassessmentTime(bundle);
+    }
+
+    private static boolean hasPerfusionReassessmentTime(SepsisAndSepticShockBundlePB bundle) {
+        return bundle.hasPerfusionReassessmentDetails()
+            && !StrUtils.isBlank(bundle.getPerfusionReassessmentDetails().getAssessmentTimeIso8601());
     }
 
     private String displayBedNumber(PatientRecord patient, Map<String, Map<String, BedConfig>> bedConfigByDept) {

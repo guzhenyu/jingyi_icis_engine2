@@ -13,6 +13,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisQualityControl.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisSepticShock.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 
 import com.jingyicare.jingyi_icis_engine.entity.doctors.*;
@@ -25,6 +26,7 @@ import com.jingyicare.jingyi_icis_engine.repository.scores.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
+import com.jingyicare.jingyi_icis_engine.service.therapies.SepsisAndSepticShockBundleService;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Service
@@ -35,6 +37,7 @@ public class GenericIcuQcService {
         @Autowired IcuQcConfigService icuQcConfigService,
         @Autowired PatientService patientService,
         @Autowired PatientConfig patientConfig,
+        @Autowired SepsisAndSepticShockBundleService sepsisAndSepticShockBundleService,
         @Autowired BedUtilizationCalc bedUtilizationCalc,
         @Autowired DepartmentRepository deptRepo,
         @Autowired DepartmentAccountRepository deptAcctRepo,
@@ -52,6 +55,7 @@ public class GenericIcuQcService {
         refreshQcConfig();
         this.patientService = patientService;
         this.patientConfig = patientConfig;
+        this.sepsisAndSepticShockBundleService = sepsisAndSepticShockBundleService;
         this.bedUtilizationCalc = bedUtilizationCalc;
         this.deptRepo = deptRepo;
         this.deptAcctRepo = deptAcctRepo;
@@ -124,7 +128,8 @@ public class GenericIcuQcService {
                 monthSegments, queryStartUtc, queryEndUtc, allPatients));
         }
         if (shouldCalculate(requestedCodes, Consts.ICU_5_SEPTIC_SHOCK_BUNDLE_COMPLETION_RATE)) {
-            builder.setSepticShockBundleCompletionRate(slot(Consts.ICU_5_SEPTIC_SHOCK_BUNDLE_COMPLETION_RATE));
+            builder.setSepticShockBundleCompletionRate(calculateSepticShockBundleCompletionRate(
+                monthSegments, queryStartUtc, queryEndUtc, allPatients));
         }
         if (shouldCalculate(requestedCodes, Consts.ICU_6_PRE_ANTIBIOTIC_PATHOGEN_TEST_RATE)) {
             builder.setPreAntibioticPathogenTestRate(slot(Consts.ICU_6_PRE_ANTIBIOTIC_PATHOGEN_TEST_RATE));
@@ -223,7 +228,8 @@ public class GenericIcuQcService {
     ) {
         Map<String, List<PatientRecord>> patientsByDept = new LinkedHashMap<>();
         for (String deptId : deptIds) {
-            List<PatientRecord> patients = patientService.getPatientRecords(deptId, queryStartUtc, queryEndUtc);
+            List<PatientRecord> patients = new ArrayList<>(
+                patientService.getPatientRecords(deptId, queryStartUtc, queryEndUtc));
             patients.sort(Comparator.comparing(PatientRecord::getAdmissionTime, Comparator.nullsLast(Comparator.naturalOrder())));
             patientsByDept.put(deptId, patients);
         }
@@ -542,6 +548,104 @@ public class GenericIcuQcService {
             .setDenominator(denominator)
             .setRatio(denominator == 0 ? 0 : numerator / denominator)
             .build();
+    }
+
+    private IcuQcSepticShockBundleCompletionRatePB calculateSepticShockBundleCompletionRate(
+        List<PeriodSegment> monthSegments,
+        LocalDateTime queryStartUtc,
+        LocalDateTime queryEndUtc,
+        List<PatientRecord> patients
+    ) {
+        List<Long> patientIds = pids(patients);
+        Map<Long, SepsisAndSepticShockCasePB> caseByPid = sepsisAndSepticShockBundleService
+            .buildSepticShockCasesReadOnly(patientIds)
+            .stream()
+            .filter(septicShockCase -> septicShockCase.hasBundle())
+            .collect(Collectors.toMap(
+                septicShockCase -> septicShockCase.getBundle().getPid(),
+                septicShockCase -> septicShockCase,
+                (a, b) -> a));
+        SepsisSepticShockAlarmFilterPB alarmFilter = qcConfig
+            .getSepsisSepticShockDiagnosis()
+            .getAlarmFilter();
+        Map<String, Map<String, BedConfig>> bedConfigByDept = loadBedConfigByDept(patients);
+
+        IcuQcSepticShockBundleCompletionRatePB.Builder builder = IcuQcSepticShockBundleCompletionRatePB.newBuilder()
+            .setId(idFor(Consts.ICU_5_SEPTIC_SHOCK_BUNDLE_COMPLETION_RATE, true));
+        for (PeriodSegment segment : monthSegments) {
+            builder.addMonthItem(calculateSepticShockBundleCompletionRateItem(
+                segment.startUtc, segment.endUtc, patients, caseByPid, alarmFilter, bedConfigByDept));
+        }
+        builder.setTotalItem(calculateSepticShockBundleCompletionRateItem(
+            queryStartUtc, queryEndUtc, patients, caseByPid, alarmFilter, bedConfigByDept));
+        return builder.build();
+    }
+
+    private IcuQcSepticShockBundleCompletionRateItemPB calculateSepticShockBundleCompletionRateItem(
+        LocalDateTime statsStartUtc,
+        LocalDateTime statsEndUtc,
+        List<PatientRecord> patients,
+        Map<Long, SepsisAndSepticShockCasePB> caseByPid,
+        SepsisSepticShockAlarmFilterPB alarmFilter,
+        Map<String, Map<String, BedConfig>> bedConfigByDept
+    ) {
+        IcuQcSepticShockBundleCompletionRateItemPB.Builder builder =
+            IcuQcSepticShockBundleCompletionRateItemPB.newBuilder()
+            .setStatsStartIso8601(TimeUtils.toIso8601String(statsStartUtc, zoneId))
+            .setStatsEndIso8601(TimeUtils.toIso8601String(statsEndUtc, zoneId));
+        double numerator = 0;
+        double denominator = 0;
+        for (PatientRecord patient : patients) {
+            if (!admittedInPeriod(patient, statsStartUtc, statsEndUtc)) continue;
+            SepsisAndSepticShockCasePB septicShockCase = caseByPid.get(patient.getId());
+            if (septicShockCase == null || !septicShockCase.hasBundle()) continue;
+            SepsisAndSepticShockBundlePB bundle = septicShockCase.getBundle();
+            if (!bundle.getNeedBundle()) continue;
+            denominator += 1;
+            boolean bundleCompleted = SepsisAndSepticShockBundleService
+                .isSepticShockBundleCompletedForQc(bundle, alarmFilter);
+            if (bundleCompleted) {
+                numerator += 1;
+            }
+            builder.addDetail(IcuQcSepticShockBundleCompletionRateDetailPB.newBuilder()
+                .setPatient(toPatientPb(patient))
+                .setDisplayBedNumber(displayBedNumber(patient, bedConfigByDept))
+                .setBundleCompleted(bundleCompleted)
+                .setIsInNumerator(bundleCompleted)
+                .setIsInDenominator(true)
+                .setT0Iso8601(bundle.getT0Iso8601())
+                .setH1Completed(SepsisAndSepticShockBundleService.isSepticShockH1Completed(bundle))
+                .setH3Completed(SepsisAndSepticShockBundleService.isSepticShockH3Completed(bundle))
+                .setH6Completed(SepsisAndSepticShockBundleService.isSepticShockH6Completed(bundle))
+                .build());
+        }
+        return builder.setNumerator(numerator)
+            .setDenominator(denominator)
+            .setRatio(denominator == 0 ? 0 : numerator / denominator)
+            .build();
+    }
+
+    private Map<String, Map<String, BedConfig>> loadBedConfigByDept(List<PatientRecord> patients) {
+        return patients.stream()
+            .map(PatientRecord::getDeptId)
+            .filter(deptId -> !StrUtils.isBlank(deptId))
+            .distinct()
+            .collect(Collectors.toMap(
+                deptId -> deptId,
+                deptId -> {
+                    Map<String, BedConfig> bedConfigMap = patientConfig.getBedConfigMap(deptId);
+                    return bedConfigMap == null ? Map.of() : bedConfigMap;
+                },
+                (a, b) -> a));
+    }
+
+    private String displayBedNumber(PatientRecord patient, Map<String, Map<String, BedConfig>> bedConfigByDept) {
+        String hisBedNumber = patient.getHisBedNumber();
+        BedConfig bedConfig = bedConfigByDept
+            .getOrDefault(patient.getDeptId(), Map.of())
+            .get(hisBedNumber);
+        if (bedConfig == null || StrUtils.isBlank(bedConfig.getDisplayBedNumber())) return nullToEmpty(hisBedNumber);
+        return bedConfig.getDisplayBedNumber();
     }
 
     private IcuQcDvtPreventionRatePB calculateDvt(
@@ -1065,6 +1169,7 @@ public class GenericIcuQcService {
 
     private final PatientService patientService;
     private final PatientConfig patientConfig;
+    private final SepsisAndSepticShockBundleService sepsisAndSepticShockBundleService;
     private final BedUtilizationCalc bedUtilizationCalc;
     private final DepartmentRepository deptRepo;
     private final DepartmentAccountRepository deptAcctRepo;
