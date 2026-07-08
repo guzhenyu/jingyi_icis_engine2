@@ -711,11 +711,17 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
     }
 
     private List<LocalDateTime> getFixedTubeStatsTimes(LocalDateTime startUtc, LocalDateTime endUtc) {
+        return getFixedTubeStatsTimes(startUtc, endUtc, TimeUtils.getNowUtc(), ZONE_ID);
+    }
+
+    static List<LocalDateTime> getFixedTubeStatsTimes(
+        LocalDateTime startUtc, LocalDateTime endUtc, LocalDateTime nowUtc, String zoneId
+    ) {
         List<LocalDateTime> statsTimes = new ArrayList<>();
         if (startUtc == null || endUtc == null || !endUtc.isAfter(startUtc)) return statsTimes;
 
-        LocalDateTime startLocal = TimeUtils.getLocalDateTimeFromUtc(startUtc, ZONE_ID);
-        LocalDateTime endLocal = TimeUtils.getLocalDateTimeFromUtc(endUtc, ZONE_ID);
+        LocalDateTime startLocal = TimeUtils.getLocalDateTimeFromUtc(startUtc, zoneId);
+        LocalDateTime endLocal = TimeUtils.getLocalDateTimeFromUtc(endUtc, zoneId);
         if (startLocal == null || endLocal == null) return statsTimes;
 
         LocalDateTime dayLocal = TimeUtils.truncateToDay(startLocal).minusDays(1);
@@ -723,8 +729,10 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         while (!dayLocal.isAfter(lastDayLocal)) {
             for (Integer hour : TUBE_STATS_LOCAL_HOURS) {
                 LocalDateTime statsLocal = dayLocal.withHour(hour).withMinute(0).withSecond(0).withNano(0);
-                LocalDateTime statsUtc = TimeUtils.getUtcFromLocalDateTime(statsLocal, ZONE_ID);
-                if (statsUtc != null && !statsUtc.isBefore(startUtc) && statsUtc.isBefore(endUtc)) {
+                LocalDateTime statsUtc = TimeUtils.getUtcFromLocalDateTime(statsLocal, zoneId);
+                if (statsUtc != null && !statsUtc.isBefore(startUtc) && statsUtc.isBefore(endUtc) &&
+                    (nowUtc == null || !statsUtc.isAfter(nowUtc))
+                ) {
                     statsTimes.add(statsUtc);
                 }
             }
