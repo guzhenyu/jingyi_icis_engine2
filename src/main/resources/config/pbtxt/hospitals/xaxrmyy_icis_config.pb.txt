@@ -11446,6 +11446,14 @@ device {
                 driver_name: "科曼中央站"
             }
         }
+        entry {
+            device_type_id: 101
+            device_type_name: "通用采集"
+            driver {
+                driver_code: "JY_devicehub"
+                driver_name: "DeviceHub"
+            }
+        }
     }
 }
 diagnosis {
