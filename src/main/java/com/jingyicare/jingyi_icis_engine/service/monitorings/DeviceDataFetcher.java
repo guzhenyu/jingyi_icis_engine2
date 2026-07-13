@@ -845,6 +845,11 @@ public class DeviceDataFetcher {
                 String recordedStr = devData.getRecordedStr();
                 if (recordedStr == null || recordedStr.isEmpty()) continue;
                 GenericValuePB genericVal = ValueMetaUtils.toGenericValue(recordedStr, valueMeta);
+                if (genericVal == null) {
+                    log.warn("Skipping unparsable device data: id={} paramCode={} recordedAt={} recordedStr={}",
+                        devData.getId(), paramCode, devData.getRecordedAt(), recordedStr);
+                    continue;
+                }
                 genericVal = ValueMetaUtils.formatParamValue(genericVal, valueMeta);
                 if (genericVal == null) continue;
                 String paramValue = ProtoUtils.encodeMonitoringValue(

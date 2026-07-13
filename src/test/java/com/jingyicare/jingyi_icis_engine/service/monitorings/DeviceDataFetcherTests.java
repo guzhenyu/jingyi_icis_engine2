@@ -947,6 +947,53 @@ public class DeviceDataFetcherTests extends TestsBase {
         assertThat(resultPair.getSecond()).isEmpty();
     }
 
+    @Test
+    void generateMonitoringRecordsSkipsUnparsableDeviceValue() {
+        DeviceDataFetcher.FetchContext ctx = new DeviceDataFetcher.FetchContext(
+            2209L,
+            TimeUtils.getLocalTime(2025, 8, 6, 0, 0),
+            TimeUtils.getLocalTime(2025, 8, 6, 2, 0),
+            "admin"
+        );
+        ctx.deptId = deptId;
+        ctx.paramMap.put("float_code", MonitoringParamPB.newBuilder()
+            .setCode("float_code")
+            .setValueMeta(ValueMetaPB.newBuilder()
+                .setValueType(TypeEnumPB.FLOAT)
+                .setDecimalPlaces(1)
+                .build())
+            .build());
+
+        List<DeviceData> deviceDataList = List.of(
+            DeviceData.builder()
+                .id(100401L)
+                .departmentId(deptId)
+                .deviceType(101)
+                .paramCode("float_code")
+                .recordedAt(TimeUtils.getLocalTime(2025, 8, 6, 1, 0))
+                .recordedStr("-----")
+                .build(),
+            DeviceData.builder()
+                .id(100402L)
+                .departmentId(deptId)
+                .deviceType(101)
+                .paramCode("float_code")
+                .recordedAt(TimeUtils.getLocalTime(2025, 8, 6, 1, 30))
+                .recordedStr("12.34")
+                .build()
+        );
+
+        List<PatientMonitoringRecord> recordsToAdd = fetcher.generateMonitoringRecords(
+            ctx, Map.of("float_code", deviceDataList)
+        );
+
+        assertThat(recordsToAdd).hasSize(1);
+        PatientMonitoringRecord record = recordsToAdd.get(0);
+        assertThat(record.getMonitoringParamCode()).isEqualTo("float_code");
+        assertThat(record.getEffectiveTime()).isEqualTo(TimeUtils.getLocalTime(2025, 8, 6, 1, 30));
+        assertThat(record.getParamValueStr()).isEqualTo("12.3");
+    }
+
 
     private final String deptId;
 

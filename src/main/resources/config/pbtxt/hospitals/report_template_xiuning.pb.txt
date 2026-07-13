@@ -57,7 +57,7 @@ page {
                             content: "反射"
                             param_code: "XN_LEFT_PUPIL_REFLEX"
                         }
-                        width: 20
+                        width: 30
                         height_rows: 1
                     }
                     children {
@@ -74,7 +74,7 @@ page {
                         }
                         height_rows: 1
                     }
-                    width: 40
+                    width: 60
                     height_rows: 1
                 }
                 top_level_cell {
@@ -271,19 +271,19 @@ page {
                     children {
                         content: "SpO2"
                         param_code: "AH2P_BGA_SPO2"
-                        width: 15
+                        width: 20
                     }
                     children {
                         content: "Lac"
                         param_code: "AH2P_BGA_LAC"
                     }
-                    width: 75
+                    width: 80
                     height_rows: 1
                 }
                 top_level_cell {
                     content: "病情变化及护理措施"
                     param_code: "AH2P_NURSING_RECORD"
-                    width: 126
+                    width: 101
                 }
                 top_level_cell {
                     content: "签名"
