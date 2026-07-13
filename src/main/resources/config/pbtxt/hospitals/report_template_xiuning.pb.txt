@@ -261,12 +261,12 @@ page {
                     children {
                         content: "PCO2"
                         param_code: "AH2P_BGA_PCO2"
-                        width: 15
+                        width: 20
                     }
                     children {
                         content: "PO2"
                         param_code: "AH2P_BGA_PO2"
-                        width: 15
+                        width: 20
                     }
                     children {
                         content: "SpO2"
@@ -277,13 +277,13 @@ page {
                         content: "Lac"
                         param_code: "AH2P_BGA_LAC"
                     }
-                    width: 80
+                    width: 90
                     height_rows: 1
                 }
                 top_level_cell {
                     content: "病情变化及护理措施"
                     param_code: "AH2P_NURSING_RECORD"
-                    width: 101
+                    width: 91
                 }
                 top_level_cell {
                     content: "签名"
