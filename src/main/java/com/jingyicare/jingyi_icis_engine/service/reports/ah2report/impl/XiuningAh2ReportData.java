@@ -176,21 +176,23 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         List<Ah2PageData> dailyDataList = new ArrayList<>();
         while (shiftStartUtc.isBefore(queryEndUtc)) {
             LocalDateTime shiftEndUtc = shiftStartUtc.plusDays(1);
+            LocalDateTime dataEndUtc = resolvePageDataEnd(shiftEndUtc, queryEndUtc);
             ctx.halfDayShiftHours = resolveHalfDayShiftHours(deptId, shiftStartUtc);
-            fillShiftNurses(ctx, pid, shiftStartUtc, shiftEndUtc);
+            fillShiftNurses(ctx, pid, shiftStartUtc, dataEndUtc);
 
             Ah2PageData dailyData = new Ah2PageData();
             dailyData.pageStartTs = shiftStartUtc;
             dailyData.pageEndTs = shiftEndUtc;
             dailyData.rowBlocks.addAll(collectRows(
-                ctx, pid, deptId, shiftStartUtc, shiftEndUtc, accountId, routeIntakeTypeMap, routeNameMap
+                ctx, pid, deptId, shiftStartUtc, dataEndUtc, accountId, routeIntakeTypeMap, routeNameMap
             ));
-            addBalanceSummaryRows(ctx, dailyData.rowBlocks, pid, deptId, shiftStartUtc, shiftEndUtc, accountId);
+            addBalanceSummaryRows(ctx, dailyData.rowBlocks, pid, deptId, shiftStartUtc, dataEndUtc, accountId);
             dailyData.rowBlocks.sort(this::compareRows);
             dailyDataList.add(dailyData);
 
             shiftStartUtc = shiftEndUtc;
         }
+        moveBoundaryRowsToPreviousShift(dailyDataList);
 
         int nursingReportStartId = getNursingReportStartId(pid);
         List<Ah2PageData> pageDataList = paginateData(
@@ -205,6 +207,83 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
             .toList();
 
         return new Pair<>(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.OK), pageDataList);
+    }
+
+    static LocalDateTime resolvePageDataEnd(LocalDateTime shiftEndUtc, LocalDateTime queryEndUtc) {
+        if (shiftEndUtc == null) return queryEndUtc;
+        if (queryEndUtc == null) return shiftEndUtc;
+        return queryEndUtc.isBefore(shiftEndUtc) ? queryEndUtc : shiftEndUtc;
+    }
+
+    static void moveBoundaryRowsToPreviousShift(List<Ah2PageData> dailyDataList) {
+        if (dailyDataList == null || dailyDataList.size() < 2) return;
+
+        for (int i = 1; i < dailyDataList.size(); i++) {
+            Ah2PageData previous = dailyDataList.get(i - 1);
+            Ah2PageData current = dailyDataList.get(i);
+            if (previous == null || current == null ||
+                previous.rowBlocks == null || current.rowBlocks == null
+            ) {
+                continue;
+            }
+
+            LocalDateTime boundary = previous.pageEndTs;
+            if (boundary == null || current.pageStartTs == null || !boundary.equals(current.pageStartTs)) {
+                continue;
+            }
+
+            List<Ah2PageData.RowBlock> boundaryRows = new ArrayList<>();
+            Iterator<Ah2PageData.RowBlock> iterator = current.rowBlocks.iterator();
+            while (iterator.hasNext()) {
+                Ah2PageData.RowBlock rowBlock = iterator.next();
+                if (rowBlock != null && !rowBlock.isSummaryRow && boundary.equals(rowBlock.timestamp)) {
+                    boundaryRows.add(rowBlock);
+                    iterator.remove();
+                }
+            }
+            if (boundaryRows.isEmpty()) continue;
+
+            for (Ah2PageData.RowBlock rowBlock : boundaryRows) {
+                mergeOrAddBoundaryRow(previous.rowBlocks, rowBlock);
+            }
+            previous.rowBlocks.sort(XiuningAh2ReportData::compareRowBlocks);
+            current.rowBlocks.sort(XiuningAh2ReportData::compareRowBlocks);
+        }
+    }
+
+    private static void mergeOrAddBoundaryRow(
+        List<Ah2PageData.RowBlock> previousRows, Ah2PageData.RowBlock boundaryRow
+    ) {
+        Ah2PageData.RowBlock target = findMergeTarget(previousRows, boundaryRow);
+        if (target == null) {
+            previousRows.add(boundaryRow);
+            return;
+        }
+
+        for (Map.Entry<String, List<String>> entry : boundaryRow.wrappedLinesByParam.entrySet()) {
+            if (entry.getKey() == null || entry.getValue() == null) continue;
+            target.wrappedLinesByParam.put(entry.getKey(), new ArrayList<>(entry.getValue()));
+        }
+    }
+
+    private static Ah2PageData.RowBlock findMergeTarget(
+        List<Ah2PageData.RowBlock> rows, Ah2PageData.RowBlock source
+    ) {
+        if (rows == null || source == null || source.wrappedLinesByParam == null ||
+            source.wrappedLinesByParam.isEmpty()
+        ) {
+            return null;
+        }
+
+        for (Ah2PageData.RowBlock row : rows) {
+            if (row == null || row.isSummaryRow || !Objects.equals(row.timestamp, source.timestamp)) continue;
+            if (row.wrappedLinesByParam == null) row.wrappedLinesByParam = new HashMap<>();
+            boolean hasConflict = source.wrappedLinesByParam.keySet().stream()
+                .filter(Objects::nonNull)
+                .anyMatch(row.wrappedLinesByParam::containsKey);
+            if (!hasConflict) return row;
+        }
+        return null;
     }
 
     private int getNursingReportStartId(Long pid) {
@@ -544,6 +623,8 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         Ah2PdfContext ctx, List<Ah2PageData.RowBlock> rows, Long pid, String deptId,
         LocalDateTime shiftStartUtc, LocalDateTime shiftEndUtc, String accountId
     ) {
+        if (shiftStartUtc == null || shiftEndUtc == null || !shiftEndUtc.isAfter(shiftStartUtc)) return;
+
         Pair<LocalDateTime, LocalDateTime> queryUtcTimeRange = monitoringConfig.normalizePmrQueryTimeRange(
             BALANCE_GROUP_TYPE_ID, deptId, shiftStartUtc, shiftEndUtc
         );
@@ -586,6 +667,8 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         }
 
         LocalDateTime halfDayEndUtc = shiftStartUtc.plusHours(normalizeHalfDayShiftHours(ctx));
+        if (!halfDayEndUtc.isBefore(shiftEndUtc)) return;
+
         List<PatientMonitoringRecord> halfRecords = recordsResult.recordList.stream()
             .filter(record -> record.getEffectiveTime() != null && record.getEffectiveTime().isBefore(halfDayEndUtc))
             .sorted(Comparator.comparing(PatientMonitoringRecord::getEffectiveTime))
@@ -1450,6 +1533,13 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
     }
 
     private int compareRows(Ah2PageData.RowBlock a, Ah2PageData.RowBlock b) {
+        return compareRowBlocks(a, b);
+    }
+
+    private static int compareRowBlocks(Ah2PageData.RowBlock a, Ah2PageData.RowBlock b) {
+        if (a == b) return 0;
+        if (a == null) return 1;
+        if (b == null) return -1;
         int tsCompare = Comparator.<LocalDateTime>nullsLast(Comparator.naturalOrder()).compare(a.timestamp, b.timestamp);
         if (tsCompare != 0) return tsCompare;
         return Boolean.compare(a.isSummaryRow, b.isSummaryRow);

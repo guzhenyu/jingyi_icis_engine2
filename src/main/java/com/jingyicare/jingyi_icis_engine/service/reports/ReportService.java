@@ -726,15 +726,30 @@ public class ReportService {
         final LocalDateTime endTime = TimeUtils.fromIso8601String(endTimeIso8601, "UTC").minusMinutes(1);
         if (startTime == null || endTime == null) return new Pair<>(StatusCode.INVALID_TIME_FORMAT, null);
 
-        StatusCode statusCode = patientService.validateTimeRange(patientShift.patient, startTime, endTime);
-        if (statusCode != StatusCode.OK) return new Pair<>(statusCode, null);
-
         final ShiftSettingsPB shiftSettings = patientShift.shiftSettings;
         LocalDateTime shiftStartTime = shiftUtils.getShiftStartTime(shiftSettings, startTime, ZONE_ID);
+        LocalDateTime shiftStartUtc = TimeUtils.getUtcFromLocalDateTime(shiftStartTime, ZONE_ID);
+        LocalDateTime validationEndUtc = resolveReportValidationEnd(
+            shiftStartUtc, endTime, patientShift.patient.getDischargeTime());
+        StatusCode statusCode = patientService.validateTimeRange(
+            patientShift.patient, shiftStartUtc, validationEndUtc);
+        if (statusCode != StatusCode.OK) return new Pair<>(statusCode, null);
         // if (!shiftStartTime.equals(shiftUtils.getShiftStartTime(shiftSettings, endTime, ZONE_ID)))
         //     return new Pair<>(StatusCode.INVALID_TIME_RANGE, null);
 
         return new Pair<>(StatusCode.OK, shiftStartTime);
+    }
+
+    static LocalDateTime resolveReportValidationEnd(
+        LocalDateTime validationStartUtc, LocalDateTime endTimeUtc, LocalDateTime dischargeTimeUtc
+    ) {
+        if (validationStartUtc == null || endTimeUtc == null || dischargeTimeUtc == null) {
+            return endTimeUtc;
+        }
+        if (!validationStartUtc.isAfter(dischargeTimeUtc) && endTimeUtc.isAfter(dischargeTimeUtc)) {
+            return dischargeTimeUtc;
+        }
+        return endTimeUtc;
     }
 
     private Pair<StatusCode, Pair<String, String>> getReportPath(

@@ -2,6 +2,7 @@ package com.jingyicare.jingyi_icis_engine.service.reports;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.LocalDateTime;
 import java.util.*;
 
 import org.junit.jupiter.api.Test;
@@ -127,6 +128,18 @@ public class ReportServiceTests extends TestsBase {
         assertThat(getResp.getPatientStatsList()).extracting(WardPatientStatsPB::getPid)
             .containsExactly(999L);
         assertThat(getResp.getPatientStatsList().get(0).getNightShiftHandoverNote()).isEqualTo("n1");
+    }
+
+    @Test
+    public void reportValidationEndIsClippedWhenShiftOverlapsDischarge() {
+        LocalDateTime shiftStartUtc = TimeUtils.getLocalTime(2026, 7, 8, 23, 0);
+        LocalDateTime reportEndUtc = TimeUtils.getLocalTime(2026, 7, 9, 22, 59);
+        LocalDateTime dischargeUtc = TimeUtils.getLocalTime(2026, 7, 9, 0, 24);
+
+        LocalDateTime validationEndUtc = ReportService.resolveReportValidationEnd(
+            shiftStartUtc, reportEndUtc, dischargeUtc);
+
+        assertThat(validationEndUtc).isEqualTo(dischargeUtc);
     }
 
     private void setAuthentication(String accountId) {
