@@ -186,7 +186,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
             dailyData.rowBlocks.addAll(collectRows(
                 ctx, pid, deptId, shiftStartUtc, dataEndUtc, accountId, routeIntakeTypeMap, routeNameMap
             ));
-            addBalanceSummaryRows(ctx, dailyData.rowBlocks, pid, deptId, shiftStartUtc, dataEndUtc, accountId);
+            addBalanceSummaryRows(ctx, dailyData.rowBlocks, pid, deptId, shiftStartUtc, dataEndUtc, shiftEndUtc, accountId);
             dailyData.rowBlocks.sort(this::compareRows);
             dailyDataList.add(dailyData);
 
@@ -213,6 +213,10 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         if (shiftEndUtc == null) return queryEndUtc;
         if (queryEndUtc == null) return shiftEndUtc;
         return queryEndUtc.isBefore(shiftEndUtc) ? queryEndUtc : shiftEndUtc;
+    }
+
+    static boolean shouldAddFullDaySummary(LocalDateTime dataEndUtc, LocalDateTime shiftEndUtc) {
+        return dataEndUtc != null && shiftEndUtc != null && !dataEndUtc.isBefore(shiftEndUtc);
     }
 
     static void moveBoundaryRowsToPreviousShift(List<Ah2PageData> dailyDataList) {
@@ -495,6 +499,8 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
             setRawRecord(ctx, row, bucket, MP_SPUTUM_CONSISTENCY, XN_SPUTUM_CONSISTENCY, rowIdx);
             setRestraint(ctx, row, bucket, rowIdx);
             setRawRecord(ctx, row, bucket, MP_BACK_PERCUSSION, XN_BACK_PERCUSSION, rowIdx);
+            setRawRecord(ctx, row, bucket, MP_CHEST_VIBRATION_FOR_SPUTUM_REMOVAL,
+                XN_CHEST_VIBRATION_FOR_SPUTUM_REMOVAL, rowIdx);
             setMappedRecord(ctx, row, bucket, MP_SKIN_CARE, XN_SKIN_CARE, rowIdx, SKIN_CARE_MAP);
             setOtherNursing(ctx, row, bucket, rowIdx);
             setMappedRecord(ctx, row, bucket, MP_BODY_POSITION, XN_BODY_POSITION, rowIdx, BODY_POSITION_MAP);
@@ -621,12 +627,12 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
 
     private void addBalanceSummaryRows(
         Ah2PdfContext ctx, List<Ah2PageData.RowBlock> rows, Long pid, String deptId,
-        LocalDateTime shiftStartUtc, LocalDateTime shiftEndUtc, String accountId
+        LocalDateTime shiftStartUtc, LocalDateTime dataEndUtc, LocalDateTime shiftEndUtc, String accountId
     ) {
-        if (shiftStartUtc == null || shiftEndUtc == null || !shiftEndUtc.isAfter(shiftStartUtc)) return;
+        if (shiftStartUtc == null || dataEndUtc == null || !dataEndUtc.isAfter(shiftStartUtc)) return;
 
         Pair<LocalDateTime, LocalDateTime> queryUtcTimeRange = monitoringConfig.normalizePmrQueryTimeRange(
-            BALANCE_GROUP_TYPE_ID, deptId, shiftStartUtc, shiftEndUtc
+            BALANCE_GROUP_TYPE_ID, deptId, shiftStartUtc, dataEndUtc
         );
         List<String> tubeParamCodes = patientTubeImpl.getMonitoringParamCodes(
             pid, queryUtcTimeRange.getFirst(), queryUtcTimeRange.getSecond()
@@ -635,7 +641,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
             pid, deptId, BALANCE_GROUP_TYPE_ID, tubeParamCodes, accountId
         );
         PatientMonitoringService.GetMonitoringRecordsResult recordsResult = patientMonitoringService.getMonitoringRecords(
-            pid, deptId, BALANCE_GROUP_TYPE_ID, shiftStartUtc, shiftEndUtc,
+            pid, deptId, BALANCE_GROUP_TYPE_ID, shiftStartUtc, dataEndUtc,
             false, groupBetaList, accountId
         );
         if (recordsResult.statusCode != StatusCode.OK) {
@@ -655,19 +661,21 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         );
         balanceCalculator.storeGroupRecordsStats(args);
 
-        List<PatientMonitoringRecord> fullRecords = recordsResult.recordList.stream()
-            .filter(record -> record.getEffectiveTime() != null && record.getEffectiveTime().isBefore(shiftEndUtc))
-            .sorted(Comparator.comparing(PatientMonitoringRecord::getEffectiveTime))
-            .toList();
-        args.recordList = fullRecords;
-        args.endTime = shiftEndUtc;
-        List<BalanceGroupSummaryPB> fullSummary = balanceCalculator.summarizeBalanceGroups(args);
-        if (fullSummary != null && !fullSummary.isEmpty()) {
-            rows.add(createSummaryRowBlock(ctx, shiftEndUtc, Consts.REPORT_TEMPLATE_AH2_FULL_DAY_SUMMARY, fullSummary));
+        if (shouldAddFullDaySummary(dataEndUtc, shiftEndUtc)) {
+            List<PatientMonitoringRecord> fullRecords = recordsResult.recordList.stream()
+                .filter(record -> record.getEffectiveTime() != null && record.getEffectiveTime().isBefore(shiftEndUtc))
+                .sorted(Comparator.comparing(PatientMonitoringRecord::getEffectiveTime))
+                .toList();
+            args.recordList = fullRecords;
+            args.endTime = shiftEndUtc;
+            List<BalanceGroupSummaryPB> fullSummary = balanceCalculator.summarizeBalanceGroups(args);
+            if (fullSummary != null && !fullSummary.isEmpty()) {
+                rows.add(createSummaryRowBlock(ctx, shiftEndUtc, Consts.REPORT_TEMPLATE_AH2_FULL_DAY_SUMMARY, fullSummary));
+            }
         }
 
         LocalDateTime halfDayEndUtc = shiftStartUtc.plusHours(normalizeHalfDayShiftHours(ctx));
-        if (!halfDayEndUtc.isBefore(shiftEndUtc)) return;
+        if (!halfDayEndUtc.isBefore(dataEndUtc)) return;
 
         List<PatientMonitoringRecord> halfRecords = recordsResult.recordList.stream()
             .filter(record -> record.getEffectiveTime() != null && record.getEffectiveTime().isBefore(halfDayEndUtc))
@@ -1733,6 +1741,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
     public static final String XN_SPUTUM_CONSISTENCY = "XN_SPUTUM_CONSISTENCY";
     public static final String XN_RESTRAINT = "XN_RESTRAINT";
     public static final String XN_BACK_PERCUSSION = "XN_BACK_PERCUSSION";
+    public static final String XN_CHEST_VIBRATION_FOR_SPUTUM_REMOVAL = "XN_CHEST_VIBRATION_FOR_SPUTUM_REMOVAL";
     public static final String XN_SKIN_CARE = "XN_SKIN_CARE";
     public static final String XN_OTHER_NURSING = "XN_OTHER_NURSING";
     public static final String XN_BODY_POSITION = "XN_BODY_POSITION";
@@ -1744,6 +1753,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
     private static final String MP_SUCTION_XN = "suction";
     private static final String MP_RESTRAINT_STATUS = "restraint_status";
     private static final String MP_BACK_PERCUSSION = "back_percussion";
+    private static final String MP_CHEST_VIBRATION_FOR_SPUTUM_REMOVAL = "chest_vibration_for_sputum_removal";
     private static final String MP_NURSING_ACTIONS = "nursing_actions";
     private static final String MP_STOOL_CONSISTENCY = "stool_consistency";
     private static final String TUBE_OUTPUT_PARAM_PREFIX = "tube_ylg_";

@@ -221,16 +221,25 @@ page {
                         width: 15
                     }
                     children {
-                        content: "约束部位/"
-                        content: "约束情况"
+                        content: "约束"
+                        content: "部位"
+                        content: "/"
+                        content: "约束"
+                        content: "情况"
                         param_code: "XN_RESTRAINT"
-                        width: 24
+                        width: 12
                     }
                     children {
                         content: "扣背/"
                         content: "振动"
                         param_code: "XN_BACK_PERCUSSION"
                         width: 21
+                    }
+                    children {
+                        content: "机械"
+                        content: "排痰"
+                        param_code: "XN_CHEST_VIBRATION_FOR_SPUTUM_REMOVAL"
+                        width: 12
                     }
                     children {
                         content: "皮肤"

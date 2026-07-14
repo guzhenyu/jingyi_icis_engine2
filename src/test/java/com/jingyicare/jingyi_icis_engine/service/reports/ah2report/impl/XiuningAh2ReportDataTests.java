@@ -55,6 +55,23 @@ class XiuningAh2ReportDataTests {
     }
 
     @Test
+    void shouldOnlyAddFullDaySummaryAtNaturalShiftEnd() {
+        String zoneId = "Asia/Shanghai";
+        LocalDateTime shiftEndUtc = TimeUtils.getUtcFromLocalDateTime(
+            LocalDateTime.of(2026, 7, 14, 7, 0), zoneId
+        );
+        LocalDateTime nextShiftEndUtc = TimeUtils.getUtcFromLocalDateTime(
+            LocalDateTime.of(2026, 7, 15, 7, 0), zoneId
+        );
+        LocalDateTime clippedEndUtc = TimeUtils.getUtcFromLocalDateTime(
+            LocalDateTime.of(2026, 7, 14, 7, 59), zoneId
+        );
+
+        assertTrue(XiuningAh2ReportData.shouldAddFullDaySummary(shiftEndUtc, shiftEndUtc));
+        assertFalse(XiuningAh2ReportData.shouldAddFullDaySummary(clippedEndUtc, nextShiftEndUtc));
+    }
+
+    @Test
     void shouldMoveExactBoundaryRowsToPreviousShiftAndMerge() {
         LocalDateTime previousStart = LocalDateTime.of(2026, 7, 9, 23, 0);
         LocalDateTime boundary = LocalDateTime.of(2026, 7, 10, 23, 0);
