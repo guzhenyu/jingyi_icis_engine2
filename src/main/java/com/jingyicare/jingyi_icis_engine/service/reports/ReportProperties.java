@@ -74,7 +74,7 @@ public class ReportProperties {
 
     @Data
     public static class Compact {
-        private String template = "classpath:/config/pbtxt/report_compact.pb.txt";
+        private String template = "classpath:/config/pbtxt/hospitals/xaxrmyy_report_compact.pb.txt";
         private String font = "classpath:/fonts/msyh.ttf";
         private int medicationMlDecimalPlaces = 1;
         private PatientMonitoringRecords patientMonitoringRecords = new PatientMonitoringRecords();

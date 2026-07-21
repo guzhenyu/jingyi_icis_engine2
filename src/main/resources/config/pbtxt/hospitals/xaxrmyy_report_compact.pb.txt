@@ -6382,7 +6382,7 @@ mon_group {
     param_code: "vent_respiratory_rate"
     param_code: "vent_respiratory_mode"
     param_code: "oxygen_delivery_method"
-    param_code: "vent_measured_tidal_volume"
+    param_code: "vent_expired_tidal_volume"
     param_code: "vent_fio2"
     param_code: "vent_peak_flow_rate"
     param_code: "vent_set_respiratory_rate"

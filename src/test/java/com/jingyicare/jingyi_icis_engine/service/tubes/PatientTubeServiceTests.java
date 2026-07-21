@@ -559,7 +559,7 @@ public class PatientTubeServiceTests extends TestsBase {
         assertThat(resp.getNumRows()).isEqualTo(10);
         assertThat(resp.getNumPages()).isEqualTo(4);
         assertThat(resp.getTimeStatusList()).hasSize(3);
-        assertThat(resp.getTimeStatus(0).getRecordedAtIso8601()).isEqualTo("2024-10-23T10:30+08:00");
+        assertThat(resp.getTimeStatus(0).getRecordedAtIso8601()).isEqualTo("2024-10-23T11:00+08:00");
 
         // 查询状态数据-3
         patientTubeStatusReq = patientTubeStatusReq.toBuilder().setPageSize(3).setPageIndex(4).build();
@@ -569,7 +569,7 @@ public class PatientTubeServiceTests extends TestsBase {
         assertThat(resp.getNumRows()).isEqualTo(10);
         assertThat(resp.getNumPages()).isEqualTo(4);
         assertThat(resp.getTimeStatusList()).hasSize(1);
-        assertThat(resp.getTimeStatus(0).getRecordedAtIso8601()).isEqualTo("2024-10-23T11:30+08:00");
+        assertThat(resp.getTimeStatus(0).getRecordedAtIso8601()).isEqualTo("2024-10-23T10:00+08:00");
 
         // 放开查询时间
         patientTubeStatusReq = patientTubeStatusReq.toBuilder()
@@ -579,6 +579,8 @@ public class PatientTubeServiceTests extends TestsBase {
         resp = patientTubeService.getPatientTubeStatus(patientTubeStatusReqJson);
         assertThat(resp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         assertThat(resp.getTimeStatusList()).hasSize(10);
+        assertThat(resp.getTimeStatus(0).getRecordedAtIso8601()).isEqualTo("2024-10-23T11:30+08:00");
+        assertThat(resp.getTimeStatus(9).getRecordedAtIso8601()).isEqualTo("2024-10-23T10:00+08:00");
 
         patientTubeStatusReq = patientTubeStatusReq.toBuilder().setPageSize(3).setPageIndex(4).build();
         patientTubeStatusReqJson = ProtoUtils.protoToJson(patientTubeStatusReq);
@@ -587,7 +589,7 @@ public class PatientTubeServiceTests extends TestsBase {
         assertThat(resp.getNumRows()).isEqualTo(10);
         assertThat(resp.getNumPages()).isEqualTo(4);
         assertThat(resp.getTimeStatusList()).hasSize(1);
-        assertThat(resp.getTimeStatus(0).getRecordedAtIso8601()).isEqualTo("2024-10-23T11:30+08:00");
+        assertThat(resp.getTimeStatus(0).getRecordedAtIso8601()).isEqualTo("2024-10-23T10:00+08:00");
     }
 
     // 测试用户引流管

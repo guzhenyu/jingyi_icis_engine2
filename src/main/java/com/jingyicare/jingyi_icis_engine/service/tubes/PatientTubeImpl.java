@@ -396,6 +396,7 @@ public class PatientTubeImpl {
                 record -> record.getRecordedAt()
             ))
             .entrySet().stream()
+            .sorted(Map.Entry.<LocalDateTime, List<PatientTubeStatusRecord>>comparingByKey().reversed())
             .map(entry -> {
                 // 排序每个时间组内的 TubeStatusValPB
                 List<TubeStatusValPB> sortedStatusList = entry.getValue().stream()
@@ -421,7 +422,6 @@ public class PatientTubeImpl {
                     .addAllStatus(sortedStatusList)
                     .build();
             })
-            .sorted(Comparator.comparing(TubeTimeStatusValListPB::getRecordedAtIso8601))
             .collect(Collectors.toList());
     }
 
@@ -440,7 +440,15 @@ public class PatientTubeImpl {
     ) {
         if (startDate == null) startDate = TimeUtils.getLocalTime(1900, 1, 1);
         if (endDate == null) endDate = TimeUtils.getLocalTime(9999, 1, 1);
-        return ptStatusRecordRepo.findByPatientTubeRecordIdAndIsDeletedFalseAndRecordedAtBetween(patientTubeRecordId, startDate, endDate).stream().map(PatientTubeStatusRecord::getRecordedAt).collect(Collectors.toSet()).stream().sorted().toList();
+        return ptStatusRecordRepo
+            .findByPatientTubeRecordIdAndIsDeletedFalseAndRecordedAtBetween(
+                patientTubeRecordId, startDate, endDate)
+            .stream()
+            .map(PatientTubeStatusRecord::getRecordedAt)
+            .collect(Collectors.toSet())
+            .stream()
+            .sorted(Comparator.reverseOrder())
+            .toList();
     }
 
     public boolean checkExistingStatus(NewPatientTubeStatusReq req) {

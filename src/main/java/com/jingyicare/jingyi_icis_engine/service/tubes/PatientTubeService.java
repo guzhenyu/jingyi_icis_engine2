@@ -491,8 +491,8 @@ public class PatientTubeService {
                     .setNumPages(numPages)
                     .build();
             }
-            queryStart = recordedAtList.get(startIndex);
-            queryEnd = recordedAtList.get(Math.min(startIndex + req.getPageSize(), numRows) - 1);
+            queryEnd = recordedAtList.get(startIndex);
+            queryStart = recordedAtList.get(Math.min(startIndex + req.getPageSize(), numRows) - 1);
         }
 
         // 调用实现类获取状态记录
