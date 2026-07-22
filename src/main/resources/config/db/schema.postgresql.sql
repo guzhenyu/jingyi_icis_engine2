@@ -226,7 +226,7 @@ CREATE TABLE his_patient_records (
     pid VARCHAR(255), -- 本次病历全局ID，对应his_patient_id
     mrn VARCHAR(255) NOT NULL, -- 住院号，对应his_mrn
     index_id VARCHAR(255), -- 病案首页ID，对应his_index_id
-    patient_serial_number VARCHAR(255), -- 病人流水号，对应his_patient_serial_number
+    his_encounter_id VARCHAR(255), -- HIS就诊ID
     admission_count INT, -- 住院次数，对应his_admission_count
     admission_time TIMESTAMP, -- 住院时间，对应his_admission_time
     admission_diagnosis TEXT, -- 入院诊断，对应his_admission_diagnosis
@@ -298,7 +298,7 @@ COMMENT ON COLUMN his_patient_records.id IS '自增主键';
 COMMENT ON COLUMN his_patient_records.pid IS '本次病历全局ID，对应HIS系统中的病人记录表主键ID';
 COMMENT ON COLUMN his_patient_records.mrn IS '住院号，Medical Record Number';
 COMMENT ON COLUMN his_patient_records.index_id IS '病案首页ID';
-COMMENT ON COLUMN his_patient_records.patient_serial_number IS '病人流水号';
+COMMENT ON COLUMN his_patient_records.his_encounter_id IS 'HIS就诊ID';
 COMMENT ON COLUMN his_patient_records.admission_count IS '住院次数';
 COMMENT ON COLUMN his_patient_records.admission_time IS '住院时间';
 COMMENT ON COLUMN his_patient_records.admission_diagnosis IS '入院诊断';
@@ -352,6 +352,7 @@ COMMENT ON COLUMN his_patient_records.operation IS '最近的手术名称';
 COMMENT ON COLUMN his_patient_records.operation_time IS '最近的手术时间';
 COMMENT ON COLUMN his_patient_records.created_at IS '记录创建时间';
 CREATE INDEX idx_his_patient_records_mrn_admission_status ON his_patient_records (mrn, admission_status);
+CREATE INDEX idx_his_patient_records_his_encounter_id_id ON his_patient_records (his_encounter_id, id DESC);
 
 CREATE TABLE patient_records (
     id BIGSERIAL PRIMARY KEY,
@@ -359,7 +360,7 @@ CREATE TABLE patient_records (
     his_mrn VARCHAR(255) NOT NULL,
     his_patient_id VARCHAR(255),
     his_index_id VARCHAR(255),
-    his_patient_serial_number VARCHAR(255),
+    his_encounter_id VARCHAR(255),
     his_admission_count INT,
     his_admission_time TIMESTAMP,
     his_admission_diagnosis TEXT,
@@ -469,7 +470,7 @@ COMMENT ON COLUMN patient_records.id IS '自增主键';
 COMMENT ON COLUMN patient_records.his_mrn IS '病历号, Medical Record Number';
 COMMENT ON COLUMN patient_records.his_patient_id IS 'HIS系统中的病人记录表主键ID';
 COMMENT ON COLUMN patient_records.his_index_id IS '病案首页ID';
-COMMENT ON COLUMN patient_records.his_patient_serial_number IS 'HIS系统中的病人记录表中的病人流水号';
+COMMENT ON COLUMN patient_records.his_encounter_id IS 'HIS就诊ID';
 COMMENT ON COLUMN patient_records.his_admission_count IS 'HIS系统中的病人入院次数';
 COMMENT ON COLUMN patient_records.his_admission_time IS 'HIS系统中的病人入院时间';
 COMMENT ON COLUMN patient_records.his_admission_diagnosis IS 'HIS系统中的病人入院诊断';

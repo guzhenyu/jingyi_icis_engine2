@@ -109,7 +109,7 @@ public class PatientSyncServiceTests extends TestsBase {
         HisPatientRecord hisPatient = PatientTestUtils.newHisPatientRecord(hisId, 1/*在科*/, deptId);
         hisPatient.setPid("dirty-his-pid-" + idSuffix);
         hisPatient.setMrn(mrn);
-        hisPatient.setPatientSerialNumber("dirty-his-serial-" + idSuffix);
+        hisPatient.setHisEncounterId("dirty-his-encounter-" + idSuffix);
         hisPatient.setDischargeTime(LocalDateTime.of(2026, 5, 27, 5, 20));
         hisPatientRepo.save(hisPatient);
 

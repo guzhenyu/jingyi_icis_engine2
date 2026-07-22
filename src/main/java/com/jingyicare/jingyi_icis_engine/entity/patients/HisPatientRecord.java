@@ -28,8 +28,8 @@ public class HisPatientRecord {
     @Column(name = "index_id")
     private String indexId;
 
-    @Column(name = "patient_serial_number")
-    private String patientSerialNumber;
+    @Column(name = "his_encounter_id")
+    private String hisEncounterId;
 
     @Column(name = "admission_count")
     private Integer admissionCount;

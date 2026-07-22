@@ -70,7 +70,7 @@ message HisPatientPB {
     string pid = 1; // 本次病历全局ID，对应his_patient_id
     string mrn = 2; // 住院号，对应his_mrn
     string index_id = 3; // 病案首页ID，对应his_index_id
-    string patient_serial_number = 4; // 病人流水号，对应his_patient_serial_number
+    string his_encounter_id = 4; // HIS就诊ID，对应his_encounter_id
     int32 admission_count = 5; // 住院次数，对应his_admission_count
     string admission_time_iso8601 = 6; // 住院时间，对应his_admission_time
     string admission_diagnosis = 7; // 入院诊断，对应his_admission_diagnosis

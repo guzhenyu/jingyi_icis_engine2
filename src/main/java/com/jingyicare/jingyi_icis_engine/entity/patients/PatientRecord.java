@@ -38,11 +38,11 @@ public class PatientRecord {
     @Column(name = "his_index_id")
     private String hisIndexId; // 病案首页ID
 
-    public String getHisPatientSerialNumber() {
-        return hisPatientSerialNumber == null ? "" : hisPatientSerialNumber;
+    public String getHisEncounterId() {
+        return hisEncounterId == null ? "" : hisEncounterId;
     }
-    @Column(name = "his_patient_serial_number")
-    private String hisPatientSerialNumber; // HIS系统中的病人记录表中的病人流水号
+    @Column(name = "his_encounter_id")
+    private String hisEncounterId; // HIS系统中的就诊ID
 
     public Integer getHisAdmissionCount() {
         return hisAdmissionCount == null ? 0 : hisAdmissionCount;

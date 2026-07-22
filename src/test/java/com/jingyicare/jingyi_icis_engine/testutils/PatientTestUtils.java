@@ -15,7 +15,7 @@ public class PatientTestUtils {
         record.setHisMrn("mrn" + id);
         record.setHisPatientId("hisPatientId" + id);
         record.setHisIndexId("hisIndexId" + id);
-        record.setHisPatientSerialNumber("hisPatientSerialNumber" + id);
+        record.setHisEncounterId("hisEncounterId" + id);
         record.setHisAdmissionCount(1);
         record.setHisAdmissionTime(now);
         record.setHisAdmissionDiagnosis("hisAdmissionDiagnosis" + id);
@@ -99,7 +99,7 @@ public class PatientTestUtils {
         record.setPid("hisPatientId" + id);
         record.setMrn("mrn" + id);
         record.setIndexId("hisIndexId" + id);
-        record.setPatientSerialNumber("patientSerialNumber" + id);
+        record.setHisEncounterId("hisEncounterId" + id);
         record.setAdmissionCount(1);
         record.setAdmissionTime(now);
         record.setAdmissionDiagnosis("admissionDiagnosis" + id);

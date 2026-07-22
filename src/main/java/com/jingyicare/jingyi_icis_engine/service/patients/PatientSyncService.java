@@ -355,9 +355,9 @@ public class PatientSyncService {
             patientRecord.setHisIndexId(hisRecord.getIndexId());
             isUpdated = true;
         }
-        // 4. his_patient_serial_number
-        if (StrUtils.isBlank(patientRecord.getHisPatientSerialNumber()) && !StrUtils.isBlank(hisRecord.getPatientSerialNumber())) {
-            patientRecord.setHisPatientSerialNumber(hisRecord.getPatientSerialNumber());
+        // 4. his_encounter_id
+        if (StrUtils.isBlank(patientRecord.getHisEncounterId()) && !StrUtils.isBlank(hisRecord.getHisEncounterId())) {
+            patientRecord.setHisEncounterId(hisRecord.getHisEncounterId());
             isUpdated = true;
         }
         // 5. his_admission_count  强制更新

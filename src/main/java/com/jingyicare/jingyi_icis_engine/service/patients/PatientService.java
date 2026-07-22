@@ -1542,9 +1542,9 @@ public class PatientService {
                 if (patientRec.getHisIndexId() == null) return "";
                 return patientRec.getHisIndexId();
 
-            case "his_patient_serial_number":
-                if (patientRec.getHisPatientSerialNumber() == null) return "";
-                return patientRec.getHisPatientSerialNumber();
+            case "his_encounter_id":
+                if (patientRec.getHisEncounterId() == null) return "";
+                return patientRec.getHisEncounterId();
 
             case "his_admission_count":
                 if (patientRec.getHisAdmissionCount() == null) return "";
