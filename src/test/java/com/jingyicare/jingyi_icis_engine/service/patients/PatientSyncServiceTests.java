@@ -71,10 +71,12 @@ public class PatientSyncServiceTests extends TestsBase {
         PatientRecord patient = PatientTestUtils.newPatientRecord(2001L, 1/*在科*/, deptId);
         patient.setAdmissionTime(admissionTime);
         patient.setDischargeTime(null);
+        patient.setFromDeptId(null);
+        patient.setFromDeptName(null);
         patient = patientRepo.save(patient);
 
         HisPatientRecord hisPatient = PatientTestUtils.newHisPatientRecord(2001L, 1/*在科*/, deptId);
-        hisPatient.setIcuAdmissionTime(admissionTime);
+        hisPatient.setDeptAdmissionTime(admissionTime);
         hisPatient = hisPatientRepo.save(hisPatient);
 
         // 检查病人床位历史
@@ -93,6 +95,8 @@ public class PatientSyncServiceTests extends TestsBase {
         patient = patientRepo.findById(patient.getId()).orElse(null);
         assertThat(patient).isNotNull();
         assertThat(patient.getHisBedNumber()).isEqualTo("hisBedNumber2099");
+        assertThat(patient.getFromDeptId()).isEqualTo("fromDeptId2001");
+        assertThat(patient.getFromDeptName()).isEqualTo("fromDeptName2001");
     }
 
     @Test

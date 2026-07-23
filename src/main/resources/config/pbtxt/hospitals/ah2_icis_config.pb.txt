@@ -114,15 +114,15 @@ patient {
             id: 7
             name: "病危"
         }
-        discharged_type {
+        discharge_type {
             id: 1
             name: "转出"
         }
-        discharged_type {
+        discharge_type {
             id: 2
             name: "死亡"
         }
-        discharged_type {
+        discharge_type {
             id: 3
             name: "出院"
         }
@@ -445,7 +445,7 @@ patient {
                 column_name: "计划入科"
             }
             required_col {
-                column_id: "admission_source_dept_name"
+                column_id: "from_dept_name"
                 column_name: "入科来源科室"
             }
             required_col {
@@ -461,7 +461,7 @@ patient {
             col_id_to_display: "admission_time"
             col_id_to_display: "diagnosis"
             col_id_to_display: "is_planned_admission"
-            col_id_to_display: "admission_source_dept_name"
+            col_id_to_display: "from_dept_name"
             col_id_to_display: "admission_type"
         }
     }
@@ -507,11 +507,11 @@ patient {
                 column_name: "出科时间"
             }
             required_col {
-                column_id: "discharged_type"
+                column_id: "discharge_type"
                 column_name: "出科类型"
             }
             required_col {
-                column_id: "discharged_dept_name"
+                column_id: "to_dept_name"
                 column_name: "转出科室名称"
             }
             col_id_to_display: "id"
@@ -523,8 +523,8 @@ patient {
             col_id_to_display: "admission_time"
             col_id_to_display: "diagnosis"
             col_id_to_display: "discharge_time"
-            col_id_to_display: "discharged_type"
-            col_id_to_display: "discharged_dept_name"
+            col_id_to_display: "discharge_type"
+            col_id_to_display: "to_dept_name"
         }
     }
     default_display_field_settings {
@@ -561,7 +561,7 @@ patient {
                 column_name: "入科类型"
             }
             required_col {
-                column_id: "admission_source_dept_name"
+                column_id: "from_dept_name"
                 column_name: "入科来源"
             }
             required_col {
@@ -569,11 +569,11 @@ patient {
                 column_name: "出科时间"
             }
             required_col {
-                column_id: "discharged_type"
+                column_id: "discharge_type"
                 column_name: "出科类型"
             }
             required_col {
-                column_id: "discharged_dept_name"
+                column_id: "to_dept_name"
                 column_name: "转出科室"
             }
             required_col {
@@ -595,10 +595,10 @@ patient {
             col_id_to_display: "icu_age"
             col_id_to_display: "admission_time"
             col_id_to_display: "admission_type"
-            col_id_to_display: "admission_source_dept_name"
+            col_id_to_display: "from_dept_name"
             col_id_to_display: "discharge_time"
-            col_id_to_display: "discharged_type"
-            col_id_to_display: "discharged_dept_name"
+            col_id_to_display: "discharge_type"
+            col_id_to_display: "to_dept_name"
             col_id_to_display: "diagnosis"
             col_id_to_display: "admission_days"
         }

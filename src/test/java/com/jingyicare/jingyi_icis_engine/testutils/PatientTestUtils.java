@@ -66,8 +66,8 @@ public class PatientTestUtils {
         record.setPrimaryCareDoctorId("primaryCareDoctorId" + id);
         record.setAdmittingDoctorId("admittingDoctorId" + id);
         record.setResponsibleNurseId("responsibleNurseId" + id);
-        record.setAdmissionSourceDeptName("admissionSourceDeptName" + id);
-        record.setAdmissionSourceDeptId("admissionSourceDeptId" + id);
+        record.setFromDeptName("fromDeptName" + id);
+        record.setFromDeptId("fromDeptId" + id);
         record.setAdmissionType(1);  // todo(guzhenyu): deprecate this. 1 - "入院"
         record.setIsPlannedAdmission(true);
         record.setUnplannedAdmissionReason("");
@@ -78,15 +78,15 @@ public class PatientTestUtils {
         record.setDiagnosis("diagnosis" + id);
         record.setDiagnosisTcm("diagnosisTcm" + id);
         record.setDiagnosisType("diagnosisType" + id);
-        record.setDischargedType(1);  // todo(guzhenyu): deprecate this. 1 - "转出"
-        record.setDischargedDeathTime(now);
-        record.setDischargedHospitalExitTime(now);
-        record.setDischargedDiagnosis("dischargedDiagnosis" + id);
-        record.setDischargedDeptName("dischargedDeptName" + id);
-        record.setDischargedDeptId("dischargedDeptId" + id);
+        record.setDischargeType(1);  // todo(guzhenyu): deprecate this. 1 - "转出"
+        record.setDeathTime(now);
+        record.setHisDischargeTime(now);
+        record.setDischargeDiagnosis("dischargeDiagnosis" + id);
+        record.setToDeptName("toDeptName" + id);
+        record.setToDeptId("toDeptId" + id);
         record.setDischargeTime(now);
         record.setDischargeEditTime(now);
-        record.setDischargingAccountId("dischargingAccountId" + id);
+        record.setDischargeAccountId("dischargeAccountId" + id);
         record.setCreatedAt(now);
 
         return record;
@@ -136,18 +136,18 @@ public class PatientTestUtils {
         record.setWardCode("wardCode" + id);
         record.setWardName("wardName" + id);
         record.setAttendingDoctorName("attendingDoctorName" + id);
-        record.setAdmissionSourceDeptName("admissionSourceDeptName" + id);
+        record.setFromDeptName("fromDeptName" + id);
+        record.setFromDeptId("fromDeptId" + id);
         record.setAdmissionStatus(admissionStatus);
-        record.setIcuAdmissionTime(now);
+        record.setDeptAdmissionTime(now);
         record.setDiagnosisTime(now);
         record.setDiagnosisCode("diagnosisCode" + id);
         record.setDiagnosis("diagnosis" + id);
         record.setDiagnosisTcmTime(now);
         record.setDiagnosisTcmCode("diagnosisTcmCode" + id);
         record.setDiagnosisTcm("diagnosisTcm" + id);
-        record.setDischargedType(1);
-        record.setDischargedDeptId("dischargedDeptId" + id);
-        record.setDischargedDeptName("dischargedDeptName" + id);
+        record.setToDeptId("toDeptId" + id);
+        record.setToDeptName("toDeptName" + id);
         record.setOperation("operation" + id);
         record.setOperationTime(now);
         record.setCreatedAt(now);

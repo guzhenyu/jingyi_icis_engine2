@@ -718,7 +718,7 @@
         no_str: "否"
         admission_status_str: "入科状态"
         admission_type_str: "入科类型"
-        discharged_type_str: "出科类型"
+        discharge_type_str: "出科类型"
         gender_str: "性别"
         marital_status_str: "婚姻状况"
         is_planned_admission_str: "是否计划入科"

@@ -140,8 +140,8 @@ public class PatientServiceTests extends TestsBase {
     //     LocalDateTime now = LocalDateTime.now();
     //     admissionInputs.setAdmissionType("转入");
     //     admissionInputs.setAdmissionTime(now);
-    //     admissionInputs.setAdmissionSourceDeptId("1008");
-    //     admissionInputs.setAdmissionSourceDeptName("门诊");
+    //     admissionInputs.setFromDeptId("1008");
+    //     admissionInputs.setFromDeptName("门诊");
     //     admissionInputs.setIsPlannedAdmission(true);
     //     admissionInputs.setPrimaryCareDoctorId("管床医生Idxxxx");
     //     admissionInputs.setAdmissionEditTime(now);
@@ -171,11 +171,11 @@ public class PatientServiceTests extends TestsBase {
     //     PatientRecord.DischargeInputs dischargeInputs = new PatientRecord.DischargeInputs();
     //     LocalDateTime now = TimeUtils.getLocalTime(2024,8,30);
     //     dischargeInputs.setDischargeTime(LocalDateTime.now());//出科时间
-    //     dischargeInputs.setDischargedType("转出");//出科时间
-    //     dischargeInputs.setDischargedDeptId("1100");
-    //     dischargeInputs.setDischargedDeptName("外科");
+    //     dischargeInputs.setDischargeType("转出");//出科时间
+    //     dischargeInputs.setToDeptId("1100");
+    //     dischargeInputs.setToDeptName("外科");
     //     dischargeInputs.setDischargeEditTime(now);
-    //     dischargeInputs.setDischargingAccountId("出科操作人");
+    //     dischargeInputs.setDischargeAccountId("出科操作人");
     //     record.get().setDischargeInputs(dischargeInputs);
 
 
@@ -184,11 +184,11 @@ public class PatientServiceTests extends TestsBase {
     //     //验证是否修改成功
     //     Optional<PatientRecord> optional2 = patientRecordRepository.findById(5L);
     //     assertEquals(PatientRecord.AdmissionStatusEnum.DISCHARGED,optional2.get().getAdmissionStatus());
-    //     assertEquals("转出",optional2.get().getDischargedType());
-    //     assertEquals("1100",optional2.get().getDischargedDeptId());
-    //     assertEquals("外科",optional2.get().getDischargedDeptName());
+    //     assertEquals("转出",optional2.get().getDischargeType());
+    //     assertEquals("1100",optional2.get().getToDeptId());
+    //     assertEquals("外科",optional2.get().getToDeptName());
     //     assertEquals(now,optional2.get().getDischargeEditTime());
-    //     assertEquals("出科操作人",optional2.get().getDischargingAccountId());
+    //     assertEquals("出科操作人",optional2.get().getDischargeAccountId());
 
     // }
 
@@ -241,8 +241,8 @@ public class PatientServiceTests extends TestsBase {
     //     patientRecord.setIsPlannedAdmission(true);//计划入科
     //     patientRecord.setBedNumberStr("9");
     //     patientRecord.setHisPatientId("12345678901");
-    //     patientRecord.setAdmissionSourceDeptId("10016");
-    //     patientRecord.setAdmissionSourceDeptName("急诊");
+    //     patientRecord.setFromDeptId("10016");
+    //     patientRecord.setFromDeptName("急诊");
     //     patientRecord.setIcuManualEntry(true);//手动添加
     //     patientRecord.setIcuManualEntryAccountId("XXX");//添加人
     //     patientRecord.setAdmissionStatus(PatientRecord.AdmissionStatusEnum.IN_ICU);
@@ -263,8 +263,8 @@ public class PatientServiceTests extends TestsBase {
     //     assertTrue(optional.get().getIsPlannedAdmission());
     //     assertEquals("9",optional.get().getBedNumberStr());
     //     assertEquals("12345678901",optional.get().getHisPatientId());
-    //     assertEquals("10016",optional.get().getAdmissionSourceDeptId());
-    //     assertEquals("急诊",optional.get().getAdmissionSourceDeptName());
+    //     assertEquals("10016",optional.get().getFromDeptId());
+    //     assertEquals("急诊",optional.get().getFromDeptName());
     //     assertTrue(optional.get().getIcuManualEntry());
     //     assertEquals("XXX",optional.get().getIcuManualEntryAccountId());
     //     assertEquals(PatientRecord.AdmissionStatusEnum.IN_ICU,optional.get().getAdmissionStatus());

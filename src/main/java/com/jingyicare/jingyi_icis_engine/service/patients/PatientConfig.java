@@ -92,7 +92,7 @@ public class PatientConfig {
             .findFirst()
             .get()
             .getId();
-        this.DISCHARGE_TYPE_DEAD_VAL = enumsV2.getDischargedTypeList().stream()
+        this.DISCHARGE_TYPE_DEAD_VAL = enumsV2.getDischargeTypeList().stream()
             .filter(e -> e.getName().equals("死亡"))
             .findFirst()
             .get()
@@ -133,16 +133,16 @@ public class PatientConfig {
     }
 
     public static void clearDischargeFields(PatientRecord patient) {
-        patient.setDischargedType(null);
-        patient.setDischargedDeathTime(null);
-        patient.setDischargedHospitalExitTime(null);
-        patient.setDischargedDiagnosis(null);
-        patient.setDischargedDiagnosisCode(null);
-        patient.setDischargedDeptName(null);
-        patient.setDischargedDeptId(null);
+        patient.setDischargeType(null);
+        patient.setDeathTime(null);
+        patient.setHisDischargeTime(null);
+        patient.setDischargeDiagnosis(null);
+        patient.setDischargeDiagnosisCode(null);
+        patient.setToDeptName(null);
+        patient.setToDeptId(null);
         patient.setDischargeTime(null);
         patient.setDischargeEditTime(null);
-        patient.setDischargingAccountId(null);
+        patient.setDischargeAccountId(null);
     }
 
     @Transactional
@@ -181,8 +181,8 @@ public class PatientConfig {
         return "";
     }
 
-    public String getDischargedTypeStr(Integer typeId) {
-        for (EnumValue enumVal : protoService.getConfig().getPatient().getEnumsV2().getDischargedTypeList()) {
+    public String getDischargeTypeStr(Integer typeId) {
+        for (EnumValue enumVal : protoService.getConfig().getPatient().getEnumsV2().getDischargeTypeList()) {
             if (enumVal.getId() == typeId) {
                 return enumVal.getName();
             }

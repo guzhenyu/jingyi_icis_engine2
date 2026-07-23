@@ -554,9 +554,14 @@ public class PatientSyncService {
                 isUpdated = true;
             }
         }
-        // 41. admission_source_dept_name
-        if (StrUtils.isBlank(patientRecord.getAdmissionSourceDeptName()) && !StrUtils.isBlank(hisRecord.getAdmissionSourceDeptName())) {
-            patientRecord.setAdmissionSourceDeptName(hisRecord.getAdmissionSourceDeptName());
+        // 41. from_dept_name
+        if (StrUtils.isBlank(patientRecord.getFromDeptName()) && !StrUtils.isBlank(hisRecord.getFromDeptName())) {
+            patientRecord.setFromDeptName(hisRecord.getFromDeptName());
+            isUpdated = true;
+        }
+        // 41. from_dept_id
+        if (StrUtils.isBlank(patientRecord.getFromDeptId()) && !StrUtils.isBlank(hisRecord.getFromDeptId())) {
+            patientRecord.setFromDeptId(hisRecord.getFromDeptId());
             isUpdated = true;
         }
         // 42. admission_status  强制更新
@@ -578,8 +583,8 @@ public class PatientSyncService {
             isUpdated = true;
         }
         // 43. admission_time
-        if (hisRecord.getIcuAdmissionTime() != null && patientRecord.getAdmissionTime() == null) {
-            patientRecord.setAdmissionTime(hisRecord.getIcuAdmissionTime());
+        if (hisRecord.getDeptAdmissionTime() != null && patientRecord.getAdmissionTime() == null) {
+            patientRecord.setAdmissionTime(hisRecord.getDeptAdmissionTime());
             isUpdated = true;
         }
         // 44. diagnosis, diagnosis_tcm, diagnosis_type
@@ -631,14 +636,14 @@ public class PatientSyncService {
             patientRecord.setSurgeryOperationTime(hisRecord.getOperationTime());
             isUpdated = true;
         }
-        // 46. discharged_dept_name
-        if (StrUtils.isBlank(patientRecord.getDischargedDeptName()) && !StrUtils.isBlank(hisRecord.getDischargedDeptName())) {
-            patientRecord.setDischargedDeptName(hisRecord.getDischargedDeptName());
+        // 46. to_dept_name
+        if (StrUtils.isBlank(patientRecord.getToDeptName()) && !StrUtils.isBlank(hisRecord.getToDeptName())) {
+            patientRecord.setToDeptName(hisRecord.getToDeptName());
             isUpdated = true;
         }
-        // 47. discharged_dept_id
-        if (StrUtils.isBlank(patientRecord.getDischargedDeptId()) && !StrUtils.isBlank(hisRecord.getDischargedDeptId())) {
-            patientRecord.setDischargedDeptId(hisRecord.getDischargedDeptId());
+        // 47. to_dept_id
+        if (StrUtils.isBlank(patientRecord.getToDeptId()) && !StrUtils.isBlank(hisRecord.getToDeptId())) {
+            patientRecord.setToDeptId(hisRecord.getToDeptId());
             isUpdated = true;
         }
         // 48. discharge_time

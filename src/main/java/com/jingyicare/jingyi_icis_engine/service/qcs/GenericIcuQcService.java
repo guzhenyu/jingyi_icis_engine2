@@ -790,7 +790,7 @@ public class GenericIcuQcService {
         for (PatientRecord patient : patients) {
             if (!overlapsPeriod(patient, statsStartUtc, statsEndUtc)) continue;
             denominatorPatientCnt += 1;
-            boolean isDead = Objects.equals(patient.getDischargedType(), patientConfig.getDischargeTypeDeadId());
+            boolean isDead = Objects.equals(patient.getDischargeType(), patientConfig.getDischargeTypeDeadId());
             if (isDead) deadCnt += 1;
             ApacheIIScore score = firstApacheScore(patient, apacheMap.getOrDefault(patient.getId(), List.of()), statsEndUtc);
             double predicted = score == null || score.getPredictedMortalityRate() == null
@@ -938,7 +938,7 @@ public class GenericIcuQcService {
     }
 
     private IcuQcPatientPB toPatientPb(PatientRecord patient) {
-        boolean isDead = Objects.equals(patient.getDischargedType(), patientConfig.getDischargeTypeDeadId());
+        boolean isDead = Objects.equals(patient.getDischargeType(), patientConfig.getDischargeTypeDeadId());
         return IcuQcPatientPB.newBuilder()
             .setPatientId(patient.getId() == null ? 0 : patient.getId())
             .setHisMrn(patient.getHisMrn())
@@ -946,10 +946,10 @@ public class GenericIcuQcService {
             .setAdmissionTimeIso8601(TimeUtils.toIso8601String(patient.getAdmissionTime(), zoneId))
             .setDischargeTimeIso8601(TimeUtils.toIso8601String(patient.getDischargeTime(), zoneId))
             .setAdmissionStatus(patient.getAdmissionStatus())
-            .setAdmissionSourceDeptName(patient.getAdmissionSourceDeptName())
+            .setFromDeptName(patient.getFromDeptName())
             .setAdmissionTypes(patient.getAdmissionTypes())
             .setIsDead(isDead)
-            .setDeathTimeIso8601(TimeUtils.toIso8601String(patient.getDischargedDeathTime(), zoneId))
+            .setDeathTimeIso8601(TimeUtils.toIso8601String(patient.getDeathTime(), zoneId))
             .build();
     }
 
@@ -1097,7 +1097,7 @@ public class GenericIcuQcService {
 
     private boolean isSurgicalAdmission(PatientRecord patient) {
         if (hasAdmissionType(patient, patientConfig.getAdmissionTypeSurgeryId())) return true;
-        String src = patient.getAdmissionSourceDeptName();
+        String src = patient.getFromDeptName();
         return src != null && (
             src.contains("手术室") || src.contains("复苏室") || src.contains("麻醉恢复室") || src.contains("PACU")
         );

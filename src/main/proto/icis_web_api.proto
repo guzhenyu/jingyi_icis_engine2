@@ -239,7 +239,7 @@ enum StatusCode {
     DISCHARGE_TYPE_TRANSFER_NEEDS_TARGET_DEPT_NAME = 200;       // 转出时需要目标科室名称
     DISCHARGE_TYPE_DEATH_NEEDS_DEATH_TIME = 201;                // 死亡时需要死亡时间
     DISCHARGE_TYPE_EXIT_HOSPITAL_NEEDS_EXIT_TIME = 202;         // 出院时需要出院时间
-    INVALID_DISCHARGED_TYPE = 203;                              // 无效的出科类型
+    INVALID_DISCHARGE_TYPE = 203;                               // 无效的出科类型
     NURSING_ORDER_TIME_BEFORE_ADMISSION = 204;                  // 护嘱开立时间不允许早于入科时间
     MEDICATION_CODE_AND_NAME_ARE_BLANK = 205; // 药品编码和名称都为空
     MEDICATION_ALREADY_EXISTS = 206; // 药品已存在
@@ -926,7 +926,7 @@ message NewPatientReq {
     string bed_number_str = 5;                // 床号
     string admission_time = 6;                // 入科时间
     repeated int32 admission_type = 7;        // 入科类型(枚举)
-    string admission_source_dept_name = 8;    // 入科来源
+    string from_dept_name = 8;                // 入科来源
     string primary_care_doctor_id = 9;        // 管床医生
     int32 is_planned_admission = 10;          // 是否计划入科(布尔)
     string unplanned_admission_reason = 11;   // 非计划入科原因
@@ -944,7 +944,7 @@ message AdmitPatientReq {
     string his_mrn = 1;                       // 住院号
     string admission_time = 2;                // 入科时间
     repeated int32 admission_type = 3;        // 入科类型(枚举)
-    string admission_source_dept_name = 4;    // 入科来源
+    string from_dept_name = 4;                // 入科来源
     string primary_care_doctor_id = 5;        // 管床医生
     int32 is_planned_admission = 6;           // 是否计划入科(布尔)
     string unplanned_admission_reason = 7;    // 非计划入科原因
@@ -964,11 +964,11 @@ message DischargePatientReq {
     int64 id = 1;  // patient_records.id
     string his_mrn = 2;                       // 住院号
     string discharge_time = 3;                // 出科时间
-    int32 discharged_type = 4;                // 出科类型(枚举)
-    string discharged_dept_name = 5;          // 转出科室
-    string discharged_death_time = 6;         // 死亡时间
+    int32 discharge_type = 4;                 // 出科类型(枚举)
+    string to_dept_name = 5;                  // 去向科室
+    string death_time = 6;                    // 死亡时间
     string dept_id = 7;                       // 科室id
-    string discharged_hospital_exit_time_iso8601 = 8; // 出院时间
+    string his_discharge_time_iso8601 = 8;    // HIS出院时间
 }
 
 /*
@@ -1006,9 +1006,9 @@ message GetPatientInfoResp {
 
     // 出科信息
     string discharge_time = 19;
-    int32 discharged_type = 20;
-    string discharged_dept_name = 21;
-    string discharged_death_time = 22;
+    int32 discharge_type = 20;
+    string to_dept_name = 21;
+    string death_time = 22;
 }
 
 /*
@@ -1041,9 +1041,9 @@ message UpdatePatientInfoReq {
 
     // 出科信息
     string discharge_time = 6;
-    int32 discharged_type = 7;
-    string discharged_dept_name = 8;
-    string discharged_death_time = 9;
+    int32 discharge_type = 7;
+    string to_dept_name = 8;
+    string death_time = 9;
 }
 
 /*

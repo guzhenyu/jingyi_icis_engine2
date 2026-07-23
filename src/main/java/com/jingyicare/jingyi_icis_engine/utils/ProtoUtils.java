@@ -463,8 +463,8 @@ public class ProtoUtils {
         //     .admission_type
         //     .is_planned_admission
         //     .unplanned_admission_reason
-        //     .discharged_type
-        //     .discharged_dept_name
+        //     .discharge_type
+        //     .to_dept_name
         fields.add(GetPatientInfoResp.getDescriptor().findFieldByNumber(5));
         fields.add(GetPatientInfoResp.getDescriptor().findFieldByNumber(9));
         fields.add(GetPatientInfoResp.getDescriptor().findFieldByNumber(11));

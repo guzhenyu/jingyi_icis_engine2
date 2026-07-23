@@ -8,7 +8,7 @@ message WebApiMessage {
     string no_str = 3;                  // 否
     string admission_status_str = 4;    // 入科状态
     string admission_type_str = 5;      // 入科类型
-    string discharged_type_str = 6;      // 出科类型
+    string discharge_type_str = 6;      // 出科类型
     string gender_str = 7;              // 性别
     string marital_status_str = 8;      // 婚姻状况
     string is_planned_admission_str = 9;// 是否计划入科

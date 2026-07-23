@@ -370,17 +370,17 @@ public class PatientRecord {
     @Column(name = "responsible_nurse_id")
     private String responsibleNurseId; // 责任护士ID
 
-    public String getAdmissionSourceDeptName() {
-        return admissionSourceDeptName == null ? "" : admissionSourceDeptName;
+    public String getFromDeptName() {
+        return fromDeptName == null ? "" : fromDeptName;
     }
-    @Column(name = "admission_source_dept_name")
-    private String admissionSourceDeptName; // 入科来源科室名称，也可以是护士手动输入
+    @Column(name = "from_dept_name")
+    private String fromDeptName; // 来源科室名称，也可以是护士手动输入
 
-    public String getAdmissionSourceDeptId() {
-        return admissionSourceDeptId == null ? "" : admissionSourceDeptId;
+    public String getFromDeptId() {
+        return fromDeptId == null ? "" : fromDeptId;
     }
-    @Column(name = "admission_source_dept_id")
-    private String admissionSourceDeptId; // 入科来源科室ID，如果入科来源科室名称不是HIS系统中的名称，该id置空
+    @Column(name = "from_dept_id")
+    private String fromDeptId; // 来源科室ID，如果来源科室名称不是HIS系统中的名称，该id置空
 
     public Integer getAdmissionType() {
         return admissionType == null ? 0 : admissionType;
@@ -452,41 +452,41 @@ public class PatientRecord {
     @Column(name = "surgery_operation_time")
     private LocalDateTime surgeryOperationTime; // 手术操作时间
 
-    public Integer getDischargedType() {
-        return dischargedType == null ? 0 : dischargedType;
+    public Integer getDischargeType() {
+        return dischargeType == null ? 0 : dischargeType;
     }
-    @Column(name = "discharged_type")
-    private Integer dischargedType; // 出科类型：转出、死亡、出院
+    @Column(name = "discharge_type")
+    private Integer dischargeType; // 出科类型：转出、死亡、出院
 
-    @Column(name = "discharged_death_time")
-    private LocalDateTime dischargedDeathTime; // 死亡时间。当出科类型为*死亡*时，该字段有效
+    @Column(name = "death_time")
+    private LocalDateTime deathTime; // 死亡时间。当出科类型为*死亡*时，该字段有效
 
-    @Column(name = "discharged_hospital_exit_time")
-    private LocalDateTime dischargedHospitalExitTime; // 出院时间。当出科类型为*出院*时，该字段有效
+    @Column(name = "his_discharge_time")
+    private LocalDateTime hisDischargeTime; // HIS出院时间。当出科类型为*出院*时，该字段有效
 
-    public String getDischargedDiagnosis() {
-        return dischargedDiagnosis == null ? "" : dischargedDiagnosis;
+    public String getDischargeDiagnosis() {
+        return dischargeDiagnosis == null ? "" : dischargeDiagnosis;
     }
-    @Column(name = "discharged_diagnosis")
-    private String dischargedDiagnosis; // 出科诊断
+    @Column(name = "discharge_diagnosis", columnDefinition = "TEXT")
+    private String dischargeDiagnosis; // 出科诊断
 
-    public String getDischargedDiagnosisCode() {
-        return dischargedDiagnosisCode == null ? "" : dischargedDiagnosisCode;
+    public String getDischargeDiagnosisCode() {
+        return dischargeDiagnosisCode == null ? "" : dischargeDiagnosisCode;
     }
-    @Column(name = "discharged_diagnosis_code")
-    private String dischargedDiagnosisCode; // 出科诊断编码
+    @Column(name = "discharge_diagnosis_code", length = 1000)
+    private String dischargeDiagnosisCode; // 出科诊断编码
 
-    public String getDischargedDeptName() {
-        return dischargedDeptName == null ? "" : dischargedDeptName;
+    public String getToDeptName() {
+        return toDeptName == null ? "" : toDeptName;
     }
-    @Column(name = "discharged_dept_name")
-    private String dischargedDeptName; // 转出科室名称
+    @Column(name = "to_dept_name")
+    private String toDeptName; // 去向科室名称
 
-    public String getDischargedDeptId() {
-        return dischargedDeptId == null ? "" : dischargedDeptId;
+    public String getToDeptId() {
+        return toDeptId == null ? "" : toDeptId;
     }
-    @Column(name = "discharged_dept_id")
-    private String dischargedDeptId; // 转出科室ID
+    @Column(name = "to_dept_id")
+    private String toDeptId; // 去向科室ID
 
     @Column(name = "discharge_time")
     private LocalDateTime dischargeTime; // 出科时间
@@ -494,11 +494,11 @@ public class PatientRecord {
     @Column(name = "discharge_edit_time")
     private LocalDateTime dischargeEditTime; // 出科时间修改时间
 
-    public String getDischargingAccountId() {
-        return dischargingAccountId == null ? "" : dischargingAccountId;
+    public String getDischargeAccountId() {
+        return dischargeAccountId == null ? "" : dischargeAccountId;
     }
-    @Column(name = "discharging_account_id")
-    private String dischargingAccountId; // 出科操作员
+    @Column(name = "discharge_account_id")
+    private String dischargeAccountId; // 出科操作员
 
     @Column(name = "created_at")
     private LocalDateTime createdAt; // 重症系统中本条记录的创建时间

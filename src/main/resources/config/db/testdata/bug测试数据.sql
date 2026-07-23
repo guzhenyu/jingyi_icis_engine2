@@ -69,7 +69,7 @@ update his_patient_records set admission_status = 3 where mrn = '100105';
   -- id: 6=>7; admission_time: '2025-01-01 00:00:00' => '2025-08-21 10:00:00' (shanghai: 18:00)
 INSERT INTO his_patient_records (
     "id", "pid", "mrn", "index_id", "his_encounter_id", "admission_count", "admission_time", "admission_diagnosis", "admission_diagnosis_code",
-    "bed_number", "name", "gender", "date_of_birth", "dept_code", "dept_name", "admission_status", "icu_admission_time", "diagnosis_time",
+    "bed_number", "name", "gender", "date_of_birth", "dept_code", "dept_name", "admission_status", "dept_admission_time", "diagnosis_time",
     "diagnosis", "created_at"
 ) VALUES (7, 'hisPatientId105', '100105', 'hisIndexId105', 'hisEncounterId105', 1, '2025-08-21 10:00:00', '糖尿病酮症酸中毒', NULL,
     'A105', '陈措施', 1, '2000-01-01 08:00:00', '99999', '晶医重症医学科', 1, '2025-08-21 10:00:00', '2025-08-21 10:00:00',
@@ -89,7 +89,7 @@ insert into device_data_hourly (department_id, device_id, device_type, device_be
 -- 重返
 update his_patient_records set admission_status = 3 where name = '陈措施';
 -- 前端操作出科2025-02-01 00:00:00
-update his_patient_records set admission_time = '2025-02-01 01:00:00', icu_admission_time = '2025-02-01 01:00:00', bed_number='C001', admission_status = 1 where name = '陈措施';
+update his_patient_records set admission_time = '2025-02-01 01:00:00', dept_admission_time = '2025-02-01 01:00:00', bed_number='C001', admission_status = 1 where name = '陈措施';
 
 
 -- 省二院报表

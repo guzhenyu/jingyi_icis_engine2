@@ -269,9 +269,10 @@ CREATE TABLE his_patient_records (
     ward_name VARCHAR(255), -- 病区名称，对应ward_name
     attending_doctor_name VARCHAR(255), -- 主治医生姓名，需要转化为为attending_doctor_id
     -- 入科信息
-    admission_source_dept_name VARCHAR(255), -- 入科来源，对应admission_source_dept_name
+    from_dept_name VARCHAR(255), -- 来源科室名称
+    from_dept_id VARCHAR(255), -- 来源科室编码
     admission_status INTEGER, -- 在科状态，对应admission_status
-    icu_admission_time TIMESTAMP, -- 入ICU时间，对应admission_time
+    dept_admission_time TIMESTAMP, -- 科室入科时间
     -- 诊断信息
     diagnosis_time TIMESTAMP, -- 诊断时间，原始表中未明确对应，新增字段
     diagnosis_code VARCHAR(1000), -- 入科诊断编码，原始表中未明确对应，参考diagnosis
@@ -280,9 +281,8 @@ CREATE TABLE his_patient_records (
     diagnosis_tcm_code VARCHAR(1000), -- 中医临床诊断编码，对应diagnosis_tcm_code
     diagnosis_tcm TEXT, -- 中医临床诊断，对应diagnosis_tcm
     -- 出科信息
-    discharged_type INTEGER, -- 出科类型，对应discharged_type
-    discharged_dept_id VARCHAR(255), -- 转出科室编码，对应discharged_dept_id
-    discharged_dept_name VARCHAR(255), -- 转出科室名称，对应discharged_dept_name
+    to_dept_id VARCHAR(255), -- 去向科室编码
+    to_dept_name VARCHAR(255), -- 去向科室名称
     discharge_time TIMESTAMP, -- 转出ICU时间，对应discharge_time
     -- 手术信息
     operation VARCHAR(255), -- 最近的手术名称，新增字段
@@ -335,18 +335,18 @@ COMMENT ON COLUMN his_patient_records.dept_name IS '科室名称';
 COMMENT ON COLUMN his_patient_records.ward_code IS '病区编码';
 COMMENT ON COLUMN his_patient_records.ward_name IS '病区名称';
 COMMENT ON COLUMN his_patient_records.attending_doctor_name IS '主治医生姓名';
-COMMENT ON COLUMN his_patient_records.admission_source_dept_name IS '入科来源科室名称';
+COMMENT ON COLUMN his_patient_records.from_dept_name IS '来源科室名称';
+COMMENT ON COLUMN his_patient_records.from_dept_id IS '来源科室编码';
 COMMENT ON COLUMN his_patient_records.admission_status IS '在科状态';
-COMMENT ON COLUMN his_patient_records.icu_admission_time IS '入ICU时间';
+COMMENT ON COLUMN his_patient_records.dept_admission_time IS '科室入科时间';
 COMMENT ON COLUMN his_patient_records.diagnosis_time IS '诊断时间';
 COMMENT ON COLUMN his_patient_records.diagnosis_code IS '入科诊断编码';
 COMMENT ON COLUMN his_patient_records.diagnosis IS '入科诊断';
 COMMENT ON COLUMN his_patient_records.diagnosis_tcm_time IS '中医诊断时间';
 COMMENT ON COLUMN his_patient_records.diagnosis_tcm_code IS '中医临床诊断编码';
 COMMENT ON COLUMN his_patient_records.diagnosis_tcm IS '中医临床诊断';
-COMMENT ON COLUMN his_patient_records.discharged_type IS '出科类型：转出、死亡、出院';
-COMMENT ON COLUMN his_patient_records.discharged_dept_id IS '转出科室编码';
-COMMENT ON COLUMN his_patient_records.discharged_dept_name IS '转出科室名称';
+COMMENT ON COLUMN his_patient_records.to_dept_id IS '去向科室编码';
+COMMENT ON COLUMN his_patient_records.to_dept_name IS '去向科室名称';
 COMMENT ON COLUMN his_patient_records.discharge_time IS '转出ICU时间';
 COMMENT ON COLUMN his_patient_records.operation IS '最近的手术名称';
 COMMENT ON COLUMN his_patient_records.operation_time IS '最近的手术时间';
@@ -420,8 +420,8 @@ CREATE TABLE patient_records (
     admitting_doctor_id VARCHAR(255),
     responsible_nurse_id VARCHAR(255),
     -- 入科
-    admission_source_dept_name VARCHAR(255),
-    admission_source_dept_id VARCHAR(255),
+    from_dept_name VARCHAR(255),
+    from_dept_id VARCHAR(255),
     admission_type INTEGER,
     admission_types VARCHAR(255),
     is_planned_admission BOOLEAN,
@@ -445,16 +445,16 @@ CREATE TABLE patient_records (
     surgery_operation_time TIMESTAMP,
 
     -- 出科
-    discharged_type INTEGER,
-    discharged_death_time TIMESTAMP,
-    discharged_hospital_exit_time TIMESTAMP,
-    discharged_diagnosis TEXT,
-    discharged_diagnosis_code VARCHAR(1000),
-    discharged_dept_name VARCHAR(255),
-    discharged_dept_id VARCHAR(255),
+    discharge_type INTEGER,
+    death_time TIMESTAMP,
+    his_discharge_time TIMESTAMP,
+    discharge_diagnosis TEXT,
+    discharge_diagnosis_code VARCHAR(1000),
+    to_dept_name VARCHAR(255),
+    to_dept_id VARCHAR(255),
     discharge_time TIMESTAMP,
     discharge_edit_time TIMESTAMP,
-    discharging_account_id VARCHAR(255),
+    discharge_account_id VARCHAR(255),
     created_at TIMESTAMP
     --FOREIGN KEY (icu_manual_entry_account_id) REFERENCES rbac_accounts(account_id),
     --FOREIGN KEY (attending_doctor_id) REFERENCES rbac_accounts(account_id),
@@ -463,7 +463,7 @@ CREATE TABLE patient_records (
     --FOREIGN KEY (responsible_nurse_id) REFERENCES rbac_accounts(account_id),
     --FOREIGN KEY (admitting_account_id) REFERENCES rbac_accounts(account_id),
     --FOREIGN KEY (diagnosis_account_id) REFERENCES rbac_accounts(account_id),
-    --FOREIGN KEY (discharging_account_id) REFERENCES rbac_accounts(account_id)
+    --FOREIGN KEY (discharge_account_id) REFERENCES rbac_accounts(account_id)
 );
 COMMENT ON TABLE patient_records IS '病人基本信息';
 COMMENT ON COLUMN patient_records.id IS '自增主键';
@@ -524,8 +524,8 @@ COMMENT ON COLUMN patient_records.attending_doctor_id IS '主治医生ID';
 COMMENT ON COLUMN patient_records.primary_care_doctor_id IS '管床医生ID';
 COMMENT ON COLUMN patient_records.admitting_doctor_id IS '收治医生ID';
 COMMENT ON COLUMN patient_records.responsible_nurse_id IS '责任护士ID';
-COMMENT ON COLUMN patient_records.admission_source_dept_name IS '入科来源科室名称，也可以是护士手动输入';
-COMMENT ON COLUMN patient_records.admission_source_dept_id IS '入科来源科室ID，如果入科来源科室名称不是HIS系统中的名称，该id置空';
+COMMENT ON COLUMN patient_records.from_dept_name IS '来源科室名称，也可以是护士手动输入';
+COMMENT ON COLUMN patient_records.from_dept_id IS '来源科室ID，如果来源科室名称不是HIS系统中的名称，该id置空';
 COMMENT ON COLUMN patient_records.admission_type IS '入科类型：入院、转入、手术、抢救、重症、外院、病危等';
 COMMENT ON COLUMN patient_records.admission_types IS '多选入科类型，多个枚举ID使用英文逗号分隔';
 COMMENT ON COLUMN patient_records.is_planned_admission IS '是否计划入科';
@@ -542,16 +542,16 @@ COMMENT ON COLUMN patient_records.diagnosis_type IS '诊断类型，较少使用
 COMMENT ON COLUMN patient_records.surgery_operation IS '最近的手术名称';
 COMMENT ON COLUMN patient_records.surgery_operation_time IS '最近的手术时间';
 
-COMMENT ON COLUMN patient_records.discharged_type IS '出科类型：转出、死亡、出院';
-COMMENT ON COLUMN patient_records.discharged_death_time IS '死亡时间。当出科类型为*死亡*时，该字段有效';
-COMMENT ON COLUMN patient_records.discharged_hospital_exit_time IS '出院时间。当出科类型为*出院*时，该字段有效';
-COMMENT ON COLUMN patient_records.discharged_diagnosis IS '出科诊断';
-COMMENT ON COLUMN patient_records.discharged_diagnosis_code IS '出科诊断编码';
-COMMENT ON COLUMN patient_records.discharged_dept_name IS '转出科室名称';
-COMMENT ON COLUMN patient_records.discharged_dept_id IS '转出科室ID';
+COMMENT ON COLUMN patient_records.discharge_type IS '出科类型：转出、死亡、出院';
+COMMENT ON COLUMN patient_records.death_time IS '死亡时间。当出科类型为*死亡*时，该字段有效';
+COMMENT ON COLUMN patient_records.his_discharge_time IS 'HIS出院时间。当出科类型为*出院*时，该字段有效';
+COMMENT ON COLUMN patient_records.discharge_diagnosis IS '出科诊断';
+COMMENT ON COLUMN patient_records.discharge_diagnosis_code IS '出科诊断编码';
+COMMENT ON COLUMN patient_records.to_dept_name IS '去向科室名称';
+COMMENT ON COLUMN patient_records.to_dept_id IS '去向科室ID';
 COMMENT ON COLUMN patient_records.discharge_time IS '出科时间';
 COMMENT ON COLUMN patient_records.discharge_edit_time IS '出科时间修改时间';
-COMMENT ON COLUMN patient_records.discharging_account_id IS '出科操作员';
+COMMENT ON COLUMN patient_records.discharge_account_id IS '出科操作员';
 COMMENT ON COLUMN patient_records.created_at IS '重症系统中本条记录的创建时间';
 CREATE INDEX idx_patient_records_his_mrn ON patient_records (his_mrn);  -- 不是UNIQUE INDEX, 同一个mrn，不同id代表同一个病人的不同病例。
 CREATE INDEX idx_patient_records_admission_status_his_bed_number ON patient_records (admission_status, his_bed_number);

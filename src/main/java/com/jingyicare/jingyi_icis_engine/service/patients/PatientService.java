@@ -83,35 +83,35 @@ public class PatientService {
             .getId();
         this.GRACE_PERIOD_HOURS_TO_READMIT = protoService.getConfig().getPatient().getGracePeriodHoursToReadmit();
 
-        EnumValue dischargedType = enumsV2.getDischargedTypeList().stream()
+        EnumValue dischargeType = enumsV2.getDischargeTypeList().stream()
             .filter(e -> e.getName().equals("转出"))
             .findFirst()
             .orElse(null);
-        if (dischargedType == null) {
-            log.error("Failed to find discharged type '转出' in enumsV2");
+        if (dischargeType == null) {
+            log.error("Failed to find discharge type '转出' in enumsV2");
             LogUtils.flushAndQuit(context);
         }
-        this.DISCHARGED_TYPE_TRANSFER_ID = dischargedType.getId();
+        this.DISCHARGE_TYPE_TRANSFER_ID = dischargeType.getId();
 
-        dischargedType = enumsV2.getDischargedTypeList().stream()
+        dischargeType = enumsV2.getDischargeTypeList().stream()
             .filter(e -> e.getName().equals("死亡"))
             .findFirst()
             .orElse(null);
-        if (dischargedType == null) {
-            log.error("Failed to find discharged type '死亡' in enumsV2");
+        if (dischargeType == null) {
+            log.error("Failed to find discharge type '死亡' in enumsV2");
             LogUtils.flushAndQuit(context);
         }
-        this.DISCHARGED_TYPE_DEATH_ID = dischargedType.getId();
+        this.DISCHARGE_TYPE_DEATH_ID = dischargeType.getId();
 
-        dischargedType = enumsV2.getDischargedTypeList().stream()
+        dischargeType = enumsV2.getDischargeTypeList().stream()
             .filter(e -> e.getName().equals("出院"))
             .findFirst()
             .orElse(null);
-        if (dischargedType == null) {
-            log.error("Failed to find discharged type '出院' in enumsV2");
+        if (dischargeType == null) {
+            log.error("Failed to find discharge type '出院' in enumsV2");
             LogUtils.flushAndQuit(context);
         }
-        this.DISCHARGED_TYPE_EXIT_HOSPITAL_ID = dischargedType.getId();
+        this.DISCHARGE_TYPE_EXIT_HOSPITAL_ID = dischargeType.getId();
 
         this.protoService = protoService;
         this.statusCodeMsgs = protoService.getConfig().getText().getStatusCodeMsgList();
@@ -426,7 +426,7 @@ public class PatientService {
         record.setIcuDateOfBirth(TimeUtils.fromIso8601String(req.getIcuDateOfBirth(), "UTC"));
         record.setAdmissionTime(TimeUtils.fromIso8601String(req.getAdmissionTime(), "UTC"));
         setAdmissionTypeValues(record, req.getAdmissionTypeList());
-        record.setAdmissionSourceDeptName(req.getAdmissionSourceDeptName());
+        record.setFromDeptName(req.getFromDeptName());
         record.setPrimaryCareDoctorId(req.getPrimaryCareDoctorId());
         record.setIsPlannedAdmission(req.getIsPlannedAdmission() > 0);
         record.setUnplannedAdmissionReason(req.getUnplannedAdmissionReason());
@@ -499,7 +499,7 @@ public class PatientService {
                     .readmissionReason(req.getUnplannedAdmissionReason())
                     .icuDischargeTime(lastDischargedPatient.getDischargeTime())
                     .icuDischargeEditTime(lastDischargedPatient.getDischargeEditTime())
-                    .icuDischargingAccountId(lastDischargedPatient.getDischargingAccountId())
+                    .icuDischargingAccountId(lastDischargedPatient.getDischargeAccountId())
                     .icuAdmissionTime(admissionTime)
                     .icuAdmissionEditTime(nowUtc)
                     .icuAdmittingAccountId(accountId)
@@ -553,7 +553,7 @@ public class PatientService {
             patient.setDeptId(req.getDeptId());
             patient.setAdmissionTime(admissionTime);
             setAdmissionTypeValues(patient, req.getAdmissionTypeList());
-            patient.setAdmissionSourceDeptName(req.getAdmissionSourceDeptName());
+            patient.setFromDeptName(req.getFromDeptName());
             patient.setPrimaryCareDoctorId(req.getPrimaryCareDoctorId());
             patient.setIsPlannedAdmission(req.getIsPlannedAdmission() > 0);
             patient.setUnplannedAdmissionReason(req.getUnplannedAdmissionReason());
@@ -626,37 +626,37 @@ public class PatientService {
         }
         patient.setDischargeTime(dischargeTime);
 
-        patient.setDischargedType(req.getDischargedType());
-        if (req.getDischargedType() == DISCHARGED_TYPE_TRANSFER_ID) {
-            String deptName = req.getDischargedDeptName();
+        patient.setDischargeType(req.getDischargeType());
+        if (req.getDischargeType() == DISCHARGE_TYPE_TRANSFER_ID) {
+            String deptName = req.getToDeptName();
             if (StrUtils.isBlank(deptName)) {
                 return GenericResp.newBuilder()
                     .setRt(protoService.getReturnCode(StatusCode.DISCHARGE_TYPE_TRANSFER_NEEDS_TARGET_DEPT_NAME))
                     .build();
             }
-            patient.setDischargedDeptName(deptName);
-        } else if (req.getDischargedType() == DISCHARGED_TYPE_DEATH_ID) {
-            LocalDateTime dischargedDeathTime = TimeUtils.fromIso8601String(req.getDischargedDeathTime(), "UTC");
-            if (dischargedDeathTime == null) {
+            patient.setToDeptName(deptName);
+        } else if (req.getDischargeType() == DISCHARGE_TYPE_DEATH_ID) {
+            LocalDateTime deathTime = TimeUtils.fromIso8601String(req.getDeathTime(), "UTC");
+            if (deathTime == null) {
                 return GenericResp.newBuilder()
                     .setRt(protoService.getReturnCode(StatusCode.DISCHARGE_TYPE_DEATH_NEEDS_DEATH_TIME))
                     .build();
             }
-            patient.setDischargedDeathTime(dischargedDeathTime);
-        } else if (req.getDischargedType() == DISCHARGED_TYPE_EXIT_HOSPITAL_ID) {
+            patient.setDeathTime(deathTime);
+        } else if (req.getDischargeType() == DISCHARGE_TYPE_EXIT_HOSPITAL_ID) {
             LocalDateTime exitTime = TimeUtils.fromIso8601String(
-                req.getDischargedHospitalExitTimeIso8601(), "UTC"
+                req.getHisDischargeTimeIso8601(), "UTC"
             );
             if (exitTime == null) {
                 return GenericResp.newBuilder()
                     .setRt(protoService.getReturnCode(StatusCode.DISCHARGE_TYPE_EXIT_HOSPITAL_NEEDS_EXIT_TIME))
                     .build();
             }
-            patient.setDischargedHospitalExitTime(exitTime);
+            patient.setHisDischargeTime(exitTime);
         } else {
-            log.error("Invalid discharged type: {}", req.getDischargedType());
+            log.error("Invalid discharge type: {}", req.getDischargeType());
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.INVALID_DISCHARGED_TYPE))
+                .setRt(protoService.getReturnCode(StatusCode.INVALID_DISCHARGE_TYPE))
                 .build();
         }
 
@@ -736,9 +736,9 @@ public class PatientService {
             .setUnplannedAdmissionReason(patient.getUnplannedAdmissionReason())
             .setDiagnosis(patient.getDiagnosis())
             .setDischargeTime(TimeUtils.toIso8601String(patient.getDischargeTime(), ZONE_ID))
-            .setDischargedType(patient.getDischargedType())
-            .setDischargedDeptName(patient.getDischargedDeptName())
-            .setDischargedDeathTime(TimeUtils.toIso8601String(patient.getDischargedDeathTime(), ZONE_ID))
+            .setDischargeType(patient.getDischargeType())
+            .setToDeptName(patient.getToDeptName())
+            .setDeathTime(TimeUtils.toIso8601String(patient.getDeathTime(), ZONE_ID))
             .build();
     }
 
@@ -766,9 +766,9 @@ public class PatientService {
 
         if (patient.getAdmissionStatus() != DISCHARGED_VAL &&
             (!StrUtils.isBlank(req.getDischargeTime()) ||
-             req.getDischargedType() > 0 ||
-             !StrUtils.isBlank(req.getDischargedDeptName()) ||
-             !StrUtils.isBlank(req.getDischargedDeathTime()))
+             req.getDischargeType() > 0 ||
+             !StrUtils.isBlank(req.getToDeptName()) ||
+             !StrUtils.isBlank(req.getDeathTime()))
         ) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.PATIENT_IS_NOT_DISCHARGED))
@@ -782,14 +782,14 @@ public class PatientService {
 
         if (patient.getAdmissionStatus() != DISCHARGED_VAL) {
             patient.setDischargeTime(null);
-            patient.setDischargedType(null);
-            patient.setDischargedDeptName("");
-            patient.setDischargedDeathTime(null);
+            patient.setDischargeType(null);
+            patient.setToDeptName("");
+            patient.setDeathTime(null);
         } else {
             patient.setDischargeTime(TimeUtils.fromIso8601String(req.getDischargeTime(), "UTC"));
-            patient.setDischargedType(req.getDischargedType());
-            patient.setDischargedDeptName(req.getDischargedDeptName());
-            patient.setDischargedDeathTime(TimeUtils.fromIso8601String(req.getDischargedDeathTime(), "UTC"));
+            patient.setDischargeType(req.getDischargeType());
+            patient.setToDeptName(req.getToDeptName());
+            patient.setDeathTime(TimeUtils.fromIso8601String(req.getDeathTime(), "UTC"));
         }
         patientRecordRepository.save(patient);
 
@@ -853,8 +853,8 @@ public class PatientService {
 
         if (!patient.getAdmissionStatus().equals(DISCHARGED_VAL) &&
             (patient.getDischargeTime() != null ||
-             !StrUtils.isBlank(patient.getDischargedDeptName()) ||
-             patient.getDischargedDeathTime() != null)
+             !StrUtils.isBlank(patient.getToDeptName()) ||
+             patient.getDeathTime() != null)
         ) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.PATIENT_IS_NOT_DISCHARGED))
@@ -1764,13 +1764,13 @@ public class PatientService {
                 if (patientRec.getResponsibleNurseId() == null) return "";
                 return userService.getNameByAutoId(patientRec.getResponsibleNurseId());
 
-            case "admission_source_dept_name":
-                if (patientRec.getAdmissionSourceDeptName() == null) return "";
-                return patientRec.getAdmissionSourceDeptName();
+            case "from_dept_name":
+                if (patientRec.getFromDeptName() == null) return "";
+                return patientRec.getFromDeptName();
 
-            case "admission_source_dept_id":
-                if (patientRec.getAdmissionSourceDeptId() == null) return "";
-                return patientRec.getAdmissionSourceDeptId();
+            case "from_dept_id":
+                if (patientRec.getFromDeptId() == null) return "";
+                return patientRec.getFromDeptId();
 
             case "admission_type":
                 return getAdmissionTypeDisplay(patientRec);
@@ -1811,33 +1811,33 @@ public class PatientService {
                 if (patientRec.getDiagnosisType() == null) return "";
                 return patientRec.getDiagnosisType();
 
-            case "discharged_type":
-                if (patientRec.getDischargedType() == null) return "";
-                return patientConfig.getDischargedTypeStr(patientRec.getDischargedType());
+            case "discharge_type":
+                if (patientRec.getDischargeType() == null) return "";
+                return patientConfig.getDischargeTypeStr(patientRec.getDischargeType());
 
-            case "discharged_death_time":
-                if (patientRec.getDischargedDeathTime() == null) return "";
-                return TimeUtils.toIso8601String(patientRec.getDischargedDeathTime(), ZONE_ID);
+            case "death_time":
+                if (patientRec.getDeathTime() == null) return "";
+                return TimeUtils.toIso8601String(patientRec.getDeathTime(), ZONE_ID);
 
-            case "discharged_hospital_exit_time":
-                if (patientRec.getDischargedHospitalExitTime() == null) return "";
-                return TimeUtils.toIso8601String(patientRec.getDischargedHospitalExitTime(), ZONE_ID);
+            case "his_discharge_time":
+                if (patientRec.getHisDischargeTime() == null) return "";
+                return TimeUtils.toIso8601String(patientRec.getHisDischargeTime(), ZONE_ID);
 
-            case "discharged_diagnosis":
-                if (patientRec.getDischargedDiagnosis() == null) return "";
-                return patientRec.getDischargedDiagnosis();
+            case "discharge_diagnosis":
+                if (patientRec.getDischargeDiagnosis() == null) return "";
+                return patientRec.getDischargeDiagnosis();
 
-            case "discharged_diagnosis_code":
-                if (patientRec.getDischargedDiagnosisCode() == null) return "";
-                return patientRec.getDischargedDiagnosisCode();
+            case "discharge_diagnosis_code":
+                if (patientRec.getDischargeDiagnosisCode() == null) return "";
+                return patientRec.getDischargeDiagnosisCode();
 
-            case "discharged_dept_name":
-                if (patientRec.getDischargedDeptName() == null) return "";
-                return patientRec.getDischargedDeptName();
+            case "to_dept_name":
+                if (patientRec.getToDeptName() == null) return "";
+                return patientRec.getToDeptName();
 
-            case "discharged_dept_id":
-                if (patientRec.getDischargedDeptId() == null) return "";
-                return patientRec.getDischargedDeptId();
+            case "to_dept_id":
+                if (patientRec.getToDeptId() == null) return "";
+                return patientRec.getToDeptId();
 
             case "discharge_time":
                 if (patientRec.getDischargeTime() == null) return "";
@@ -1859,9 +1859,9 @@ public class PatientService {
                 if (patientRec.getDischargeEditTime() == null) return "";
                 return TimeUtils.toIso8601String(patientRec.getDischargeEditTime(), ZONE_ID);
 
-            case "discharging_account_id":
-                if (patientRec.getDischargingAccountId() == null) return "";
-                return patientRec.getDischargingAccountId();
+            case "discharge_account_id":
+                if (patientRec.getDischargeAccountId() == null) return "";
+                return patientRec.getDischargeAccountId();
 
             case "created_at":
                 if (patientRec.getCreatedAt() == null) return "";
@@ -1992,22 +1992,22 @@ public class PatientService {
 
         builder.setAdmissionStatus(patient.getAdmissionStatus());
 
-        builder.setAdmissionSourceDeptName(patient.getAdmissionSourceDeptName());
+        builder.setFromDeptName(patient.getFromDeptName());
         builder.addAllAdmissionType(getAdmissionTypeValues(patient));
         builder.setIsPlannedAdmission(patient.getIsPlannedAdmission());
         builder.setUnplannedAdmissionReason(patient.getUnplannedAdmissionReason());
         builder.setAdmissionTimeIso8601(patient.getAdmissionTime() != null 
             ? TimeUtils.toIso8601String(patient.getAdmissionTime(), "UTC") : "");
 
-        builder.setDischargedType(patient.getDischargedType());
-        builder.setDischargedDeathTimeIso8601(patient.getDischargedDeathTime() != null 
-            ? TimeUtils.toIso8601String(patient.getDischargedDeathTime(), "UTC") : "");
-        builder.setDischargedHospitalExitTimeIso8601(patient.getDischargedHospitalExitTime() != null 
-            ? TimeUtils.toIso8601String(patient.getDischargedHospitalExitTime(), "UTC") : "");
-        builder.setDischargedDeptName(patient.getDischargedDeptName());
+        builder.setDischargeType(patient.getDischargeType());
+        builder.setDeathTimeIso8601(patient.getDeathTime() != null
+            ? TimeUtils.toIso8601String(patient.getDeathTime(), "UTC") : "");
+        builder.setHisDischargeTimeIso8601(patient.getHisDischargeTime() != null
+            ? TimeUtils.toIso8601String(patient.getHisDischargeTime(), "UTC") : "");
+        builder.setToDeptName(patient.getToDeptName());
         builder.setDischargeTimeIso8601(patient.getDischargeTime() != null 
             ? TimeUtils.toIso8601String(patient.getDischargeTime(), "UTC") : "");
-        builder.setDischargedDiagnosis(StrUtils.isBlank(patient.getDischargedDiagnosis()) ? "" : patient.getDischargedDiagnosis());
+        builder.setDischargeDiagnosis(StrUtils.isBlank(patient.getDischargeDiagnosis()) ? "" : patient.getDischargeDiagnosis());
 
         return builder.build();
     }
@@ -2097,8 +2097,8 @@ public class PatientService {
         patient.setDiagnosisTcm(patientInfo.getDiagnosisTcm().isEmpty() ? null : patientInfo.getDiagnosisTcm());
         patient.setDiagnosisType(patientInfo.getDiagnosisType().isEmpty() ? null : patientInfo.getDiagnosisType());
 
-        patient.setAdmissionSourceDeptName(patientInfo.getAdmissionSourceDeptName().isEmpty() 
-            ? null : patientInfo.getAdmissionSourceDeptName());
+        patient.setFromDeptName(patientInfo.getFromDeptName().isEmpty()
+            ? null : patientInfo.getFromDeptName());
         setAdmissionTypeValues(patient, patientInfo.getAdmissionTypeList());
         patient.setIsPlannedAdmission(patientInfo.getIsPlannedAdmission());
         patient.setUnplannedAdmissionReason(patientInfo.getUnplannedAdmissionReason().isEmpty() 
@@ -2106,17 +2106,17 @@ public class PatientService {
         patient.setAdmissionTime(patientInfo.getAdmissionTimeIso8601().isEmpty() 
             ? null : TimeUtils.fromIso8601String(patientInfo.getAdmissionTimeIso8601(), "UTC"));
 
-        patient.setDischargedType(patientInfo.getDischargedType() != 0 ? patientInfo.getDischargedType() : null);
-        patient.setDischargedDeathTime(patientInfo.getDischargedDeathTimeIso8601().isEmpty() 
-            ? null : TimeUtils.fromIso8601String(patientInfo.getDischargedDeathTimeIso8601(), "UTC"));
-        patient.setDischargedHospitalExitTime(patientInfo.getDischargedHospitalExitTimeIso8601().isEmpty() 
-            ? null : TimeUtils.fromIso8601String(patientInfo.getDischargedHospitalExitTimeIso8601(), "UTC"));
-        patient.setDischargedDeptName(patientInfo.getDischargedDeptName().isEmpty() 
-            ? null : patientInfo.getDischargedDeptName());
+        patient.setDischargeType(patientInfo.getDischargeType() != 0 ? patientInfo.getDischargeType() : null);
+        patient.setDeathTime(patientInfo.getDeathTimeIso8601().isEmpty()
+            ? null : TimeUtils.fromIso8601String(patientInfo.getDeathTimeIso8601(), "UTC"));
+        patient.setHisDischargeTime(patientInfo.getHisDischargeTimeIso8601().isEmpty()
+            ? null : TimeUtils.fromIso8601String(patientInfo.getHisDischargeTimeIso8601(), "UTC"));
+        patient.setToDeptName(patientInfo.getToDeptName().isEmpty()
+            ? null : patientInfo.getToDeptName());
         patient.setDischargeTime(patientInfo.getDischargeTimeIso8601().isEmpty() 
             ? null : TimeUtils.fromIso8601String(patientInfo.getDischargeTimeIso8601(), "UTC"));
-        patient.setDischargedDiagnosis(patientInfo.getDischargedDiagnosis().isEmpty() 
-            ? null : patientInfo.getDischargedDiagnosis());
+        patient.setDischargeDiagnosis(patientInfo.getDischargeDiagnosis().isEmpty()
+            ? null : patientInfo.getDischargeDiagnosis());
     }
 
     private void setAdmissionTypeValues(PatientRecord patient, List<Integer> admissionTypeValues) {
@@ -2232,9 +2232,9 @@ public class PatientService {
     private final Integer IN_ICU_VAL;
     private final Integer PENDING_DISCHARGED_VAL;
     private final Integer DISCHARGED_VAL;
-    private final Integer DISCHARGED_TYPE_TRANSFER_ID;
-    private final Integer DISCHARGED_TYPE_DEATH_ID;
-    private final Integer DISCHARGED_TYPE_EXIT_HOSPITAL_ID;
+    private final Integer DISCHARGE_TYPE_TRANSFER_ID;
+    private final Integer DISCHARGE_TYPE_DEATH_ID;
+    private final Integer DISCHARGE_TYPE_EXIT_HOSPITAL_ID;
     private final Integer GRACE_PERIOD_HOURS_TO_READMIT;
 
     private ConfigProtoService protoService;

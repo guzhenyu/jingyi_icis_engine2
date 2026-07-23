@@ -8,7 +8,7 @@ package com.jingyicare.jingyi_icis_engine.proto.config;
 message PatientEnumsV2 {
     repeated shared.EnumValue admission_status = 1;
     repeated shared.EnumValue admission_type = 2;
-    repeated shared.EnumValue discharged_type = 3;
+    repeated shared.EnumValue discharge_type = 3;
     repeated shared.EnumValue payment_method = 4;
     repeated shared.EnumValue wristband_location = 5;
     repeated shared.EnumValue patient_pose = 6;
@@ -114,19 +114,19 @@ message PatientInfoPB {
     int32 admission_status = 59;    // 入科状态
 
     // 入科信息
-    string admission_source_dept_name = 60;    // 入科来源科室名称，也可以是护士手动输入
+    string from_dept_name = 60;    // 来源科室名称，也可以是护士手动输入
     repeated int32 admission_type = 61;    // 入科类型
     bool is_planned_admission = 62;    // 是否计划入科
     string unplanned_admission_reason = 63;    // 非计划入科原因
     string admission_time_iso8601 = 64;    // 入科时间
 
     // 出科信息
-    int32 discharged_type = 65;    // 出科类型
-    string discharged_death_time_iso8601 = 66;    // 死亡时间。当出科类型为*死亡*时，该字段有效
-    string discharged_hospital_exit_time_iso8601 = 67;    // 出院时间
-    string discharged_dept_name = 68;    // 转出科室名称
+    int32 discharge_type = 65;    // 出科类型
+    string death_time_iso8601 = 66;    // 死亡时间。当出科类型为*死亡*时，该字段有效
+    string his_discharge_time_iso8601 = 67;    // HIS出院时间
+    string to_dept_name = 68;    // 去向科室名称
     string discharge_time_iso8601 = 69;    // 出科时间
-    string discharged_diagnosis = 70;    // 出科诊断
+    string discharge_diagnosis = 70;    // 出科诊断
 }
 
 message Patient {

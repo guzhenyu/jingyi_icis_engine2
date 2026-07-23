@@ -113,9 +113,9 @@ message HisPatientPB {
     string ward_name = 39; // 病区名称，对应ward_name
     string attending_doctor_name = 40; // 主治医生姓名，需要转化为为attending_doctor_id
 
-    string admission_source_dept_name = 41; // 入科来源，对应admission_source_dept_name
+    string from_dept_name = 41; // 来源科室名称，对应from_dept_name
     int32 admission_status = 42; // 在科状态，对应admission_status
-    string icu_admission_time_iso8601 = 43; // 入ICU时间，对应admission_time
+    string dept_admission_time_iso8601 = 43; // 科室入科时间，对应dept_admission_time
 
     string diagnosis_time_iso8601 = 44; // 诊断时间，原始表中未明确对应，新增字段
     string diagnosis_code = 45; // 入科诊断编码，原始表中未明确对应，参考diagnosis
@@ -124,20 +124,23 @@ message HisPatientPB {
     string diagnosis_tcm_code = 48; // 中医临床诊断编码，对应diagnosis_tcm_code
     string diagnosis_tcm = 49; // 中医临床诊断，对应diagnosis_tcm
 
-    int32 discharged_type = 50; // 出科类型，对应discharged_type
-    string discharged_dept_id = 51; // 转出科室编码，对应discharged_dept_id
-    string discharged_dept_name = 52; // 转出科室名称，对应discharged_dept_name
+    reserved 50;
+    reserved "discharged_type";
+    string to_dept_id = 51; // 去向科室编码，对应to_dept_id
+    string to_dept_name = 52; // 去向科室名称，对应to_dept_name
     string discharge_time_iso8601 = 53; // 转出ICU时间，对应discharge_time
 
     string operation = 54; // 最近的手术名称，新增字段
     string operation_time_iso8601 = 55; // 最近的手术时间，新增字段
 
     string created_at_iso8601 = 56; // 创建时间，ISO8601格式，对应created_at_iso8601
+    string from_dept_id = 57; // 来源科室编码，对应from_dept_id
 }
 
 message UpdateHisPatientReq {
     repeated HisPatientPB patient = 1; // 病人信息列表
-    bool skipping_icu_admission_time = 2; // 是否跳过ICU入科时间更新
+    bool skipping_dept_admission_time = 2; // 是否跳过科室入科时间更新
+    bool skip_insert_when_patient_not_found = 3; // 未找到病人记录时是否跳过插入，仅更新已有记录
 }
 
 message UpdateMedicalOrderReq {

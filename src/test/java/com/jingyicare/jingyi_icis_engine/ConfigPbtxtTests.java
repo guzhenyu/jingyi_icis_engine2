@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Objects;
 
 import org.junit.jupiter.api.Test;
@@ -15,6 +16,34 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisText.Text;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.UserConfigPB;
 
 class ConfigPbtxtTests {
+    @Test
+    void shouldParseAllPatientConfigsWithRenamedFields() throws Exception {
+        for (String path : List.of(
+            "config/pbtxt/icis_config.pb.txt",
+            "config/pbtxt/hospitals/ah2_icis_config.pb.txt",
+            "config/pbtxt/hospitals/xaxrmyy_icis_config.pb.txt",
+            "config/pbtxt/hospitals/xnxrmyy_icis_config.pb.txt"
+        )) {
+            Config.Builder builder = Config.newBuilder();
+            try (InputStream input = Objects.requireNonNull(
+                getClass().getClassLoader().getResourceAsStream(path), path
+            )) {
+                TextFormat.getParser().merge(new InputStreamReader(input, StandardCharsets.UTF_8), builder);
+            }
+
+            assertThat(builder.getPatient().getEnumsV2().getDischargeTypeCount()).isEqualTo(3);
+            List<String> columnIds = builder.getPatient().getDefaultDisplayFieldSettingsList().stream()
+                .flatMap(setting -> setting.getTableList().stream())
+                .flatMap(table -> table.getRequiredColList().stream())
+                .map(column -> column.getColumnId())
+                .toList();
+            assertThat(columnIds).contains("from_dept_name", "discharge_type", "to_dept_name");
+            assertThat(columnIds).doesNotContain(
+                "admission_source_dept_name", "discharged_type", "discharged_dept_name"
+            );
+        }
+    }
+
     @Test
     void shouldParseXiuningConfigAndAllowHospitalMedicationOrderType() throws Exception {
         Config.Builder builder = Config.newBuilder();

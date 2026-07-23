@@ -139,14 +139,17 @@ public class HisPatientRecord {
     @Column(name = "attending_doctor_name", length = 255)
     private String attendingDoctorName;
 
-    @Column(name = "admission_source_dept_name", length = 255)
-    private String admissionSourceDeptName;
+    @Column(name = "from_dept_name", length = 255)
+    private String fromDeptName;
+
+    @Column(name = "from_dept_id", length = 255)
+    private String fromDeptId;
 
     @Column(name = "admission_status")
     private Integer admissionStatus;
 
-    @Column(name = "icu_admission_time")
-    private LocalDateTime icuAdmissionTime;
+    @Column(name = "dept_admission_time")
+    private LocalDateTime deptAdmissionTime;
 
     @Column(name = "diagnosis_time")
     private LocalDateTime diagnosisTime;
@@ -166,14 +169,11 @@ public class HisPatientRecord {
     @Column(name = "diagnosis_tcm", columnDefinition = "TEXT")
     private String diagnosisTcm;
 
-    @Column(name = "discharged_type")
-    private Integer dischargedType;
+    @Column(name = "to_dept_id", length = 255)
+    private String toDeptId;
 
-    @Column(name = "discharged_dept_id", length = 255)
-    private String dischargedDeptId;
-
-    @Column(name = "discharged_dept_name", length = 255)
-    private String dischargedDeptName;
+    @Column(name = "to_dept_name", length = 255)
+    private String toDeptName;
 
     @Column(name = "discharge_time")
     private LocalDateTime dischargeTime;
