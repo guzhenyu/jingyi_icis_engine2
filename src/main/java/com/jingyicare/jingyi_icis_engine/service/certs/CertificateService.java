@@ -219,25 +219,64 @@ public class CertificateService {
         return new Pair<>(maxBedCount, maxTempBedCount);
     }
 
-    public Boolean checkBedAvailable(String deptId, Integer bedCount) {
+    public Boolean checkBedAvailable(String deptId) {
         if (isTest) return true;
 
-        // 获取最大可用床位数
         Pair<Integer, Integer> maxBedCount = getMaxBedCount(deptId);
         if (maxBedCount == null) {
             log.error("Failed to get max bed count for department: " + deptId);
             return false;
         }
 
-        // 获取当前床位数
         final Integer currentFixedBedCount = bedConfigRepository.countByDepartmentIdAndBedTypeAndIsDeletedFalse(
             deptId, FIXED_BED_TYPE_ID);
+        final Integer currentTempBedCount = bedConfigRepository.countByDepartmentIdAndBedTypeAndIsDeletedFalse(
+            deptId, TEMP_BED_TYPE_ID);
+        return checkBedCountWithinLimit(
+            deptId, "Fixed", currentFixedBedCount, 0, maxBedCount.getFirst())
+            && checkBedCountWithinLimit(
+                deptId, "Temporary", currentTempBedCount, 0, maxBedCount.getSecond());
+    }
 
-        if (maxBedCount.getFirst() < (currentFixedBedCount + bedCount)) {
-            log.error("Fixed bed count exceeds the limit: " + deptId);
+    public Boolean checkBedAvailable(String deptId, Integer bedType, Integer additionalBedCount) {
+        if (isTest) return true;
+        if (additionalBedCount == null || additionalBedCount < 0) {
+            log.error("Invalid additional bed count for department {}: {}", deptId, additionalBedCount);
             return false;
         }
 
+        Pair<Integer, Integer> maxBedCount = getMaxBedCount(deptId);
+        if (maxBedCount == null) {
+            log.error("Failed to get max bed count for department: " + deptId);
+            return false;
+        }
+
+        if (FIXED_BED_TYPE_ID.equals(bedType)) {
+            final Integer currentFixedBedCount =
+                bedConfigRepository.countByDepartmentIdAndBedTypeAndIsDeletedFalse(deptId, FIXED_BED_TYPE_ID);
+            return checkBedCountWithinLimit(
+                deptId, "Fixed", currentFixedBedCount, additionalBedCount, maxBedCount.getFirst());
+        }
+        if (TEMP_BED_TYPE_ID.equals(bedType)) {
+            final Integer currentTempBedCount =
+                bedConfigRepository.countByDepartmentIdAndBedTypeAndIsDeletedFalse(deptId, TEMP_BED_TYPE_ID);
+            return checkBedCountWithinLimit(
+                deptId, "Temporary", currentTempBedCount, additionalBedCount, maxBedCount.getSecond());
+        }
+
+        log.error("Unsupported bed type for department {}: {}", deptId, bedType);
+        return false;
+    }
+
+    private Boolean checkBedCountWithinLimit(
+        String deptId, String bedType, Integer currentBedCount, Integer additionalBedCount, Integer maxBedCount
+    ) {
+        if (maxBedCount < currentBedCount + additionalBedCount) {
+            log.error(
+                "{} bed count exceeds the limit for department {}: current={}, additional={}, max={}",
+                bedType, deptId, currentBedCount, additionalBedCount, maxBedCount);
+            return false;
+        }
         return true;
     }
 
@@ -256,7 +295,8 @@ public class CertificateService {
     private BedConfigRepository bedConfigRepository;
 
     // test only
-    private Boolean isTest = true;
+    private Boolean isTest = false;
+
     public void setTest(Boolean test) {
         this.isTest = test;
     }

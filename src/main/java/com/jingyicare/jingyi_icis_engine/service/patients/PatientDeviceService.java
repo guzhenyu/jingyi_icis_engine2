@@ -198,7 +198,8 @@ public class PatientDeviceService {
                 .build();
         }
 
-        if (!certificateService.checkBedAvailable(deptId, 1)) {
+        // 新增或恢复已删除床位时，只占用其对应床位类型的一份授权
+        if (!certificateService.checkBedAvailable(deptId, req.getBedConfig().getBedType(), 1)) {
             return AddBedConfigResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.BED_CONFIG_BED_NUMBER_LIMIT_EXCEEDED))
                 .build();
@@ -265,6 +266,16 @@ public class PatientDeviceService {
             log.error("BedConfig already exists: {}", bedConfigWithSameName);
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.BED_CONFIG_DEVICE_NAME_ALREADY_EXISTS))
+                .build();
+        }
+
+        final String targetDeptId = req.getBedConfig().getDepartmentId();
+        final Integer targetBedType = req.getBedConfig().getBedType();
+        if ((!Objects.equals(bedConfig.getDepartmentId(), targetDeptId)
+            || !Objects.equals(bedConfig.getBedType(), targetBedType))
+            && !certificateService.checkBedAvailable(targetDeptId, targetBedType, 1)) {
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.BED_CONFIG_BED_NUMBER_LIMIT_EXCEEDED))
                 .build();
         }
 

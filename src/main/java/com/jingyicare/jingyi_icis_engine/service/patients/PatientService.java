@@ -145,11 +145,15 @@ public class PatientService {
         String deptId = req.getDeptId();
 
         GetInlinePatientsV2Resp.Builder builder = GetInlinePatientsV2Resp.newBuilder();
+        Map<String, BedConfig> bedConfigMap = patientConfig.getBedConfigMap(deptId);
 
         // Simplify by calling a common method for each patient status
-        addPatientTableForStatus(deptId, IN_ICU_VAL, patientConfig.getPatientSettingsPB(deptId, 1), builder);
-        addPatientTableForStatus(deptId, PENDING_ADMISSION_VAL, patientConfig.getPatientSettingsPB(deptId, 2), builder);
-        addPatientTableForStatus(deptId, PENDING_DISCHARGED_VAL, patientConfig.getPatientSettingsPB(deptId, 3), builder);
+        addPatientTableForStatus(
+            deptId, IN_ICU_VAL, patientConfig.getPatientSettingsPB(deptId, 1), bedConfigMap, builder);
+        addPatientTableForStatus(
+            deptId, PENDING_ADMISSION_VAL, patientConfig.getPatientSettingsPB(deptId, 2), bedConfigMap, builder);
+        addPatientTableForStatus(
+            deptId, PENDING_DISCHARGED_VAL, patientConfig.getPatientSettingsPB(deptId, 3), bedConfigMap, builder);
 
         appendSepticShockAlarms(builder);
 
@@ -176,18 +180,20 @@ public class PatientService {
 
     private void addPatientTableForStatus(
         String deptId, Integer admissionStatus, DisplayFieldSettingsPB settings,
-        GetInlinePatientsV2Resp.Builder builder
+        Map<String, BedConfig> bedConfigMap, GetInlinePatientsV2Resp.Builder builder
     ) {
         PatientTablePB.Builder patientTableBuilder = PatientTablePB.newBuilder();
-
-        // 获取床位映射
-        Map<String, BedConfig> bedConfigMap = patientConfig.getBedConfigMap(deptId);
 
         // 设置表头
         addPatientTableHeader(settings, patientTableBuilder);
 
-        // 设置表格行
+        // 在线患者只展示当前有效床位配置中的患者
         List<PatientRecord> patients = patientRecordRepository.findByDeptIdAndAdmissionStatus(deptId, admissionStatus);
+        patients = patients.stream()
+            .filter(patient -> bedConfigMap.containsKey(patient.getHisBedNumber()))
+            .toList();
+
+        // 设置表格行
         addPatientTableRows(patients, settings, patientTableBuilder, bedConfigMap);
 
         // 设置病人基本信息
@@ -531,8 +537,8 @@ public class PatientService {
         final String deptId = patient.getDeptId();
         final String hisBedNumber = patient.getHisBedNumber();
 
-        // 检查床位数
-        if (!certService.checkBedAvailable(deptId, 1)) {
+        // 校验当前床位配置数量，患者入科本身不新增床位配置
+        if (!certService.checkBedAvailable(deptId)) {
             log.error("No available bed in deptId: {}", deptId);
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.BED_CONFIG_BED_NUMBER_LIMIT_EXCEEDED))

@@ -152,7 +152,7 @@ public class UserService {
         List<DeptInfoPB> deptInfos = new ArrayList<>();
         for (Department department : departments) {
             final String deptId = department.getDeptId();
-            if (!certificateService.checkBedAvailable(deptId, 0)) {
+            if (!certificateService.checkBedAvailable(deptId)) {
                 return GetUserInfoResp.newBuilder()
                     .setRt(protoService.getReturnCode(StatusCode.BED_CONFIG_BED_NUMBER_LIMIT_EXCEEDED))
                     .build();

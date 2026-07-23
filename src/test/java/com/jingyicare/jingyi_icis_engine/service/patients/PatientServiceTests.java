@@ -9,7 +9,9 @@ import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.*;
 
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
+import com.jingyicare.jingyi_icis_engine.entity.patients.BedConfig;
 import com.jingyicare.jingyi_icis_engine.entity.users.Account;
+import com.jingyicare.jingyi_icis_engine.repository.patients.BedConfigRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.*;
@@ -22,6 +24,7 @@ public class PatientServiceTests extends TestsBase {
         @Autowired ConfigProtoService protoService,
         @Autowired PatientService patientService,
         @Autowired PatientRecordRepository patientRecordRepo,
+        @Autowired BedConfigRepository bedConfigRepo,
         @Autowired AccountRepository accountRepo
     ) {
         this.enums = protoService.getConfig().getPatient().getEnumsV2();
@@ -49,6 +52,7 @@ public class PatientServiceTests extends TestsBase {
         this.patientService = patientService;
         this.patientTestUtils = new PatientTestUtils();
         this.patientRecordRepo = patientRecordRepo;
+        this.bedConfigRepo = bedConfigRepo;
         this.accountRepo = accountRepo;
     }
 
@@ -65,12 +69,19 @@ public class PatientServiceTests extends TestsBase {
         PatientRecord rec2 = patientTestUtils.newPatientRecord(702L, IN_ICU_VAL, deptId);
         PatientRecord rec3 = patientTestUtils.newPatientRecord(703L, PENDING_DISCHARGED_VAL, deptId);
         PatientRecord rec4 = patientTestUtils.newPatientRecord(704L, DISCHARGED_VAL, deptId);
+        PatientRecord rec5 = patientTestUtils.newPatientRecord(705L, IN_ICU_VAL, deptId);
         rec2.setAttendingDoctorId(null);
         rec2.setPrimaryCareDoctorId(primaryCareDoctor.getAccountId());
         rec1 = patientRecordRepo.save(rec1);
         rec2 = patientRecordRepo.save(rec2);
         rec3 = patientRecordRepo.save(rec3);
         rec4 = patientRecordRepo.save(rec4);
+        rec5 = patientRecordRepo.save(rec5);
+
+        bedConfigRepo.save(newBedConfig(deptId, rec1.getHisBedNumber(), 1, false));
+        bedConfigRepo.save(newBedConfig(deptId, rec2.getHisBedNumber(), 2, false));
+        bedConfigRepo.save(newBedConfig(deptId, rec3.getHisBedNumber(), 1, false));
+        bedConfigRepo.save(newBedConfig(deptId, rec5.getHisBedNumber(), 1, true));
 
         // 获取在线病人
         GetInlinePatientsV2Req req = GetInlinePatientsV2Req.newBuilder()
@@ -88,28 +99,40 @@ public class PatientServiceTests extends TestsBase {
             .map(PatientTableDataCellPB::getValue)
         ).hasValue("医生1");
         assertThat(resp.getInIcu().getBasicsList()).hasSize(1);
+        assertThat(resp.getInIcu().getBasics(0).getId()).isEqualTo(rec2.getId());
 
         assertThat(resp.getPendingAdmission().getColList()).hasSize(10);
         assertThat(resp.getPendingAdmission().getRowList()).hasSize(1);
         assertThat(resp.getPendingAdmission().getRow(0).getCell(0).getValue()).isEqualTo("hisBedNumber701");
-        assertThat(resp.getInIcu().getBasicsList()).hasSize(1);
+        assertThat(resp.getPendingAdmission().getBasicsList()).hasSize(1);
 
         assertThat(resp.getPendingDischarged().getColList()).hasSize(11);
         assertThat(resp.getPendingDischarged().getRowList()).hasSize(1);
         assertThat(resp.getPendingDischarged().getRow(0).getCell(0).getValue()).isEqualTo("hisBedNumber703");
-        assertThat(resp.getInIcu().getBasicsList()).hasSize(1);
+        assertThat(resp.getPendingDischarged().getBasicsList()).hasSize(1);
 
         // 获取历史病人
         GetDischargedPatientsV2Req dischargedReq = GetDischargedPatientsV2Req.newBuilder()
             .setDeptId(deptId)
             .build();
-        reqStr = ProtoUtils.protoToJson(req);
+        reqStr = ProtoUtils.protoToJson(dischargedReq);
         GetDischargedPatientsV2Resp dischargedResp = patientService.getDischargedPatientsV2(reqStr);
         assertThat(dischargedResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         assertThat(dischargedResp.getPatient().getColList()).hasSize(10);
         assertThat(dischargedResp.getPatient().getRowList()).hasSize(1);
         assertThat(dischargedResp.getPatient().getRow(0).getCell(0).getValue()).isEqualTo("hisBedNumber704");
-        assertThat(resp.getInIcu().getBasicsList()).hasSize(1);
+        assertThat(dischargedResp.getPatient().getBasicsList()).hasSize(1);
+    }
+
+    private BedConfig newBedConfig(String deptId, String hisBedNumber, Integer bedType, Boolean isDeleted) {
+        return BedConfig.builder()
+            .departmentId(deptId)
+            .hisBedNumber(hisBedNumber)
+            .deviceBedNumber(hisBedNumber + "-device")
+            .displayBedNumber(hisBedNumber)
+            .bedType(bedType)
+            .isDeleted(isDeleted)
+            .build();
     }
 
     final PatientEnumsV2 enums;
@@ -120,6 +143,7 @@ public class PatientServiceTests extends TestsBase {
     final private PatientService patientService;
     final private PatientTestUtils patientTestUtils;
     final private PatientRecordRepository patientRecordRepo;
+    final private BedConfigRepository bedConfigRepo;
     final private AccountRepository accountRepo;
 }
 
