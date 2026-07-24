@@ -2232,7 +2232,7 @@ CREATE TABLE patient_bed_history (
     device_bed_number VARCHAR(255),
     display_bed_number VARCHAR(255),
     switch_time TIMESTAMP NOT NULL,
-    switch_type INT NOT NULL,  -- 换床类型：1-入科（重返），2-出科（重返），3-普通换床
+    switch_type INT NOT NULL,  -- 换床类型：0-普通换床，1-入科（重返），2-出科（重返）
     modified_by VARCHAR(255),
     modified_by_account_name VARCHAR(255),
     modified_at TIMESTAMP,

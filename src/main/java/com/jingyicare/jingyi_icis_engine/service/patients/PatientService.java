@@ -47,6 +47,7 @@ public class PatientService {
         @Autowired ConfigShiftUtils shiftUtils,
         @Autowired PatientConfig patientConfig,
         @Autowired PatientSyncService patientSyncService,
+        @Autowired PatientReadmissionService patientReadmissionService,
         @Autowired PatientDeviceService patientDeviceService,
         @Autowired UserService userService,
         @Autowired CertificateService certService,
@@ -118,6 +119,7 @@ public class PatientService {
         this.shiftUtils = shiftUtils;
         this.patientConfig = patientConfig;
         this.patientSyncService = patientSyncService;
+        this.patientReadmissionService = patientReadmissionService;
         this.patientDeviceService = patientDeviceService;
         this.userService = userService;
         this.certService = certService;
@@ -524,7 +526,7 @@ public class PatientService {
                         .build();
                 }
                 // 合并病人记录
-                statusCode = patientSyncService.readmitPatient(lastDischargedPatient, patient);
+                statusCode = patientReadmissionService.readmitPatient(lastDischargedPatient, patient);
                 if (statusCode != StatusCode.OK) {
                     log.error("Failed to readmit patient: {}", statusCode);
                     return GenericResp.newBuilder()
@@ -2253,6 +2255,7 @@ public class PatientService {
     private PatientEnumsV2 enumsV2;
     private PatientConfig patientConfig;
     private PatientSyncService patientSyncService;
+    private PatientReadmissionService patientReadmissionService;
     private PatientDeviceService patientDeviceService;
     private PatientRecordRepository patientRecordRepository;
     private BedConfigRepository bedConfigRepository;
