@@ -31,7 +31,7 @@ import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 
 public class PatientReadmissionServiceTests {
     @Test
-    public void testReadmitPatientMergesPatientAndHistories() {
+    public void testReadmitPatientStillMergesPatientAndHistoriesIndependentlyOfScheduledSync() {
         ConfigProtoService protoService = mock(ConfigProtoService.class);
         Config config = Config.newBuilder()
             .setPatient(Patient.newBuilder()

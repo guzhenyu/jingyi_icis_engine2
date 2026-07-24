@@ -1367,6 +1367,14 @@ public class PatientService {
 
     @Transactional
     public SyncHisPatientResp syncHisPatient(String syncHisPatientReqJson) {
+        if (!patientSyncService.isSyncEnabled()) {
+            log.warn("Patient synchronization request rejected because synchronization is disabled");
+            return SyncHisPatientResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.PATIENT_SYNC_DISABLED))
+                .setAdmittedHisPatientCount(0)
+                .build();
+        }
+
         final SyncHisPatientReq req;
         try {
             SyncHisPatientReq.Builder builder = SyncHisPatientReq.newBuilder();

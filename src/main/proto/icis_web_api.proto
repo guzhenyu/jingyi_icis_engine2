@@ -328,7 +328,8 @@ enum StatusCode {
     NURSING_ORDER_NOTE_CONTENT_TOO_LONG = 289; // 护嘱执行备注内容过长
     INVALID_NURSING_ORDER_NOTE_DISPLAY_ORDER = 290; // 无效的护嘱执行备注显示顺序
     NURSING_RECORD_REVIEW_TIME_BEFORE_RECORD_TIME = 291; // 审核时间不能早于记录时间
-    LAST_CODE = 292;
+    PATIENT_SYNC_DISABLED = 292; // 患者同步已禁用
+    LAST_CODE = 293;
 }
 
 /*****************************************************************************

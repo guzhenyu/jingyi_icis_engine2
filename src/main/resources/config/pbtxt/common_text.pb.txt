@@ -290,6 +290,7 @@
     status_code_msg: "护嘱执行备注内容过长"
     status_code_msg: "无效的护嘱执行备注显示顺序"
     status_code_msg: "审核时间不能早于记录时间"
+    status_code_msg: "患者同步已禁用"
     units {
         unit: {
             id: 1

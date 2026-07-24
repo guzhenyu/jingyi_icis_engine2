@@ -96,6 +96,10 @@ public class PatientSyncService {
 
     @PostConstruct
     public void startSyncTimer() {
+        if (!syncEnabled) {
+            log.info("Patient synchronization is disabled; scheduled synchronization will not start");
+            return;
+        }
         log.info("syncStartDelayMinutes: {}, syncIntervalMinutes: {}",
             syncStartDelayMinutes, syncIntervalMinutes
         );
@@ -123,11 +127,22 @@ public class PatientSyncService {
     }
 
     public void syncPatientRecords(Boolean forceSync) {
+        if (!syncEnabled) {
+            log.info("Patient synchronization is disabled; skipping synchronization");
+            return;
+        }
         syncPatientRecords(forceSync, null);
     }
 
     @Transactional
     public void syncPatientRecords(Boolean forceSync, String deptId) {
+        if (!syncEnabled) {
+            log.info(
+                "Patient synchronization is disabled; skipping synchronization for department {}",
+                deptId
+            );
+            return;
+        }
         /**
          * 重要：一个mrn，在科的病人最多只能有一位
          */
@@ -276,6 +291,10 @@ public class PatientSyncService {
         return filteredRecords;
     }
 
+    public boolean isSyncEnabled() {
+        return syncEnabled;
+    }
+
     private PatientRecord createPatientRecordFromHis(
         HisPatientRecord hisRecord, Map<String, PatientSyncInfo> syncInfoMap
     ) {
@@ -309,6 +328,9 @@ public class PatientSyncService {
             surgeryRepo.saveAll(surgeryHistoriesToAdd);
         }
     }
+
+    @Value("${patient.sync.enabled:true}")
+    private boolean syncEnabled;
 
     @Value("${patient.sync.start_delay_minutes:3}")
     private int syncStartDelayMinutes;
