@@ -28,7 +28,8 @@ public class PatientSyncServiceTests extends TestsBase {
         @Autowired HisPatientRecordRepository hisPatientRepo,
         @Autowired PatientRecordRepository patientRepo,
         @Autowired BedConfigRepository bedConfigRepo,
-        @Autowired PatientBedHistoryRepository bedHistoryRepo
+        @Autowired PatientBedHistoryRepository bedHistoryRepo,
+        @Autowired PatientSyncUtils patientSyncUtils
     ) {
         this.protoService = protoService;
         this.patientSyncService = patientSyncService;
@@ -37,6 +38,7 @@ public class PatientSyncServiceTests extends TestsBase {
         this.patientRepo = patientRepo;
         this.bedConfigRepo = bedConfigRepo;
         this.bedHistoryRepo = bedHistoryRepo;
+        this.patientSyncUtils = patientSyncUtils;
     }
 
     @Test
@@ -122,6 +124,31 @@ public class PatientSyncServiceTests extends TestsBase {
         assertThat(patientRepo.findByMrnOrName(mrn)).isEmpty();
     }
 
+    @Test
+    public void testSyncGenericDiagnosisIntoPatientAndHistory() {
+        Long id = 29000001L;
+        String deptId = "diagnosis-sync-test";
+        PatientRecord patient = PatientTestUtils.newPatientRecord(id, 1, deptId);
+        HisPatientRecord hisPatient = PatientTestUtils.newHisPatientRecord(id, 1, deptId);
+        LocalDateTime diagnosisTime = LocalDateTime.of(2026, 7, 24, 3, 4, 5);
+
+        patient.setDiagnosis(null);
+        hisPatient.setDiagnosis("HIS通用诊断");
+        hisPatient.setDiagnosisCode("HIS-A01");
+        hisPatient.setDiagnosisTime(diagnosisTime);
+
+        Map<String, PatientSyncUtils.PatientSyncInfo> syncInfoMap = new HashMap<>();
+        assertThat(patientSyncUtils.updatePatientRecord(hisPatient, patient, syncInfoMap)).isTrue();
+        assertThat(patient.getDiagnosis()).isEqualTo("HIS通用诊断");
+        assertThat(syncInfoMap).containsKey(hisPatient.getMrn());
+        assertThat(syncInfoMap.get(hisPatient.getMrn()).diagnosisHisList).singleElement()
+            .satisfies(history -> {
+                assertThat(history.getDiagnosis()).isEqualTo("HIS通用诊断");
+                assertThat(history.getDiagnosisCode()).isEqualTo("HIS-A01");
+                assertThat(history.getDiagnosisTime()).isEqualTo(diagnosisTime);
+            });
+    }
+
     private final ConfigProtoService protoService;
     private final PatientSyncService patientSyncService;
 
@@ -130,4 +157,5 @@ public class PatientSyncServiceTests extends TestsBase {
     private final PatientRecordRepository patientRepo;
     private final BedConfigRepository bedConfigRepo;
     private final PatientBedHistoryRepository bedHistoryRepo;
+    private final PatientSyncUtils patientSyncUtils;
 }

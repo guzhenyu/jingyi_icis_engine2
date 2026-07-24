@@ -2,18 +2,28 @@ package com.jingyicare.jingyi_icis_engine.service.patients;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.LocalDateTime;
+import java.util.Collections;
+
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.*;
+import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
 
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
 import com.jingyicare.jingyi_icis_engine.entity.patients.BedConfig;
+import com.jingyicare.jingyi_icis_engine.entity.patients.DiagnosisHistory;
 import com.jingyicare.jingyi_icis_engine.entity.users.Account;
+import com.jingyicare.jingyi_icis_engine.entity.users.RbacAccount;
 import com.jingyicare.jingyi_icis_engine.repository.patients.BedConfigRepository;
+import com.jingyicare.jingyi_icis_engine.repository.patients.DiagnosisHistoryRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
+import com.jingyicare.jingyi_icis_engine.repository.users.RbacAccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
 import com.jingyicare.jingyi_icis_engine.testutils.*;
@@ -25,7 +35,9 @@ public class PatientServiceTests extends TestsBase {
         @Autowired PatientService patientService,
         @Autowired PatientRecordRepository patientRecordRepo,
         @Autowired BedConfigRepository bedConfigRepo,
-        @Autowired AccountRepository accountRepo
+        @Autowired AccountRepository accountRepo,
+        @Autowired RbacAccountRepository rbacAccountRepo,
+        @Autowired DiagnosisHistoryRepository diagnosisHistoryRepo
     ) {
         this.enums = protoService.getConfig().getPatient().getEnumsV2();
         this.PENDING_ADMISSION_VAL = enums.getAdmissionStatusList().stream()
@@ -54,6 +66,8 @@ public class PatientServiceTests extends TestsBase {
         this.patientRecordRepo = patientRecordRepo;
         this.bedConfigRepo = bedConfigRepo;
         this.accountRepo = accountRepo;
+        this.rbacAccountRepo = rbacAccountRepo;
+        this.diagnosisHistoryRepo = diagnosisHistoryRepo;
     }
 
     @Test
@@ -124,6 +138,107 @@ public class PatientServiceTests extends TestsBase {
         assertThat(dischargedResp.getPatient().getBasicsList()).hasSize(1);
     }
 
+    @Test
+    public void testDiagnosisHistoryAllowsMultipleRecordsAtSameTimeAndIgnoresLegacyEmptyShell() {
+        final String accountId = "diagnosis-history-test-user";
+        rbacAccountRepo.save(new RbacAccount(accountId, "诊断历史测试用户", ""));
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken(accountId, null, Collections.emptyList())
+        );
+
+        try {
+            PatientRecord patient = patientTestUtils.newPatientRecord(90001L, IN_ICU_VAL, "10013");
+            patient.setId(null);
+            patient.setHisMrn("diagnosis-history-shell-mrn");
+            patient.setDiagnosis(null);
+            patient = patientRecordRepo.save(patient);
+
+            String diagnosisTimeIso8601 = "2026-07-24T01:02:03Z";
+            LocalDateTime diagnosisTime = TimeUtils.fromIso8601String(diagnosisTimeIso8601, "UTC");
+            diagnosisHistoryRepo.save(DiagnosisHistory.builder()
+                .patientId(patient.getId())
+                .diagnosisTime(diagnosisTime)
+                .diagnosisAccountId("his")
+                .isDeleted(false)
+                .modifiedAt(diagnosisTime)
+                .modifiedBy("his")
+                .build());
+
+            GetDiagnosisHistoryReq getReq = GetDiagnosisHistoryReq.newBuilder()
+                .setPid(patient.getId())
+                .build();
+            GetDiagnosisHistoryResp getResp = patientService.getDiagnosisHistory(ProtoUtils.protoToJson(getReq));
+            assertThat(getResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+            assertThat(getResp.getDiagnosisHistoryList()).isEmpty();
+
+            DiagnosisHistoryPB diagnosis = DiagnosisHistoryPB.newBuilder()
+                .setDiagnosisTimeIso8601(diagnosisTimeIso8601)
+                .setDiagnosis("通用诊断")
+                .setDiagnosisCode("A01")
+                .build();
+            AddDiagnosisHistoryReq addReq = AddDiagnosisHistoryReq.newBuilder()
+                .setPid(patient.getId())
+                .setDiagnosisHistory(diagnosis)
+                .build();
+            AddDiagnosisHistoryResp addResp = patientService.addDiagnosisHistory(ProtoUtils.protoToJson(addReq));
+            assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+
+            DiagnosisHistoryPB secondDiagnosis = diagnosis.toBuilder()
+                .setDiagnosis("同时间第二条通用诊断")
+                .setDiagnosisCode("A01-2")
+                .build();
+            AddDiagnosisHistoryReq secondAddReq = addReq.toBuilder()
+                .setDiagnosisHistory(secondDiagnosis)
+                .build();
+            AddDiagnosisHistoryResp secondAddResp = patientService.addDiagnosisHistory(
+                ProtoUtils.protoToJson(secondAddReq)
+            );
+            assertThat(secondAddResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+
+            patient.setDiagnosis("过期的患者主表诊断");
+            patientRecordRepo.save(patient);
+            getResp = patientService.getDiagnosisHistory(ProtoUtils.protoToJson(getReq));
+            assertThat(getResp.getDiagnosisHistoryList())
+                .extracting(DiagnosisHistoryPB::getDiagnosis, DiagnosisHistoryPB::getDiagnosisCode)
+                .containsExactly(
+                    org.assertj.core.groups.Tuple.tuple("同时间第二条通用诊断", "A01-2"),
+                    org.assertj.core.groups.Tuple.tuple("通用诊断", "A01")
+                );
+            assertThat(patientRecordRepo.findById(patient.getId())).hasValueSatisfying(
+                savedPatient -> assertThat(savedPatient.getDiagnosis()).isEqualTo("同时间第二条通用诊断")
+            );
+
+            DiagnosisHistoryPB updatedDiagnosis = diagnosis.toBuilder()
+                .setDiagnosis("更新后的通用诊断")
+                .setDiagnosisCode("A02")
+                .build();
+            UpdateDiagnosisHistoryReq updateReq = UpdateDiagnosisHistoryReq.newBuilder()
+                .setId(addResp.getId())
+                .setDiagnosisHistory(updatedDiagnosis)
+                .build();
+            GenericResp updateResp = patientService.updateDiagnosisHistory(ProtoUtils.protoToJson(updateReq));
+            assertThat(updateResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+            getResp = patientService.getDiagnosisHistory(ProtoUtils.protoToJson(getReq));
+            assertThat(getResp.getDiagnosisHistoryList())
+                .extracting(DiagnosisHistoryPB::getDiagnosis)
+                .containsExactly("同时间第二条通用诊断", "更新后的通用诊断");
+            assertThat(patientRecordRepo.findById(patient.getId())).hasValueSatisfying(
+                savedPatient -> assertThat(savedPatient.getDiagnosis()).isEqualTo("同时间第二条通用诊断")
+            );
+
+            DeleteDiagnosisHistoryReq deleteReq = DeleteDiagnosisHistoryReq.newBuilder()
+                .setId(addResp.getId())
+                .build();
+            GenericResp deleteResp = patientService.deleteDiagnosisHistory(ProtoUtils.protoToJson(deleteReq));
+            assertThat(deleteResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+            getResp = patientService.getDiagnosisHistory(ProtoUtils.protoToJson(getReq));
+            assertThat(getResp.getDiagnosisHistoryList()).singleElement()
+                .satisfies(item -> assertThat(item.getId()).isEqualTo(secondAddResp.getId()));
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+    }
+
     private BedConfig newBedConfig(String deptId, String hisBedNumber, Integer bedType, Boolean isDeleted) {
         return BedConfig.builder()
             .departmentId(deptId)
@@ -145,6 +260,8 @@ public class PatientServiceTests extends TestsBase {
     final private PatientRecordRepository patientRecordRepo;
     final private BedConfigRepository bedConfigRepo;
     final private AccountRepository accountRepo;
+    final private RbacAccountRepository rbacAccountRepo;
+    final private DiagnosisHistoryRepository diagnosisHistoryRepo;
 }
 
     // @Test

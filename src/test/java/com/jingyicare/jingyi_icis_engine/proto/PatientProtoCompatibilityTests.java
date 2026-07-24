@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 
 import com.google.protobuf.CodedOutputStream;
 import com.jingyicare.jingyi_icis_databridge.grpc.HisPatientPB;
+import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.DiagnosisHistoryPB;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.PatientInfoPB;
 
@@ -41,6 +42,50 @@ class PatientProtoCompatibilityTests {
         HisPatientPB parsed = HisPatientPB.parseFrom(bytes.toByteArray());
 
         assertThat(parsed.getUnknownFields().asMap()).containsKey(50);
+    }
+
+    @Test
+    void shouldReserveRemovedDiagnosisFieldsAndPreserveThemAsUnknownFields() throws Exception {
+        assertThat(HisPatientPB.getDescriptor().findFieldByName("diagnosis_tcm_time_iso8601")).isNull();
+        assertThat(HisPatientPB.getDescriptor().findFieldByName("diagnosis_tcm_code")).isNull();
+        assertThat(HisPatientPB.getDescriptor().findFieldByName("diagnosis_tcm")).isNull();
+        assertThat(PatientInfoPB.getDescriptor().findFieldByName("diagnosis_tcm")).isNull();
+        assertThat(PatientInfoPB.getDescriptor().findFieldByName("diagnosis_type")).isNull();
+        assertThat(DiagnosisHistoryPB.getDescriptor().findFieldByName("diagnosis_tcm")).isNull();
+        assertThat(DiagnosisHistoryPB.getDescriptor().findFieldByName("diagnosis_tcm_code")).isNull();
+
+        assertUnknownStringFields(
+            HisPatientPB.parseFrom(stringFields(47, 48, 49)),
+            47, 48, 49
+        );
+        assertUnknownStringFields(
+            PatientInfoPB.parseFrom(stringFields(57, 58)),
+            57, 58
+        );
+        assertUnknownStringFields(
+            DiagnosisHistoryPB.parseFrom(stringFields(6, 7)),
+            6, 7
+        );
+    }
+
+    private static byte[] stringFields(int... fieldNumbers) throws Exception {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        CodedOutputStream output = CodedOutputStream.newInstance(bytes);
+        for (int fieldNumber : fieldNumbers) {
+            output.writeString(fieldNumber, "legacy-" + fieldNumber);
+        }
+        output.flush();
+        return bytes.toByteArray();
+    }
+
+    private static void assertUnknownStringFields(
+        com.google.protobuf.Message parsed,
+        int... fieldNumbers
+    ) {
+        for (int fieldNumber : fieldNumbers) {
+            assertThat(parsed.getUnknownFields().getField(fieldNumber).getLengthDelimitedList())
+                .hasSize(1);
+        }
     }
 
     private static void assertFieldNumber(

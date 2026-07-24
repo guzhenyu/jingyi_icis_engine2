@@ -137,9 +137,6 @@ public class PatientInfoExtendedDataSourceHandler extends AbstractJfkDataSourceH
         if (!StrUtils.isBlank(patient.getDiagnosis())) {
             parts.add(patient.getDiagnosis());
         }
-        if (!StrUtils.isBlank(patient.getDiagnosisTcm())) {
-            parts.add(patient.getDiagnosisTcm());
-        }
 
         List<String> surgeryNames = surgeries.stream()
             .sorted(Comparator.comparing(

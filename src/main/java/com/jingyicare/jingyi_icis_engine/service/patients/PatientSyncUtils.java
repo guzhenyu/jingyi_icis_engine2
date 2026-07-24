@@ -316,7 +316,7 @@ public class PatientSyncUtils {
             patientRecord.setAdmissionTime(hisRecord.getDeptAdmissionTime());
             isUpdated = true;
         }
-        // 44. diagnosis, diagnosis_tcm, diagnosis_type
+        // 44. diagnosis
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
         if (!StrUtils.isBlank(hisRecord.getDiagnosis()) && StrUtils.isBlank(patientRecord.getDiagnosis())) {
             patientRecord.setDiagnosis(hisRecord.getDiagnosis());
@@ -326,23 +326,6 @@ public class PatientSyncUtils {
                 .diagnosis(hisRecord.getDiagnosis())
                 .diagnosisCode(hisRecord.getDiagnosisCode())
                 .diagnosisTime(hisRecord.getDiagnosisTime() == null ? nowUtc : hisRecord.getDiagnosisTime())
-                .diagnosisAccountId("his")
-                .isDeleted(false)
-                .modifiedAt(nowUtc)
-                .modifiedBy("his")
-                .build();
-            syncInfo.diagnosisHisList.add(diagnosisHistory);
-
-            isUpdated = true;
-        }
-        if (!StrUtils.isBlank(hisRecord.getDiagnosisTcm()) && StrUtils.isBlank(patientRecord.getDiagnosisTcm())) {
-            patientRecord.setDiagnosisTcm(hisRecord.getDiagnosisTcm());
-
-            DiagnosisHistory diagnosisHistory = DiagnosisHistory.builder()
-                .patientId(patientRecord.getId())
-                .diagnosisTcm(hisRecord.getDiagnosisTcm())
-                .diagnosisTcmCode(hisRecord.getDiagnosisTcmCode())
-                .diagnosisTime(hisRecord.getDiagnosisTcmTime())
                 .diagnosisAccountId("his")
                 .isDeleted(false)
                 .modifiedAt(nowUtc)

@@ -76,8 +76,6 @@ public class PatientTestUtils {
         record.setAdmissionEditTime(now);
         record.setAdmittingAccountId("admittingAccountId" + id);
         record.setDiagnosis("diagnosis" + id);
-        record.setDiagnosisTcm("diagnosisTcm" + id);
-        record.setDiagnosisType("diagnosisType" + id);
         record.setDischargeType(1);  // todo(guzhenyu): deprecate this. 1 - "转出"
         record.setDeathTime(now);
         record.setHisDischargeTime(now);
@@ -143,9 +141,6 @@ public class PatientTestUtils {
         record.setDiagnosisTime(now);
         record.setDiagnosisCode("diagnosisCode" + id);
         record.setDiagnosis("diagnosis" + id);
-        record.setDiagnosisTcmTime(now);
-        record.setDiagnosisTcmCode("diagnosisTcmCode" + id);
-        record.setDiagnosisTcm("diagnosisTcm" + id);
         record.setToDeptId("toDeptId" + id);
         record.setToDeptName("toDeptName" + id);
         record.setOperation("operation" + id);

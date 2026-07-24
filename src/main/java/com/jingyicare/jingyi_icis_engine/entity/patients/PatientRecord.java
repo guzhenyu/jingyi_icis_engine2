@@ -434,18 +434,6 @@ public class PatientRecord {
     @Column(name = "diagnosis")
     private String diagnosis; // ICU诊断  入科诊断
 
-    public String getDiagnosisTcm() {
-        return diagnosisTcm == null ? "" : diagnosisTcm;
-    }
-    @Column(name = "diagnosis_tcm")
-    private String diagnosisTcm; // 中医诊断, Traditional Chinese Medicine
-
-    public String getDiagnosisType() {
-        return diagnosisType == null ? "" : diagnosisType;
-    }
-    @Column(name = "diagnosis_type")
-    private String diagnosisType; // 诊断类型，较少使用，reserved
-
     @Column(name = "surgery_operation")
     private String surgeryOperation; // 手术操作
 

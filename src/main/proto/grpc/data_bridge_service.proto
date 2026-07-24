@@ -120,9 +120,8 @@ message HisPatientPB {
     string diagnosis_time_iso8601 = 44; // 诊断时间，原始表中未明确对应，新增字段
     string diagnosis_code = 45; // 入科诊断编码，原始表中未明确对应，参考diagnosis
     string diagnosis = 46; // 入科诊断，对应diagnosis
-    string diagnosis_tcm_time_iso8601 = 47; // 中医诊断时间，对应diagnosis_tcm_time
-    string diagnosis_tcm_code = 48; // 中医临床诊断编码，对应diagnosis_tcm_code
-    string diagnosis_tcm = 49; // 中医临床诊断，对应diagnosis_tcm
+    reserved 47 to 49;
+    reserved "diagnosis_tcm_time_iso8601", "diagnosis_tcm_code", "diagnosis_tcm";
 
     reserved 50;
     reserved "discharged_type";

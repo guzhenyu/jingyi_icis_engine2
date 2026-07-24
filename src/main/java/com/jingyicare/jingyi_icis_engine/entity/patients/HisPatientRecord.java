@@ -160,15 +160,6 @@ public class HisPatientRecord {
     @Column(name = "diagnosis", columnDefinition = "TEXT")
     private String diagnosis;
 
-    @Column(name = "diagnosis_tcm_time")
-    private LocalDateTime diagnosisTcmTime;
-
-    @Column(name = "diagnosis_tcm_code", length = 1000)
-    private String diagnosisTcmCode;
-
-    @Column(name = "diagnosis_tcm", columnDefinition = "TEXT")
-    private String diagnosisTcm;
-
     @Column(name = "to_dept_id", length = 255)
     private String toDeptId;
 

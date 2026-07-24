@@ -974,6 +974,17 @@ public class PatientService {
             .build();
     }
 
+    private boolean hasGenericDiagnosisContent(DiagnosisHistory diagnosisHistory) {
+        return !StrUtils.isBlank(diagnosisHistory.getDiagnosis()) ||
+            !StrUtils.isBlank(diagnosisHistory.getDiagnosisCode());
+    }
+
+    private Comparator<DiagnosisHistory> diagnosisHistoryNewestFirst() {
+        return Comparator.comparing(DiagnosisHistory::getDiagnosisTime)
+            .reversed()
+            .thenComparing(DiagnosisHistory::getId, Comparator.reverseOrder());
+    }
+
     @Transactional
     public GetDiagnosisHistoryResp getDiagnosisHistory(String getDiagnosisHistoryReqJson) {
         final GetDiagnosisHistoryReq req;
@@ -1001,15 +1012,12 @@ public class PatientService {
         List<DiagnosisHistory> diagnosisHistories = diagnosisHistoryRepository
             .findByPatientIdAndIsDeletedFalse(pid)
             .stream()
-            .sorted(Comparator.comparing(DiagnosisHistory::getDiagnosisTime).reversed())
+            .filter(this::hasGenericDiagnosisContent)
+            .sorted(diagnosisHistoryNewestFirst())
             .toList();
 
         DiagnosisHistory latestDiagnosis = diagnosisHistories.stream()
             .filter(dh -> !StrUtils.isBlank(dh.getDiagnosis()))
-            .findFirst()
-            .orElse(null);
-        DiagnosisHistory latestDiagnosisTcm = diagnosisHistories.stream()
-            .filter(dh -> !StrUtils.isBlank(dh.getDiagnosisTcm()))
             .findFirst()
             .orElse(null);
 
@@ -1022,13 +1030,8 @@ public class PatientService {
                 patient.setDiagnosis("");
             }
             updatePatient = true;
-        }
-        if (StrUtils.isBlank(patient.getDiagnosisTcm()) != (latestDiagnosisTcm == null)) {
-            if (latestDiagnosisTcm != null) {
-                patient.setDiagnosisTcm(latestDiagnosisTcm.getDiagnosisTcm());
-            } else {
-                patient.setDiagnosisTcm("");
-            }
+        } else if (latestDiagnosis != null && !latestDiagnosis.getDiagnosis().equals(patient.getDiagnosis())) {
+            patient.setDiagnosis(latestDiagnosis.getDiagnosis());
             updatePatient = true;
         }
         if (updatePatient) patientRecordRepository.save(patient);
@@ -1042,8 +1045,6 @@ public class PatientService {
             dhBuilder.setDiagnosisDoctorId(dh.getDiagnosisAccountId());
             dhBuilder.setDiagnosis(StrUtils.getStringOrDefault(dh.getDiagnosis(), ""));
             dhBuilder.setDiagnosisCode(StrUtils.getStringOrDefault(dh.getDiagnosisCode(), ""));
-            dhBuilder.setDiagnosisTcm(StrUtils.getStringOrDefault(dh.getDiagnosisTcm(), ""));
-            dhBuilder.setDiagnosisTcmCode(StrUtils.getStringOrDefault(dh.getDiagnosisTcmCode(), ""));
             diagnosisHistoryList.add(dhBuilder.build());
         }
 
@@ -1086,16 +1087,6 @@ public class PatientService {
                 .build();
         }
 
-        // 查找是否有相同的记录
-        DiagnosisHistory existingDiagnosis = diagnosisHistoryRepository
-            .findByPatientIdAndDiagnosisTimeAndIsDeletedFalse(pid, diagnosisTime)
-            .orElse(null);
-        if (existingDiagnosis != null) {
-            return AddDiagnosisHistoryResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.DIAGNOSIS_HISTORY_ALREADY_EXISTS))
-                .build();
-        }
-
         // 获取用户信息
         Pair<String, String> account = userService.getAccountWithAutoId();
         if (account == null) {
@@ -1110,16 +1101,14 @@ public class PatientService {
         DiagnosisHistory latestDiagnosis = diagnosisHistoryRepository
             .findByPatientIdAndIsDeletedFalse(pid)
             .stream()
-            .sorted(Comparator.comparing(DiagnosisHistory::getDiagnosisTime).reversed())
+            .filter(dh -> !StrUtils.isBlank(dh.getDiagnosis()))
+            .sorted(diagnosisHistoryNewestFirst())
             .findFirst()
             .orElse(null);
-        if (latestDiagnosis == null || latestDiagnosis.getDiagnosisTime().isBefore(diagnosisTime)) {
+        if (latestDiagnosis == null || !latestDiagnosis.getDiagnosisTime().isAfter(diagnosisTime)) {
             // 更新病人记录
             if (!StrUtils.isBlank(req.getDiagnosisHistory().getDiagnosis())) {
                 patient.setDiagnosis(req.getDiagnosisHistory().getDiagnosis());
-            }
-            if (!StrUtils.isBlank(req.getDiagnosisHistory().getDiagnosisTcm())) {
-                patient.setDiagnosisTcm(req.getDiagnosisHistory().getDiagnosisTcm());
             }
             patientRecordRepository.save(patient);
         }
@@ -1131,8 +1120,6 @@ public class PatientService {
             .diagnosisAccountId(accountId)
             .diagnosis(req.getDiagnosisHistory().getDiagnosis())
             .diagnosisCode(req.getDiagnosisHistory().getDiagnosisCode())
-            .diagnosisTcm(req.getDiagnosisHistory().getDiagnosisTcm())
-            .diagnosisTcmCode(req.getDiagnosisHistory().getDiagnosisTcmCode())
             .isDeleted(false)
             .modifiedAt(TimeUtils.getNowUtc())
             .modifiedBy(accountId)
@@ -1192,43 +1179,22 @@ public class PatientService {
         DiagnosisHistory latestDiagnosis = diagnosisHistoryRepository
             .findByPatientIdAndIsDeletedFalse(diagnosisHistory.getPatientId())
             .stream()
-            .sorted(Comparator.comparing(DiagnosisHistory::getDiagnosisTime).reversed())
+            .filter(dh -> !Objects.equals(dh.getId(), diagnosisHistory.getId()))
+            .sorted(diagnosisHistoryNewestFirst())
             .filter(dh -> !StrUtils.isBlank(dh.getDiagnosis()))
             .findFirst()
             .orElse(null);
-        DiagnosisHistory latestDiagnosisTcm = diagnosisHistoryRepository
-            .findByPatientIdAndIsDeletedFalse(diagnosisHistory.getPatientId())
-            .stream()
-            .sorted(Comparator.comparing(DiagnosisHistory::getDiagnosisTime).reversed())
-            .filter(dh -> !StrUtils.isBlank(dh.getDiagnosisTcm()))
-            .findFirst()
-            .orElse(null);
-
-        // 检查相关时间是否已经有别的记录
-        DiagnosisHistory existingDiagnosis = diagnosisHistoryRepository
-            .findByPatientIdAndDiagnosisTimeAndIsDeletedFalse(
-                diagnosisHistory.getPatientId(), diagnosisTime)
-            .orElse(null);
-        if (existingDiagnosis != null && !existingDiagnosis.getId().equals(diagnosisHistory.getId())) {
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.DIAGNOSIS_HISTORY_ALREADY_EXISTS))
-                .build();
-        }
 
         // 如果待更新的诊断历史的时间是最新时间，更新对应的记录
         String latestDiagnosisStr = latestDiagnosis == null ?  "" :  latestDiagnosis.getDiagnosis();
-        if (latestDiagnosis != null && latestDiagnosis.getDiagnosisTime() != null &&
-            !latestDiagnosis.getDiagnosisTime().isAfter(diagnosisTime) &&
+        boolean updatedDiagnosisIsLatest = latestDiagnosis == null ||
+            diagnosisTime.isAfter(latestDiagnosis.getDiagnosisTime()) ||
+            (diagnosisTime.equals(latestDiagnosis.getDiagnosisTime()) &&
+                diagnosisHistory.getId() > latestDiagnosis.getId());
+        if (updatedDiagnosisIsLatest &&
             !StrUtils.isBlank(req.getDiagnosisHistory().getDiagnosis())
         ) {
             latestDiagnosisStr = req.getDiagnosisHistory().getDiagnosis();
-        }
-        String latestDiagnosisTcmStr = latestDiagnosisTcm == null ? "" : latestDiagnosisTcm.getDiagnosisTcm();
-        if (latestDiagnosisTcm != null && latestDiagnosisTcm.getDiagnosisTime() != null &&
-            latestDiagnosisTcm.getDiagnosisTime().isAfter(diagnosisTime) &&
-            !StrUtils.isBlank(req.getDiagnosisHistory().getDiagnosisTcm())
-        ) {
-            latestDiagnosisTcmStr = req.getDiagnosisHistory().getDiagnosisTcm();
         }
 
         // 更新病人记录
@@ -1246,10 +1212,6 @@ public class PatientService {
             patient.setDiagnosis(latestDiagnosisStr);
             updatePatient = true;
         }
-        if (!latestDiagnosisTcmStr.equals(patient.getDiagnosisTcm())) {
-            patient.setDiagnosisTcm(latestDiagnosisTcmStr);
-            updatePatient = true;
-        }
         if (updatePatient) patientRecordRepository.save(patient);
 
         // 更新诊断历史记录
@@ -1257,8 +1219,6 @@ public class PatientService {
         diagnosisHistory.setDiagnosisAccountId(accountId);
         diagnosisHistory.setDiagnosis(req.getDiagnosisHistory().getDiagnosis());
         diagnosisHistory.setDiagnosisCode(req.getDiagnosisHistory().getDiagnosisCode());
-        diagnosisHistory.setDiagnosisTcm(req.getDiagnosisHistory().getDiagnosisTcm());
-        diagnosisHistory.setDiagnosisTcmCode(req.getDiagnosisHistory().getDiagnosisTcmCode());
         diagnosisHistory.setModifiedAt(TimeUtils.getNowUtc());
         diagnosisHistory.setModifiedBy(accountId);
         diagnosisHistory.setModifiedByAccountName(accountName);
@@ -1305,7 +1265,7 @@ public class PatientService {
         List<DiagnosisHistory> diagnosisHistories = diagnosisHistoryRepository
             .findByPatientIdAndIsDeletedFalse(diagnosisHistory.getPatientId())
             .stream()
-            .sorted(Comparator.comparing(DiagnosisHistory::getDiagnosisTime).reversed())
+            .sorted(diagnosisHistoryNewestFirst())
             .toList();
 
         // 逻辑删除
@@ -1325,13 +1285,8 @@ public class PatientService {
 
         // 更新病人记录
         DiagnosisHistory latestDiagnosis = diagnosisHistories.stream()
-            .filter(dh -> dh.getId() != diagnosisHistory.getId())
+            .filter(dh -> !Objects.equals(dh.getId(), diagnosisHistory.getId()))
             .filter(dh -> !StrUtils.isBlank(dh.getDiagnosis()))
-            .findFirst()
-            .orElse(null);
-        DiagnosisHistory latestDiagnosisTcm = diagnosisHistories.stream()
-            .filter(dh -> dh.getId() != diagnosisHistory.getId())
-            .filter(dh -> !StrUtils.isBlank(dh.getDiagnosisTcm()))
             .findFirst()
             .orElse(null);
 
@@ -1345,17 +1300,6 @@ public class PatientService {
             updatePatient = true;
         } else if (latestDiagnosis != null && !latestDiagnosis.getDiagnosis().equals(patient.getDiagnosis())) {
             patient.setDiagnosis(latestDiagnosis.getDiagnosis());
-            updatePatient = true;
-        }
-        if (StrUtils.isBlank(patient.getDiagnosisTcm()) != (latestDiagnosisTcm == null)) {
-            if (latestDiagnosisTcm != null) {
-                patient.setDiagnosisTcm(latestDiagnosisTcm.getDiagnosisTcm());
-            } else {
-                patient.setDiagnosisTcm("");
-            }
-            updatePatient = true;
-        } else if (latestDiagnosisTcm != null && !latestDiagnosisTcm.getDiagnosisTcm().equals(patient.getDiagnosisTcm())) {
-            patient.setDiagnosisTcm(latestDiagnosisTcm.getDiagnosisTcm());
             updatePatient = true;
         }
         if (updatePatient) patientRecordRepository.save(patient);
@@ -1819,14 +1763,6 @@ public class PatientService {
                 if (patientRec.getDiagnosis() == null) return "";
                 return patientRec.getDiagnosis();
 
-            case "diagnosis_tcm":
-                if (patientRec.getDiagnosisTcm() == null) return "";
-                return patientRec.getDiagnosisTcm();
-
-            case "diagnosis_type":
-                if (patientRec.getDiagnosisType() == null) return "";
-                return patientRec.getDiagnosisType();
-
             case "discharge_type":
                 if (patientRec.getDischargeType() == null) return "";
                 return patientConfig.getDischargeTypeStr(patientRec.getDischargeType());
@@ -2003,8 +1939,6 @@ public class PatientService {
             ? userService.getNameByAutoId(patient.getResponsibleNurseId()) : "");
 
         builder.setDiagnosis(patient.getDiagnosis());
-        builder.setDiagnosisTcm(patient.getDiagnosisTcm());
-        builder.setDiagnosisType(patient.getDiagnosisType());
 
         builder.setAdmissionStatus(patient.getAdmissionStatus());
 
@@ -2110,8 +2044,6 @@ public class PatientService {
             ? null : patientInfo.getResponsibleNurseId());
 
         patient.setDiagnosis(patientInfo.getDiagnosis().isEmpty() ? null : patientInfo.getDiagnosis());
-        patient.setDiagnosisTcm(patientInfo.getDiagnosisTcm().isEmpty() ? null : patientInfo.getDiagnosisTcm());
-        patient.setDiagnosisType(patientInfo.getDiagnosisType().isEmpty() ? null : patientInfo.getDiagnosisType());
 
         patient.setFromDeptName(patientInfo.getFromDeptName().isEmpty()
             ? null : patientInfo.getFromDeptName());

@@ -107,8 +107,8 @@ message PatientInfoPB {
     string responsible_nurse_name = 55;    // 责任护士姓名
 
     string diagnosis = 56;    // ICU诊断(永远展示最新的诊断信息)
-    string diagnosis_tcm = 57;    // 中医诊断
-    string diagnosis_type = 58;    // 诊断类型，较少使用，reserved
+    reserved 57, 58;
+    reserved "diagnosis_tcm", "diagnosis_type";
 
     // 出入科状态
     int32 admission_status = 59;    // 入科状态

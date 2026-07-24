@@ -175,7 +175,6 @@ public class PatientInfoExtendedDataSourceHandlerTests {
         patient.setIcuDateOfBirth(LocalDateTime.of(1980, 4, 18, 0, 0));
         patient.setHisMrn("MRN001");
         patient.setDiagnosis("ICU诊断");
-        patient.setDiagnosisTcm("");
         patient.setHeight(179.4f);
         patient.setWeight(70.2f);
         patient.setAdmissionTime(LocalDateTime.of(2026, 3, 23, 16, 30));

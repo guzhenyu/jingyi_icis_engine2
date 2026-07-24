@@ -28,12 +28,6 @@ public class DiagnosisHistory {
     @Column(name = "diagnosis_code", length = 1000)
     private String diagnosisCode;
 
-    @Column(name = "diagnosis_tcm", columnDefinition = "TEXT")
-    private String diagnosisTcm;
-
-    @Column(name = "diagnosis_tcm_code", length = 1000)
-    private String diagnosisTcmCode;
-
     @Column(name = "diagnosis_time", nullable = false)
     private LocalDateTime diagnosisTime;
 

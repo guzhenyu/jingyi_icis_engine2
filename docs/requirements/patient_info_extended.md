@@ -65,7 +65,7 @@ src/main/java/com/jingyicare/jingyi_icis_engine/service/reports/jfkdatasources/P
 | `illness_severity_level` | 病情分级 | `patient_records.illness_severity_level` 匹配 `ConfigProtoService.getConfig().getPatient().getEnumsV2().getIllnessSeverityLevelList()` 后显示枚举名 |
 | `days_after_surgery` | 术后天数 | 根据最新手术 `end_time` 和 `monEndUtc` 计算，满 24 小时算 1 天，例：`9天`；找不到手术显示 `天` |
 | `mon_record_day_range` | 记录日期 | 根据 `monStartLocal` 到 `monEndLocal` 显示，例：`20260401-20260402` |
-| `diagnosis_and_surgery` | 诊断及手术 | `diagnosis`、`diagnosis_tcm`、手术名称组合，具体拼接规则见下文 |
+| `diagnosis_and_surgery` | 诊断及手术 | `diagnosis`、手术名称组合，具体拼接规则见下文 |
 | `patient_shift_info` | 交班信息 | 查询 `patient_shift_records`，按 `shift_start` 排序后拼接 |
 
 ## 监测窗口计算
@@ -335,8 +335,7 @@ diagnosis_and_surgery
 数据来源：
 
 1. `patient_records.diagnosis`
-2. `patient_records.diagnosis_tcm`
-3. `surgery_history.name`
+2. `surgery_history.name`
 
 手术查询：
 
@@ -359,22 +358,21 @@ name1 + " + " + name2 + ...
 拼接规则：
 
 1. 收集非空 `diagnosis`。
-2. 收集非空 `diagnosis_tcm`。
-3. 若手术名称列表非空，追加：
+2. 若手术名称列表非空，追加：
 
 ```text
 手术: name1 + name2 + ...
 ```
 
-4. 最终使用 `"; "` 连接。
+3. 最终使用 `"; "` 连接。
 
 例：
 
 ```text
-ICU诊断; 中医诊断; 手术: 手术A + 手术B
+ICU诊断; 手术: 手术A + 手术B
 ```
 
-若 `diagnosis_tcm` 为空但存在手术名称，仍然展示 `; 手术: ...`。
+若 `diagnosis` 为空但存在手术名称，直接展示 `手术: ...`。
 
 ## 交班信息
 
@@ -563,6 +561,6 @@ PatientInfoExtendedDataSourceHandlerTests
 5. `illness_severity_level` 匹配不到枚举时 `log.warn`，输出空字符串。
 6. `days_after_surgery` 如果手术 `end_time > monEndUtc`，输出 `0天`。
 7. `mon_record_day_range` 的结束日期使用 `monEndLocal` 日期。
-8. `diagnosis_tcm` 为空但有手术时，仍然拼接 `; 手术: xxx`。
+8. `diagnosis` 为空但有手术时，直接展示 `手术: xxx`。
 9. `patient_shift_info` 只显示 `班次: 护士`，不包含 `content`。
 10. `patient_shift_records` 的时间条件是整条交班记录完整落在 `[monStartUtc, monEndUtc)` 内。

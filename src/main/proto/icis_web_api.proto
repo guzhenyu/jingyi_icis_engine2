@@ -1095,8 +1095,8 @@ message DiagnosisHistoryPB {
     string diagnosis_doctor_id = 3;
     string diagnosis = 4;
     string diagnosis_code = 5;
-    string diagnosis_tcm = 6;
-    string diagnosis_tcm_code = 7;
+    reserved 6, 7;
+    reserved "diagnosis_tcm", "diagnosis_tcm_code";
 }
 
 message GetDiagnosisHistoryResp {
