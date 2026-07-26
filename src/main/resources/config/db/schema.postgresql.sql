@@ -576,7 +576,7 @@ COMMENT ON COLUMN diagnosis_history.his_mrn IS '住院号';
 COMMENT ON COLUMN diagnosis_history.his_admission_count IS 'HIS住院次数';
 COMMENT ON COLUMN diagnosis_history.his_patient_id IS 'HIS病人ID';
 COMMENT ON COLUMN diagnosis_history.dept_admission_time IS '科室入科时间';
-COMMENT ON COLUMN diagnosis_history.diagnosis_type IS '诊断类型：1-入院诊断，2-科室诊断';
+COMMENT ON COLUMN diagnosis_history.diagnosis_type IS '诊断类型：1-住院入院诊断，2-科室入科诊断，3-住院出院诊断';
 COMMENT ON COLUMN diagnosis_history.diagnosis_category IS '诊断类别：1-中医，2-西医';
 COMMENT ON COLUMN diagnosis_history.diagnosis IS '诊断';
 COMMENT ON COLUMN diagnosis_history.diagnosis_code IS '诊断编码';
@@ -589,6 +589,18 @@ COMMENT ON COLUMN diagnosis_history.modified_at IS '修改时间';
 COMMENT ON COLUMN diagnosis_history.modified_by IS '修改人';
 COMMENT ON COLUMN diagnosis_history.modified_by_account_name IS '修改人姓名';
 CREATE INDEX idx_diagnosis_history_patient_id ON diagnosis_history (patient_id);
+CREATE INDEX idx_dh_encounter
+ON diagnosis_history (his_encounter_id, is_deleted, diagnosis_time, id)
+WHERE patient_key_type = 1;
+CREATE INDEX idx_dh_mrn_admission_count
+ON diagnosis_history (his_mrn, his_admission_count, is_deleted, diagnosis_time, id)
+WHERE patient_key_type = 2;
+CREATE INDEX idx_dh_patient_dept_time
+ON diagnosis_history (his_patient_id, dept_admission_time, is_deleted, diagnosis_time, id)
+WHERE patient_key_type = 3;
+CREATE INDEX idx_dh_patient
+ON diagnosis_history (his_patient_id, is_deleted, diagnosis_time, id)
+WHERE patient_key_type = 4;
 
 CREATE TABLE surgery_history (
     id SERIAL PRIMARY KEY,

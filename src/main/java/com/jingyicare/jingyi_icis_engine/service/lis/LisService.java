@@ -561,6 +561,9 @@ public class LisService {
         if (result == null) result = defaultValue;
         String resultStr = isNumber ? ValueMetaUtils.extractAndFormatParamValue(result, valueMeta) : "";
         String unit = latestResult.getUnit();
+        if (StrUtils.isBlank(unit)) {
+            unit = valueMeta.getUnit();
+        }
 
         List<LisTimeValuePB> timedValues = new ArrayList<>();
         if (isNumber) {
@@ -629,7 +632,7 @@ public class LisService {
                     if (externalLisParamMap.containsKey(externalParamCode)) continue;
 
                     String externalParamName = result.getExternalParamName();
-                    String unit = result.getUnit();
+                    String unit = result.getUnit() == null ? "" : result.getUnit();
 
                     TypeEnumPB typeEnumPb = TypeEnumPB.STRING;
                     Float resultValue = null;
