@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import com.google.protobuf.TextFormat;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
+import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisText.Text;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.UserConfigPB;
 
@@ -69,6 +70,7 @@ class ConfigPbtxtTests {
         }
 
         assertThat(builder.getStatusCodeMsgList()).contains("ok", "患者不存在");
+        assertThat(builder.getStatusCodeMsgCount()).isEqualTo(StatusCode.LAST_CODE_VALUE);
         assertThat(builder.getWebApiMessage().getYesStr()).isNotBlank();
     }
 

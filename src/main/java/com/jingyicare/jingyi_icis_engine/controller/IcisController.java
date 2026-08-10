@@ -963,9 +963,14 @@ public class IcisController {
         return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getJfkData(getJfkDataReqJson)));
     }
 
-    @PostMapping("/report/getjfksignpics")
-    public ResponseEntity<String> getJfkSignPics(@RequestBody String getJfkSignPicsReqJson) {
-        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getJfkSignPics(getJfkSignPicsReqJson)));
+    @PostMapping("/report/getjfksignatureaccounts")
+    public ResponseEntity<String> getJfkSignatureAccounts(@RequestBody String requestJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getJfkSignatureAccounts(requestJson)));
+    }
+
+    @PostMapping("/ca/getsignimage")
+    public ResponseEntity<String> getCaSignImage(@RequestBody String requestJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getCaSignImage(requestJson)));
     }
 
     @PostMapping("/report/getpatientforms")

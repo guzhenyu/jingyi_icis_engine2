@@ -22,7 +22,7 @@ enum SystemSettingFunctionId {
     GET_IQC_CONFIG = 13;                    // IcuQcConfigPB 全局ICU质控配置，system_settings.settings_pb
 }
 
-// next id: 6
+// next id: 8
 enum AppSettingTypeEnum {
     AST_UNUSED = 0;
 
@@ -41,6 +41,7 @@ enum AppSettingTypeEnum {
 
     // 通用配置
     AST_GENERAL = 6;  // 打印配置 + 限制提前录入
+    AST_ENABLE_CA = 7;  // CA实时签名开关
 }
 
 message AppGeneralSettingsPB {
@@ -48,9 +49,10 @@ message AppGeneralSettingsPB {
     string print_agent_ip_port = 2; // 打印代理的IP和端口，例如：192.168.0.49:9123
 
     bool check_future_time = 3;  // 限制提前录入
+    bool enable_ca = 4;  // 是否启用CA实时签名
 }
 
-// next id: 11
+// next id: 12
 message AppSettingsPB {
     // 执行用药
     bool enable_medication_speed = 1;  // 是否启用'药速'
@@ -73,4 +75,5 @@ message AppSettingsPB {
     bool jfk_use_native_print = 8; // 是否使用浏览器原生打印
     string print_agent_ip_port = 9; // 打印代理的IP和端口，例如：192.168.0.49:9123
     bool check_future_time = 10;  // 限制提前录入
+    bool enable_ca = 11;  // 是否启用CA实时签名
 }

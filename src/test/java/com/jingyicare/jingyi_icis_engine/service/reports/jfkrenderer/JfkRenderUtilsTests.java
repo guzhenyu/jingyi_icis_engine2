@@ -49,4 +49,9 @@ public class JfkRenderUtilsTests {
         assertThat(JfkRenderUtils.elasticRowHeight(12f, 6f, 1)).isEqualTo(12f);
         assertThat(JfkRenderUtils.elasticRowHeight(12f, 6f, 2)).isEqualTo(19f);
     }
+
+    @Test
+    public void accountSignatureIsRenderedAsAnImageOrFallbackSnapshot() {
+        assertThat(JfkRenderUtils.isImageValType(10)).isTrue();
+    }
 }

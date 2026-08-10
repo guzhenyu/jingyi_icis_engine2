@@ -1,0 +1,6 @@
+source_repository=jingyi_cig
+source_commit=4eedac4371bd07e5881de8ebd9ca0cf78ab78271
+source_root=src/main/proto
+675a51b20a02d56b961e4053302f530ea13d632545f5c7794e61acba3d42dd1c  grpc/ca_service.proto
+5c7978941abef197ec96a4f8f586ad4c1fc717861cdd42b7b54c0a769cc1117f  grpc/ca.proto
+02c694a8f8e96199695c4c29167d3673a6a087628d55a2d66520714d329d9d1c  grpc/provider/beijing_ca.proto

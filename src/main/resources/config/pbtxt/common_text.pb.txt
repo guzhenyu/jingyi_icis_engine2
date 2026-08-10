@@ -291,6 +291,13 @@
     status_code_msg: "无效的护嘱执行备注显示顺序"
     status_code_msg: "审核时间不能早于记录时间"
     status_code_msg: "患者同步已禁用"
+    status_code_msg: "目标账号不属于当前科室"
+    status_code_msg: "未取得CA签名图"
+    status_code_msg: "CA实时签名未启用"
+    status_code_msg: "CIG CA服务不可用"
+    status_code_msg: "CIG CA服务调用超时"
+    status_code_msg: "CIG CA响应校验失败"
+    status_code_msg: "CIG CA服务内部错误"
     units {
         unit: {
             id: 1

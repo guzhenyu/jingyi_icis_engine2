@@ -1,0 +1,171 @@
+syntax = "proto3";
+
+package jingyi.cig.ca;
+
+import "grpc/provider/beijing_ca.proto";
+
+option java_package = "com.jingyicare.jingyi_cig.grpc.ca";
+option java_multiple_files = true;
+option java_outer_classname = "CaProto";
+
+// 调用 CIG CA能力的业务系统。该值决定账号数据源、业务数据源和 CA凭据绑定。
+enum CaSourceSystemPB {
+  // 未指定；所有对外请求均不得使用该值。
+  CA_SOURCE_SYSTEM_UNSPECIFIED = 0;
+  // 重症系统 ICIS。
+  CA_SOURCE_SYSTEM_ICIS = 1;
+  // 手术麻醉系统 AIMS。
+  CA_SOURCE_SYSTEM_AIMS = 2;
+}
+
+// CIG 已适配的 CA厂商类型。新增厂商时只能追加枚举值，不得改变已有编号。
+enum CaProviderTypePB {
+  // 未指定；成功响应和持久化操作均不得使用该值。
+  CA_PROVIDER_TYPE_UNSPECIFIED = 0;
+  // 北京数字认证股份有限公司协同签名系统。
+  CA_PROVIDER_TYPE_BEIJING_CA = 1;
+}
+
+// PDF扫码签名任务的 CIG 标准状态；不得使用厂商原始状态替代本状态机。
+enum CaSignJobStatusPB {
+  // 未指定或无法识别；正常任务不得停留在该状态。
+  CA_SIGN_JOB_STATUS_UNSPECIFIED = 0;
+  // CIG 已建立持久化操作，正在校验和准备厂商请求。
+  CA_SIGN_JOB_STATUS_PREPARING = 1;
+  // CIG 正在向 CA提交创建签名任务请求，尚未完成二维码准备。
+  CA_SIGN_JOB_STATUS_SUBMITTING = 2;
+  // CA 已接受任务且二维码可供扫码；CIG重启后二维码可能不再可用。
+  CA_SIGN_JOB_STATUS_WAITING_FOR_SCAN = 3;
+  // CIG 已持久化回调，正在校验、保存合章 PDF或等待厂商任务 ID关联。
+  CA_SIGN_JOB_STATUS_CALLBACK_RECEIVED = 4;
+  // 回调校验通过、合章 PDF已安全落盘，且成功结果已进入业务投影流程。
+  CA_SIGN_JOB_STATUS_SUCCEEDED = 5;
+  // 签名人明确拒绝或厂商返回等价拒签状态。
+  CA_SIGN_JOB_STATUS_REFUSED = 6;
+  // 厂商明确返回任务或二维码已失效。
+  CA_SIGN_JOB_STATUS_EXPIRED = 7;
+  // CIG 根据本地有效期将仍未完成的任务判定为超时。
+  CA_SIGN_JOB_STATUS_TIMED_OUT = 8;
+  // 创建、回调解析、文件校验或其他处理发生不可恢复错误。
+  CA_SIGN_JOB_STATUS_FAILED = 9;
+}
+
+// 返回签名图时的实际数据来源。
+enum CaSignImageSourcePB {
+  // 未指定；成功响应不得使用该值。
+  CA_SIGN_IMAGE_SOURCE_UNSPECIFIED = 0;
+  // 从配置绑定的 CA厂商实时查询得到。
+  CA_SIGN_IMAGE_SOURCE_CA_PROVIDER = 1;
+  // 实时查询不可用时，使用业务账号表 accounts.ca_sign_pic 的最终兜底。
+  CA_SIGN_IMAGE_SOURCE_ACCOUNT_CA_SIGN_PIC_FALLBACK = 2;
+}
+
+// 可直接显示的签名图片。data 是已解码图片 bytes，不是 Base64文本。
+message SignImagePB {
+  // PNG、JPEG或 GIF原始图片 bytes。
+  bytes data = 1;
+  // IANA媒体类型，例如 image/png。
+  string media_type = 2;
+  // data 的 SHA-256 小写十六进制字符串，用于完整性校验和缓存键。
+  string sha256 = 3;
+  // 图片像素宽度，必须大于 0。
+  int32 width = 4;
+  // 图片像素高度，必须大于 0。
+  int32 height = 5;
+}
+
+// 可供前端或浏览器显示的二维码 PNG。二维码内容可能包含短期敏感令牌，不得记录日志。
+message QrCodeImagePB {
+  // 二维码图片原始 bytes，当前实现为 PNG；不保存到 CIG数据库。
+  bytes data = 1;
+  // IANA媒体类型，当前为 image/png。
+  string media_type = 2;
+  // data 的 SHA-256 小写十六进制字符串。
+  string sha256 = 3;
+  // 图片像素宽度，必须大于 0。
+  int32 width = 4;
+  // 图片像素高度，必须大于 0。
+  int32 height = 5;
+}
+
+// 调用方对待签 PDF的不可变声明；CIG会与业务库记录和实际文件重新核验。
+message PdfSignDocumentPB {
+  // 来源系统内的业务文档 ID；AIMS 当前对应 surgery_archives.id。
+  int64 business_document_id = 1;
+  // 实际源 PDF bytes 的 SHA-256 小写十六进制字符串，固定 64字符。
+  string pdf_sha256 = 2;
+  // 源 PDF总页数，必须大于 0。
+  int32 page_count = 3;
+}
+
+// PDF签章矩形。单位为 PDF point，坐标原点位于页面左下角。
+message PdfSignPlacementPB {
+  // 一基页码，即第一页为 1。
+  int32 page_no = 1;
+  // 矩形左边界距页面左侧的 point 数。
+  float left_pt = 2;
+  // 矩形下边界距页面底部的 point 数。
+  float bottom_pt = 3;
+  // 签章矩形宽度，单位 point，必须大于 0。
+  float width_pt = 4;
+  // 签章矩形高度，单位 point，必须大于 0。
+  float height_pt = 5;
+  // 调用方模板中的字段标识，仅用于关联和审计；可为空且不参与服务端文件定位。
+  string client_element_id = 6;
+}
+
+// 对外返回的 PDF扫码签名任务视图。底层由通用 CA operation 投影生成。
+message CaSignJobPB {
+  // CIG 分配的稳定任务 ID；内部对应 cig_ca_operations.operation_id。
+  string job_id = 1;
+  // 发起任务的业务系统。
+  CaSourceSystemPB source_system = 2;
+  // 发起签名的本人账号 ID；初版不允许代签。
+  int64 account_id = 3;
+  // 调用方生成的幂等请求 ID。
+  string request_id = 4;
+  // 业务文档 ID，必须与 document.business_document_id 相同。
+  int64 business_document_id = 5;
+  // 实际处理该任务的 CA厂商类型。
+  CaProviderTypePB provider_type = 6;
+  // 厂商任务 ID；北京 CA对应创建响应 signDataId 和回调 signJobId。
+  string provider_job_id = 7;
+  // CIG 标准任务状态。
+  CaSignJobStatusPB status = 8;
+  // 厂商原始状态，例如 FINISH；仅供诊断，不应用于通用业务判断。
+  string provider_status = 9;
+  // CIG 创建任务的带 offset ISO 8601时间。
+  string created_at_iso8601 = 10;
+  // 当前任务有效期截止的带 offset ISO 8601时间。
+  string expires_at_iso8601 = 11;
+  // 终态完成的带 offset ISO 8601时间；非终态时为空。
+  string completed_at_iso8601 = 12;
+  // 合章 PDF相对于 signed_root 的受控路径；仅成功任务设置。
+  string compose_pdf_relative_path = 13;
+  // 合章 PDF bytes 的 SHA-256 小写十六进制字符串；仅成功任务设置。
+  string compose_pdf_sha256 = 14;
+  // 合章 PDF字节数；仅成功任务设置。
+  int64 compose_pdf_size_bytes = 15;
+  // 合章 PDF页数；仅成功任务设置，并应与源 PDF一致。
+  int32 compose_pdf_page_count = 16;
+  // 脱敏后的最近错误摘要；成功任务为空。
+  string error_message = 17;
+  // 创建任务时经 CIG校验的 PDF声明快照。
+  PdfSignDocumentPB document = 18;
+  // 创建任务时经 CIG校验的签章位置快照。
+  PdfSignPlacementPB placement = 19;
+}
+
+// 业务系统持久化的最近一次成功签名结果。
+// AIMS surgery_archives.ca_signing_pb 只保存本消息的二进制 Base64，不保存当前任务或失败历史。
+message CaSigningStatePB {
+  // 合法持久化值必须为 true；无成功结果时业务字段应为 NULL而不是 signed=false。
+  bool signed = 1;
+  // 本结果完成并写入时的带 offset ISO 8601时间。
+  string updated_at_iso8601 = 2;
+
+  oneof provider_job {
+    // 产生该成功结果的北京 CA厂商任务详情。
+    BeijingCaSignJobPB beijing_ca_sign_job = 3;
+  }
+}

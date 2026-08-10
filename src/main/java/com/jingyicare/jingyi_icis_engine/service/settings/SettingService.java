@@ -69,55 +69,34 @@ public class SettingService {
                 .build();
         }
 
-        // 获取请求参数
-        String deptId = req.getDeptId();
-
-        // 获取医嘱信息
-        MedOrderGroupSettingsPB medSettingsPb = medConfig.getMedOrderGroupSettings(deptId);
-        boolean enableMedSpeed = medSettingsPb == null ? false : medSettingsPb.getEnableMedicationSpeed();
-
-        // 获取观察项信息
-        DeptMonitoringSettingsPB monitoringSettingsPb = monitoringConfig.getDeptMonitoringSettings(deptId);
-        int getHeadCustomTimePointGraceMinutes = monitoringSettingsPb.getHeadCustomTimePointGraceMinutes();
-        int getTailCustomTimePointGraceMinutes = monitoringSettingsPb.getTailCustomTimePointGraceMinutes();
-
-        // 获取护理记录信息
-        NursingRecordSettingsPB nursingRecordSettingsPb = nursingRecordConfig.getNursingRecordSettings(deptId);
-        boolean enableUpdatingCreatedBy = nursingRecordSettingsPb.getEnableUpdatingCreatedBy();
-
-        // 获取评分记录信息
-        ScoreSettingsPB scoreSettingsPb = scoreConfig.getDeptScoreSettings(deptId);
-        boolean allowEditRecordedBy = scoreSettingsPb.getAllowEditRecordedBy();
-
-        // 获取通用设置信息
-        DeptSystemSettingsId settingsId = new DeptSystemSettingsId(
-            deptId, SystemSettingFunctionId.GET_DEPT_APP_SETTINGS.getNumber());
-        DeptSystemSettings settingsEntity = deptSettingsRepo.findById(settingsId).orElse(null);
-        AppGeneralSettingsPB generalSettingsPb = null;
-        if (settingsEntity != null) {
-            generalSettingsPb = ProtoUtils.decodeAppGeneralSettings(settingsEntity.getSettingsPb());
-        }
-        if (generalSettingsPb == null) {
-            generalSettingsPb = AppGeneralSettingsPB.newBuilder()
-                .setJfkUseNativePrint(false)
-                .setPrintAgentIpPort("127.0.0.1:9123")
-                .setCheckFutureTime(false)
-                .build();
-        }
-
         return GetAppSettingsResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
-            .setSettings(AppSettingsPB.newBuilder()
-                .setEnableMedicationSpeed(enableMedSpeed)
-                .setHeadCustomTimeGraceMinutes(getHeadCustomTimePointGraceMinutes)
-                .setTailCustomTimeGraceMinutes(getTailCustomTimePointGraceMinutes)
-                .setNursingRecordOverwriteCreatedBy(enableUpdatingCreatedBy)
-                .setScoreAllowEditRecordedBy(allowEditRecordedBy)
-                .setJfkUseNativePrint(generalSettingsPb.getJfkUseNativePrint())
-                .setPrintAgentIpPort(generalSettingsPb.getPrintAgentIpPort())
-                .setCheckFutureTime(generalSettingsPb.getCheckFutureTime())
-                .build()
-            )
+            .setSettings(getAppSettingsForService(req.getDeptId()))
+            .build();
+    }
+
+    @Transactional(readOnly = true)
+    public AppSettingsPB getAppSettingsForService(String deptId) {
+        MedOrderGroupSettingsPB medSettingsPb = medConfig.getMedOrderGroupSettings(deptId);
+        DeptMonitoringSettingsPB monitoringSettingsPb = monitoringConfig.getDeptMonitoringSettings(deptId);
+        NursingRecordSettingsPB nursingRecordSettingsPb = nursingRecordConfig.getNursingRecordSettings(deptId);
+        ScoreSettingsPB scoreSettingsPb = scoreConfig.getDeptScoreSettings(deptId);
+        AppGeneralSettingsPB generalSettingsPb = loadGeneralSettings(deptId);
+
+        return AppSettingsPB.newBuilder()
+            .setEnableMedicationSpeed(medSettingsPb != null && medSettingsPb.getEnableMedicationSpeed())
+            .setHeadCustomTimeGraceMinutes(
+                monitoringSettingsPb == null ? 0 : monitoringSettingsPb.getHeadCustomTimePointGraceMinutes())
+            .setTailCustomTimeGraceMinutes(
+                monitoringSettingsPb == null ? 0 : monitoringSettingsPb.getTailCustomTimePointGraceMinutes())
+            .setNursingRecordOverwriteCreatedBy(
+                nursingRecordSettingsPb != null && nursingRecordSettingsPb.getEnableUpdatingCreatedBy())
+            .setScoreAllowEditRecordedBy(
+                scoreSettingsPb != null && scoreSettingsPb.getAllowEditRecordedBy())
+            .setJfkUseNativePrint(generalSettingsPb.getJfkUseNativePrint())
+            .setPrintAgentIpPort(generalSettingsPb.getPrintAgentIpPort())
+            .setCheckFutureTime(generalSettingsPb.getCheckFutureTime())
+            .setEnableCa(generalSettingsPb.getEnableCa())
             .build();
     }
 
@@ -203,13 +182,20 @@ public class SettingService {
             scoreConfig.setDeptScoreSettings(deptId, scoreSettingsPb, accountId);
         }
 
-        // 设置通用信息
-        if (settingTypes.contains(AppSettingTypeEnum.AST_GENERAL)) {
-            AppGeneralSettingsPB generalSettingsPb = AppGeneralSettingsPB.newBuilder()
-                .setJfkUseNativePrint(appSettingsPb.getJfkUseNativePrint())
-                .setPrintAgentIpPort(appSettingsPb.getPrintAgentIpPort())
-                .setCheckFutureTime(appSettingsPb.getCheckFutureTime())
-                .build();
+        // 通用设置与CA开关共用同一个PB，使用读改写避免互相覆盖。
+        if (settingTypes.contains(AppSettingTypeEnum.AST_GENERAL)
+            || settingTypes.contains(AppSettingTypeEnum.AST_ENABLE_CA)) {
+            AppGeneralSettingsPB.Builder generalSettingsBuilder = loadGeneralSettings(deptId).toBuilder();
+            if (settingTypes.contains(AppSettingTypeEnum.AST_GENERAL)) {
+                generalSettingsBuilder
+                    .setJfkUseNativePrint(appSettingsPb.getJfkUseNativePrint())
+                    .setPrintAgentIpPort(appSettingsPb.getPrintAgentIpPort())
+                    .setCheckFutureTime(appSettingsPb.getCheckFutureTime());
+            }
+            if (settingTypes.contains(AppSettingTypeEnum.AST_ENABLE_CA)) {
+                generalSettingsBuilder.setEnableCa(appSettingsPb.getEnableCa());
+            }
+            AppGeneralSettingsPB generalSettingsPb = generalSettingsBuilder.build();
 
             DeptSystemSettingsId settingsId = new DeptSystemSettingsId(
                 deptId, SystemSettingFunctionId.GET_DEPT_APP_SETTINGS.getNumber());
@@ -228,6 +214,22 @@ public class SettingService {
 
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
+            .build();
+    }
+
+    private AppGeneralSettingsPB loadGeneralSettings(String deptId) {
+        DeptSystemSettingsId settingsId = new DeptSystemSettingsId(
+            deptId, SystemSettingFunctionId.GET_DEPT_APP_SETTINGS.getNumber());
+        DeptSystemSettings settingsEntity = deptSettingsRepo.findById(settingsId).orElse(null);
+        AppGeneralSettingsPB settings = settingsEntity == null
+            ? null
+            : ProtoUtils.decodeAppGeneralSettings(settingsEntity.getSettingsPb());
+        if (settings != null) return settings;
+        return AppGeneralSettingsPB.newBuilder()
+            .setJfkUseNativePrint(false)
+            .setPrintAgentIpPort("127.0.0.1:9123")
+            .setCheckFutureTime(false)
+            .setEnableCa(false)
             .build();
     }
 

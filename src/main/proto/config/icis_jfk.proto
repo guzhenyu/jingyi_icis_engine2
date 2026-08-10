@@ -214,6 +214,7 @@ enum JfkValTypePB {
     NURSING_SIGN_PIC = 7;
     DOCTOR_SIGN_PIC = 8;
     STRINGS = 9;
+    ACCOUNT_SIGN_PIC = 10;
 }
 
 message JfkValMetaPB {

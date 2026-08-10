@@ -40,6 +40,7 @@ final class JfkRenderUtils {
     static final int VAL_TYPE_NURSING_SIGN_PIC = 7;
     static final int VAL_TYPE_DOCTOR_SIGN_PIC = 8;
     static final int VAL_TYPE_STRINGS = 9;
+    static final int VAL_TYPE_ACCOUNT_SIGN_PIC = 10;
 
     static final float TEXT_LINE_HEIGHT_PADDING = 1f;
 
@@ -118,7 +119,8 @@ final class JfkRenderUtils {
     static boolean isImageValType(int valType) {
         return valType == VAL_TYPE_IMAGE
             || valType == VAL_TYPE_NURSING_SIGN_PIC
-            || valType == VAL_TYPE_DOCTOR_SIGN_PIC;
+            || valType == VAL_TYPE_DOCTOR_SIGN_PIC
+            || valType == VAL_TYPE_ACCOUNT_SIGN_PIC;
     }
 
     static float positive(float value, float fallback) {

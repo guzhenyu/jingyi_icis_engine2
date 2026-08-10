@@ -329,7 +329,14 @@ enum StatusCode {
     INVALID_NURSING_ORDER_NOTE_DISPLAY_ORDER = 290; // 无效的护嘱执行备注显示顺序
     NURSING_RECORD_REVIEW_TIME_BEFORE_RECORD_TIME = 291; // 审核时间不能早于记录时间
     PATIENT_SYNC_DISABLED = 292; // 患者同步已禁用
-    LAST_CODE = 293;
+    CA_ACCOUNT_NOT_IN_DEPT = 293; // 目标账号不属于当前科室或调用者无科室访问权
+    CA_SIGN_IMAGE_NOT_FOUND = 294; // 未取得CA签名图
+    CA_SERVICE_NOT_ENABLED = 295; // CA实时签名未启用
+    CA_SERVICE_UNAVAILABLE = 296; // CIG CA服务不可用
+    CA_SERVICE_TIMEOUT = 297; // CIG CA服务调用超时
+    CA_SERVICE_INVALID_RESPONSE = 298; // CIG CA响应校验失败
+    CA_SERVICE_ERROR = 299; // CIG CA服务内部错误
+    LAST_CODE = 300;
 }
 
 /*****************************************************************************
@@ -597,6 +604,8 @@ message IcisAccountPB {
     repeated IcisAccountDepartmentPB department = 11;
 
     int64 id = 12;  // 账号数据库ID
+    string ca_sign_pic = 13; // CA签名图片
+    int32 is_disabled = 14; // 是否禁用，0表示启用
 }
 
 message GetAllAccountsResp {
@@ -3268,18 +3277,46 @@ message GetJfkDataResp {
 }
 
 /*
- * /api/report/getjfksignpics
- *  input: GetJfkSignPicsReq
- *  output: GetJfkSignPicsResp
+ * /api/report/getjfksignatureaccounts
+ *  input: GetJfkSignatureAccountsReq
+ *  output: GetJfkSignatureAccountsResp
  */
-message GetJfkSignPicsReq {
+message GetJfkSignatureAccountsReq {
     string dept_id = 1;
 }
 
-message GetJfkSignPicsResp {
+message GetJfkSignatureAccountsResp {
     shared.ReturnCode rt = 1;
-    repeated shared.StrKeyValPB nursing_sign_pics = 2;
-    repeated shared.StrKeyValPB doctor_sign_pics = 3;
+    repeated IcisAccountPB dept_accounts = 2;
+    repeated IcisAccountPB dept_nurses = 3;
+    repeated IcisAccountPB dept_doctors = 4;
+}
+
+/*
+ * /api/ca/getsignimage
+ *  input: GetRealtimeCaSignImageReq
+ *  output: GetRealtimeCaSignImageResp
+ */
+message GetRealtimeCaSignImageReq {
+    string dept_id = 1;
+    int64 account_id = 2;
+}
+
+enum RealtimeCaSignImageSourcePB {
+    REALTIME_CA_SIGN_IMAGE_SOURCE_UNSPECIFIED = 0;
+    REALTIME_CA_SIGN_IMAGE_SOURCE_CA_PROVIDER = 1;
+    REALTIME_CA_SIGN_IMAGE_SOURCE_ACCOUNT_CA_SIGN_PIC_FALLBACK = 2;
+}
+
+message GetRealtimeCaSignImageResp {
+    shared.ReturnCode rt = 1;
+    int64 account_id = 2;
+    string image_b64 = 3;
+    string media_type = 4;
+    string sha256 = 5;
+    int32 width = 6;
+    int32 height = 7;
+    RealtimeCaSignImageSourcePB source = 8;
 }
 
 /*

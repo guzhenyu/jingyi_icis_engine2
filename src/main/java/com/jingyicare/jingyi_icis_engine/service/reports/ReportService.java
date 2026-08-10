@@ -21,12 +21,9 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 
 import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.entity.reports.*;
-import com.jingyicare.jingyi_icis_engine.entity.users.Account;
-import com.jingyicare.jingyi_icis_engine.entity.users.RbacDepartmentAccount;
 import com.jingyicare.jingyi_icis_engine.repository.reports.*;
-import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
-import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentAccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.*;
+import com.jingyicare.jingyi_icis_engine.service.ca.CaAccessPolicy;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
@@ -44,8 +41,8 @@ public class ReportService {
         @Autowired PatientService patientService,
         @Autowired List<MonitoringReportGenerator> monitoringReportGenerators,
         @Autowired JfkDataService jfkDataService,
-        @Autowired RbacDepartmentAccountRepository rbacDepartmentAccountRepo,
-        @Autowired AccountRepository accountRepo,
+        @Autowired UserBasicOperator userBasicOperator,
+        @Autowired CaAccessPolicy caAccessPolicy,
         @Autowired DragableFormTemplateRepository dragableTemplateRepo,
         @Autowired DragableFormRepository dragableFormRepo,
         @Autowired WardReportRepository wardReportRepo
@@ -77,8 +74,8 @@ public class ReportService {
         this.monitoringReportGenerators = Collections.unmodifiableMap(generatorMap);
         this.jfkDataService = jfkDataService;
 
-        this.rbacDepartmentAccountRepo = rbacDepartmentAccountRepo;
-        this.accountRepo = accountRepo;
+        this.userBasicOperator = userBasicOperator;
+        this.caAccessPolicy = caAccessPolicy;
 
         this.dragableTemplateRepo = dragableTemplateRepo;
         this.dragableFormRepo = dragableFormRepo;
@@ -259,13 +256,13 @@ public class ReportService {
     }
 
     @Transactional
-    public GetJfkSignPicsResp getJfkSignPics(String getJfkSignPicsReqJson) {
-        GetJfkSignPicsReq req;
+    public GetJfkSignatureAccountsResp getJfkSignatureAccounts(String requestJson) {
+        GetJfkSignatureAccountsReq req;
         try {
-            req = ProtoUtils.parseJsonToProto(getJfkSignPicsReqJson, GetJfkSignPicsReq.newBuilder());
+            req = ProtoUtils.parseJsonToProto(requestJson, GetJfkSignatureAccountsReq.newBuilder());
         } catch (Exception e) {
             log.error("Failed to parse JSON: {}", e.getMessage());
-            return GetJfkSignPicsResp.newBuilder()
+            return GetJfkSignatureAccountsResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
@@ -273,47 +270,42 @@ public class ReportService {
         String deptId = req.getDeptId();
         if (StrUtils.isBlank(deptId)) {
             log.error("Department ID is empty.");
-            return GetJfkSignPicsResp.newBuilder()
+            return GetJfkSignatureAccountsResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.DEPT_IS_EMPTY))
                 .build();
         }
+        if (!caAccessPolicy.canCurrentUserAccessDept(deptId)) {
+            return GetJfkSignatureAccountsResp.newBuilder()
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.CA_ACCOUNT_NOT_IN_DEPT))
+                .build();
+        }
 
-        List<StrKeyValPB> nursingSignPics = loadSignPics(deptId, nursingRoleIdSet);
-        List<StrKeyValPB> doctorSignPics = loadSignPics(deptId, doctorRoleIdSet);
+        List<IcisAccountPB> deptAccounts = userBasicOperator.getAllAccounts(deptId, "", "", ZONE_ID).stream()
+            .filter(account -> account.getId() > 0)
+            .filter(account -> account.getIsDisabled() == 0)
+            .filter(account -> !account.getAccountName().isBlank())
+            .sorted(Comparator.comparingLong(IcisAccountPB::getId))
+            .toList();
+        List<IcisAccountPB> deptNurses = filterAccountsByRole(deptAccounts, deptId, nursingRoleIdSet);
+        List<IcisAccountPB> deptDoctors = filterAccountsByRole(deptAccounts, deptId, doctorRoleIdSet);
 
-        return GetJfkSignPicsResp.newBuilder()
+        return GetJfkSignatureAccountsResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.OK))
-            .addAllNursingSignPics(nursingSignPics)
-            .addAllDoctorSignPics(doctorSignPics)
+            .addAllDeptAccounts(deptAccounts)
+            .addAllDeptNurses(deptNurses)
+            .addAllDeptDoctors(deptDoctors)
             .build();
     }
 
-    private List<StrKeyValPB> loadSignPics(String deptId, Set<Integer> roleIdSet) {
-        if (StrUtils.isBlank(deptId) || roleIdSet == null || roleIdSet.isEmpty()) {
-            return Collections.emptyList();
-        }
-
-        List<RbacDepartmentAccount> deptAccounts = rbacDepartmentAccountRepo.findByIdDeptId(deptId);
-        if (deptAccounts.isEmpty()) return Collections.emptyList();
-
-        Set<String> accountIds = new HashSet<>();
-        for (RbacDepartmentAccount deptAccount : deptAccounts) {
-            if (deptAccount == null) continue;
-            Integer primaryRoleId = deptAccount.getPrimaryRoleId();
-            if (primaryRoleId == null || !roleIdSet.contains(primaryRoleId)) continue;
-            String accountId = deptAccount.getId() == null ? "" : deptAccount.getId().getAccountId();
-            if (StrUtils.isBlank(accountId)) continue;
-            accountIds.add(accountId);
-        }
-        if (accountIds.isEmpty()) return Collections.emptyList();
-
-        List<Account> accounts = accountRepo.findByAccountIdInAndIsDeletedFalse(new ArrayList<>(accountIds));
+    private List<IcisAccountPB> filterAccountsByRole(
+        List<IcisAccountPB> accounts,
+        String deptId,
+        Set<Integer> roleIds
+    ) {
+        if (roleIds == null || roleIds.isEmpty()) return Collections.emptyList();
         return accounts.stream()
-            .sorted(Comparator.comparing(Account::getAccountId))
-            .map(account -> StrKeyValPB.newBuilder()
-                .setKey(account.getName() == null ? "" : account.getName())
-                .setVal(account.getSignPic() == null ? "" : account.getSignPic())
-                .build())
+            .filter(account -> account.getDepartmentList().stream().anyMatch(department ->
+                deptId.equals(department.getDeptId()) && roleIds.contains(department.getRoleId())))
             .toList();
     }
 
@@ -822,8 +814,8 @@ public class ReportService {
     private final Map<String, MonitoringReportGenerator> monitoringReportGenerators;
     private final JfkDataService jfkDataService;
 
-    private final RbacDepartmentAccountRepository rbacDepartmentAccountRepo;
-    private final AccountRepository accountRepo;
+    private final UserBasicOperator userBasicOperator;
+    private final CaAccessPolicy caAccessPolicy;
 
     private final DragableFormTemplateRepository dragableTemplateRepo;
     private final DragableFormRepository dragableFormRepo;

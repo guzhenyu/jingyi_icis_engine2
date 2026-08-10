@@ -1,0 +1,89 @@
+syntax = "proto3";
+
+package jingyi.cig.ca;
+
+import "grpc/ca.proto";
+
+option java_package = "com.jingyicare.jingyi_cig.grpc.ca";
+option java_multiple_files = true;
+option java_outer_classname = "CaServiceProto";
+
+// CIG 对医院内网业务系统提供的通用 CA代理服务。
+// 初次部署监听 9089，使用明文 gRPC且不启用鉴权；不得暴露到医院外网。
+service CigCaService {
+  // 按来源系统和账号 ID查询本人签名图；CA实时查询失败时可使用账号表最终兜底。
+  rpc GetSignImage(GetSignImageRequestPB) returns (GetSignImageResponsePB);
+  // 为已存在的业务 PDF创建扫码签名任务并返回二维码；当前 AIMS实现，ICIS保留接口。
+  rpc CreatePdfSignQrCode(CreatePdfSignQrCodeRequestPB) returns (CreatePdfSignQrCodeResponsePB);
+  // 查询 PDF扫码签名任务状态；任务有效且内存缓存仍存在时可再次返回二维码。
+  rpc GetPdfSignJob(GetPdfSignJobRequestPB) returns (GetPdfSignJobResponsePB);
+}
+
+// 查询账号签名图请求。
+message GetSignImageRequestPB {
+  // 必填。决定账号数据源和 CA appId/secret 绑定，不允许 UNSPECIFIED。
+  CaSourceSystemPB source_system = 1;
+  // 必填。来源系统 accounts.id，必须大于 0。
+  int64 account_id = 2;
+}
+
+// 查询账号签名图响应。
+message GetSignImageResponsePB {
+  // 与请求一致的来源系统。
+  CaSourceSystemPB source_system = 1;
+  // 与请求一致的账号 ID。
+  int64 account_id = 2;
+  // 实际查询所使用的 CA厂商类型。
+  CaProviderTypePB provider_type = 3;
+  // 图片来自 CA实时查询还是 accounts.ca_sign_pic 最终兜底。
+  CaSignImageSourcePB source = 4;
+  // 已校验且可直接显示的签名图片。
+  SignImagePB image = 5;
+}
+
+// 创建 PDF扫码签名二维码请求。source_system、account_id、request_id、document 和 placement 均必填。
+message CreatePdfSignQrCodeRequestPB {
+  // 调用来源；当前 AIMS可创建任务，ICIS返回 UNIMPLEMENTED。
+  CaSourceSystemPB source_system = 1;
+  // 当前登录且实际签名的本人账号 ID，必须大于 0。
+  int64 account_id = 2;
+  // 调用方生成的幂等键，最长 255字符；终态后重新发起必须使用新的值。
+  // 相同值和相同参数返回原任务，相同值但参数不同返回 ALREADY_EXISTS。
+  string request_id = 3;
+  // 待签业务 PDF的 ID、SHA-256和页数；CIG会重新读取业务库与文件核验。
+  PdfSignDocumentPB document = 4;
+  // 签章页码和矩形；CIG会校验其完全位于指定 PDF页面内。
+  PdfSignPlacementPB placement = 5;
+}
+
+// 创建 PDF扫码签名二维码响应。
+message CreatePdfSignQrCodeResponsePB {
+  // 新建或复用的任务视图。
+  CaSignJobPB job = 1;
+  // true 表示因同一业务文档已有同账号非终态任务而复用；幂等 request_id 重放不设置该值。
+  bool reused_active_job = 2;
+  // true 表示本响应携带可显示的 qr_code；必须独立于 qr_code 默认消息判断。
+  bool qr_available = 3;
+  // 二维码图片；仅 qr_available=true 时有效。CIG重启后旧任务通常不再包含该字段。
+  QrCodeImagePB qr_code = 4;
+  // true 表示 expires_at 是 CIG根据配置估算，而不是 CA明确返回的有效期。
+  bool expiry_estimated = 5;
+}
+
+// 查询 PDF扫码签名任务请求。
+message GetPdfSignJobRequestPB {
+  // 必填，并用于任务归属校验；来源不匹配时按任务不存在处理。
+  CaSourceSystemPB source_system = 1;
+  // CreatePdfSignQrCode 返回的 job.job_id。
+  string job_id = 2;
+}
+
+// 查询 PDF扫码签名任务响应。
+message GetPdfSignJobResponsePB {
+  // 当前任务状态及结果摘要。
+  CaSignJobPB job = 1;
+  // true 表示任务非终态且本 CIG进程的内存中仍保有二维码。
+  bool qr_available = 2;
+  // 仅 qr_available=true 时有效；终态或 CIG重启后不返回二维码 bytes。
+  QrCodeImagePB qr_code = 3;
+}

@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package jingyi.cig.ca;
+
+option java_package = "com.jingyicare.jingyi_cig.grpc.ca";
+option java_multiple_files = true;
+option java_outer_classname = "BeijingCaProto";
+
+// 产生最近一次成功签名结果的北京 CA 任务。
+message BeijingCaSignJobPB {
+  string sign_job_id = 1;
+  string status = 2;
+  bytes sign_result = 3;
+  bytes sign_cert = 4;
+  string compose_pdf_relative_path = 5;
+  string compose_pdf_sha256 = 6;
+  int64 compose_pdf_size_bytes = 7;
+  int32 compose_pdf_page_count = 8;
+  string mssp_id = 9;
+  string refuse_reason = 10;
+  string authorized_user_id = 11;
+  string callback_received_at_iso8601 = 12;
+}

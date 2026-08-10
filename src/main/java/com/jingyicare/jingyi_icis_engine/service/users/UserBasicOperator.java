@@ -129,6 +129,12 @@ public class UserBasicOperator {
             if (!StrUtils.isBlank(accountInfo.getSignPic())) {
                 accountPbBuilder.setSignPic(accountInfo.getSignPic());
             }
+            if (!StrUtils.isBlank(accountInfo.getCaSignPic())) {
+                accountPbBuilder.setCaSignPic(accountInfo.getCaSignPic());
+            }
+            if (accountInfo.getIsDisabled() != null) {
+                accountPbBuilder.setIsDisabled(accountInfo.getIsDisabled());
+            }
 
             // 组装部门相关信息
             Map<String, RbacDepartmentAccount> deptAccountMapForAccount = deptAccountMap.get(accountId);

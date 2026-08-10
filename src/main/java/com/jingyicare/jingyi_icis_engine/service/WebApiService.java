@@ -16,6 +16,7 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 
 import com.jingyicare.jingyi_icis_engine.grpc.*;
 import com.jingyicare.jingyi_icis_engine.service.checklists.*;
+import com.jingyicare.jingyi_icis_engine.service.ca.CaService;
 import com.jingyicare.jingyi_icis_engine.service.debug.*;
 import com.jingyicare.jingyi_icis_engine.service.doctors.*;
 import com.jingyicare.jingyi_icis_engine.service.exturls.*;
@@ -74,6 +75,7 @@ public class WebApiService {
         @Autowired SettingService settingService,
         @Autowired SepsisAndSepticShockBundleService sepsisAndSepticShockBundleService,
         @Autowired ReportService reportService,
+        @Autowired CaService caService,
         @Autowired MedicationDebugger medicationDebugger,
         @Autowired Ah2ReportService ah2ReportService,
         @Autowired EngineExtClient engineExtClient,
@@ -111,6 +113,7 @@ public class WebApiService {
         this.sepsisAndSepticShockBundleService = sepsisAndSepticShockBundleService;
 
         this.reportService = reportService;
+        this.caService = caService;
         this.medicationDebugger = medicationDebugger;
         this.ah2ReportService = ah2ReportService;
         this.engineExtClient = engineExtClient;
@@ -1240,10 +1243,15 @@ public class WebApiService {
         return resp;
     }
 
-    public GetJfkSignPicsResp getJfkSignPics(String getJfkSignPicsReqJson) {
-        GetJfkSignPicsResp resp = reportService.getJfkSignPics(getJfkSignPicsReqJson);
-        resp = metricService.recordApiMetrics(resp, GetJfkSignPicsResp::getRt);
+    public GetJfkSignatureAccountsResp getJfkSignatureAccounts(String requestJson) {
+        GetJfkSignatureAccountsResp resp = reportService.getJfkSignatureAccounts(requestJson);
+        resp = metricService.recordApiMetrics(resp, GetJfkSignatureAccountsResp::getRt);
         return resp;
+    }
+
+    public GetRealtimeCaSignImageResp getCaSignImage(String requestJson) {
+        GetRealtimeCaSignImageResp resp = caService.getSignImage(requestJson);
+        return metricService.recordApiMetrics(resp, GetRealtimeCaSignImageResp::getRt);
     }
 
     public GetPatientFormsResp getPatientForms(String getPatientFormsReqJson) {
@@ -2150,6 +2158,7 @@ public class WebApiService {
     private SepsisAndSepticShockBundleService sepsisAndSepticShockBundleService;
 
     private ReportService reportService;
+    private CaService caService;
     private MedicationDebugger medicationDebugger;
     private Ah2ReportService ah2ReportService;
     private EngineExtClient engineExtClient;
