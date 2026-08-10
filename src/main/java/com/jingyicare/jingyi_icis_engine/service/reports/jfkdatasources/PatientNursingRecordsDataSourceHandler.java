@@ -1,6 +1,5 @@
 package com.jingyicare.jingyi_icis_engine.service.reports.jfkdatasources;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -10,8 +9,6 @@ import java.util.Comparator;
 import java.util.List;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.font.PDFont;
-import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
@@ -29,6 +26,7 @@ import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
+import com.jingyicare.jingyi_icis_engine.service.reports.common.PdfFontSet;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
@@ -103,8 +101,8 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
 
         NursingRows rows;
         try (PDDocument document = new PDDocument()) {
-            PDFont font = loadFont(document);
-            rows = buildRows(nursingRecords, signatureResolver, colWidths, font, fontSize, charSpacing, hPadding);
+            PdfFontSet fonts = loadFonts(document);
+            rows = buildRows(nursingRecords, signatureResolver, colWidths, fonts, fontSize, charSpacing, hPadding);
         } catch (IOException e) {
             log.error("Failed to wrap compact patient nursing records text: {}", e.getMessage(), e);
             return error(StatusCode.INTERNAL_EXCEPTION, e.getMessage());
@@ -121,7 +119,7 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
         List<NursingRecord> nursingRecords,
         JfkSignatureValueResolver signatureResolver,
         List<Double> colWidths,
-        PDFont font,
+        PdfFontSet fonts,
         double fontSize,
         double charSpacing,
         double hPadding
@@ -137,7 +135,7 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
                     formatLocal(nursingRecord.getEffectiveTime()),
                     RECORD_TIME_COL_INDEX,
                     colWidths,
-                    font,
+                    fonts,
                     fontSize,
                     charSpacing,
                     hPadding
@@ -146,7 +144,7 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
                     splitLines(safe(nursingRecord.getContent())),
                     CONTENT_COL_INDEX,
                     colWidths,
-                    font,
+                    fonts,
                     fontSize,
                     charSpacing,
                     hPadding
@@ -185,29 +183,29 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
         String value,
         int colIndex,
         List<Double> colWidths,
-        PDFont font,
+        PdfFontSet fonts,
         double fontSize,
         double charSpacing,
         double hPadding
     ) throws IOException {
-        return wrapLines(List.of(value == null ? "" : value), colIndex, colWidths, font, fontSize, charSpacing, hPadding);
+        return wrapLines(List.of(value == null ? "" : value), colIndex, colWidths, fonts, fontSize, charSpacing, hPadding);
     }
 
     private List<String> wrapLines(
         List<String> lines,
         int colIndex,
         List<Double> colWidths,
-        PDFont font,
+        PdfFontSet fonts,
         double fontSize,
         double charSpacing,
         double hPadding
     ) throws IOException {
-        if (font == null || colIndex < 0 || colIndex >= colWidths.size()) {
+        if (fonts == null || colIndex < 0 || colIndex >= colWidths.size()) {
             return lines == null || lines.isEmpty() ? List.of("") : lines;
         }
         float availableWidth = (float) Math.max(0d, colWidths.get(colIndex) - 2d * Math.max(0d, hPadding));
         return JfkPdfUtils.getWrappedLines(
-            font, (float) fontSize, availableWidth, (float) charSpacing,
+            fonts, (float) fontSize, availableWidth, (float) charSpacing,
             lines == null || lines.isEmpty() ? List.of("") : lines
         );
     }
@@ -217,11 +215,9 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
         return Arrays.asList(value.split("\\R", -1));
     }
 
-    private PDFont loadFont(PDDocument document) throws IOException {
+    private PdfFontSet loadFonts(PDDocument document) throws IOException {
         Resource fontResource = resourceLoader.getResource(reportProperties.getCompact().getFont());
-        try (var inputStream = fontResource.getInputStream()) {
-            return PDType0Font.load(document, new ByteArrayInputStream(inputStream.readAllBytes()));
-        }
+        return PdfFontSet.load(document, fontResource);
     }
 
     private void addEmptyOutputs(JfkDataSourcePB.Builder outputBuilder) {

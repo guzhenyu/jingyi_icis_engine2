@@ -1,6 +1,5 @@
 package com.jingyicare.jingyi_icis_engine.service.reports.jfkdatasources;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -11,8 +10,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.font.PDFont;
-import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
@@ -36,6 +33,7 @@ import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
+import com.jingyicare.jingyi_icis_engine.service.reports.common.PdfFontSet;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
@@ -155,16 +153,16 @@ public class PatientMonitoringRecordsDataSourceHandler extends AbstractJfkDataSo
 
         JfkDataSourcePB.Builder outputBuilder = newOutputBuilder(input);
         try (PDDocument document = new PDDocument()) {
-            PDFont font = loadFont(document);
-            addOutput(outputBuilder, FIELD_PARAM_NAME, buildParamNameVals(validParamCodes, paramMap, colWidths, font, fontSize, charSpacing, hPadding));
-            addOutput(outputBuilder, FIELD_PARAM_UNIT, buildParamUnitVals(validParamCodes, paramMap, colWidths, font, fontSize, charSpacing, hPadding));
+            PdfFontSet fonts = loadFonts(document);
+            addOutput(outputBuilder, FIELD_PARAM_NAME, buildParamNameVals(validParamCodes, paramMap, colWidths, fonts, fontSize, charSpacing, hPadding));
+            addOutput(outputBuilder, FIELD_PARAM_UNIT, buildParamUnitVals(validParamCodes, paramMap, colWidths, fonts, fontSize, charSpacing, hPadding));
             for (int hourIndex = 0; hourIndex < 24; hourIndex++) {
                 addOutput(
                     outputBuilder,
                     "hour" + (hourIndex + 1),
                     buildHourVals(
                         validParamCodes, paramMap, recordsByParamAndHour, hourIndex,
-                        colWidths, font, fontSize, charSpacing, hPadding
+                        colWidths, fonts, fontSize, charSpacing, hPadding
                     )
                 );
             }
@@ -247,14 +245,14 @@ public class PatientMonitoringRecordsDataSourceHandler extends AbstractJfkDataSo
         List<String> validParamCodes,
         Map<String, MonitoringParamPB> paramMap,
         List<Double> colWidths,
-        PDFont font,
+        PdfFontSet fonts,
         double fontSize,
         double charSpacing,
         double hPadding
     ) throws IOException {
         List<JfkValPB> vals = new ArrayList<>();
         for (String paramCode : validParamCodes) {
-            vals.add(stringsVal(wrap(paramMap.get(paramCode).getName(), 0, colWidths, font, fontSize, charSpacing, hPadding)));
+            vals.add(stringsVal(wrap(paramMap.get(paramCode).getName(), 0, colWidths, fonts, fontSize, charSpacing, hPadding)));
         }
         return vals;
     }
@@ -263,7 +261,7 @@ public class PatientMonitoringRecordsDataSourceHandler extends AbstractJfkDataSo
         List<String> validParamCodes,
         Map<String, MonitoringParamPB> paramMap,
         List<Double> colWidths,
-        PDFont font,
+        PdfFontSet fonts,
         double fontSize,
         double charSpacing,
         double hPadding
@@ -271,7 +269,7 @@ public class PatientMonitoringRecordsDataSourceHandler extends AbstractJfkDataSo
         List<JfkValPB> vals = new ArrayList<>();
         for (String paramCode : validParamCodes) {
             ValueMetaPB valueMeta = paramMap.get(paramCode).getValueMeta();
-            vals.add(stringsVal(wrap(valueMeta.getUnit(), 1, colWidths, font, fontSize, charSpacing, hPadding)));
+            vals.add(stringsVal(wrap(valueMeta.getUnit(), 1, colWidths, fonts, fontSize, charSpacing, hPadding)));
         }
         return vals;
     }
@@ -282,7 +280,7 @@ public class PatientMonitoringRecordsDataSourceHandler extends AbstractJfkDataSo
         Map<String, Map<Integer, PatientMonitoringRecord>> recordsByParamAndHour,
         int hourIndex,
         List<Double> colWidths,
-        PDFont font,
+        PdfFontSet fonts,
         double fontSize,
         double charSpacing,
         double hPadding
@@ -294,7 +292,7 @@ public class PatientMonitoringRecordsDataSourceHandler extends AbstractJfkDataSo
                 .getOrDefault(paramCode, Map.of())
                 .get(hourIndex);
             String value = displayValue(record, paramMap.get(paramCode).getValueMeta());
-            vals.add(stringsVal(wrap(value, colIndex, colWidths, font, fontSize, charSpacing, hPadding)));
+            vals.add(stringsVal(wrap(value, colIndex, colWidths, fonts, fontSize, charSpacing, hPadding)));
         }
         return vals;
     }
@@ -319,7 +317,7 @@ public class PatientMonitoringRecordsDataSourceHandler extends AbstractJfkDataSo
         String value,
         int colIndex,
         List<Double> colWidths,
-        PDFont font,
+        PdfFontSet fonts,
         double fontSize,
         double charSpacing,
         double hPadding
@@ -330,14 +328,12 @@ public class PatientMonitoringRecordsDataSourceHandler extends AbstractJfkDataSo
         }
         float availableWidth = (float) Math.max(0d, colWidths.get(colIndex) - 2d * Math.max(0d, hPadding));
         return JfkPdfUtils.getWrappedLines(
-            font, (float) fontSize, availableWidth, (float) charSpacing, List.of(text));
+            fonts, (float) fontSize, availableWidth, (float) charSpacing, List.of(text));
     }
 
-    private PDFont loadFont(PDDocument document) throws IOException {
+    private PdfFontSet loadFonts(PDDocument document) throws IOException {
         Resource fontResource = resourceLoader.getResource(reportProperties.getCompact().getFont());
-        try (var inputStream = fontResource.getInputStream()) {
-            return PDType0Font.load(document, new ByteArrayInputStream(inputStream.readAllBytes()));
-        }
+        return PdfFontSet.load(document, fontResource);
     }
 
     private void addOutput(JfkDataSourcePB.Builder outputBuilder, String id, List<JfkValPB> vals) {

@@ -37,3 +37,5 @@ build/
 ### Fonts ###
 src/test/resources/text_resources/fonts/*
 src/main/resources/fonts/*
+!src/main/resources/fonts/DejaVuSans.ttf
+!src/main/resources/fonts/DejaVuSans-LICENSE.txt

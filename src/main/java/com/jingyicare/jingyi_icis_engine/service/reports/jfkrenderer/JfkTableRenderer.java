@@ -10,13 +10,13 @@ import java.util.StringJoiner;
 
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkTableColumnMetaPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkTablePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValPB;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkImageUtils;
+import com.jingyicare.jingyi_icis_engine.service.reports.common.PdfFontSet;
 
 public class JfkTableRenderer {
     public JfkTableRenderer(JfkTextRenderer textRenderer) {
@@ -91,7 +91,7 @@ public class JfkTableRenderer {
     public void drawRows(
         PDDocument document,
         PDPageContentStream contentStream,
-        PDFont font,
+        PdfFontSet fonts,
         JfkTablePB table,
         float left,
         float bottom,
@@ -105,7 +105,7 @@ public class JfkTableRenderer {
         for (RowData row : rows) contentHeight += row.height();
 
         drawGrid(contentStream, table, left, bottom, cellWidths, rows, contentWidth, contentHeight, lineWidth);
-        drawCells(document, contentStream, font, table, left, bottom, cellWidths, rows, lineWidth, contentHeight);
+        drawCells(document, contentStream, fonts, table, left, bottom, cellWidths, rows, lineWidth, contentHeight);
     }
 
     private RowData buildRow(
@@ -173,7 +173,7 @@ public class JfkTableRenderer {
     private void drawCells(
         PDDocument document,
         PDPageContentStream contentStream,
-        PDFont font,
+        PdfFontSet fonts,
         JfkTablePB table,
         float left,
         float bottom,
@@ -201,7 +201,7 @@ public class JfkTableRenderer {
                 float textWidth = Math.max(0f, cellWidth - 2f * hPadding);
                 textRenderer.drawLines(
                     contentStream,
-                    font,
+                    fonts,
                     cell.lines(),
                     textLeft,
                     rowBottom,

@@ -1,6 +1,5 @@
 package com.jingyicare.jingyi_icis_engine.service.reports.jfkrenderer;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -12,7 +11,6 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
-import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
@@ -30,9 +28,12 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkTablePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkTemplatePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkTextPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisReportCommon.LogoMetaPB;
+import com.jingyicare.jingyi_icis_engine.service.reports.common.PdfFontSet;
 
 @Component
 public class JfkPdfRenderer {
+    private static final String FALLBACK_FONT_PATH = "classpath:/fonts/DejaVuSans.ttf";
+
     public JfkPdfRenderer(@Autowired ResourceLoader resourceLoader) {
         this.resourceLoader = resourceLoader;
         this.textRenderer = new JfkTextRenderer();
@@ -47,17 +48,18 @@ public class JfkPdfRenderer {
         byte[] fontData,
         Path outputPath
     ) throws IOException, JfkRenderException {
+        byte[] fallbackFontData = loadResourceBytes(FALLBACK_FONT_PATH);
         int pageCount;
         try (PDDocument countDocument = new PDDocument()) {
             RenderContext countContext = new RenderContext(
-                countDocument, template, logo, dataSourceMetas, dataSources, fontData, 0);
+                countDocument, template, logo, dataSourceMetas, dataSources, fontData, fallbackFontData, 0);
             renderTemplate(countContext);
             pageCount = countDocument.getNumberOfPages();
         }
 
         try (PDDocument document = new PDDocument()) {
             RenderContext renderContext = new RenderContext(
-                document, template, logo, dataSourceMetas, dataSources, fontData, pageCount);
+                document, template, logo, dataSourceMetas, dataSources, fontData, fallbackFontData, pageCount);
             renderTemplate(renderContext);
             if (outputPath.getParent() != null) {
                 Files.createDirectories(outputPath.getParent());
@@ -131,7 +133,7 @@ public class JfkPdfRenderer {
             context.totalPages,
             state.subPageId
         );
-        textRenderer.drawText(context.contentStream, context.font, text, content, x, y);
+        textRenderer.drawText(context.contentStream, context.fonts, text, content, x, y);
     }
 
     private void renderAbsoluteTable(
@@ -143,7 +145,7 @@ public class JfkPdfRenderer {
         float x = state.extensionIndex > 1 ? table.getNextPageX() : table.getX();
         float y = state.extensionIndex > 1 ? table.getNextPageY() : table.getY();
         List<JfkTableRenderer.RowData> rows = tableRenderer.buildFixedRows(table, context.valueResolver);
-        tableRenderer.drawRows(context.document, context.contentStream, context.font, table, x, y, rows);
+        tableRenderer.drawRows(context.document, context.contentStream, context.fonts, table, x, y, rows);
     }
 
     private void renderAbsoluteLine(
@@ -192,7 +194,7 @@ public class JfkPdfRenderer {
             float top = containerTop + acText.getOffsetTop();
             float bottom = top - text.getHeight();
             String content = context.valueResolver.resolveText(text, context.pageNo, context.totalPages, state.subPageId);
-            textRenderer.drawText(context.contentStream, context.font, text, content, text.getX(), bottom);
+            textRenderer.drawText(context.contentStream, context.fonts, text, content, text.getX(), bottom);
         }
     }
 
@@ -253,7 +255,7 @@ public class JfkPdfRenderer {
             );
         }
         float bottom = top - tableHeight;
-        tableRenderer.drawRows(context.document, context.contentStream, context.font, table, table.getX(), bottom, rows);
+        tableRenderer.drawRows(context.document, context.contentStream, context.fonts, table, table.getX(), bottom, rows);
         return new FlowTableResult(bottom, lineWidth);
     }
 
@@ -308,7 +310,7 @@ public class JfkPdfRenderer {
             List<JfkTableRenderer.RowData> segment = rows.subList(start, end);
             float segmentHeight = segmentHeight(segment, lineWidth);
             float bottom = top - segmentHeight;
-            tableRenderer.drawRows(context.document, context.contentStream, context.font, table, table.getX(), bottom, segment);
+            tableRenderer.drawRows(context.document, context.contentStream, context.fonts, table, table.getX(), bottom, segment);
             rowIndex = end;
             top = bottom;
 
@@ -387,17 +389,21 @@ public class JfkPdfRenderer {
             List<JfkDataSourceMetaPB> dataSourceMetas,
             List<JfkDataSourcePB> dataSources,
             byte[] fontData,
+            byte[] fallbackFontData,
             int totalPages
         ) throws IOException, JfkRenderException {
             if (fontData == null || fontData.length == 0) {
                 throw new JfkRenderException("JFK renderer font data is empty");
+            }
+            if (fallbackFontData == null || fallbackFontData.length == 0) {
+                throw new JfkRenderException("JFK renderer fallback font data is empty");
             }
             this.document = document;
             this.template = template;
             this.logo = logo;
             this.pageRectangle = JfkRenderUtils.pageRectangle(
                 template.getPageSizeId(), template.getIsPageOrientationPortrait());
-            this.font = PDType0Font.load(document, new ByteArrayInputStream(fontData));
+            this.fonts = PdfFontSet.load(document, fontData, fallbackFontData);
             this.valueResolver = new JfkValueResolver(new JfkRenderData(dataSourceMetas, dataSources));
             this.totalPages = totalPages;
         }
@@ -421,7 +427,7 @@ public class JfkPdfRenderer {
         final JfkTemplatePB template;
         final LogoMetaPB logo;
         final PDRectangle pageRectangle;
-        final PDType0Font font;
+        final PdfFontSet fonts;
         final JfkValueResolver valueResolver;
         final int totalPages;
 

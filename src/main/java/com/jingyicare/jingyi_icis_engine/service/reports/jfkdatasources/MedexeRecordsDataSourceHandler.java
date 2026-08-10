@@ -1,6 +1,5 @@
 package com.jingyicare.jingyi_icis_engine.service.reports.jfkdatasources;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -17,8 +16,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.font.PDFont;
-import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
@@ -50,6 +47,7 @@ import com.jingyicare.jingyi_icis_engine.service.medications.MedMonitoringServic
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
+import com.jingyicare.jingyi_icis_engine.service.reports.common.PdfFontSet;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
@@ -142,7 +140,7 @@ public class MedexeRecordsDataSourceHandler extends AbstractJfkDataSourceHandler
 
         JfkDataSourcePB.Builder outputBuilder = newOutputBuilder(input);
         try (PDDocument document = new PDDocument()) {
-            PDFont font = loadFont(document);
+            PdfFontSet font = loadFont(document);
             addOutput(outputBuilder, FIELD_MED_ORDER_TXT, buildMedOrderVals(rows, colWidths, font, fontSize, charSpacing, hPadding));
             addOutput(outputBuilder, FIELD_ROUTE_TXT, buildRouteVals(rows, colWidths, font, fontSize, charSpacing, hPadding));
             addOutput(outputBuilder, FIELD_ACC_ML, buildAccVals(rows, colWidths, font, fontSize, charSpacing, hPadding));
@@ -506,7 +504,7 @@ public class MedexeRecordsDataSourceHandler extends AbstractJfkDataSourceHandler
     private List<JfkValPB> buildMedOrderVals(
         List<RowData> rows,
         List<Double> colWidths,
-        PDFont font,
+        PdfFontSet font,
         double fontSize,
         double charSpacing,
         double hPadding
@@ -521,7 +519,7 @@ public class MedexeRecordsDataSourceHandler extends AbstractJfkDataSourceHandler
     private List<JfkValPB> buildRouteVals(
         List<RowData> rows,
         List<Double> colWidths,
-        PDFont font,
+        PdfFontSet font,
         double fontSize,
         double charSpacing,
         double hPadding
@@ -536,7 +534,7 @@ public class MedexeRecordsDataSourceHandler extends AbstractJfkDataSourceHandler
     private List<JfkValPB> buildAccVals(
         List<RowData> rows,
         List<Double> colWidths,
-        PDFont font,
+        PdfFontSet font,
         double fontSize,
         double charSpacing,
         double hPadding
@@ -553,7 +551,7 @@ public class MedexeRecordsDataSourceHandler extends AbstractJfkDataSourceHandler
         int hourIndex,
         LocalDateTime startUtc,
         List<Double> colWidths,
-        PDFont font,
+        PdfFontSet font,
         double fontSize,
         double charSpacing,
         double hPadding
@@ -583,7 +581,7 @@ public class MedexeRecordsDataSourceHandler extends AbstractJfkDataSourceHandler
         String value,
         int colIndex,
         List<Double> colWidths,
-        PDFont font,
+        PdfFontSet font,
         double fontSize,
         double charSpacing,
         double hPadding
@@ -595,7 +593,7 @@ public class MedexeRecordsDataSourceHandler extends AbstractJfkDataSourceHandler
         List<String> lines,
         int colIndex,
         List<Double> colWidths,
-        PDFont font,
+        PdfFontSet font,
         double fontSize,
         double charSpacing,
         double hPadding
@@ -607,11 +605,9 @@ public class MedexeRecordsDataSourceHandler extends AbstractJfkDataSourceHandler
         return JfkPdfUtils.getWrappedLines(font, (float) fontSize, availableWidth, (float) charSpacing, lines);
     }
 
-    private PDFont loadFont(PDDocument document) throws IOException {
+    private PdfFontSet loadFont(PDDocument document) throws IOException {
         Resource fontResource = resourceLoader.getResource(reportProperties.getCompact().getFont());
-        try (var inputStream = fontResource.getInputStream()) {
-            return PDType0Font.load(document, new ByteArrayInputStream(inputStream.readAllBytes()));
-        }
+        return PdfFontSet.load(document, fontResource);
     }
 
     private void addOutput(JfkDataSourcePB.Builder outputBuilder, String id, List<JfkValPB> vals) {

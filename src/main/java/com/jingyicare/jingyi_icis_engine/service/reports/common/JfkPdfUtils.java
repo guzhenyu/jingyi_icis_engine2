@@ -91,6 +91,10 @@ public class JfkPdfUtils {
         return base + extra;
     }
 
+    public static float textWidth(PdfFontSet fonts, float fontSize, String s, float charSpacing) throws IOException {
+        return fonts.textWidth(fontSize, sanitizeText(s), charSpacing);
+    }
+
     public static String sanitizeText(String text) {
         if (text == null || text.isEmpty()) return "";
         return text.replace("\t", "    ");
@@ -117,16 +121,42 @@ public class JfkPdfUtils {
     ) throws IOException {
         text = sanitizeText(text);
         StringBuilder line = new StringBuilder();
-        for (int i = 0; i < text.length(); i++) {
-            char ch = text.charAt(i);
-            String tryLine = line.toString() + ch;
+        for (int offset = 0; offset < text.length();) {
+            int codePoint = text.codePointAt(offset);
+            String character = new String(Character.toChars(codePoint));
+            String tryLine = line.toString() + character;
             if (textWidth(font, fontSize, tryLine, charSpacing) <= maxWidth || line.length() == 0) {
-                line.append(ch);
+                line.append(character);
             } else {
                 out.add(line.toString());
                 line.setLength(0);
-                line.append(ch);
+                line.append(character);
             }
+            offset += Character.charCount(codePoint);
+        }
+        if (line.length() > 0) {
+            out.add(line.toString());
+        }
+    }
+
+    public static void wrapChars(
+        List<String> out, String text,
+        PdfFontSet fonts, float fontSize, float maxWidth, float charSpacing
+    ) throws IOException {
+        text = sanitizeText(text);
+        StringBuilder line = new StringBuilder();
+        for (int offset = 0; offset < text.length();) {
+            int codePoint = text.codePointAt(offset);
+            String character = new String(Character.toChars(codePoint));
+            String tryLine = line.toString() + character;
+            if (textWidth(fonts, fontSize, tryLine, charSpacing) <= maxWidth || line.length() == 0) {
+                line.append(character);
+            } else {
+                out.add(line.toString());
+                line.setLength(0);
+                line.append(character);
+            }
+            offset += Character.charCount(codePoint);
         }
         if (line.length() > 0) {
             out.add(line.toString());
@@ -175,6 +205,40 @@ public class JfkPdfUtils {
         }
     }
 
+    public static void wrapInto(
+        List<String> out, String text,
+        PdfFontSet fonts, float fontSize, float maxWidth, float charSpacing
+    ) throws IOException {
+        if (text == null || text.isEmpty()) {
+            out.add("");
+            return;
+        }
+        text = sanitizeText(text);
+
+        String[] tokens = new String[] { text };
+        StringBuilder line = new StringBuilder();
+        for (String tk : tokens) {
+            if (tk == null || tk.isEmpty()) continue;
+            String tryLine = line.toString() + tk;
+            if (textWidth(fonts, fontSize, tryLine, charSpacing) <= maxWidth) {
+                line.append(tk);
+            } else {
+                if (line.length() > 0) {
+                    out.add(StrUtils.trimRightSpaces(line.toString()));
+                    line.setLength(0);
+                }
+                if (textWidth(fonts, fontSize, tk, charSpacing) > maxWidth) {
+                    wrapChars(out, tk, fonts, fontSize, maxWidth, charSpacing);
+                } else {
+                    line.append(tk);
+                }
+            }
+        }
+        if (line.length() > 0) {
+            out.add(StrUtils.trimRightSpaces(line.toString()));
+        }
+    }
+
     /**
      * 将输入的多段文本按 maxWidth 自动换行为多行。
      * 逻辑：优先按词（空格）拼接；若单词本身超宽，降级到字符级拆分。
@@ -202,6 +266,27 @@ public class JfkPdfUtils {
         List<String> out = new ArrayList<>();
         for (String src : lines) {
             wrapInto(out, src == null ? "" : src, font, fontSize, maxWidth, charSpacing);
+        }
+        if (out.isEmpty()) out.add("");
+        return out;
+    }
+
+    public static List<String> getWrappedLines(
+        PdfFontSet fonts, float fontSize, float maxWidth, float charSpacing,
+        List<String> lines
+    ) throws IOException {
+        if (lines == null || lines.isEmpty()) return List.of("");
+        if (maxWidth <= 0f) {
+            List<String> sanitized = new ArrayList<>(lines.size());
+            for (String line : lines) {
+                sanitized.add(sanitizeText(line));
+            }
+            return sanitized;
+        }
+
+        List<String> out = new ArrayList<>();
+        for (String src : lines) {
+            wrapInto(out, src == null ? "" : src, fonts, fontSize, maxWidth, charSpacing);
         }
         if (out.isEmpty()) out.add("");
         return out;

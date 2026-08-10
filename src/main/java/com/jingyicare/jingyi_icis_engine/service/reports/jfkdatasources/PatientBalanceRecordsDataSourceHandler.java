@@ -1,6 +1,5 @@
 package com.jingyicare.jingyi_icis_engine.service.reports.jfkdatasources;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
@@ -10,8 +9,6 @@ import java.util.List;
 import java.util.Map;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.font.PDFont;
-import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
@@ -39,6 +36,7 @@ import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
+import com.jingyicare.jingyi_icis_engine.service.reports.common.PdfFontSet;
 import com.jingyicare.jingyi_icis_engine.service.tubes.PatientTubeImpl;
 import com.jingyicare.jingyi_icis_engine.service.users.UserService;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
@@ -172,7 +170,7 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
 
         JfkDataSourcePB.Builder outputBuilder = newOutputBuilder(input);
         try (PDDocument document = new PDDocument()) {
-            PDFont font = validParamCodes.isEmpty() ? null : loadFont(document);
+            PdfFontSet font = validParamCodes.isEmpty() ? null : loadFont(document);
             addOutput(outputBuilder, FIELD_PARAM_NAME, buildParamNameVals(validParamCodes, paramMap, colWidths, font, fontSize, charSpacing, hPadding));
             addOutput(outputBuilder, FIELD_ACC_ML, buildAccVals(validParamCodes, paramMap, codeRecordsByCode, colWidths, font, fontSize, charSpacing, hPadding));
             for (int hourIndex = 0; hourIndex < 24; hourIndex++) {
@@ -306,7 +304,7 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
         List<String> validParamCodes,
         Map<String, MonitoringParamPB> paramMap,
         List<Double> colWidths,
-        PDFont font,
+        PdfFontSet font,
         double fontSize,
         double charSpacing,
         double hPadding
@@ -326,7 +324,7 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
         Map<String, MonitoringParamPB> paramMap,
         Map<String, MonitoringCodeRecordsPB> codeRecordsByCode,
         List<Double> colWidths,
-        PDFont font,
+        PdfFontSet font,
         double fontSize,
         double charSpacing,
         double hPadding
@@ -345,7 +343,7 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
         Map<String, Map<Integer, MonitoringRecordValPB>> hourValsByCode,
         int hourIndex,
         List<Double> colWidths,
-        PDFont font,
+        PdfFontSet font,
         double fontSize,
         double charSpacing,
         double hPadding
@@ -393,7 +391,7 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
         String value,
         int colIndex,
         List<Double> colWidths,
-        PDFont font,
+        PdfFontSet font,
         double fontSize,
         double charSpacing,
         double hPadding
@@ -407,11 +405,9 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
             font, (float) fontSize, availableWidth, (float) charSpacing, List.of(text));
     }
 
-    private PDFont loadFont(PDDocument document) throws IOException {
+    private PdfFontSet loadFont(PDDocument document) throws IOException {
         Resource fontResource = resourceLoader.getResource(reportProperties.getCompact().getFont());
-        try (var inputStream = fontResource.getInputStream()) {
-            return PDType0Font.load(document, new ByteArrayInputStream(inputStream.readAllBytes()));
-        }
+        return PdfFontSet.load(document, fontResource);
     }
 
     private void addOutput(JfkDataSourcePB.Builder outputBuilder, String id, List<JfkValPB> vals) {

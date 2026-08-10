@@ -1,6 +1,5 @@
 package com.jingyicare.jingyi_icis_engine.service.reports.jfkdatasources;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -13,8 +12,6 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.font.PDFont;
-import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
@@ -34,6 +31,7 @@ import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
+import com.jingyicare.jingyi_icis_engine.service.reports.common.PdfFontSet;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
@@ -117,7 +115,7 @@ public class PatientNursingOrdersDataSourceHandler extends AbstractJfkDataSource
 
         NursingOrderRows rows;
         try (PDDocument document = new PDDocument()) {
-            PDFont font = loadFont(document);
+            PdfFontSet font = loadFont(document);
             rows = buildRows(
                 executionRecords,
                 accountNameByCompletedBy,
@@ -144,7 +142,7 @@ public class PatientNursingOrdersDataSourceHandler extends AbstractJfkDataSource
         Map<String, String> accountNameByCompletedBy,
         JfkSignatureValueResolver signatureResolver,
         List<Double> colWidths,
-        PDFont font,
+        PdfFontSet font,
         double fontSize,
         double charSpacing,
         double hPadding
@@ -264,7 +262,7 @@ public class PatientNursingOrdersDataSourceHandler extends AbstractJfkDataSource
         String value,
         int colIndex,
         List<Double> colWidths,
-        PDFont font,
+        PdfFontSet font,
         double fontSize,
         double charSpacing,
         double hPadding
@@ -282,11 +280,9 @@ public class PatientNursingOrdersDataSourceHandler extends AbstractJfkDataSource
         );
     }
 
-    private PDFont loadFont(PDDocument document) throws IOException {
+    private PdfFontSet loadFont(PDDocument document) throws IOException {
         Resource fontResource = resourceLoader.getResource(reportProperties.getCompact().getFont());
-        try (var inputStream = fontResource.getInputStream()) {
-            return PDType0Font.load(document, new ByteArrayInputStream(inputStream.readAllBytes()));
-        }
+        return PdfFontSet.load(document, fontResource);
     }
 
     private void addEmptyOutputs(JfkDataSourcePB.Builder outputBuilder) {

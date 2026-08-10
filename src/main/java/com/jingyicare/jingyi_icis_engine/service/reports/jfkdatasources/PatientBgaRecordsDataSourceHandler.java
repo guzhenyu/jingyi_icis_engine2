@@ -1,6 +1,5 @@
 package com.jingyicare.jingyi_icis_engine.service.reports.jfkdatasources;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -13,8 +12,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.font.PDFont;
-import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Component;
@@ -41,6 +38,7 @@ import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
+import com.jingyicare.jingyi_icis_engine.service.reports.common.PdfFontSet;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
@@ -113,7 +111,7 @@ public class PatientBgaRecordsDataSourceHandler extends AbstractJfkDataSourceHan
         JfkDataSourcePB.Builder outputBuilder = newOutputBuilder(input);
         BgaRows rows;
         try (PDDocument document = new PDDocument()) {
-            PDFont font = records.isEmpty() ? null : loadFont(document);
+            PdfFontSet font = records.isEmpty() ? null : loadFont(document);
             rows = buildRows(
                 records, detailsByRecordId, paramMap, bgaParamOrder, signatureResolver,
                 colWidths, font, fontSize, charSpacing, hPadding
@@ -138,7 +136,7 @@ public class PatientBgaRecordsDataSourceHandler extends AbstractJfkDataSourceHan
         Map<String, Integer> bgaParamOrder,
         JfkSignatureValueResolver signatureResolver,
         List<Double> colWidths,
-        PDFont font,
+        PdfFontSet font,
         double fontSize,
         double charSpacing,
         double hPadding
@@ -281,7 +279,7 @@ public class PatientBgaRecordsDataSourceHandler extends AbstractJfkDataSourceHan
         String value,
         int colIndex,
         List<Double> colWidths,
-        PDFont font,
+        PdfFontSet font,
         double fontSize,
         double charSpacing,
         double hPadding
@@ -295,11 +293,9 @@ public class PatientBgaRecordsDataSourceHandler extends AbstractJfkDataSourceHan
             font, (float) fontSize, availableWidth, (float) charSpacing, List.of(text));
     }
 
-    private PDFont loadFont(PDDocument document) throws IOException {
+    private PdfFontSet loadFont(PDDocument document) throws IOException {
         Resource fontResource = resourceLoader.getResource(reportProperties.getCompact().getFont());
-        try (var inputStream = fontResource.getInputStream()) {
-            return PDType0Font.load(document, new ByteArrayInputStream(inputStream.readAllBytes()));
-        }
+        return PdfFontSet.load(document, fontResource);
     }
 
     private void addOutput(JfkDataSourcePB.Builder outputBuilder, String id, List<JfkValPB> vals) {

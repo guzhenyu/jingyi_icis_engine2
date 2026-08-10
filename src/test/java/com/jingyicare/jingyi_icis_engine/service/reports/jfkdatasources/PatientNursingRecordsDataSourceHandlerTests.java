@@ -37,7 +37,7 @@ public class PatientNursingRecordsDataSourceHandlerTests {
             .id(10L)
             .patientId(10001L)
             .effectiveTime(LocalDateTime.of(2026, 4, 17, 0, 10))
-            .content("护理第一行\n护理第二行")
+            .content("护理第一行 PaO₂\n护理第二行")
             .createdBy("101")
             .createdByAccountName("张护士")
             .reviewedBy("102")
@@ -56,7 +56,7 @@ public class PatientNursingRecordsDataSourceHandlerTests {
         assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
         Map<String, List<List<String>>> output = toOutputMap(result.getSecond());
         assertThat(output.get("record_time")).containsExactly(List.of("2026-04-17 08:10"));
-        assertThat(output.get("content")).containsExactly(List.of("护理第一行", "护理第二行"));
+        assertThat(output.get("content")).containsExactly(List.of("护理第一行 PaO₂", "护理第二行"));
         assertThat(output.get("recorded_by")).containsExactly(List.of(SIGNATURE_PNG));
         assertThat(output.get("reviewed_by")).containsExactly(List.of(SIGNATURE_PNG));
 

@@ -8,11 +8,12 @@ import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.font.PDFont;
 
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkTextPB;
+import com.jingyicare.jingyi_icis_engine.service.reports.common.PdfFontSet;
 
 public class JfkTextRenderer {
     public void drawText(
         PDPageContentStream contentStream,
-        PDFont font,
+        PdfFontSet fonts,
         JfkTextPB text,
         String content,
         float left,
@@ -20,7 +21,7 @@ public class JfkTextRenderer {
     ) throws IOException {
         drawLines(
             contentStream,
-            font,
+            fonts,
             splitContent(content),
             left,
             bottom,
@@ -36,7 +37,7 @@ public class JfkTextRenderer {
 
     public void drawLines(
         PDPageContentStream contentStream,
-        PDFont font,
+        PdfFontSet fonts,
         List<String> lines,
         float left,
         float bottom,
@@ -52,8 +53,9 @@ public class JfkTextRenderer {
         float safeWidth = Math.max(0f, width);
         float safeHeight = Math.max(fontSize, height);
         float leading = JfkRenderUtils.textLineHeight(fontSize);
-        float ascent = JfkRenderUtils.ascent(font, fontSize);
-        float descent = JfkRenderUtils.descentAbs(font, fontSize);
+        PDFont primaryFont = fonts.primaryFont();
+        float ascent = JfkRenderUtils.ascent(primaryFont, fontSize);
+        float descent = JfkRenderUtils.descentAbs(primaryFont, fontSize);
         int lineCount = lines.size();
 
         float firstBaseline = JfkRenderUtils.firstLineBaseline(
@@ -63,7 +65,7 @@ public class JfkTextRenderer {
         contentStream.setNonStrokingColor(color);
         for (int i = 0; i < lineCount; i++) {
             String line = JfkRenderUtils.sanitizeText(lines.get(i));
-            float lineWidth = JfkRenderUtils.textWidth(font, fontSize, line, charSpacing);
+            float lineWidth = fonts.textWidth(fontSize, line, charSpacing);
             float x = left;
             if (hAlignId == JfkRenderUtils.H_ALIGN_CENTER) {
                 x = left + (safeWidth - lineWidth) / 2f;
@@ -72,10 +74,12 @@ public class JfkTextRenderer {
             }
             float y = firstBaseline - i * leading;
             contentStream.beginText();
-            contentStream.setFont(font, fontSize);
             contentStream.setCharacterSpacing(charSpacing);
             contentStream.newLineAtOffset(x, y);
-            contentStream.showText(line);
+            for (PdfFontSet.TextRun run : fonts.split(line)) {
+                contentStream.setFont(run.font(), fontSize);
+                contentStream.showText(run.text());
+            }
             contentStream.endText();
         }
     }
