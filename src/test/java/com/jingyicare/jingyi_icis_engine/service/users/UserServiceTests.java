@@ -345,6 +345,7 @@ public class UserServiceTests extends TestsBase {
             .setAccountId(accountId5)
             .setAccountName("test-account-004")
             .setGender(1)
+            .setIdCardNumber("330721198209301910")
             .addDepartment(
                 IcisAccountDepartmentPB.newBuilder()
                     .setDeptId(deptId5)
@@ -377,6 +378,7 @@ public class UserServiceTests extends TestsBase {
             .setAccountId(accountId5)
             .setAccountName("test-account-004")
             .setGender(1)
+            .setIdCardNumber("330721198209301932")
             .addDepartment(
                 IcisAccountDepartmentPB.newBuilder()
                     .setDeptId(deptId5)
@@ -392,6 +394,7 @@ public class UserServiceTests extends TestsBase {
         getAllAccountsResp = userService.getAllAccounts(getAllAccountsReqJson);
         assertThat(getAllAccountsResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         assertThat(getAllAccountsResp.getAccountList()).hasSize(1);
+        assertThat(getAllAccountsResp.getAccount(0).getIdCardNumber()).isEqualTo("330721198209301932");
         assertThat(getAllAccountsResp.getAccount(0).getDepartmentList()).hasSize(1);
         assertThat(getAllAccountsResp.getAccount(0).getDepartment(0).getDeptId()).isEqualTo(deptId5);
         assertThat(getAllAccountsResp.getAccount(0).getDepartment(0).getRoleId()).isEqualTo(NURSE_ROLE_ID);

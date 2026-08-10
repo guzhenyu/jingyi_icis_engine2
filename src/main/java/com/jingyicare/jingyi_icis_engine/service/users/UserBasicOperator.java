@@ -262,6 +262,7 @@ public class UserBasicOperator {
             );
             accountInfo.setTitle(accountPb.getTitle());
             accountInfo.setPhone(accountPb.getPhone());
+            accountInfo.setIdCardNumber(accountPb.getIdCardNumber());
             accountInfo.setSignPic(accountPb.getSignPic());
             accountInfoRepo.save(accountInfo);
         }
