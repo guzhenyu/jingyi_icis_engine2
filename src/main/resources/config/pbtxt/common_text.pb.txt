@@ -298,6 +298,7 @@
     status_code_msg: "CIG CA服务调用超时"
     status_code_msg: "CIG CA响应校验失败"
     status_code_msg: "CIG CA服务内部错误"
+    status_code_msg: "在科患者和待入科患者使用了同一床位"
     units {
         unit: {
             id: 1

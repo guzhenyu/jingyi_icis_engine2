@@ -229,17 +229,23 @@ public class PatientConfig {
             .toList();
     }
 
-    public Map<Integer/*device_id*/, DeviceBindingPB> getBindedDevices() {
+    public Pair<StatusCode, Map<Integer/*device_id*/, DeviceBindingPB>> getBindedDevices() {
         List<PatientDevice> patientDevList = patientDevRepo.findAllByIsDeletedFalseAndUnbindingTimeIsNull();
         Map<Long, PatientRecord> patientNameMap = getPatientMap(patientDevList);
-        Map<String/*hisBed*/, String/*displayBed*/> bedNumberMap = getBedNumberMap(patientNameMap);
+        Pair<StatusCode, Map<String/*deptId + hisBed*/, String/*displayBed*/>> bedNumberResult =
+            getBedNumberMap(patientNameMap);
+        if (bedNumberResult.getFirst() != StatusCode.OK) {
+            return new Pair<>(bedNumberResult.getFirst(), Collections.emptyMap());
+        }
+        Map<String/*deptId + hisBed*/, String/*displayBed*/> bedNumberMap = bedNumberResult.getSecond();
 
-        return patientDevList
+        Map<Integer, DeviceBindingPB> bindingMap = patientDevList
             .stream()
             .map(pd -> {
                 PatientRecord patient = patientNameMap.get(pd.getPatientId());
                 String patientName = patient == null ? "" : patient.getIcuName();
-                String displayBed = patient == null ? "" : bedNumberMap.getOrDefault(patient.getHisBedNumber(), patient.getHisBedNumber());
+                String displayBed = patient == null ? "" : bedNumberMap.getOrDefault(
+                    getBedNumberKey(patient.getDeptId(), patient.getHisBedNumber()), patient.getHisBedNumber());
 
                 return DeviceBindingPB.newBuilder()
                     .setId(pd.getId())
@@ -254,9 +260,12 @@ public class PatientConfig {
                     .build();
             })
             .collect(Collectors.toMap(DeviceBindingPB::getDeviceId, Function.identity()));
+        return new Pair<>(StatusCode.OK, bindingMap);
     }
 
-    public Pair<List<DeviceBindingPB>, Boolean> getDeviceBindingHistory(Integer deviceId, LocalDateTime from, LocalDateTime to) {
+    public Pair<StatusCode, Pair<List<DeviceBindingPB>, Boolean>> getDeviceBindingHistory(
+        Integer deviceId, LocalDateTime from, LocalDateTime to
+    ) {
         if (from == null) from = TimeUtils.getLocalTime(1900, 1, 1);
         if (to == null) to = TimeUtils.getLocalTime(9999, 1, 1);
 
@@ -274,15 +283,21 @@ public class PatientConfig {
         patientDevList.addAll(inUseDeviceList);
 
         Map<Long, PatientRecord> patientNameMap = getPatientMap(patientDevList);
-        Map<String/*hisBed*/, String/*displayBed*/> bedNumberMap = getBedNumberMap(patientNameMap);
+        Pair<StatusCode, Map<String/*deptId + hisBed*/, String/*displayBed*/>> bedNumberResult =
+            getBedNumberMap(patientNameMap);
+        if (bedNumberResult.getFirst() != StatusCode.OK) {
+            return new Pair<>(bedNumberResult.getFirst(), null);
+        }
+        Map<String/*deptId + hisBed*/, String/*displayBed*/> bedNumberMap = bedNumberResult.getSecond();
 
-        return new Pair<List<DeviceBindingPB>, Boolean>(patientDevList
+        return new Pair<>(StatusCode.OK, new Pair<List<DeviceBindingPB>, Boolean>(patientDevList
             .stream()
             .sorted(Comparator.comparing(PatientDevice::getBindingTime))
             .map(pd -> {
                 PatientRecord patient = patientNameMap.get(pd.getPatientId());
                 String patientName = patient == null ? "" : patient.getIcuName();
-                String displayBed = patient == null ? "" : bedNumberMap.getOrDefault(patient.getHisBedNumber(), patient.getHisBedNumber());
+                String displayBed = patient == null ? "" : bedNumberMap.getOrDefault(
+                    getBedNumberKey(patient.getDeptId(), patient.getHisBedNumber()), patient.getHisBedNumber());
 
                 return DeviceBindingPB.newBuilder()
                     .setId(pd.getId())
@@ -297,7 +312,7 @@ public class PatientConfig {
                     .build();
             })
             .toList(),
-            isBinding);
+            isBinding));
     }
 
     public List<DeviceInfo> getCurrentBindedDevices(Long patientId, Integer devType) {
@@ -592,12 +607,72 @@ public class PatientConfig {
             .collect(Collectors.toMap(PatientRecord::getId, Function.identity()));
     }
 
-    private Map<String/*hisBed*/, String/*displayBed*/> getBedNumberMap(Map<Long, PatientRecord> patientMap) {
-        List<String> hisBedList = patientMap.values().stream().map(PatientRecord::getHisBedNumber).toList();
-        return bedConfigRepo
-            .findByHisBedNumberInAndIsDeletedFalse(hisBedList)
-            .stream()
-            .collect(Collectors.toMap(BedConfig::getHisBedNumber, BedConfig::getDisplayBedNumber));
+    private Pair<StatusCode, Map<String/*deptId + hisBed*/, String/*displayBed*/>> getBedNumberMap(
+        Map<Long, PatientRecord> patientMap
+    ) {
+        Map<String, PatientRecord> activePatientByBed = new HashMap<>();
+        for (PatientRecord patient : patientMap.values()) {
+            if (StrUtils.isBlank(patient.getDeptId()) || StrUtils.isBlank(patient.getHisBedNumber())) continue;
+            if (!Objects.equals(patient.getAdmissionStatus(), PENDING_ADMISSION_VAL) &&
+                !Objects.equals(patient.getAdmissionStatus(), IN_ICU_VAL)
+            ) continue;
+
+            String bedKey = getBedNumberKey(patient.getDeptId(), patient.getHisBedNumber());
+            PatientRecord existingPatient = activePatientByBed.putIfAbsent(bedKey, patient);
+            if (existingPatient == null ||
+                Objects.equals(existingPatient.getAdmissionStatus(), patient.getAdmissionStatus())
+            ) continue;
+
+            PatientRecord inIcuPatient = Objects.equals(patient.getAdmissionStatus(), IN_ICU_VAL) ?
+                patient : existingPatient;
+            PatientRecord pendingAdmissionPatient = Objects.equals(
+                patient.getAdmissionStatus(), PENDING_ADMISSION_VAL) ? patient : existingPatient;
+            log.error(
+                "Bed occupancy conflict: in-ICU patient and pending-admission patient share the same bed; " +
+                "deptId={}, hisBedNumber={}, inIcuPatientId={}, pendingAdmissionPatientId={}",
+                patient.getDeptId(), patient.getHisBedNumber(), inIcuPatient.getId(),
+                pendingAdmissionPatient.getId()
+            );
+            return new Pair<>(
+                StatusCode.IN_ICU_AND_PENDING_ADMISSION_PATIENTS_SHARE_BED,
+                Collections.emptyMap()
+            );
+        }
+
+        if (patientMap.isEmpty()) return new Pair<>(StatusCode.OK, Collections.emptyMap());
+
+        List<String> hisBedList = patientMap.values().stream()
+            .map(PatientRecord::getHisBedNumber)
+            .filter(bedNumber -> !StrUtils.isBlank(bedNumber))
+            .distinct()
+            .toList();
+        Set<String> patientBedKeys = patientMap.values().stream()
+            .filter(patient -> !StrUtils.isBlank(patient.getDeptId()) &&
+                !StrUtils.isBlank(patient.getHisBedNumber()))
+            .map(patient -> getBedNumberKey(patient.getDeptId(), patient.getHisBedNumber()))
+            .collect(Collectors.toSet());
+        Map<String, String> bedNumberMap = new HashMap<>();
+        for (BedConfig bedConfig : bedConfigRepo.findByHisBedNumberInAndIsDeletedFalse(hisBedList)) {
+            String bedKey = getBedNumberKey(bedConfig.getDepartmentId(), bedConfig.getHisBedNumber());
+            if (!patientBedKeys.contains(bedKey)) continue;
+
+            String existingDisplayBedNumber = bedNumberMap.putIfAbsent(
+                bedKey, bedConfig.getDisplayBedNumber());
+            if (existingDisplayBedNumber != null) {
+                log.error(
+                    "Duplicate active bed configurations: deptId={}, hisBedNumber={}, " +
+                    "displayBedNumbers=[{}, {}]",
+                    bedConfig.getDepartmentId(), bedConfig.getHisBedNumber(), existingDisplayBedNumber,
+                    bedConfig.getDisplayBedNumber()
+                );
+                return new Pair<>(StatusCode.INTERNAL_EXCEPTION, Collections.emptyMap());
+            }
+        }
+        return new Pair<>(StatusCode.OK, bedNumberMap);
+    }
+
+    private String getBedNumberKey(String deptId, String hisBedNumber) {
+        return deptId + "\u0000" + hisBedNumber;
     }
 
     private List<DeviceInfo> getFixedDevices(PatientRecord patient) {

@@ -487,7 +487,14 @@ public class PatientDeviceService {
         List<DeviceInfoPB> deviceList = patientConfig.getDeviceInfo(
             req.getDeptId(), req.getDeviceId(), req.getDeviceBedNum(), req.getDeviceType(), req.getDeviceName()
         );
-        Map<Integer/*device_id*/, DeviceBindingPB> bindingMap = patientConfig.getBindedDevices();
+        Pair<StatusCode, Map<Integer/*device_id*/, DeviceBindingPB>> bindingResult =
+            patientConfig.getBindedDevices();
+        if (bindingResult.getFirst() != StatusCode.OK) {
+            return GetDeviceInfoResp.newBuilder()
+                .setRt(protoService.getReturnCode(bindingResult.getFirst()))
+                .build();
+        }
+        Map<Integer/*device_id*/, DeviceBindingPB> bindingMap = bindingResult.getSecond();
 
         List<DeviceInfoWithBindingPB> inlineDevList = new ArrayList<>();
         for (DeviceInfoPB dev : deviceList) {
@@ -535,8 +542,14 @@ public class PatientDeviceService {
         
         LocalDateTime from = TimeUtils.fromIso8601String(req.getQueryStartIso8601(), "UTC");
         LocalDateTime to = TimeUtils.fromIso8601String(req.getQueryEndIso8601(), "UTC");
-        Pair<List<DeviceBindingPB>, Boolean> bindingInfo = patientConfig.getDeviceBindingHistory(
+        Pair<StatusCode, Pair<List<DeviceBindingPB>, Boolean>> bindingResult = patientConfig.getDeviceBindingHistory(
             req.getDeviceId(), from, to);
+        if (bindingResult.getFirst() != StatusCode.OK) {
+            return GetDeviceBindingHistoryResp.newBuilder()
+                .setRt(protoService.getReturnCode(bindingResult.getFirst()))
+                .build();
+        }
+        Pair<List<DeviceBindingPB>, Boolean> bindingInfo = bindingResult.getSecond();
         return GetDeviceBindingHistoryResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
             .setIsBinding(bindingInfo.getSecond())

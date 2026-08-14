@@ -35,7 +35,8 @@ public class PatientDeviceServiceTests extends TestsBase {
         @Autowired CertificateService certService,
         @Autowired BedConfigRepository bedConfigRepo,
         @Autowired PatientRecordRepository patientRecordRepo,
-        @Autowired PatientBedHistoryRepository patientBedHistoryRepo
+        @Autowired PatientBedHistoryRepository patientBedHistoryRepo,
+        @Autowired PatientDeviceRepository patientDeviceRepo
     ) {
         this.accountId = "admin";
         this.deptId = "10027";
@@ -76,6 +77,7 @@ public class PatientDeviceServiceTests extends TestsBase {
         this.bedConfigRepo = bedConfigRepo;
         this.patientRecordRepo = patientRecordRepo;
         this.patientBedHistoryRepo = patientBedHistoryRepo;
+        this.patientDeviceRepo = patientDeviceRepo;
     }
 
     @Test
@@ -497,6 +499,43 @@ public class PatientDeviceServiceTests extends TestsBase {
     }
 
     @Test
+    @Transactional
+    public void getDeviceInfoReturnsExplicitErrorWhenInIcuAndPendingAdmissionPatientsShareBed() {
+        String conflictDeptId = "shared-bed-conflict-dept";
+        String conflictHisBedNumber = "shared-bed-conflict";
+
+        PatientRecord inIcuPatient = PatientTestUtils.newPatientRecord(
+            990001L, IN_ICU_VAL, conflictDeptId);
+        inIcuPatient.setHisBedNumber(conflictHisBedNumber);
+        inIcuPatient = patientRecordRepo.save(inIcuPatient);
+
+        PatientRecord pendingAdmissionPatient = PatientTestUtils.newPatientRecord(
+            990002L, PENDING_ADMISSION_VAL, conflictDeptId);
+        pendingAdmissionPatient.setHisBedNumber(conflictHisBedNumber);
+        pendingAdmissionPatient = patientRecordRepo.save(pendingAdmissionPatient);
+
+        patientDeviceRepo.save(PatientDevice.builder()
+            .patientId(inIcuPatient.getId())
+            .deviceId(990001)
+            .bindingTime(TimeUtils.getNowUtc())
+            .isDeleted(false)
+            .build());
+        patientDeviceRepo.save(PatientDevice.builder()
+            .patientId(pendingAdmissionPatient.getId())
+            .deviceId(990002)
+            .bindingTime(TimeUtils.getNowUtc())
+            .isDeleted(false)
+            .build());
+
+        GetDeviceInfoResp response = patientDeviceService.getDeviceInfo("{}");
+
+        assertThat(response.getRt().getCode()).isEqualTo(
+            StatusCode.IN_ICU_AND_PENDING_ADMISSION_PATIENTS_SHARE_BED_VALUE);
+        assertThat(response.getRt().getMsg()).isEqualTo(
+            "在科患者和待入科患者使用了同一床位");
+    }
+
+    @Test
     public void testDeviceInfoUpstreamRules() {
         List<GrantedAuthority> authorities = AuthorityUtils.createAuthorityList("ROLE_1");
         UsernamePasswordAuthenticationToken authentication =
@@ -614,4 +653,5 @@ public class PatientDeviceServiceTests extends TestsBase {
     private final BedConfigRepository bedConfigRepo;
     private final PatientRecordRepository patientRecordRepo;
     private final PatientBedHistoryRepository patientBedHistoryRepo;
+    private final PatientDeviceRepository patientDeviceRepo;
 }

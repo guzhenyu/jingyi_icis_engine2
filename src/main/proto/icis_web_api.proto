@@ -336,7 +336,8 @@ enum StatusCode {
     CA_SERVICE_TIMEOUT = 297; // CIG CA服务调用超时
     CA_SERVICE_INVALID_RESPONSE = 298; // CIG CA响应校验失败
     CA_SERVICE_ERROR = 299; // CIG CA服务内部错误
-    LAST_CODE = 300;
+    IN_ICU_AND_PENDING_ADMISSION_PATIENTS_SHARE_BED = 300; // 在科患者和待入科患者使用了同一床位
+    LAST_CODE = 301;
 }
 
 /*****************************************************************************
