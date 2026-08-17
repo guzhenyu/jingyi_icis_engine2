@@ -69,6 +69,11 @@ public class SecurityConfig {
                     .requestMatchers((request) -> request.getServletPath().startsWith("/api/user/getusername")).permitAll()
                     .requestMatchers((request) -> request.getServletPath().startsWith("/api/settings/getlogo")).permitAll()
                     .requestMatchers((request) -> request.getServletPath().matches("^/\\d+/[^/]+\\.pdf$")).permitAll()
+                    // 健康探针只暴露总体状态，供本机安装器和运维系统使用
+                    .requestMatchers(
+                        "/actuator/health/liveness",
+                        "/actuator/health/readiness"
+                    ).permitAll()
                     .requestMatchers("/actuator/prometheus").permitAll()
                     .requestMatchers((request) -> request.getServletPath().startsWith("/admin")).hasRole("1")
                     .anyRequest().authenticated()
