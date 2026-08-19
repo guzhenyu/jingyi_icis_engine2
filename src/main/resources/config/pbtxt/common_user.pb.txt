@@ -412,11 +412,3 @@
         date_of_birth_iso8601: ""
         role_id: 1
     }
-    department {
-        id: "99999"
-        name: "晶医重症医学科"
-        abbreviation: "晶医重症医学科"
-        ward_code: "99999"
-        ward_name: "晶医病区"
-        hospital_name: "晶医"
-    }

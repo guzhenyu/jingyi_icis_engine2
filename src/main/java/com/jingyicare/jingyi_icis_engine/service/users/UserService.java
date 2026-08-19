@@ -239,6 +239,12 @@ public class UserService {
                 .setRt(protoService.getReturnCode(StatusCode.ONLY_ADMIN_IS_AUTHORIZED))
                 .build();
         }
+        if (!certificateService.isDepartmentCreationAllowed()) {
+            log.error("Production ICIS department scope cannot be expanded online");
+            return AddDeptResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.PERMISSION_DENIED))
+                .build();
+        }
 
         // 获取accountAutoId
         Account account = userBasicOp.getAccount(accountId);
@@ -296,11 +302,24 @@ public class UserService {
                 .build();
         }
 
+        IcisDepartmentPB deptPb = req.getDepartment();
+        if (!certificateService.isDepartmentIdentityUpdateAllowed(
+            deptPb.getId(),
+            deptPb.getDeptId(),
+            deptPb.getDeptName(),
+            deptPb.getHospitalName()
+        )) {
+            log.error("Production ICIS department identity cannot be changed online: {}",
+                deptPb.getDeptId());
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.PERMISSION_DENIED))
+                .build();
+        }
+
         // 获取accountAutoId
         Account account = userBasicOp.getAccount(accountId);
         String accountAutoId = account == null ? accountId : account.getId().toString();
 
-        IcisDepartmentPB deptPb = req.getDepartment();
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(userBasicOp.updateDepartment(
                 deptPb.getId(), deptPb.getDeptId(), deptPb.getDeptName(),
@@ -330,6 +349,12 @@ public class UserService {
         if (!accountId.equals(ADMIN_ACCOUNT_ID)) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ONLY_ADMIN_IS_AUTHORIZED))
+                .build();
+        }
+        if (!certificateService.isDepartmentDeletionAllowed()) {
+            log.error("Production ICIS department scope cannot be reduced online: {}", req.getDeptId());
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.PERMISSION_DENIED))
                 .build();
         }
 

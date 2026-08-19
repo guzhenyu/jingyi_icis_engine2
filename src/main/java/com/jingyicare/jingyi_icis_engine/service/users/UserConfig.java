@@ -20,11 +20,13 @@ import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
+import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.entity.users.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.IcisBootstrapProperties;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Service
@@ -42,7 +44,9 @@ public class UserConfig {
         @Autowired RbacDepartmentRepository deptRepo,
         @Autowired RbacDepartmentAccountRepository deptAccountRepo,
         @Autowired RbacDepartmentAccountRoleRepository deptAccountRoleRepo,
-        @Autowired RbacDepartmentAccountPermissionRepository deptAccountPermRepo
+        @Autowired RbacDepartmentAccountPermissionRepository deptAccountPermRepo,
+        @Autowired DepartmentRepository departmentInfoRepo,
+        @Autowired IcisBootstrapProperties bootstrapProperties
     ) {
         this.context = context;
 
@@ -60,6 +64,8 @@ public class UserConfig {
         this.deptAccountRepo = deptAccountRepo;
         this.deptAccountRoleRepo = deptAccountRoleRepo;
         this.deptAccountPermRepo = deptAccountPermRepo;
+        this.departmentInfoRepo = departmentInfoRepo;
+        this.bootstrapProperties = bootstrapProperties;
     };
 
     public void initialize() {
@@ -214,10 +220,39 @@ public class UserConfig {
             }
         }
 
-        List<RbacDepartment> departments = deptRepo.findAll();
-        if (departments.size() <= 0) {
-            for (DepartmentPB dept : configPb.getDepartmentList()) {
-                userBasicOp.addDepartment(dept);
+        if (departmentInfoRepo.count() == 0) {
+            if (bootstrapProperties.isConfigured()) {
+                String hospitalName = bootstrapProperties.getHospitalName().trim();
+                for (IcisBootstrapProperties.DepartmentEntry entry
+                    : bootstrapProperties.getDepartments()) {
+                    StatusCode status = userBasicOp.addDepartment(
+                        entry.getDeptCode().trim(),
+                        entry.getName().trim(),
+                        entry.getName().trim(),
+                        "",
+                        "",
+                        hospitalName,
+                        "System"
+                    );
+                    if (status != StatusCode.OK) {
+                        throw new IllegalStateException(String.format(
+                            "Failed to initialize bootstrap department: code=%s, status=%s",
+                            entry.getDeptCode(),
+                            status));
+                    }
+                }
+                log.info("ICIS deployment bootstrap departments initialized: {}",
+                    bootstrapProperties.getDepartments().size());
+            } else {
+                for (DepartmentPB dept : configPb.getDepartmentList()) {
+                    StatusCode status = userBasicOp.addDepartment(dept);
+                    if (status != StatusCode.OK) {
+                        throw new IllegalStateException(String.format(
+                            "Failed to initialize bundled test department: code=%s, status=%s",
+                            dept.getId(),
+                            status));
+                    }
+                }
             }
         }
 
@@ -348,4 +383,6 @@ public class UserConfig {
     private RbacDepartmentAccountRepository deptAccountRepo;
     private RbacDepartmentAccountRoleRepository deptAccountRoleRepo;
     private RbacDepartmentAccountPermissionRepository deptAccountPermRepo;
+    private DepartmentRepository departmentInfoRepo;
+    private IcisBootstrapProperties bootstrapProperties;
 }

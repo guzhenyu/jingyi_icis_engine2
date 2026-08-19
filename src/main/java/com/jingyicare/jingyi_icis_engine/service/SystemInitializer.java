@@ -19,6 +19,7 @@ import com.jingyicare.jingyi_icis_engine.service.nursingrecords.NursingRecordCon
 import com.jingyicare.jingyi_icis_engine.service.scores.ScoreConfig;
 import com.jingyicare.jingyi_icis_engine.service.shifts.ConfigShiftService;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientConfig;
+import com.jingyicare.jingyi_icis_engine.service.certs.CertificateService;
 import com.jingyicare.jingyi_icis_engine.service.users.UserConfig;
 import com.jingyicare.jingyi_icis_engine.utils.LogUtils;
 
@@ -36,7 +37,8 @@ public class SystemInitializer {
         @Autowired ScoreConfig scoreConfig,
         @Autowired NursingRecordConfig nursingRecordConfig,
         @Autowired DoctorConfig doctorConfig,
-        @Autowired LisConfig lisConfig
+        @Autowired LisConfig lisConfig,
+        @Autowired CertificateService certificateService
     ) {
         this.context = context;
         this.config = configProtoService.getConfig();
@@ -50,10 +52,14 @@ public class SystemInitializer {
         this.nursingRecordConfig = nursingRecordConfig;
         this.doctorConfig = doctorConfig;
         this.lisConfig = lisConfig;
+        this.certificateService = certificateService;
     }
 
     @PostConstruct
     public void init() {
+        certificateService.validatePreInitializationOrThrow();
+        log.info("Deployment certificate and ICIS department scope inputs checked");
+
         monitoringConfig.initialize();
         userConfig.initialize();
         patientConfig.initialize();
@@ -92,6 +98,9 @@ public class SystemInitializer {
         nursingRecordConfig.refresh();
         doctorConfig.refresh();
         log.info("Refreshed system");
+
+        certificateService.validateStartupOrThrow();
+        log.info("Certificate and ICIS department scope checked");
     }
 
     private ConfigurableApplicationContext context;
@@ -106,4 +115,5 @@ public class SystemInitializer {
     private NursingRecordConfig nursingRecordConfig;
     private DoctorConfig doctorConfig;
     private LisConfig lisConfig;
+    private CertificateService certificateService;
 }

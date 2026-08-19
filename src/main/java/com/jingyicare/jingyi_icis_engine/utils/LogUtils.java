@@ -13,7 +13,7 @@ public class LogUtils {
             ((LoggerContext) LoggerFactory.getILoggerFactory()).stop();
             Thread.sleep(500);
             context.close();
-            System.exit(0);
+            System.exit(1);
         } catch (Exception e) {
             System.out.println("Failed to quit gracefully " + e);
             System.exit(1);

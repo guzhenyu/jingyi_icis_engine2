@@ -72,7 +72,6 @@ public class PatientDeviceServiceTests extends TestsBase {
         this.patientDeviceService = patientDeviceService;
         this.patientConfig = patientConfig;
         this.certService = certService;
-        certService.setTest(true);
 
         this.bedConfigRepo = bedConfigRepo;
         this.patientRecordRepo = patientRecordRepo;
