@@ -23,7 +23,6 @@ import com.google.protobuf.TextFormat;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
-import com.jingyicare.jingyi_icis_engine.grpc.*;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.*;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisCommon.*;
@@ -54,7 +53,6 @@ public class ConfigProtoService {
         @Value("${hospital_pb_txt}") Resource hospitalPbResource,
         @Value("${jingyi.textresources.common_config}") Resource commonConfigResource,
         @Value("${jingyi.textresources.freq_config}") Resource freqConfigResource,
-        @Value("${jingyi.textresources.engine_config}") Resource engineConfigResource,
         @Value("${jingyi.textresources.charset}") String charsetName,
         @Autowired DeptSystemSettingsRepository deptSettingsRepo,
         @Autowired IntakeTypeRepository intakeTypeRepo
@@ -173,17 +171,6 @@ public class ConfigProtoService {
                 log.info("Medication frequency config loaded successfully");
             }
 
-            // 引擎RPC：加载配置
-            if (engineConfigResource != null && engineConfigResource.exists()) {
-                reader = new BufferedReader(new InputStreamReader(
-                    engineConfigResource.getInputStream(), charsetName));
-                EngineConfigPB.Builder engineConfigBuilder = EngineConfigPB.newBuilder();
-                TextFormat.getParser().merge(reader, engineConfigBuilder);
-                this.engineConfig = engineConfigBuilder.build();
-                reader.close();
-                log.info("Engine config loaded successfully");
-            }
-
         } catch (IOException e) {
             log.error("Failed to load text resource: " + e.getMessage() + "\n" + e.getStackTrace());
             LogUtils.flushAndQuit(context);
@@ -203,11 +190,6 @@ public class ConfigProtoService {
     public ReturnCode getReturnCode(StatusCode code) {
         return ReturnCode.newBuilder().setCode(code.ordinal())
             .setMsg(config.getText().getStatusCodeMsg(code.getNumber())).build();
-    }
-
-    public ReturnCode getEngineReturnCode(EngineStatusCode code) {
-        return ReturnCode.newBuilder().setCode(code.ordinal())
-            .setMsg(engineConfig.getStatusCodeMsg(code.getNumber())).build();
     }
 
     public String getBoolStr(Boolean b) {
@@ -300,9 +282,6 @@ public class ConfigProtoService {
 
     @Getter
     private Config config;
-
-    @Getter
-    private EngineConfigPB engineConfig;
 
     private final Map<Integer, String> genderMap;
     private final Map<Integer, String> maritalStatusMap;

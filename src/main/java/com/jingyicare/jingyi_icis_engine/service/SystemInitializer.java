@@ -8,7 +8,6 @@ import org.springframework.stereotype.Service;
 
 import lombok.extern.slf4j.Slf4j;
 
-import com.jingyicare.jingyi_icis_engine.grpc.*;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.service.doctors.DoctorConfig;
@@ -42,7 +41,6 @@ public class SystemInitializer {
     ) {
         this.context = context;
         this.config = configProtoService.getConfig();
-        this.engineConfig = configProtoService.getEngineConfig();
         this.shiftConfig = shiftConfig;
         this.userConfig = userConfig;
         this.patientConfig = patientConfig;
@@ -75,11 +73,6 @@ public class SystemInitializer {
                 " v.s. " + config.getText().getStatusCodeMsgCount());
             LogUtils.flushAndQuit(context);
         }
-        if (EngineStatusCode.ENGINE_LAST_CODE.getNumber() != engineConfig.getStatusCodeMsgCount()) {
-            log.error("EngineStatusCode count mismatch: " + EngineStatusCode.ENGINE_LAST_CODE.getNumber() +
-                " v.s. " + engineConfig.getStatusCodeMsgCount());
-            LogUtils.flushAndQuit(context);
-        }
         shiftConfig.checkIntegrity();
         userConfig.checkIntegrity();
         patientConfig.checkIntegrity();
@@ -105,7 +98,6 @@ public class SystemInitializer {
 
     private ConfigurableApplicationContext context;
     private Config config;
-    private EngineConfigPB engineConfig;
     private ConfigShiftService shiftConfig;
     private UserConfig userConfig;
     private PatientConfig patientConfig;

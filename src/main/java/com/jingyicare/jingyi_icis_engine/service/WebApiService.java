@@ -14,7 +14,6 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisQualityControl.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 
-import com.jingyicare.jingyi_icis_engine.grpc.*;
 import com.jingyicare.jingyi_icis_engine.service.checklists.*;
 import com.jingyicare.jingyi_icis_engine.service.ca.CaService;
 import com.jingyicare.jingyi_icis_engine.service.debug.*;
@@ -78,7 +77,6 @@ public class WebApiService {
         @Autowired CaService caService,
         @Autowired MedicationDebugger medicationDebugger,
         @Autowired Ah2ReportService ah2ReportService,
-        @Autowired EngineExtClient engineExtClient,
         @Autowired PrometheusMetricService metricService
     ) {
         this.ZONE_ID = protoService.getConfig().getZoneId();
@@ -116,7 +114,6 @@ public class WebApiService {
         this.caService = caService;
         this.medicationDebugger = medicationDebugger;
         this.ah2ReportService = ah2ReportService;
-        this.engineExtClient = engineExtClient;
 
         this.metricService = metricService;
     }
@@ -2161,7 +2158,6 @@ public class WebApiService {
     private CaService caService;
     private MedicationDebugger medicationDebugger;
     private Ah2ReportService ah2ReportService;
-    private EngineExtClient engineExtClient;
 
     private PrometheusMetricService metricService;
 }
