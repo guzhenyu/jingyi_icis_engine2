@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -136,6 +137,22 @@ public class PatientServiceTests extends TestsBase {
         assertThat(dischargedResp.getPatient().getRowList()).hasSize(1);
         assertThat(dischargedResp.getPatient().getRow(0).getCell(0).getValue()).isEqualTo("hisBedNumber704");
         assertThat(dischargedResp.getPatient().getBasicsList()).hasSize(1);
+    }
+
+    @Test
+    public void testLegacyPatientDisplayColumnAliases() {
+        Map.of(
+            "admission_source_dept_name", "from_dept_name",
+            "admission_source_dept_id", "from_dept_id",
+            "discharged_type", "discharge_type",
+            "discharged_death_time", "death_time",
+            "discharged_hospital_exit_time", "his_discharge_time",
+            "discharged_dept_name", "to_dept_name",
+            "discharged_dept_id", "to_dept_id"
+        ).forEach((legacyColumn, currentColumn) ->
+            assertThat(PatientService.normalizePatientRecordColumnId(legacyColumn)).isEqualTo(currentColumn)
+        );
+        assertThat(PatientService.normalizePatientRecordColumnId("icu_name")).isEqualTo("icu_name");
     }
 
     @Test

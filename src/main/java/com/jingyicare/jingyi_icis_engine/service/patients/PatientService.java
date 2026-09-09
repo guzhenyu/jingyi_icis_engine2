@@ -1483,9 +1483,27 @@ public class PatientService {
         return new PatientShift(StatusCode.OK, patientRecord, shiftSettings);
     }
 
+    // Department-level display settings are persisted in the database and can
+    // outlive a deployment. Keep settings written before the patient field
+    // rename readable so an upgrade does not break patient-list queries.
+    static String normalizePatientRecordColumnId(String colId) {
+        return switch (colId) {
+            case "admission_source_dept_name" -> "from_dept_name";
+            case "admission_source_dept_id" -> "from_dept_id";
+            case "discharged_type" -> "discharge_type";
+            case "discharged_death_time" -> "death_time";
+            case "discharged_hospital_exit_time" -> "his_discharge_time";
+            case "discharged_dept_name" -> "to_dept_name";
+            case "discharged_dept_id" -> "to_dept_id";
+            default -> colId;
+        };
+    }
+
     private String getPatientRecordValue(
         PatientRecord patientRec, String colId, Map<String, BedConfig> bedConfigMap
     ) {
+        colId = normalizePatientRecordColumnId(colId);
+
         switch (colId) {
             case "id":
                 return String.valueOf(patientRec.getId());
