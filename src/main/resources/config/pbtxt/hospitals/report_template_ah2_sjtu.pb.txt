@@ -251,7 +251,7 @@ page {
             id: "title_sjtu"
             type: "text"
             x: 0
-            y: 816
+            y: 806
             width: 1191
             height: 16
             v_align_id: 2
@@ -266,7 +266,7 @@ page {
             id: "title"
             type: "text"
             x: 0
-            y: 798  # A3.short_edge_pt - 1cm - 16pt = 842 - 28.35 - 16 ~= 798
+            y: 788  # A3.short_edge_pt - 1cm - 16pt = 842 - 28.35 - 26 ~= 788
             width: 1191 # A3.long_edge_pt = 1191
             height: 16
             v_align_id: 2  # jfk.v_align_middle.id
@@ -275,7 +275,7 @@ page {
             font_size: 16
             font_color: "#000000"
             char_spacing: 0.5
-            content: "安徽省第二人民医院 ICU护理记录单"
+            content: "安徽省第二人民医院消化病医院 ICU护理记录单"
         }
         text_elem {
             id: "bed_no"
@@ -769,7 +769,7 @@ page {
             id: "title_sjtu"
             type: "text"
             x: 0
-            y: 816
+            y: 806
             width: 1191
             height: 16
             v_align_id: 2
@@ -784,7 +784,7 @@ page {
             id: "title"
             type: "text"
             x: 0
-            y: 798  # A3.short_edge_pt - 1cm - 16pt = 842 - 28.35 - 16 ~= 798
+            y: 788  # A3.short_edge_pt - 1cm - 16pt = 842 - 28.35 - 26 ~= 788
             width: 1191 # A3.long_edge_pt = 1191
             height: 16
             v_align_id: 2  # jfk.v_align_middle.id
@@ -793,7 +793,7 @@ page {
             font_size: 16
             font_color: "#000000"
             char_spacing: 0.5
-            content: "安徽省第二人民医院 ICU护理记录单"
+            content: "安徽省第二人民医院消化病医院 ICU护理记录单"
         }
     }
 }

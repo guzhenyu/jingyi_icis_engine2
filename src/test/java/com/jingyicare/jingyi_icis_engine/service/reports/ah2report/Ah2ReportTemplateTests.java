@@ -59,7 +59,7 @@ public class Ah2ReportTemplateTests {
             JfkTextPB originalTitle = findText(sjtuSubPage, "title");
             JfkTextPB sjtuTitle = findText(sjtuSubPage, "title_sjtu");
             assertThat(originalTitle.getContent())
-                .isEqualTo("安徽省第二人民医院 ICU护理记录单");
+                .isEqualTo("安徽省第二人民医院消化病医院 ICU护理记录单");
             assertThat(sjtuTitle.getContent())
                 .isEqualTo("上海交通大学医学院附属仁济医院安徽医院");
             assertThat(sjtuTitle.getHAlignId()).isEqualTo(originalTitle.getHAlignId());
