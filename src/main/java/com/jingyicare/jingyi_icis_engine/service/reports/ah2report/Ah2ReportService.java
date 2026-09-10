@@ -61,30 +61,29 @@ public class Ah2ReportService {
         }
 
         String charsetName = reportProperties.getCharset();
-        Resource ah2TemplateResource = resourceLoader.getResource(this.templatePath);
         Resource fontResource = resourceLoader.getResource(reportProperties.getAh2().getFont());
+        this.template = loadTemplate(context, resourceLoader, charsetName, this.templatePath);
 
-        ReportTemplateAh2PB parsedTemplate = null;
-        try {  // 初始化模板信息
-            BufferedReader reader = new BufferedReader(new InputStreamReader(
-                ah2TemplateResource.getInputStream(), charsetName));
-            ReportTemplateAh2PB.Builder templateBuilder = ReportTemplateAh2PB.newBuilder();
-            TextFormat.getParser().merge(reader, templateBuilder);
-
-            // 检查模板是否规范：表头是否有顶层元素，整体宽度（/高度）是否超出范围...
-            Pair<Boolean, ReportTemplateAh2PB> normalizedPair = normalizeTemplate(templateBuilder.build());
-            if (!normalizedPair.getFirst()) {
-                log.error("Invalid template provided.");
-                LogUtils.flushAndQuit(context);
+        Map<String, ReportTemplateAh2PB> templatesByPath = new HashMap<>();
+        templatesByPath.put(this.templatePath, this.template);
+        Map<String, ReportTemplateAh2PB> configuredDeptTemplates = new LinkedHashMap<>();
+        Map<String, String> configuredDeptTemplatePaths =
+            reportProperties.getAh2().getDeptTemplateClasspathMap();
+        if (Ah2.VARIANT_AH2.equals(this.variant)) {
+            for (Map.Entry<String, String> entry : configuredDeptTemplatePaths.entrySet()) {
+                String deptTemplatePath = entry.getValue();
+                ReportTemplateAh2PB deptTemplate = templatesByPath.get(deptTemplatePath);
+                if (deptTemplate == null) {
+                    deptTemplate = loadTemplate(context, resourceLoader, charsetName, deptTemplatePath);
+                    templatesByPath.put(deptTemplatePath, deptTemplate);
+                }
+                configuredDeptTemplates.put(entry.getKey(), deptTemplate);
+                log.info("Configured AH2 report template for dept {}: {}", entry.getKey(), deptTemplatePath);
             }
-            parsedTemplate = normalizedPair.getSecond();
-            reader.close();
-            log.info("Config loaded successfully");
-        } catch (IOException e) {
-            log.error("Failed to load text resource: " + e.getMessage() + "\n" + e.getStackTrace());
-            LogUtils.flushAndQuit(context);
+        } else if (!configuredDeptTemplatePaths.isEmpty()) {
+            log.info("Ignoring AH2 department templates because report variant is {}", this.variant);
         }
-        this.template = parsedTemplate;
+        this.deptTemplates = Collections.unmodifiableMap(configuredDeptTemplates);
 
         // 初始化字体
         try (InputStream is = fontResource.getInputStream()) {
@@ -106,7 +105,8 @@ public class Ah2ReportService {
         Long pid, String deptId, LocalDateTime queryStartUtc, LocalDateTime queryEndUtc,
         String accountId, String outputPath
     ) {
-        if (template == null) {
+        ReportTemplateAh2PB selectedTemplate = selectTemplate(deptId, template, deptTemplates);
+        if (selectedTemplate == null) {
             log.error("No valid template to draw PDF.");
             return ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.INVALID_PARAM_VALUE);
         }
@@ -120,7 +120,7 @@ public class Ah2ReportService {
             ctx.pageRectangle = this.pageRectangle;
             ctx.document = document;
             ctx.font = PDType0Font.load(ctx.document, new ByteArrayInputStream(fontDataBytes));
-            TableCommonPB tblCommonPb = this.template.getPage().getTblCommon();
+            TableCommonPB tblCommonPb = selectedTemplate.getPage().getTblCommon();
             ctx.tblCommon = tblCommonPb;
             ctx.colMetaMap = new HashMap<>();
             for (ParamColMetaPB colMeta : tblCommonPb.getParamColMetaList()) {
@@ -140,7 +140,7 @@ public class Ah2ReportService {
             List<Ah2PageData> pageDataList = dataPair.getSecond();
 
             // 渲染pdf
-            PagePB pagePb = template.getPage();
+            PagePB pagePb = selectedTemplate.getPage();
             for (int i = 0; i < pageDataList.size(); ++i) {
                 Ah2PageData pageData = pageDataList.get(i);
                 ctx.pageData = pageData;
@@ -165,6 +165,42 @@ public class Ah2ReportService {
         } catch (IOException e) {
             log.error("Failed to calc AH2 cell text width for [{}]: {}", str, e.getMessage(), e);
             return 0f;
+        }
+    }
+
+    static ReportTemplateAh2PB selectTemplate(
+        String deptId,
+        ReportTemplateAh2PB defaultTemplate,
+        Map<String, ReportTemplateAh2PB> deptTemplates
+    ) {
+        if (deptId == null || deptTemplates == null) return defaultTemplate;
+        return deptTemplates.getOrDefault(deptId, defaultTemplate);
+    }
+
+    private ReportTemplateAh2PB loadTemplate(
+        ConfigurableApplicationContext context,
+        ResourceLoader resourceLoader,
+        String charsetName,
+        String path
+    ) {
+        Resource templateResource = resourceLoader.getResource(path);
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+            templateResource.getInputStream(), charsetName))) {
+            ReportTemplateAh2PB.Builder templateBuilder = ReportTemplateAh2PB.newBuilder();
+            TextFormat.getParser().merge(reader, templateBuilder);
+
+            Pair<Boolean, ReportTemplateAh2PB> normalizedPair = normalizeTemplate(templateBuilder.build());
+            if (!normalizedPair.getFirst()) {
+                log.error("Invalid AH2 report template: {}", path);
+                LogUtils.flushAndQuit(context);
+                return null;
+            }
+            log.info("Loaded AH2 report template: {}", path);
+            return normalizedPair.getSecond();
+        } catch (IOException e) {
+            log.error("Failed to load AH2 report template {}: {}", path, e.getMessage(), e);
+            LogUtils.flushAndQuit(context);
+            return null;
         }
     }
 
@@ -399,13 +435,13 @@ public class Ah2ReportService {
         }
 
         for (SubPagePB subPage : pagePb.getSubPageList()) {
-            drawPhysicalPage(ctx, subPage);
+            drawPhysicalPage(ctx, subPage, pagePb.getTblCommon());
         }
 
         return;
     }
 
-    private void drawPhysicalPage(Ah2PdfContext ctx, SubPagePB subPage) {
+    private void drawPhysicalPage(Ah2PdfContext ctx, SubPagePB subPage, TableCommonPB baseTblCommonPb) {
         if (ctx.document == null || ctx.font == null || subPage == null || ctx.pageData == null) {
             log.error("Invalid context or subpage data for drawing.");
             return;
@@ -440,7 +476,6 @@ public class Ah2ReportService {
 
             // 画表头
             setLineStyle(contentStream, ctx.tblLineStyle);
-            TableCommonPB baseTblCommonPb = this.template.getPage().getTblCommon();
             int effectiveBodyRows = getEffectiveBodyRows(ctx, baseTblCommonPb.getBodyRows());
             float tableTop = baseTblCommonPb.getBottom() + baseTblCommonPb.getHeight();
             float tableHeight = baseTblCommonPb.getRowHeight() * (baseTblCommonPb.getHeaderRows() + effectiveBodyRows);
@@ -674,6 +709,7 @@ public class Ah2ReportService {
 
     private byte[] fontDataBytes;
     private final ReportTemplateAh2PB template;
+    private final Map<String, ReportTemplateAh2PB> deptTemplates;
     private final Ah2ReportDataProvider reportDataProvider;
     private final Ah2TableRenderer tableRenderer;
     private final String variant;
