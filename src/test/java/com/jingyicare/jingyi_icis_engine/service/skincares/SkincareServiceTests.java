@@ -262,8 +262,9 @@ public class SkincareServiceTests extends TestsBase {
         String planUpdatedAt = "2026-04-07T10:15+08:00";
         String planAuditedAt = "2026-04-07T08:45+08:00";
         String planAuditedAtUpdated = "2026-04-07T10:30+08:00";
-        String recordCreatedAt = "2026-04-07T09:10+08:00";
-        String recordUpdatedAt = "2026-04-07T11:20+08:00";
+        String recordCreatedAt = "2026-04-07T10:20+08:00";
+        String recordCreatedAt2 = "2026-04-07T10:22+08:00";
+        String recordUpdatedAt = "2026-04-07T10:25+08:00";
 
         AddPatientSkincarePlanResp addPlanResp = skincareService.addPatientSkincarePlan(ProtoUtils.protoToJson(
             AddPatientSkincarePlanReq.newBuilder()
@@ -398,6 +399,7 @@ public class SkincareServiceTests extends TestsBase {
                     .setDeptId(deptId)
                     .setPid(pid)
                     .setPatientSkincarePlanId(planId)
+                    .setCreatedAtIso8601(recordCreatedAt2)
                     .addAttr(PatientSkincareRecordAttrPB.newBuilder()
                         .setSkincareAttrId(attrId1)
                         .setValue(newStringValue("record_initial_value_2"))
@@ -532,6 +534,101 @@ public class SkincareServiceTests extends TestsBase {
                 .build()));
         assertThat(getDeletedPlanAttrsResp.getRt().getCode()).isEqualTo(StatusCode.OK.getNumber());
         assertThat(getDeletedPlanAttrsResp.getAttrCount()).isEqualTo(2);
+    }
+
+    @Test
+    @Transactional
+    public void testPatientSkincareRecordTimeMustBeWithinPlanRange() {
+        loginAsAdmin();
+
+        String deptId = "10037";
+        long pid = savePatient(920002L, deptId);
+        AddSkincareTypeResp addTypeResp = skincareService.addSkincareType(ProtoUtils.protoToJson(
+            AddSkincareTypeReq.newBuilder()
+                .setSkincareType(SkincareTypePB.newBuilder()
+                    .setDeptId(deptId)
+                    .setType("record_time_range")
+                    .setName("record_time_range_type")
+                    .build())
+                .build()));
+        assertThat(addTypeResp.getRt().getCode()).isEqualTo(StatusCode.OK.getNumber());
+        int typeId = addTypeResp.getId();
+
+        long closedPlanId = addPlan(
+            deptId, pid, typeId, "2026-04-07T08:00+08:00", "2026-04-07T10:00+08:00");
+
+        assertAddRecordCode(deptId, pid, closedPlanId, "2026-04-07T07:59+08:00",
+            StatusCode.PATIENT_SKINCARE_RECORD_TIME_OUT_OF_PLAN_RANGE);
+        long startBoundaryRecordId = assertAddRecordCode(
+            deptId, pid, closedPlanId, "2026-04-07T08:00+08:00", StatusCode.OK);
+        assertAddRecordCode(deptId, pid, closedPlanId, "2026-04-07T10:00+08:00", StatusCode.OK);
+        assertAddRecordCode(deptId, pid, closedPlanId, "2026-04-07T10:01+08:00",
+            StatusCode.PATIENT_SKINCARE_RECORD_TIME_OUT_OF_PLAN_RANGE);
+
+        GenericResp invalidRecordUpdateResp = skincareService.updatePatientSkincareRecord(ProtoUtils.protoToJson(
+            UpdatePatientSkincareRecordReq.newBuilder()
+                .setRecord(PatientSkincareRecordPB.newBuilder()
+                    .setId(startBoundaryRecordId)
+                    .setDeptId(deptId)
+                    .setPid(pid)
+                    .setPatientSkincarePlanId(closedPlanId)
+                    .setCreatedAtIso8601("2026-04-07T10:01+08:00")
+                    .build())
+                .build()));
+        assertThat(invalidRecordUpdateResp.getRt().getCode())
+            .isEqualTo(StatusCode.PATIENT_SKINCARE_RECORD_TIME_OUT_OF_PLAN_RANGE.getNumber());
+
+        GenericResp invalidPlanUpdateResp = skincareService.updatePatientSkincarePlan(ProtoUtils.protoToJson(
+            UpdatePatientSkincarePlanReq.newBuilder()
+                .setPlan(PatientSkincarePlanPB.newBuilder()
+                    .setId(closedPlanId)
+                    .setDeptId(deptId)
+                    .setPid(pid)
+                    .setSkincareTypeId(typeId)
+                    .setCreatedAtIso8601("2026-04-07T08:01+08:00")
+                    .setAuditedAtIso8601("2026-04-07T10:00+08:00")
+                    .build())
+                .build()));
+        assertThat(invalidPlanUpdateResp.getRt().getCode())
+            .isEqualTo(StatusCode.PATIENT_SKINCARE_RECORD_TIME_OUT_OF_PLAN_RANGE.getNumber());
+
+        long openPlanId = addPlan(deptId, pid, typeId, "2026-04-07T08:00+08:00", "");
+        assertAddRecordCode(deptId, pid, openPlanId, "2026-04-07T07:59+08:00",
+            StatusCode.PATIENT_SKINCARE_RECORD_TIME_OUT_OF_PLAN_RANGE);
+        assertAddRecordCode(deptId, pid, openPlanId, "2036-04-07T08:00+08:00", StatusCode.OK);
+    }
+
+    private long addPlan(
+        String deptId, long pid, int typeId, String createdAtIso8601, String auditedAtIso8601
+    ) {
+        AddPatientSkincarePlanResp response = skincareService.addPatientSkincarePlan(ProtoUtils.protoToJson(
+            AddPatientSkincarePlanReq.newBuilder()
+                .setPlan(PatientSkincarePlanPB.newBuilder()
+                    .setDeptId(deptId)
+                    .setPid(pid)
+                    .setSkincareTypeId(typeId)
+                    .setCreatedAtIso8601(createdAtIso8601)
+                    .setAuditedAtIso8601(auditedAtIso8601)
+                    .build())
+                .build()));
+        assertThat(response.getRt().getCode()).isEqualTo(StatusCode.OK.getNumber());
+        return response.getId();
+    }
+
+    private long assertAddRecordCode(
+        String deptId, long pid, long planId, String createdAtIso8601, StatusCode expectedCode
+    ) {
+        AddPatientSkincareRecordResp response = skincareService.addPatientSkincareRecord(ProtoUtils.protoToJson(
+            AddPatientSkincareRecordReq.newBuilder()
+                .setRecord(PatientSkincareRecordPB.newBuilder()
+                    .setDeptId(deptId)
+                    .setPid(pid)
+                    .setPatientSkincarePlanId(planId)
+                    .setCreatedAtIso8601(createdAtIso8601)
+                    .build())
+                .build()));
+        assertThat(response.getRt().getCode()).isEqualTo(expectedCode.getNumber());
+        return response.getId();
     }
 
     private void loginAsAdmin() {

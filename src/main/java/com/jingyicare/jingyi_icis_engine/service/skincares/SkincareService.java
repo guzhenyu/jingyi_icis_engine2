@@ -655,6 +655,15 @@ public class SkincareService {
                 .setRt(protoService.getReturnCode(StatusCode.INVALID_TIME_FORMAT))
                 .build();
         }
+        LocalDateTime auditedAt = parseNullableIso8601(planPb.getAuditedAtIso8601());
+        boolean hasOutOfRangeRecord = patientSkincareRecordRepo
+            .findByPatientSkincarePlanIdAndIsDeletedFalse(plan.getId()).stream()
+            .anyMatch(record -> !isSkincareRecordTimeWithinPlan(record.getCreatedAt(), createdAt, auditedAt));
+        if (hasOutOfRangeRecord) {
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.PATIENT_SKINCARE_RECORD_TIME_OUT_OF_PLAN_RANGE))
+                .build();
+        }
 
         plan.setDeptId(deptId);
         plan.setPid(planPb.getPid());
@@ -664,7 +673,7 @@ public class SkincareService {
             plan.setCreatedBy(planPb.getCreatedBy());
         }
         plan.setAuditedBy(blankToNull(planPb.getAuditedBy()));
-        plan.setAuditedAt(parseNullableIso8601(planPb.getAuditedAtIso8601()));
+        plan.setAuditedAt(auditedAt);
         plan.setModifiedBy(accountId);
         plan.setModifiedAt(TimeUtils.getNowUtc());
         patientSkincarePlanRepo.save(plan);
@@ -1057,6 +1066,11 @@ public class SkincareService {
                 .setRt(protoService.getReturnCode(StatusCode.INVALID_TIME_FORMAT))
                 .build();
         }
+        if (!isSkincareRecordTimeWithinPlan(createdAt, plan.getCreatedAt(), plan.getAuditedAt())) {
+            return AddPatientSkincareRecordResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.PATIENT_SKINCARE_RECORD_TIME_OUT_OF_PLAN_RANGE))
+                .build();
+        }
         PatientSkincareRecord record = PatientSkincareRecord.builder()
             .deptId(deptId)
             .pid(recordPb.getPid())
@@ -1142,6 +1156,11 @@ public class SkincareService {
         if (createdAt == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.INVALID_TIME_FORMAT))
+                .build();
+        }
+        if (!isSkincareRecordTimeWithinPlan(createdAt, plan.getCreatedAt(), plan.getAuditedAt())) {
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.PATIENT_SKINCARE_RECORD_TIME_OUT_OF_PLAN_RANGE))
                 .build();
         }
 
@@ -1716,6 +1735,15 @@ public class SkincareService {
 
     private boolean isValidOptionalIso8601(String iso8601) {
         return StrUtils.isBlank(iso8601) || TimeUtils.fromIso8601String(iso8601, "UTC") != null;
+    }
+
+    private boolean isSkincareRecordTimeWithinPlan(
+        LocalDateTime recordTime, LocalDateTime planCreatedAt, LocalDateTime planAuditedAt
+    ) {
+        if (recordTime == null || planCreatedAt == null || recordTime.isBefore(planCreatedAt)) {
+            return false;
+        }
+        return planAuditedAt == null || !recordTime.isAfter(planAuditedAt);
     }
 
     private String blankToNull(String value) {

@@ -337,7 +337,8 @@ enum StatusCode {
     CA_SERVICE_INVALID_RESPONSE = 298; // CIG CA响应校验失败
     CA_SERVICE_ERROR = 299; // CIG CA服务内部错误
     IN_ICU_AND_PENDING_ADMISSION_PATIENTS_SHARE_BED = 300; // 在科患者和待入科患者使用了同一床位
-    LAST_CODE = 301;
+    PATIENT_SKINCARE_RECORD_TIME_OUT_OF_PLAN_RANGE = 301; // 皮肤护理记录时间不在护理计划有效时间范围内
+    LAST_CODE = 302;
 }
 
 /*****************************************************************************
