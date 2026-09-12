@@ -75,6 +75,7 @@ public class WebApiService {
         @Autowired SepsisAndSepticShockBundleService sepsisAndSepticShockBundleService,
         @Autowired ReportService reportService,
         @Autowired CaService caService,
+        @Autowired DeviceDebugger deviceDebugger,
         @Autowired MedicationDebugger medicationDebugger,
         @Autowired Ah2ReportService ah2ReportService,
         @Autowired PrometheusMetricService metricService
@@ -112,6 +113,7 @@ public class WebApiService {
 
         this.reportService = reportService;
         this.caService = caService;
+        this.deviceDebugger = deviceDebugger;
         this.medicationDebugger = medicationDebugger;
         this.ah2ReportService = ah2ReportService;
 
@@ -2087,6 +2089,14 @@ public class WebApiService {
         return medicationDebugger.getMedOrdGroups(patientId);
     }
 
+    public String debugListDevInfos() {
+        return deviceDebugger.listDevInfos();
+    }
+
+    public String debugGetLatestDevData(Integer deviceId) {
+        return deviceDebugger.getLatestDevData(deviceId);
+    }
+
     public GenericResp test() {
         String str = "灵敏";
         float pt = ah2ReportService.calcCellTextWidthPt(str);
@@ -2156,6 +2166,7 @@ public class WebApiService {
 
     private ReportService reportService;
     private CaService caService;
+    private DeviceDebugger deviceDebugger;
     private MedicationDebugger medicationDebugger;
     private Ah2ReportService ah2ReportService;
 

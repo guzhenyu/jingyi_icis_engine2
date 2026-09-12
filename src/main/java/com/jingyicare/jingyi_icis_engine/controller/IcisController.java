@@ -1675,6 +1675,20 @@ public class IcisController {
             .body(webApiService.debugGetMedOrdGroups(patientId));
     }
 
+    @GetMapping("/debug/listdevinfos")
+    public ResponseEntity<String> listDevInfos() {
+        return ResponseEntity.ok()
+            .contentType(new MediaType(MediaType.TEXT_PLAIN, StandardCharsets.UTF_8))
+            .body(webApiService.debugListDevInfos());
+    }
+
+    @GetMapping("/debug/getlatestdevdata")
+    public ResponseEntity<String> getLatestDevData(@RequestParam("dev_id") Integer deviceId) {
+        return ResponseEntity.ok()
+            .contentType(new MediaType(MediaType.TEXT_PLAIN, StandardCharsets.UTF_8))
+            .body(webApiService.debugGetLatestDevData(deviceId));
+    }
+
     @GetMapping("/test")
     public ResponseEntity<String> test() {
         return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.test()));
