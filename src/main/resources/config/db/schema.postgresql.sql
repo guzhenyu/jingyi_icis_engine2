@@ -2360,7 +2360,7 @@ COMMENT ON TABLE device_data IS '设备数据表，只保存最近X天的数据�
 COMMENT ON COLUMN device_data.id IS '自增id';
 COMMENT ON COLUMN device_data.department_id IS '部门编码';
 COMMENT ON COLUMN device_data.device_id IS '设备id，外键 device_infos.id';
-COMMENT ON COLUMN device_data.device_type IS '设备类型, icis_config.pb.txt:device.device_cascade.entry.device_type_id, 101为通用采集设备';
+COMMENT ON COLUMN device_data.device_type IS '设备类型, common_device.pb.txt:device_cascade.entry.device_type_id, 101为通用采集设备';
 COMMENT ON COLUMN device_data.device_bed_number IS '设备床位号';
 COMMENT ON COLUMN device_data.param_code IS '监测参数code，对应 monitoring_params.code';
 COMMENT ON COLUMN device_data.recorded_at IS '数据记录时间';

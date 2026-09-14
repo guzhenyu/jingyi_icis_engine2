@@ -1,0 +1,182 @@
+# 公共设备配置（DeviceConfigPB），通用及各医院配置共用。
+# 主配置中显式定义 device 时，整块使用主配置，不与本文件合并。
+enums {
+    source_mode {
+        id: 1
+        name: "采集程序作为服务端"
+    }
+    source_mode {
+        id: 2
+        name: "采集程序作为客户端"
+    }
+    source_mode {
+        id: 3
+        name: "采集程序不直接通信"
+    }
+    source_topology {
+        id: 1
+        name: "单设备直连"
+    }
+    source_topology {
+        id: 2
+        name: "中央站扇出分发"
+    }
+    bed_type {
+        id: 1
+        name: "固定授权"
+    }
+    bed_type {
+        id: 2
+        name: "临时授权"
+    }
+    switch_type_normal {
+        id: 0
+        name: "普通换床"
+    }
+    switch_type_readmission_discharge {
+        id: 1
+        name: "24h重返-出科"
+    }
+    switch_type_readmission_admit {
+        id: 2
+        name: "24h重返-入科"
+    }
+}
+alternative_code_pair {
+    replacing_code: "vent_respiratory_rate"
+    replaced_code: "respiratory_rate"
+}
+param_code_to_approx: "nibp_s"
+param_code_to_approx: "nibp_d"
+param_code_to_approx: "nibp_m"
+approx_seconds: 1800
+device_cascade {
+    entry {
+        device_type_id: 1
+        device_type_name: "监护仪"
+        driver {
+            driver_code: "JY_monitor_mindray_n"
+            driver_name: "N12"
+        }
+        driver {
+            driver_code: "JY_monitor_mindray_t"
+            driver_name: "ipm8"
+        }
+        driver {
+            driver_code: "JY_monitor_philips_g"
+            driver_name: "G60"
+        }
+        driver {
+            driver_code: "JY_monitor_philips_mp"
+            driver_name: "mp550"
+        }
+        driver {
+            driver_code: "JY_monitor_blt_p"
+            driver_name: "P15"
+        }
+        driver {
+            driver_code: "JY_monitor_comen_c"
+            driver_name: "C30"
+        }
+        driver {
+            driver_code: "JY_monitor_comen_hl7"
+            driver_name: "C90"
+        }
+    }
+    entry {
+        device_type_id: 2
+        device_type_name: "呼吸机"
+        driver {
+            driver_code: "jd_vent_mindray_sv300"
+            driver_name: "SV300"
+        }
+        driver {
+            driver_code: "jd_vent_drager_evita"
+            driver_name: "Evita"
+        }
+        driver {
+            driver_code: "jd_vent_drager_savina"
+            driver_name: "Savina"
+        }
+        driver {
+            driver_code: "jd_vent_drager_infinity"
+            driver_name: "Infinity"
+        }
+        driver {
+            driver_code: "jd_vent_hamilton_c3"
+            driver_name: "c3"
+        }
+        driver {
+            driver_code: "JY_vent_vela"
+            driver_name: "VELA"
+        }
+        driver {
+            driver_code: "JY_vent_maquet_s"
+            driver_name: "S"
+        }
+        driver {
+            driver_code: "JY_vent_maquet_u"
+            driver_name: "U"
+        }
+    }
+    entry {
+        device_type_id: 3
+        device_type_name: "血气机"
+        driver {
+            driver_code: "jd_bga_radiometer_abl90"
+            driver_name: "ABL90"
+        }
+        driver {
+            driver_code: "JY_bga_beckman_gem4000"
+            driver_name: "GEM4000"
+        }
+    }
+    entry {
+        device_type_id: 4
+        device_type_name: "PICCO"
+    }
+    entry {
+        device_type_id: 5
+        device_type_name: "ECMO"
+    }
+    entry {
+        device_type_id: 6
+        device_type_name: "CRRT"
+    }
+    entry {
+        device_type_id: 7
+        device_type_name: "免疫分析仪"
+    }
+    entry {
+        device_type_id: 8
+        device_type_name: "尿液分析仪"
+    }
+    entry {
+        device_type_id: 9
+        device_type_name: "中央站"
+        driver {
+            driver_code: "jd_cms_mindray_egateway"
+            driver_name: "eGateway(HL7推送)"
+        }
+        driver {
+            driver_code: "jd_cms_mindray_pds_realtime"
+            driver_name: "PDS Realtime"
+        }
+        driver {
+            driver_code: "jd_cms_philips_intellivue"
+            driver_name: "IntelliVue"
+        }
+        driver {
+            driver_code: "JY_cms_comen_hl7"
+            driver_name: "科曼中央站"
+        }
+    }
+    entry {
+        device_type_id: 101
+        device_type_name: "通用采集"
+        driver {
+            driver_code: "JY_devicehub"
+            driver_name: "DeviceHub"
+        }
+    }
+}

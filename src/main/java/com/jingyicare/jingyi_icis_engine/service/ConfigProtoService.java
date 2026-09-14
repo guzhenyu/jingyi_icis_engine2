@@ -27,6 +27,7 @@ import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.*;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisCommon.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisCustomHospital.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.*;
@@ -50,6 +51,7 @@ public class ConfigProtoService {
         @Value("${jingyi.textresources.icis_config}") Resource configResource,
         @Value("${jingyi.textresources.common_text}") Resource commonTextResource,
         @Value("${jingyi.textresources.user_config}") Resource userConfigResource,
+        @Value("${jingyi.textresources.device_config}") Resource deviceConfigResource,
         @Value("${hospital_pb_txt}") Resource hospitalPbResource,
         @Value("${jingyi.textresources.common_config}") Resource commonConfigResource,
         @Value("${jingyi.textresources.freq_config}") Resource freqConfigResource,
@@ -108,6 +110,21 @@ public class ConfigProtoService {
                 log.info("User config loaded successfully");
             } else if (this.config.hasUser()) {
                 log.info("Using user config from primary config resource");
+            }
+
+            if (!this.config.hasDevice() && deviceConfigResource != null && deviceConfigResource.exists()) {
+                reader = new BufferedReader(new InputStreamReader(
+                    deviceConfigResource.getInputStream(), charsetName));
+                DeviceConfigPB.Builder deviceBuilder = DeviceConfigPB.newBuilder();
+                TextFormat.getParser().merge(reader, deviceBuilder);
+                reader.close();
+
+                this.config = this.config.toBuilder()
+                    .setDevice(deviceBuilder.build())
+                    .build();
+                log.info("Common device config loaded successfully");
+            } else if (this.config.hasDevice()) {
+                log.info("Using device config from primary config resource");
             }
 
             // 医院特定配置
