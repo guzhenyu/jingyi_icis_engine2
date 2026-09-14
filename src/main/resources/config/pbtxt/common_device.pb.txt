@@ -82,6 +82,10 @@ device_cascade {
             driver_code: "JY_monitor_comen_hl7"
             driver_name: "C90"
         }
+        driver {
+            driver_code: "JY_monitor_mindray_hl7"
+            driver_name: "mindray_hl7"
+        }
     }
     entry {
         device_type_id: 2
