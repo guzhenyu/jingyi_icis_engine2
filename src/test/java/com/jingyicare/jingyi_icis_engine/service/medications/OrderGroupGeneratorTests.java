@@ -6,7 +6,11 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.MedOrderGroupSettingsPB.*;
@@ -84,6 +88,70 @@ public class OrderGroupGeneratorTests extends TestsBase {
         assertThat(orderGroups.get(0).getHisPatientId()).isEqualTo("hisPatientId101");
         assertThat(orderGroups.get(0).getGroupId()).isEqualTo("group_id_1");
         assertThat(orderGroups.get(0).getDeptId()).isEqualTo(deptId);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" \t "})
+    @Transactional
+    public void testOneTimeOrderWithMissingFrequency(String frequency) {
+        PatientRecord patient = patientTestUtils.newPatientRecord(1102L, IN_ICU_VAL, deptId);
+        patient.setAdmissionTime(TimeUtils.getLocalTime(2024, 9, 10));
+        patient = patientRecordRepo.save(patient);
+        String onceCode = configProtoService.getConfig().getMedication().getFreqSpec().getOnceCode();
+        MedicalOrder order = newOrderWithFrequency(patient, "missing_frequency", 1, frequency);
+        medOrdRepo.save(order);
+        medOrdRepo.save(newOrderWithFrequency(patient, "explicit_once", 1, onceCode));
+
+        List<MedicationOrderGroup> groups = orderGroupGenerator.generate(patient, medOgSettings);
+
+        assertThat(groups).hasSize(1);
+        assertThat(groups.get(0).getFreqCode()).isEqualTo(onceCode);
+        assertThat(groups.get(0).getInconsistencyExplanation()).isEmpty();
+        assertThat(ProtoUtils.decodeDosageGroup(groups.get(0).getMedicationDosageGroup()).getMdCount())
+            .isEqualTo(2);
+        // The fallback belongs to the generated group, not the HIS source record.
+        assertThat(medOrdRepo.findByOrderId(order.getOrderId()).orElseThrow().getFreqCode())
+            .isEqualTo(frequency);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" \t "})
+    @Transactional
+    public void testLongTermOrderStillRequiresFrequency(String frequency) {
+        PatientRecord patient = patientTestUtils.newPatientRecord(1102L, IN_ICU_VAL, deptId);
+        patient.setAdmissionTime(TimeUtils.getLocalTime(2024, 9, 10));
+        patient = patientRecordRepo.save(patient);
+        medOrdRepo.save(newOrderWithFrequency(patient, "missing_frequency", 0, frequency));
+
+        assertThat(orderGroupGenerator.generate(patient, medOgSettings)).isEmpty();
+    }
+
+    @Test
+    @Transactional
+    public void testOneTimeOrderKeepsExplicitFrequency() {
+        PatientRecord patient = patientTestUtils.newPatientRecord(1102L, IN_ICU_VAL, deptId);
+        patient.setAdmissionTime(TimeUtils.getLocalTime(2024, 9, 10));
+        patient = patientRecordRepo.save(patient);
+        medOrdRepo.save(newOrderWithFrequency(patient, "explicit_frequency", 1, "explicit_frequency_code"));
+
+        List<MedicationOrderGroup> groups = orderGroupGenerator.generate(patient, medOgSettings);
+
+        assertThat(groups).hasSize(1);
+        assertThat(groups.get(0).getFreqCode()).isEqualTo("explicit_frequency_code");
+    }
+
+    private MedicalOrder newOrderWithFrequency(
+        PatientRecord patient, String orderId, int durationType, String frequency
+    ) {
+        LocalDateTime orderTime = TimeUtils.getLocalTime(2024, 9, 11);
+        return medTestUtils.newMedicalOrder(
+            orderId, patient.getHisPatientId(), "missing_frequency_group", "doctor_1",
+            deptId, "西药", "已审核", orderTime,
+            "med_code_3", "med_name_3", "spec_1", 1.0, "mg",
+            durationType, orderTime, frequency, 0, "route_code_1", "route_name_1",
+            "reviewer_1", orderTime, orderTime);
     }
 
     @Test

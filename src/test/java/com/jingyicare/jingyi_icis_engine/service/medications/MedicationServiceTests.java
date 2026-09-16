@@ -1954,6 +1954,72 @@ public class MedicationServiceTests extends TestsBase {
     }
 
     @Test
+    @Transactional
+    public void testStoppedOneTimeOrdersWithMissingFrequency() {
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(
+            accountId, null, AuthorityUtils.createAuthorityList("ROLE_1")));
+        medConfig.setMedOrderGroupSettings(deptId, medConfig.getMedOrderGroupSettings(deptId).toBuilder()
+            .addAllowOrderType("西成药")
+            .setNotStartedExeRecAdvanceHours(24)
+            .build(), accountId);
+
+        LocalDateTime orderTime = LocalDateTime.of(2024, 9, 13, 9, 38);
+        LocalDateTime planTime = orderTime.minusMinutes(1);
+        PatientRecord patient = patientTestUtils.newPatientRecord(1319L, 1, deptId);
+        patient.setAdmissionTime(orderTime.minusHours(1));
+        patient.setDischargeTime(null);
+        patient = patientRepo.save(patient);
+        for (int i = 0; i < 2; i++) {
+            MedicalOrder order = medTestUtils.newMedicalOrder(
+                "missing_frequency_order_" + i, patient.getHisPatientId(), "missing_frequency_group", "doctor_1",
+                deptId, "西成药", "已停止", orderTime,
+                "missing_frequency_med_" + i, "med_name_" + i, "100ml:mg", 1.0, "mg",
+                1 /*临时医嘱*/, planTime, null /*HIS未提供频次*/, null,
+                ROUTE4, ROUTE4, "reviewer_1", orderTime, orderTime);
+            order.setStopTime(orderTime);
+            medOrdRepo.save(order);
+        }
+
+        GetOrderGroupsReq request = GetOrderGroupsReq.newBuilder()
+            .setPatientId(patient.getId())
+            .setQueryStartIso8601("2024-09-13T00:00:00.000Z")
+            .setQueryEndIso8601("2024-09-14T00:00:00.000Z")
+            .setExpandExeRecord(false)
+            .build();
+        GetOrderGroupsResp response = medService.getOrderGroups(ProtoUtils.protoToJson(request));
+        assertThat(response.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        assertThat(response.getOrderGroupCount()).isZero();
+        assertThat(medOrdGroupRepo.findByPatientId(patient.getId())).hasSize(1);
+        assertThat(medExeRecRepo.findByPatientId(patient.getId())).isEmpty();
+
+        response = medService.getOrderGroups(ProtoUtils.protoToJson(request.toBuilder()
+            .setExpandExeRecord(true).build()));
+        assertThat(response.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        assertThat(response.getOrderGroupCount()).isEqualTo(1);
+        assertThat(response.getOrderGroup(0).getMedOrderGroup().getOrderDurationType()).isEqualTo(1);
+        assertThat(response.getOrderGroup(0).getMedOrderGroup().getFreqCode()).isEqualTo(FREQ_CODE_ONCE);
+        assertThat(response.getOrderGroup(0).getMedOrderGroup().getDosageGroup().getMdCount()).isEqualTo(2);
+        assertThat(response.getOrderGroup(0).getExeRecordCount()).isEqualTo(1);
+        List<MedicationExecutionRecord> records = medExeRecRepo.findByPatientId(patient.getId());
+        assertThat(records).hasSize(1);
+        assertThat(records.get(0).getPlanTime()).isEqualTo(planTime);
+        assertThat(records.get(0).getIsDeleted()).isFalse();
+
+        // The next day's non-expanding query includes the unstarted record through the 24-hour lookback.
+        request = request.toBuilder()
+            .setQueryStartIso8601("2024-09-14T00:00:00.000Z")
+            .setQueryEndIso8601("2024-09-15T00:00:00.000Z")
+            .build();
+        response = medService.getOrderGroups(ProtoUtils.protoToJson(request));
+        assertThat(response.getOrderGroupCount()).isEqualTo(1);
+        assertThat(response.getOrderGroup(0).getExeRecordCount()).isEqualTo(1);
+        medService.getOrderGroups(ProtoUtils.protoToJson(request.toBuilder().setExpandExeRecord(true).build()));
+        assertThat(medOrdGroupRepo.findByPatientId(patient.getId())).hasSize(1);
+        assertThat(medExeRecRepo.findByPatientId(patient.getId())).hasSize(1);
+        assertThat(medOrdRepo.findByOrderId("missing_frequency_order_0").orElseThrow().getFreqCode()).isNull();
+    }
+
+    @Test
     public void testLookupFreq() {
         LookupFreqReq req = LookupFreqReq.newBuilder().setOnlyNursingOrderFreq(1).build();
         String reqJson = ProtoUtils.protoToJson(req);

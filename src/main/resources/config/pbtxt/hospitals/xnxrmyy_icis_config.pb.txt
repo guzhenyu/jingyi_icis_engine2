@@ -7641,11 +7641,12 @@ score {
         }
         item {
             code: "catheter_class_3"
-            name: "III类导管（1分）"
-            option { code: "catheter_suction" name: "吸氧管" score { int32_val: 1 } }
-            option { code: "catheter_gastric" name: "胃管" score { int32_val: 1 } }
-            option { code: "catheter_fluid" name: "输液管" score { int32_val: 1 } }
-            option { code: "catheter_urinary" name: "导尿管" score { int32_val: 1 } }
+            name: "III类导管"
+            option { code: "catheter_suction" name: "吸氧管" score { int32_val: 2 } }
+            option { code: "catheter_gastric" name: "胃管" score { int32_val: 2 } }
+            option { code: "catheter_fluid" name: "输液管" score { int32_val: 2 } }
+            option { code: "catheter_urinary" name: "导尿管" score { int32_val: 2 } }
+            option { code: "catheter_urinary" name: "空肠营养管" score { int32_val: 2 } }
             score_item_type: 1
             score_item_aggregator: 3
             code_with_note: "catheter_suction"
@@ -7655,19 +7656,19 @@ score {
         }
         item {
             code: "catheter_awareness"
-            name: "意识（1分）"
-            option { code: "awareness_mild" name: "轻度烦躁" score { int32_val: 1 } }
-            option { code: "awareness_moderate" name: "中度烦躁" score { int32_val: 1 } }
-            option { code: "awareness_severe" name: "重度烦躁" score { int32_val: 1 } }
-            option { code: "awareness_confused" name: "意识不清" score { int32_val: 1 } }
+            name: "意识"
+            option { code: "awareness_mild" name: "轻度烦躁" score { int32_val: 2 } }
+            option { code: "awareness_moderate" name: "中度烦躁" score { int32_val: 3 } }
+            option { code: "awareness_severe" name: "重度烦躁" score { int32_val: 5 } }
+            option { code: "awareness_confused" name: "意识不清" score { int32_val: 2 } }
             score_item_type: 0
         }
         item {
             code: "catheter_other"
-            name: "其它（1分）"
-            option { code: "other_cough" name: "咳逆、咳嗽" score { int32_val: 1 } }
-            option { code: "other_obese" name: "肥胖（颈部短）" score { int32_val: 1 } }
-            option { code: "other_infant" name: "幼儿" score { int32_val: 1 } }
+            name: "其它"
+            option { code: "other_cough" name: "咳逆、咳嗽" score { int32_val: 2 } }
+            option { code: "other_obese" name: "肥胖（颈部短）" score { int32_val: 2 } }
+            option { code: "other_infant" name: "幼儿" score { int32_val: 5 } }
             score_item_type: 1
         }
         item {

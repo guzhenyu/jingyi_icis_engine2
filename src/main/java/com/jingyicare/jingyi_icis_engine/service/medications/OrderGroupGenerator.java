@@ -42,6 +42,7 @@ public class OrderGroupGenerator {
             .getOrderGroupSettings().getStatusCanceledTxt();
         this.STATUS_CANCELED_TXT = StrUtils.isBlank(canceledTxt) ? null : canceledTxt;
         this.enums = protoService.getConfig().getMedication().getEnums();
+        this.FREQ_CODE_ONCE = protoService.getConfig().getMedication().getFreqSpec().getOnceCode();
         this.config = config;
         this.medDict = medDict;
         this.medOrdRepo = medOrdRepo;
@@ -179,7 +180,7 @@ public class OrderGroupGenerator {
 
         if (order.getOrderDurationType() == null ||
             order.getPlanTime() == null ||
-            StrUtils.isBlank(order.getFreqCode())
+            StrUtils.isBlank(getFrequencyCode(order))
         ) {
             log.warn("some order exe arg is missed.");
             return false;
@@ -193,6 +194,16 @@ public class OrderGroupGenerator {
         }
 
         return true;
+    }
+
+    private String getFrequencyCode(MedicalOrder order) {
+        // HIS 临时医嘱可能不提供频次，合并时按一次执行处理，保留源医嘱字段。
+        if (Objects.equals(order.getOrderDurationType(), enums.getOrderDurationTypeOneTime().getId()) &&
+            StrUtils.isBlank(order.getFreqCode())
+        ) {
+            return FREQ_CODE_ONCE;
+        }
+        return order.getFreqCode();
     }
 
     private static <T> void checkAndSet(
@@ -271,7 +282,7 @@ public class OrderGroupGenerator {
 
             orderDurationTypeSet.add(order.getOrderDurationType());
             planTimeSet.add(order.getPlanTime().withSecond(0).withNano(0));
-            freqCodeSet.add(order.getFreqCode());
+            freqCodeSet.add(getFrequencyCode(order));
             firstDayExeCountSet.add(order.getFirstDayExeCount());
             administrationRouteCodeSet.add(order.getAdministrationRouteCode());
             administrationRouteNameSet.add(order.getAdministrationRouteName());
@@ -402,6 +413,7 @@ public class OrderGroupGenerator {
     }
 
     private final String STATUS_CANCELED_TXT;
+    private final String FREQ_CODE_ONCE;
     private MEnums enums;
     private MedicationConfig config;
     private MedicationDictionary medDict;
