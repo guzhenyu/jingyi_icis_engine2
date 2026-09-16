@@ -364,6 +364,21 @@ public class LisService {
                 }
             }
         }
+        int itemCountBeforeValidation = patientLisItems.size();
+        patientLisItems = patientLisItems.stream()
+            .filter(item -> !StrUtils.isBlank(item.getReportId()))
+            .filter(item -> !StrUtils.isBlank(item.getLisItemName()))
+            .toList();
+        int skippedItemCount = itemCountBeforeValidation - patientLisItems.size();
+        if (skippedItemCount > 0) {
+            log.warn(
+                "Skipping {} malformed patient LIS item(s) with blank report ID or item name",
+                skippedItemCount
+            );
+        }
+        if (patientLisItems.isEmpty()) {
+            return new Pair<>(StatusCode.OK, Collections.emptyList());
+        }
         Map<String, PatientLisItem> reportIdToLisItemMap = patientLisItems
             .stream()
             .collect(Collectors.toMap(PatientLisItem::getReportId, item -> item));
