@@ -2051,6 +2051,16 @@ public class WebApiService {
         return resp;
     }
 
+    public GetArchiveConfigResp getArchiveConfig(String requestJson) {
+        GetArchiveConfigResp resp = settingService.getArchiveConfig(requestJson);
+        return metricService.recordApiMetrics(resp, GetArchiveConfigResp::getRt);
+    }
+
+    public GenericResp updateArchiveConfig(String requestJson) {
+        GenericResp resp = settingService.updateArchiveConfig(requestJson);
+        return metricService.recordApiMetrics(resp, GenericResp::getRt);
+    }
+
     public GetLogoResp getLogo(String getLogoReqJson) {
         GetLogoResp resp = settingService.getLogo(getLogoReqJson);
         resp = metricService.recordApiMetrics(resp, GetLogoResp::getRt);

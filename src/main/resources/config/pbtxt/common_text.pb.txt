@@ -300,6 +300,9 @@
     status_code_msg: "CIG CA服务内部错误"
     status_code_msg: "在科患者和待入科患者使用了同一床位"
     status_code_msg: "皮肤护理记录时间不在护理计划有效时间范围内"
+    status_code_msg: "归档配置无效，请重新保存"
+    status_code_msg: "请选择病室报告单模板"
+    status_code_msg: "病室报告单模板内容无效或没有页面"
     units {
         unit: {
             id: 1

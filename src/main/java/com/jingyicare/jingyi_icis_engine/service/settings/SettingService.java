@@ -21,6 +21,9 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 
 import com.jingyicare.jingyi_icis_engine.entity.settings.*;
+import com.jingyicare.jingyi_icis_engine.entity.reports.DragableFormTemplate;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkTemplatePB;
+import com.jingyicare.jingyi_icis_engine.repository.reports.DragableFormTemplateRepository;
 import com.jingyicare.jingyi_icis_engine.repository.settings.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.medications.*;
@@ -41,7 +44,8 @@ public class SettingService {
         @Autowired NursingRecordConfig nursingRecordConfig,
         @Autowired ScoreConfig scoreConfig,  // nursing score
         @Autowired DeptSystemSettingsRepository deptSettingsRepo,
-        @Autowired SystemSettingsRepository systemSettingsRepo
+        @Autowired SystemSettingsRepository systemSettingsRepo,
+        @Autowired DragableFormTemplateRepository formTemplateRepo
     ) {
         this.statusCodeMsgList = protoService.getConfig().getText().getStatusCodeMsgList();
 
@@ -53,6 +57,105 @@ public class SettingService {
         this.scoreConfig = scoreConfig;
         this.deptSettingsRepo = deptSettingsRepo;
         this.systemSettingsRepo = systemSettingsRepo;
+        this.formTemplateRepo = formTemplateRepo;
+    }
+
+    @Transactional(readOnly = true)
+    public GetArchiveConfigResp getArchiveConfig(String requestJson) {
+        final GetArchiveConfigReq req;
+        try {
+            req = ProtoUtils.parseJsonToProto(requestJson, GetArchiveConfigReq.newBuilder());
+        } catch (Exception e) {
+            return GetArchiveConfigResp.newBuilder()
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.PARSE_JSON_FAILED)).build();
+        }
+        if (StrUtils.isBlank(req.getDeptId())) {
+            return GetArchiveConfigResp.newBuilder()
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.DEPT_IS_EMPTY)).build();
+        }
+
+        DeptSystemSettingsId id = new DeptSystemSettingsId(
+            req.getDeptId(), SystemSettingFunctionId.GET_ARCHIVE_CONFIG_VALUE);
+        DeptSystemSettings entity = deptSettingsRepo.findById(id).orElse(null);
+        if (entity == null) {
+            return GetArchiveConfigResp.newBuilder()
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
+                .setSettings(DeptArchiveSettings.newBuilder().setDeptId(req.getDeptId())).build();
+        }
+        DeptArchiveSettings settings = ProtoUtils.decodeDeptArchiveSettings(entity.getSettingsPb());
+        if (settings == null || !req.getDeptId().equals(settings.getDeptId())) {
+            return GetArchiveConfigResp.newBuilder()
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ARCHIVE_CONFIG_INVALID)).build();
+        }
+        return resolveArchiveConfig(settings);
+    }
+
+    @Transactional
+    public GenericResp updateArchiveConfig(String requestJson) {
+        final UpdateArchiveConfigReq req;
+        try {
+            req = ProtoUtils.parseJsonToProto(requestJson, UpdateArchiveConfigReq.newBuilder());
+        } catch (Exception e) {
+            return GenericResp.newBuilder()
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.PARSE_JSON_FAILED)).build();
+        }
+        Pair<String, String> account = userService.getAccountWithAutoId();
+        if (account == null) {
+            return GenericResp.newBuilder()
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND)).build();
+        }
+        if (!req.hasSettings()) {
+            return GenericResp.newBuilder()
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ARCHIVE_CONFIG_INVALID)).build();
+        }
+        DeptArchiveSettings settings = req.getSettings();
+        if (StrUtils.isBlank(settings.getDeptId())) {
+            return GenericResp.newBuilder()
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.DEPT_IS_EMPTY)).build();
+        }
+        GetArchiveConfigResp resolved = resolveArchiveConfig(settings);
+        if (resolved.getRt().getCode() != StatusCode.OK_VALUE) {
+            return GenericResp.newBuilder().setRt(resolved.getRt()).build();
+        }
+
+        DeptSystemSettingsId id = new DeptSystemSettingsId(
+            settings.getDeptId(), SystemSettingFunctionId.GET_ARCHIVE_CONFIG_VALUE);
+        DeptSystemSettings entity = deptSettingsRepo.findById(id).orElse(null);
+        if (entity == null) entity = DeptSystemSettings.builder().id(id).build();
+        entity.setSettingsPb(ProtoUtils.encodeDeptArchiveSettings(settings));
+        entity.setModifiedAt(TimeUtils.getNowUtc());
+        entity.setModifiedBy(account.getFirst());
+        deptSettingsRepo.save(entity);
+        return GenericResp.newBuilder()
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK)).build();
+    }
+
+    // 每次读取重新解析模板，确保模板改名、修改、删除或变更科室后使用最新结果。
+    private GetArchiveConfigResp resolveArchiveConfig(DeptArchiveSettings settings) {
+        GetArchiveConfigResp.Builder response = GetArchiveConfigResp.newBuilder().setSettings(settings);
+        if (settings.getWardReportTemplateId() <= 0) {
+            return response.setRt(ReturnCodeUtils.getReturnCode(
+                statusCodeMsgList, StatusCode.WARD_REPORT_TEMPLATE_REQUIRED)).build();
+        }
+        DragableFormTemplate entity = formTemplateRepo
+            .findByIdAndIsDeletedFalse(settings.getWardReportTemplateId()).orElse(null);
+        if (entity == null) {
+            return response.setRt(ReturnCodeUtils.getReturnCode(
+                statusCodeMsgList, StatusCode.FORM_TEMPLATE_NOT_FOUND)).build();
+        }
+        if (!settings.getDeptId().equals(entity.getDeptId())) {
+            return response.setRt(ReturnCodeUtils.getReturnCode(
+                statusCodeMsgList, StatusCode.FORM_TEMPLATE_NOT_BELONG_TO_DEPT)).build();
+        }
+        JfkTemplatePB template = ProtoUtils.decodeJfkTemplate(entity.getTemplatePb());
+        if (template == null || template.getPagesCount() == 0) {
+            return response.setRt(ReturnCodeUtils.getReturnCode(
+                statusCodeMsgList, StatusCode.WARD_REPORT_TEMPLATE_INVALID)).build();
+        }
+        return response.setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
+            .setWardReportTemplate(template.toBuilder()
+                .setId(entity.getId()).setDeptId(entity.getDeptId()).setName(entity.getName()))
+            .build();
     }
 
     @Transactional
@@ -312,4 +415,5 @@ public class SettingService {
     private final ScoreConfig scoreConfig;
     private final DeptSystemSettingsRepository deptSettingsRepo;
     private final SystemSettingsRepository systemSettingsRepo;
+    private final DragableFormTemplateRepository formTemplateRepo;
 }

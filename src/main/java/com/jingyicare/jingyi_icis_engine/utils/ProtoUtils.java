@@ -314,6 +314,19 @@ public class ProtoUtils {
         return Base64.getEncoder().encodeToString(pb.toByteArray());
     }
 
+    static public DeptArchiveSettings decodeDeptArchiveSettings(String base64) {
+        try {
+            return DeptArchiveSettings.parseFrom(Base64.getDecoder().decode(base64));
+        } catch (Exception e) {
+            log.error("Failed to decode DeptArchiveSettings from base64 string", e);
+            return null;
+        }
+    }
+
+    static public String encodeDeptArchiveSettings(DeptArchiveSettings pb) {
+        return Base64.getEncoder().encodeToString(pb.toByteArray());
+    }
+
     static public AppGeneralSettingsPB decodeAppGeneralSettings(String base64) {
         try {
             return AppGeneralSettingsPB.parseFrom(Base64.getDecoder().decode(base64));

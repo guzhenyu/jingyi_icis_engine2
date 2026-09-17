@@ -1638,6 +1638,16 @@ public class IcisController {
         return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getAppSettings(getAppSettingsReqJson)));
     }
 
+    @PostMapping("/settings/getarchiveconfig")
+    public ResponseEntity<String> getArchiveConfig(@RequestBody String requestJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getArchiveConfig(requestJson)));
+    }
+
+    @PostMapping("/settings/updatearchiveconfig")
+    public ResponseEntity<String> updateArchiveConfig(@RequestBody String requestJson) {
+        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.updateArchiveConfig(requestJson)));
+    }
+
     @PostMapping("/settings/getlogo")
     public ResponseEntity<String> getLogo(@RequestBody String getLogoReqJson) {
         return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getLogo(getLogoReqJson)));

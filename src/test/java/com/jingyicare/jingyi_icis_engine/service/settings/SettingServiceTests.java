@@ -27,6 +27,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.SystemSetting
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisText.Text;
 import com.jingyicare.jingyi_icis_engine.repository.settings.DeptSystemSettingsRepository;
 import com.jingyicare.jingyi_icis_engine.repository.settings.SystemSettingsRepository;
+import com.jingyicare.jingyi_icis_engine.repository.reports.DragableFormTemplateRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.medications.MedicationConfig;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
@@ -55,7 +56,8 @@ class SettingServiceTests {
             mock(NursingRecordConfig.class),
             mock(ScoreConfig.class),
             deptSettingsRepo,
-            mock(SystemSettingsRepository.class)
+            mock(SystemSettingsRepository.class),
+            mock(DragableFormTemplateRepository.class)
         );
         when(userService.getAccountWithAutoId()).thenReturn(new Pair<>("admin", "1"));
     }
