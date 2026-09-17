@@ -8,7 +8,7 @@ import lombok.*;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@Builder(toBuilder = true)
 @Entity
 @Table(name = "medication_execution_actions", indexes = {
     @Index(name = "idx_medication_execution_actions_merid_id", columnList = "medication_execution_record_id, id")

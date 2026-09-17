@@ -258,37 +258,27 @@ public class MedReportUtils {
         }
 
         // 统计两组执行动作影响的时间段
-        Pair<LocalDateTime, LocalDateTime> affectedTimeRange = new Pair<>(
-            updateAffectedTime(null, rec.getStartTime(), true),
-            updateAffectedTime(null, rec.getEndTime(), false)
-        );
         log.info(">>>>>> medReport.setDirtyPatientNursingReports begin pid={}, deptId={}, orderGroupId={}, exeRecId={}, actionCountOld={}, actionCountNew={}",
             pid, deptId, orderGroup.getId(), rec.getId(),
             oldActions == null ? 0 : oldActions.size(),
             newActions == null ? 0 : newActions.size());
 
-        if (oldActions != null && !oldActions.isEmpty()) {
-            MedMonitoringService.FluidIntakeData oldIntake = medMonService.calcFluidIntakeImpl(
-                route.getIsContinuous(), dosageGroupPb, oldActions, calcTimeUtc
-            );
-            affectedTimeRange = getAffectedTimeRange(affectedTimeRange, oldIntake);
-        }
-
-        if (newActions != null && !newActions.isEmpty()) {
-            MedMonitoringService.FluidIntakeData newIntake = medMonService.calcFluidIntakeImpl(
-                route.getIsContinuous(), dosageGroupPb, newActions, calcTimeUtc
-            );
-            affectedTimeRange = getAffectedTimeRange(affectedTimeRange, newIntake);
-        }
+        MedMonitoringService.FluidIntakeData oldIntake = medMonService.calcFluidIntakeImpl(
+            route.getIsContinuous(), dosageGroupPb, oldActions, calcTimeUtc);
+        MedMonitoringService.FluidIntakeData newIntake = medMonService.calcFluidIntakeImpl(
+            route.getIsContinuous(), dosageGroupPb, newActions, calcTimeUtc);
+        Optional<MedIntakeTimeRange> affectedTimeRange = MedIntakeTimeRange.calculate(
+            rec, oldActions, newActions, oldIntake, newIntake);
 
         // 获取最终影响的时间段，批量标记相关护理单记录为脏
-        LocalDateTime affectedStartUtc = affectedTimeRange.getFirst();
-        LocalDateTime affectedEndUtc = affectedTimeRange.getSecond();
-        if (affectedStartUtc == null || affectedEndUtc == null) {
+        if (affectedTimeRange.isEmpty()) {
             log.warn("No valid affected time range to mark nursing reports dirty: recId={}, oldActions={}, newActions={}",
                 rec.getId(), oldActions, newActions);
             return;
         }
+        MedIntakeTimeRange timeRange = affectedTimeRange.get();
+        LocalDateTime affectedStartUtc = timeRange.startUtc();
+        LocalDateTime affectedEndUtc = timeRange.endUtc();
 
         // 删除对应的观察项记录；重新计算用药入量，小时入量，日入量。
 
@@ -310,7 +300,7 @@ public class MedReportUtils {
          */
         // 将 MonitoringConfig.getMonitoringGroups 提前到 MonitoringRecordUtils.deleteRecords 之前
         Pair<LocalDateTime, LocalDateTime> queryUtcTimeRange = monConfig.normalizePmrQueryTimeRange(
-            BALANCE_GROUP_TYPE_ID, deptId, affectedStartUtc, affectedEndUtc
+            BALANCE_GROUP_TYPE_ID, deptId, affectedStartUtc, timeRange.queryEndUtc()
         );
         List<String> tubeParamCodes = patientTubeImpl.getMonitoringParamCodes(
             pid, queryUtcTimeRange.getFirst(), queryUtcTimeRange.getSecond()
@@ -326,7 +316,7 @@ public class MedReportUtils {
             final String monitoringParamCode = routeDetails.getMonitoringParamCode();
             monRecUtils.deleteRecords(pid, monitoringParamCode, affectedStartUtc, affectedEndUtc, accountId);
             patMonService.refreshBalanceGroupRecordStats(
-                monitoringParams, pid, deptId, affectedStartUtc, affectedEndUtc, groupBetaList, accountId
+                monitoringParams, pid, deptId, affectedStartUtc, timeRange.queryEndUtc(), groupBetaList, accountId
             );
         }
 
@@ -358,35 +348,6 @@ public class MedReportUtils {
         Long pid, LocalDateTime startUtc, LocalDateTime endUtc
     ) {
         return recRepo.findStartedRecordsByPatientId(pid, startUtc, endUtc);
-    }
-
-    private Pair<LocalDateTime, LocalDateTime> getAffectedTimeRange(
-        Pair<LocalDateTime, LocalDateTime> timeRange, MedMonitoringService.FluidIntakeData intake
-    ) {
-        LocalDateTime affectedStartUtc = timeRange != null ? timeRange.getFirst() : null;
-        LocalDateTime affectedEndUtc = timeRange != null ? timeRange.getSecond() : null;
-
-        for (Map.Entry<LocalDateTime, Double> entry : intake.intakeMap.entrySet()) {
-            LocalDateTime time = entry.getKey();
-            affectedStartUtc = updateAffectedTime(affectedStartUtc, time, true);
-            affectedEndUtc = updateAffectedTime(affectedEndUtc, time, false);
-        }
-        affectedStartUtc = updateAffectedTime(affectedStartUtc, intake.estimatedFinishTime, true);
-        affectedEndUtc = updateAffectedTime(affectedEndUtc, intake.estimatedFinishTime, false);
-
-        return new Pair<>(affectedStartUtc, affectedEndUtc);
-    }
-
-    private LocalDateTime updateAffectedTime(
-        LocalDateTime affectedTime, LocalDateTime candidate, boolean isStart
-    ) {
-        if (candidate == null) return affectedTime;
-        if (affectedTime == null) return candidate;
-        if (isStart) {
-            return affectedTime.isAfter(candidate) ? candidate : affectedTime;
-        } else {
-            return affectedTime.isBefore(candidate) ? candidate : affectedTime;
-        }
     }
 
     private final String ZONE_ID;

@@ -569,7 +569,7 @@ public class MedicationService {
         }
 
         String medicationRateStr = ProtoUtils.encodeDosageGroupExt(req.getDosageGroupExt());
-        List<MedicationExecutionAction> oldExeActions = new ArrayList<>(exeActions);
+        List<MedicationExecutionAction> oldExeActions = snapshotExeActions(exeActions);
         MedicationExecutionAction savedAction;
         List<MedicationExecutionAction> updatedExeActions = new ArrayList<>(exeActions);
         if (actionId > 0) {
@@ -707,8 +707,8 @@ public class MedicationService {
                 .build();
         }
         final LocalDateTime deleteTime = TimeUtils.fromIso8601String(req.getDeleteTimeIso8601(), "UTC");
+        List<MedicationExecutionAction> oldExeActions = snapshotExeActions(exeActions);
         ordExecutor.deleteExeAction(lastAction, accountId, deleteTime);
-        List<MedicationExecutionAction> oldExeActions = new ArrayList<>(exeActions);
         exeActions.remove(exeActions.size() - 1);
 
         // 更新执行记录的开始和结束时间
@@ -2039,6 +2039,12 @@ public class MedicationService {
         if (type.equals(ACTION_TYPE_FAST_PUSH)) return "fast_push";
         if (type.equals(ACTION_TYPE_COMPLETE)) return "complete";
         return "unknown";
+    }
+
+    private List<MedicationExecutionAction> snapshotExeActions(List<MedicationExecutionAction> actions) {
+        // JPA returns the same managed entity for list and ID lookups. Copy each action before
+        // editing it so recalculation retains the old time, volume, rate and completion state.
+        return actions.stream().map(action -> action.toBuilder().build()).toList();
     }
 
     private void updateExeRecordStats(ExecutionRecordPB exeRecPb) {
