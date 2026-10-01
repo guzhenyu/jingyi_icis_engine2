@@ -259,7 +259,7 @@ public class PatientSyncService {
             .stream().map(RbacDepartment::getDeptId).toList();
 
         List<HisPatientRecord> hisPatientRecords = hisPatientRepo
-            .findByAdmissionStatusAndDeptCodeInOrderByMrnAsc(IN_ICU_VAL, deptIds)
+            .findByAdmissionStatusAndDeptCodeInOrderByMrnAscIdDesc(IN_ICU_VAL, deptIds)
             .stream()
             .filter(record -> {
                 if (record.getDischargeTime() == null) {
@@ -276,6 +276,7 @@ public class PatientSyncService {
             })
             .toList();
 
+        // 保持 MRN 升序供后续归并同步使用；同一 MRN 只保留有效在科记录中 ID 最大的一条。
         String prevMrn = null;
         List<HisPatientRecord> filteredRecords = new ArrayList<>();
         for (HisPatientRecord record : hisPatientRecords) {

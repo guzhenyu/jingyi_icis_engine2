@@ -7,6 +7,7 @@ import java.util.*;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.*;
@@ -122,6 +123,75 @@ public class PatientSyncServiceTests extends TestsBase {
         patientSyncService.syncPatientRecords(true, deptId);
 
         assertThat(patientRepo.findByMrnOrName(mrn)).isEmpty();
+    }
+
+    @Test
+    @Transactional
+    public void testSyncUsesHighestIdActiveHisRecordPerMrn() {
+        String suffix = UUID.randomUUID().toString().substring(0, 8);
+        String deptId = "latest-his-" + suffix;
+        String mrn = "latest-his-a-" + suffix;
+        String secondMrn = "latest-his-b-" + suffix;
+        String hisPid = "latest-his-pid-" + suffix;
+        LocalDateTime admissionTime = LocalDateTime.now().minusHours(1);
+
+        RbacDepartment dept = new RbacDepartment();
+        dept.setDeptId(deptId);
+        dept.setDeptName(deptId);
+        deptRepo.save(dept);
+        bedConfigRepo.save(BedConfig.builder()
+            .departmentId(deptId)
+            .hisBedNumber("9")
+            .deviceBedNumber("device-9")
+            .displayBedNumber("9")
+            .bedType(1)
+            .isDeleted(false)
+            .build());
+
+        // 同一住院号：旧就诊床号为空，新就诊床号为 9。
+        HisPatientRecord older = hisPatientRepo.saveAndFlush(HisPatientRecord.builder()
+            .pid(hisPid).mrn(mrn).hisEncounterId("older-" + suffix)
+            .admissionCount(5).deptCode(deptId).admissionStatus(1)
+            .deptAdmissionTime(admissionTime).build());
+        HisPatientRecord latest = hisPatientRepo.saveAndFlush(HisPatientRecord.builder()
+            .pid(hisPid).mrn(mrn).hisEncounterId("latest-" + suffix)
+            .admissionCount(6).deptCode(deptId).admissionStatus(1)
+            .bedNumber("9").deptAdmissionTime(admissionTime).build());
+        HisPatientRecord second = hisPatientRepo.saveAndFlush(HisPatientRecord.builder()
+            .pid("second-" + suffix).mrn(secondMrn).deptCode(deptId)
+            .admissionStatus(1).build());
+        // ID 更大但已有出科时间的脏记录仍须排除。
+        HisPatientRecord discharged = hisPatientRepo.saveAndFlush(HisPatientRecord.builder()
+            .pid(hisPid).mrn(mrn).deptCode(deptId).admissionStatus(1)
+            .bedNumber("99").dischargeTime(LocalDateTime.now()).build());
+        assertThat(latest.getId()).isGreaterThan(older.getId());
+        assertThat(second.getId()).isGreaterThan(latest.getId());
+        assertThat(discharged.getId()).isGreaterThan(second.getId());
+
+        List<HisPatientRecord> selected = patientSyncService.getInIcuHisPatientRecords()
+            .stream().filter(record -> deptId.equals(record.getDeptCode())).toList();
+        assertThat(selected).extracting(HisPatientRecord::getId)
+            .containsExactly(latest.getId(), second.getId());
+
+        // 复现手工把待入科患者床号修为 9 后刷新，不应再被旧记录清空。
+        PatientRecord patient = new PatientRecord();
+        patient.setHisMrn(mrn);
+        patient.setHisPatientId(hisPid);
+        patient.setHisEncounterId(latest.getHisEncounterId());
+        patient.setHisAdmissionCount(5);
+        patient.setHisBedNumber("9");
+        patient.setDeptId(deptId);
+        patient.setAdmissionStatus(0);
+        patient.setAdmissionTime(admissionTime);
+        patient = patientRepo.saveAndFlush(patient);
+
+        patientSyncService.syncPatientRecords(true, deptId);
+
+        PatientRecord synced = patientRepo.findById(patient.getId()).orElseThrow();
+        assertThat(synced.getHisBedNumber()).isEqualTo("9");
+        assertThat(synced.getHisAdmissionCount()).isEqualTo(6);
+        assertThat(synced.getHisEncounterId()).isEqualTo(latest.getHisEncounterId());
+        assertThat(synced.getAdmissionStatus()).isZero();
     }
 
     @Test

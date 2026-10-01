@@ -7,7 +7,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import com.jingyicare.jingyi_icis_engine.entity.patients.HisPatientRecord;
 
 public interface HisPatientRecordRepository extends JpaRepository<HisPatientRecord, Long> {
-    List<HisPatientRecord> findByAdmissionStatusAndDeptCodeInOrderByMrnAsc(
+    List<HisPatientRecord> findByAdmissionStatusAndDeptCodeInOrderByMrnAscIdDesc(
         Integer admissionStatus, List<String> deptCodes
     );
     List<HisPatientRecord> findByAdmissionStatusOrderByMrnAsc(Integer admissionStatus);
