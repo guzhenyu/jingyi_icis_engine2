@@ -140,6 +140,38 @@ public class PatientServiceTests extends TestsBase {
     }
 
     @Test
+    @org.springframework.transaction.annotation.Transactional
+    public void testInlinePatientsWithMissingHistoricalDischargeTimes() {
+        final String deptId = "10013";
+        final String hisMrn = "inline-missing-discharge-time";
+        PatientRecord pending = patientTestUtils.newPatientRecord(99001L, PENDING_ADMISSION_VAL, deptId);
+        pending.setId(null);
+        pending.setHisMrn(hisMrn);
+        pending.setDischargeTime(null);
+        pending = patientRecordRepo.save(pending);
+        bedConfigRepo.save(newBedConfig(deptId, pending.getHisBedNumber(), 1, false));
+
+        for (Integer status : java.util.List.of(PENDING_DISCHARGED_VAL, DISCHARGED_VAL)) {
+            PatientRecord history = patientTestUtils.newPatientRecord(99002L + status, status, deptId);
+            history.setId(null);
+            history.setHisMrn(hisMrn);
+            history.setDischargeTime(null);
+            patientRecordRepo.save(history);
+        }
+
+        GetInlinePatientsV2Resp resp = patientService.getInlinePatientsV2(ProtoUtils.protoToJson(
+            GetInlinePatientsV2Req.newBuilder().setDeptId(deptId).build()));
+
+        assertThat(resp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        PatientBasicsPB basics = resp.getPendingAdmission().getBasicsList().stream()
+            .filter(patient -> patient.getHisMrn().equals(hisMrn))
+            .findFirst().orElseThrow();
+        assertThat(basics.getId()).isEqualTo(pending.getId());
+        assertThat(basics.getLastPid()).isZero();
+        assertThat(basics.getLastDischargeTime()).isEmpty();
+    }
+
+    @Test
     public void testLegacyPatientDisplayColumnAliases() {
         Map.of(
             "admission_source_dept_name", "from_dept_name",

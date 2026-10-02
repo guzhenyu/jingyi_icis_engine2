@@ -2152,6 +2152,8 @@ public class PatientService {
         List<Integer> dischargedStatuses = List.of(PENDING_DISCHARGED_VAL, DISCHARGED_VAL);
         for (PatientRecord patient : patientRecordRepository.findByHisMrnInAndAdmissionStatusIn(hisMrns, dischargedStatuses)) {
             LocalDateTime dischargeTime = patient.getDischargeTime();
+            // 出科时间缺失时无法判断再入科窗口，也不能参与最新出科时间的比较。
+            if (dischargeTime == null) continue;
 
             Pair<Long/*pid*/, LocalDateTime/*dischargeTime*/> pair = pendingAdmissionTable.get(patient.getHisMrn());
             if (pair != null) {
