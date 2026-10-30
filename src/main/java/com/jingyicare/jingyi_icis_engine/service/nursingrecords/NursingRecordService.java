@@ -9,7 +9,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -34,7 +33,6 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.*;
 import com.jingyicare.jingyi_icis_engine.entity.patients.*;
-import com.jingyicare.jingyi_icis_engine.entity.users.Account;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientMonitoringRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.nursingrecords.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
@@ -55,7 +53,6 @@ public class NursingRecordService {
     public NursingRecordService(
         @Autowired ConfigProtoService protoService,
         @Autowired UserService userService,
-        @Autowired UserBasicOperator userBasicOp,
         @Autowired PatientService patientService,
         @Autowired MedReportUtils medReportUtils,
         @Autowired MonitoringConfig monitoringConfig,
@@ -67,15 +64,11 @@ public class NursingRecordService {
         @Autowired PatientNursingReportInvalidationService pnrUtils,
         @Autowired NursingRecordConfig recordConfig,
         @Autowired NursingRecordUtils recordUtils,
-        @Autowired NursingRecordTemplateGroupRepository templateGroupRepo,
-        @Autowired NursingRecordTemplateRepository templateRepo,
         @Autowired NursingRecordRepository recordRepo,
         @Autowired PatientMonitoringRecordRepository monitoringRecordRepo
     ) {
         MonitoringPB monitoringPb = protoService.getConfig().getMonitoring();
         this.ZONE_ID = protoService.getConfig().getZoneId();
-        this.ENTITY_TYPE_ACCOUNT = 0;
-        this.ENTITY_TYPE_DEPT = 1;
         this.BALANCE_GROUP_TYPE_ID = monitoringPb.getEnums().getGroupTypeBalance().getId();
         this.BALANCE_IN_GROUP_NAME = monitoringPb.getBalanceInGroupName();
         this.BALANCE_OUT_GROUP_NAME = monitoringPb.getBalanceOutGroupName();
@@ -88,7 +81,6 @@ public class NursingRecordService {
         this.protoService = protoService;
         this.configPb = protoService.getConfig().getNursingRecord();
         this.userService = userService;
-        this.userBasicOp = userBasicOp;
         this.patientService = patientService;
         this.medReportUtils = medReportUtils;
         this.monitoringConfig = monitoringConfig;
@@ -100,394 +92,8 @@ public class NursingRecordService {
         this.pnrUtils = pnrUtils;
         this.recordConfig = recordConfig;
         this.recordUtils = recordUtils;
-        this.templateGroupRepo = templateGroupRepo;
-        this.templateRepo = templateRepo;
         this.recordRepo = recordRepo;
         this.monitoringRecordRepo = monitoringRecordRepo;
-    }
-
-    public GetNursingRecordTemplatesResp getNursingRecordTemplates(String getNursingRecordTemplatesReqJson) {
-        final GetNursingRecordTemplatesReq req;
-        try {
-            req = ProtoUtils.parseJsonToProto(getNursingRecordTemplatesReqJson, GetNursingRecordTemplatesReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
-            return GetNursingRecordTemplatesResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        GetNursingRecordTemplatesResp.Builder respBuilder = GetNursingRecordTemplatesResp.newBuilder();
-        if (!StrUtils.isBlank(req.getDeptId())) {
-            respBuilder.addAllDeptTemplate(recordConfig.getTemplates(ENTITY_TYPE_DEPT, req.getDeptId()));
-        }
-
-        // 获取用户信息
-        String ctxAccountId = req.getAccountId();
-        if (!StrUtils.isBlank(ctxAccountId)) {
-            Account account = userBasicOp.getAccount(ctxAccountId);
-            String accountId = account != null ? account.getId().toString() : ctxAccountId;
-            respBuilder.addAllAccountTemplate(recordConfig.getTemplates(ENTITY_TYPE_ACCOUNT, accountId));
-        }
-
-        return respBuilder.setRt(protoService.getReturnCode(StatusCode.OK)).build();
-    }
-
-    @Transactional
-    public AddNursingRecordTemplateGroupResp addNursingRecordTemplateGroup(String addNursingRecordTemplateGroupReqJson) {
-        final AddNursingRecordTemplateGroupReq req;
-        try {
-            req = ProtoUtils.parseJsonToProto(addNursingRecordTemplateGroupReqJson, AddNursingRecordTemplateGroupReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
-            return AddNursingRecordTemplateGroupResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
-            log.error("accountId is empty.");
-            return AddNursingRecordTemplateGroupResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-        final String accountId = accountWithAutoId.getFirst();
-
-        // 获取模板类型
-        final Integer entityType = !StrUtils.isBlank(req.getDeptId()) ? ENTITY_TYPE_DEPT : ENTITY_TYPE_ACCOUNT;
-        final String entityId = !StrUtils.isBlank(req.getDeptId()) ? req.getDeptId() : accountId;
-
-        // 查找是否存在
-        if (templateGroupRepo.findByEntityTypeAndEntityIdAndNameAndIsDeletedFalse(
-            entityType, entityId, req.getGroup().getName()).isPresent()
-        ) {
-            log.error("Template group already exists: {}", req.getGroup().getName());
-            return AddNursingRecordTemplateGroupResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.NURSING_RECORD_TEMPLATE_GROUP_ALREADY_EXISTS))
-                .build();
-        }
-
-        // 创建新的模板组
-        LocalDateTime nowUtc = TimeUtils.getNowUtc();
-        NursingRecordTemplateGroup group = NursingRecordTemplateGroup.builder()
-            .entityType(entityType)
-            .entityId(entityId)
-            .name(req.getGroup().getName())
-            .displayOrder(req.getGroup().getDisplayOrder())
-            .isDeleted(false)
-            .modifiedBy(accountId)
-            .modifiedAt(nowUtc)
-            .build();
-        group = templateGroupRepo.save(group);
-
-        return AddNursingRecordTemplateGroupResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .setId(group.getId())
-            .build();
-    }
-
-    @Transactional
-    public GenericResp updateNursingRecordTemplateGroups(String updateNursingRecordTemplateGroupsReqJson) {
-        final UpdateNursingRecordTemplateGroupsReq req;
-        try {
-            req = ProtoUtils.parseJsonToProto(updateNursingRecordTemplateGroupsReqJson, UpdateNursingRecordTemplateGroupsReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
-            log.error("accountId is empty.");
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-        final String accountId = accountWithAutoId.getFirst();
-
-        // 获取模板类型
-        final Integer entityType = !StrUtils.isBlank(req.getDeptId()) ? ENTITY_TYPE_DEPT : ENTITY_TYPE_ACCOUNT;
-        final String entityId = !StrUtils.isBlank(req.getDeptId()) ? req.getDeptId() : accountId;
-
-        // 待更新
-        LocalDateTime nowUtc = TimeUtils.getNowUtc();
-        List<NursingRecordTemplateGroup> updatedGroups = new ArrayList<>();
-
-        // 检查现有的组是否已存在
-        Map<String, NursingRecordTemplateGroup> existingGroups = templateGroupRepo
-            .findByEntityTypeAndEntityIdAndIsDeletedFalse(entityType, entityId).stream()
-            .collect(Collectors.toMap(NursingRecordTemplateGroup::getName, group -> group));
-        Map<Integer, NursingRecordTemplateGroup> existingGroupsById = existingGroups.values().stream()
-            .collect(Collectors.toMap(NursingRecordTemplateGroup::getId, group -> group));
-        for (NursingRecordTemplateGroupPB group : req.getGroupList()) {
-            NursingRecordTemplateGroup existingGroup = existingGroupsById.get(group.getId());
-            if (existingGroup == null) {
-                log.error("Template group not exists: {}", group.getName());
-                return GenericResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.NURSING_RECORD_TEMPLATE_GROUP_NOT_EXISTS))
-                    .build();
-            } else {
-                NursingRecordTemplateGroup dupGroup = existingGroups.get(group.getName());
-                if (dupGroup != null && !existingGroup.getId().equals(dupGroup.getId())) {
-                    log.error("Template group already exists: {}", group.getName());
-                    return GenericResp.newBuilder()
-                        .setRt(protoService.getReturnCode(StatusCode.NURSING_RECORD_TEMPLATE_GROUP_ALREADY_EXISTS))
-                        .build();
-                }
-            }
-            if ((group.getDisplayOrder() > 0 && existingGroup.getDisplayOrder() != group.getDisplayOrder()) ||
-                (!StrUtils.isBlank(group.getName()) && !existingGroup.getName().equals(group.getName()))
-            ) {
-                existingGroup.setDisplayOrder(group.getDisplayOrder());
-                existingGroup.setName(group.getName());
-                existingGroup.setModifiedBy(accountId);
-                existingGroup.setModifiedAt(nowUtc);
-                updatedGroups.add(existingGroup);
-            }
-        }
-
-        // 更新
-        templateGroupRepo.saveAll(updatedGroups);
-        log.info("Updated nursing record template groups: {}, by {}\n, ", updatedGroups, accountId);
-
-        return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .build();
-    }
-
-    @Transactional
-    public GenericResp deleteNursingRecordTemplateGroup(String deleteNursingRecordTemplateGroupReqJson) {
-        final DeleteNursingRecordTemplateGroupReq req;
-        try {
-            req = ProtoUtils.parseJsonToProto(deleteNursingRecordTemplateGroupReqJson, DeleteNursingRecordTemplateGroupReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
-            log.error("accountId is empty.");
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-        final String accountId = accountWithAutoId.getFirst();
-
-        // 查找模板组
-        NursingRecordTemplateGroup group = templateGroupRepo.findById(req.getId()).orElse(null);
-        if (group == null) {
-            log.error("Template group not exists: {}", req.getId());
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.OK))
-                .build();
-        }
-
-        // 检查该组下面是否有其他模板，如果有，不允许删除
-        List<NursingRecordTemplate> templates = templateRepo.findByEntityTypeAndEntityIdAndGroupIdAndIsDeletedFalse(
-            group.getEntityType(), group.getEntityId(), group.getId());
-        if (!templates.isEmpty()) {
-            log.error("Template group has dept templates: {}", group.getId());
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.NURSING_RECORD_TEMPLATE_GROUP_HAS_TEMPLATES))
-                .build();
-        }
-
-        // 删除
-        LocalDateTime nowUtc = TimeUtils.getNowUtc();
-        group.setIsDeleted(true);
-        group.setDeletedBy(accountId);
-        group.setDeletedAt(nowUtc);
-        templateGroupRepo.save(group);
-        log.info("Deleted nursing record template group: {}, by {}\n, ", group, accountId);
-
-        return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .build();
-    }
-
-    public AddNursingRecordTemplateResp addNursingRecordTemplate(String addNursingRecordTemplateReqJson) {
-        final AddNursingRecordTemplateReq req;
-        try {
-            req = ProtoUtils.parseJsonToProto(addNursingRecordTemplateReqJson, AddNursingRecordTemplateReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
-            return AddNursingRecordTemplateResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
-            log.error("accountId is empty.");
-            return AddNursingRecordTemplateResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-        final String accountId = accountWithAutoId.getFirst();
-
-        // 创建模板
-        final String templateName = req.getTemplate().getName();
-        final Integer entityType = !StrUtils.isBlank(req.getDeptId()) ? ENTITY_TYPE_DEPT : ENTITY_TYPE_ACCOUNT;
-        final String entityId = !StrUtils.isBlank(req.getDeptId()) ? req.getDeptId() : accountId;
-
-        LocalDateTime nowUtc = TimeUtils.getNowUtc();
-        AddNursingRecordTemplateResp.Builder respBuilder = AddNursingRecordTemplateResp.newBuilder();
-
-        // 查找模板组
-        Integer groupId = req.getTemplate().getGroupId();
-        NursingRecordTemplateGroup group = templateGroupRepo.findByIdAndIsDeletedFalse(groupId).orElse(null);
-        if (group == null) {
-            log.error("Template group not exists: {}", groupId);
-            return AddNursingRecordTemplateResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.NURSING_RECORD_TEMPLATE_GROUP_NOT_EXISTS))
-                .build();
-        }
-
-        // 检查模板是否已存在
-        if (templateRepo.existsByEntityTypeAndEntityIdAndNameAndIsDeletedFalse(
-            entityType, entityId, templateName
-        )) {
-            log.error("Template already exists: {}", templateName);
-            return AddNursingRecordTemplateResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.NURSING_RECORD_TEMPLATE_ALREADY_EXISTS))
-                .build();
-        }
-
-        // 创建模板
-        NursingRecordTemplate newTemplate = NursingRecordTemplate.builder()
-            .entityType(entityType)
-            .entityId(entityId)
-            .name(templateName)
-            .content(req.getTemplate().getContent())
-            .displayOrder(req.getTemplate().getDisplayOrder())
-            .isCommon(req.getTemplate().getIsCommon())
-            .groupId(groupId)
-            .isDeleted(false)
-            .modifiedBy(accountId)
-            .modifiedAt(nowUtc)
-            .build();
-        newTemplate = templateRepo.save(newTemplate);
-        respBuilder.setId(newTemplate.getId());
-
-        return respBuilder.setRt(protoService.getReturnCode(StatusCode.OK)).build();
-    }
-
-    public GenericResp updateNursingRecordTemplate(String updateNursingRecordTemplateReqJson) {
-        final UpdateNursingRecordTemplateReq req;
-        try {
-            req = ProtoUtils.parseJsonToProto(updateNursingRecordTemplateReqJson, UpdateNursingRecordTemplateReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
-            log.error("accountId is empty.");
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-        final String accountId = accountWithAutoId.getFirst();
-
-        // 更新模板
-        LocalDateTime nowUtc = TimeUtils.getNowUtc();
-        GenericResp.Builder respBuilder = GenericResp.newBuilder();
-        NursingRecordTemplate templateToUpdate = templateRepo.findById(req.getTemplate().getId()).orElse(null);
-        if (templateToUpdate == null) {
-            log.error("Template not exists: {}", req.getTemplate().getId());
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.NURSING_RECORD_TEMPLATE_NOT_EXISTS))
-                .build();
-        }
-
-        // 确认组存在
-        Integer groupId = req.getTemplate().getGroupId();
-        NursingRecordTemplateGroup group = templateGroupRepo.findById(groupId).orElse(null);
-        if (group == null) {
-            log.error("Template group not exists: {}", groupId);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.NURSING_RECORD_TEMPLATE_GROUP_NOT_EXISTS))
-                .build();
-        }
-
-        final String templateName = req.getTemplate().getName();
-        if (!StrUtils.isBlank(templateName)) {
-            Optional<NursingRecordTemplate> dupTemplate = templateRepo
-                .findByEntityTypeAndEntityIdAndNameAndIsDeletedFalse(
-                    templateToUpdate.getEntityType(), templateToUpdate.getEntityId(), templateName);
-            if (dupTemplate.isPresent() && !Objects.equals(dupTemplate.get().getId(), templateToUpdate.getId())) {
-                log.error("Template already exists: {}", templateName);
-                return GenericResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.NURSING_RECORD_TEMPLATE_GROUP_ALREADY_EXISTS))
-                    .build();
-            }
-            templateToUpdate.setName(templateName);
-        }
-
-        // 更新
-        templateToUpdate.setContent(req.getTemplate().getContent());
-        templateToUpdate.setDisplayOrder(req.getTemplate().getDisplayOrder());
-        templateToUpdate.setIsCommon(req.getTemplate().getIsCommon());
-        templateToUpdate.setGroupId(groupId);
-        templateToUpdate.setModifiedBy(accountId);
-        templateToUpdate.setModifiedAt(nowUtc);
-        templateRepo.save(templateToUpdate);
-        log.info("Updated nursing record template: {}, by {}\n, ", templateToUpdate, accountId);
-
-        return respBuilder.setRt(protoService.getReturnCode(StatusCode.OK)).build();
-    }
-
-    public GenericResp deleteNursingRecordTemplate(String deleteNursingRecordTemplateReqJson) {
-        final DeleteNursingRecordTemplateReq req;
-        try {
-            req = ProtoUtils.parseJsonToProto(deleteNursingRecordTemplateReqJson, DeleteNursingRecordTemplateReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
-            log.error("accountId is empty.");
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-        final String accountId = accountWithAutoId.getFirst();
-
-        // 检查模板是否存在
-        NursingRecordTemplate templateToDelete = templateRepo.findById(req.getId()).orElse(null);
-        if (templateToDelete == null) {
-            log.error("Template not exists: {}", req.getId());
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.OK))
-                .build();
-        }
-
-        // 删除
-        templateToDelete.setIsDeleted(true);
-        templateToDelete.setDeletedBy(accountId);
-        templateToDelete.setDeletedAt(TimeUtils.getNowUtc());
-        templateRepo.save(templateToDelete);
-
-        return GenericResp.newBuilder().setRt(protoService.getReturnCode(StatusCode.OK)).build();
     }
 
     public GetNursingRecordResp getNursingRecord(String getNursingRecordReqJson) {
@@ -1339,8 +945,6 @@ public class NursingRecordService {
     }
 
     private final String ZONE_ID;
-    private final Integer ENTITY_TYPE_ACCOUNT;
-    private final Integer ENTITY_TYPE_DEPT;
     private final Integer BALANCE_GROUP_TYPE_ID;
     private final String BALANCE_IN_GROUP_NAME;
     private final String BALANCE_OUT_GROUP_NAME;
@@ -1353,7 +957,6 @@ public class NursingRecordService {
     private final ConfigProtoService protoService;
     private final NursingRecordConfigPB configPb;
     private final UserService userService;
-    private final UserBasicOperator userBasicOp;
     private final PatientService patientService;
     private final MedReportUtils medReportUtils;
     private final MonitoringConfig monitoringConfig;
@@ -1365,8 +968,6 @@ public class NursingRecordService {
     private final PatientNursingReportInvalidationService pnrUtils;
     private final NursingRecordConfig recordConfig;
     private final NursingRecordUtils recordUtils;
-    private final NursingRecordTemplateGroupRepository templateGroupRepo;
-    private final NursingRecordTemplateRepository templateRepo;
     private final NursingRecordRepository recordRepo;
     private final PatientMonitoringRecordRepository monitoringRecordRepo;
 }

@@ -63,6 +63,7 @@ public class WebApiService {
         @Autowired LisService lisService,
         @Autowired ScoreService scoreService,
         @Autowired NursingRecordService nursingRecordService,
+        @Autowired NursingOrderTemplateService nursingOrderTemplateService,
         @Autowired PatientCriticalLisHandlingService patientCriticalLisHandlingService,
         @Autowired NursingOrderService nursingOrderService,
         @Autowired PatientShiftService patientShiftService,
@@ -100,6 +101,7 @@ public class WebApiService {
         this.lisService = lisService;
         this.scoreService = scoreService;
         this.nursingRecordService = nursingRecordService;
+        this.nursingOrderTemplateService = nursingOrderTemplateService;
         this.patientCriticalLisHandlingService = patientCriticalLisHandlingService;
         this.nursingOrderService = nursingOrderService;
         this.patientShiftService = patientShiftService;
@@ -966,44 +968,47 @@ public class WebApiService {
         return resp;
     }
 
-    public GetNursingRecordTemplatesResp getNursingRecordTemplates(String getNursingRecordTemplatesReqJson) {
-        GetNursingRecordTemplatesResp resp = nursingRecordService.getNursingRecordTemplates(getNursingRecordTemplatesReqJson);
+    public GetNursingRecordTemplatesResp getNursingRecordTemplates(String reqJson) {
+        GetNursingRecordTemplatesResp resp = nursingOrderTemplateService
+            .getNursingRecordTemplates(reqJson);
         resp = metricService.recordApiMetrics(resp, GetNursingRecordTemplatesResp::getRt);
         return resp;
     }
 
-    public AddNursingRecordTemplateGroupResp addNursingRecordTemplateGroup(String addNursingRecordTemplateGroupReqJson) {
-        AddNursingRecordTemplateGroupResp resp = nursingRecordService.addNursingRecordTemplateGroup(addNursingRecordTemplateGroupReqJson);
+    public AddNursingRecordTemplateGroupResp addNursingRecordTemplateGroup(String reqJson) {
+        AddNursingRecordTemplateGroupResp resp = nursingOrderTemplateService
+            .addNursingRecordTemplateGroup(reqJson);
         resp = metricService.recordApiMetrics(resp, AddNursingRecordTemplateGroupResp::getRt);
         return resp;
     }
 
-    public GenericResp updateNursingRecordTemplateGroups(String updateNursingRecordTemplateGroupsReqJson) {
-        GenericResp resp = nursingRecordService.updateNursingRecordTemplateGroups(updateNursingRecordTemplateGroupsReqJson);
+    public GenericResp updateNursingRecordTemplateGroups(String reqJson) {
+        GenericResp resp = nursingOrderTemplateService.updateNursingRecordTemplateGroups(reqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
 
-    public GenericResp deleteNursingRecordTemplateGroup(String deleteNursingRecordTemplateGroupReqJson) {
-        GenericResp resp = nursingRecordService.deleteNursingRecordTemplateGroup(deleteNursingRecordTemplateGroupReqJson);
+    public GenericResp deleteNursingRecordTemplateGroup(String reqJson) {
+        GenericResp resp = nursingOrderTemplateService.deleteNursingRecordTemplateGroup(reqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
 
-    public AddNursingRecordTemplateResp addNursingRecordTemplate(String addNursingRecordTemplateReqJson) {
-        AddNursingRecordTemplateResp resp = nursingRecordService.addNursingRecordTemplate(addNursingRecordTemplateReqJson);
+    public AddNursingRecordTemplateResp addNursingRecordTemplate(String reqJson) {
+        AddNursingRecordTemplateResp resp = nursingOrderTemplateService
+            .addNursingRecordTemplate(reqJson);
         resp = metricService.recordApiMetrics(resp, AddNursingRecordTemplateResp::getRt);
         return resp;
     }
 
-    public GenericResp updateNursingRecordTemplate(String updateNursingRecordTemplateReqJson) {
-        GenericResp resp = nursingRecordService.updateNursingRecordTemplate(updateNursingRecordTemplateReqJson);
+    public GenericResp updateNursingRecordTemplate(String reqJson) {
+        GenericResp resp = nursingOrderTemplateService.updateNursingRecordTemplate(reqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
 
-    public GenericResp deleteNursingRecordTemplate(String deleteNursingRecordTemplateReqJson) {
-        GenericResp resp = nursingRecordService.deleteNursingRecordTemplate(deleteNursingRecordTemplateReqJson);
+    public GenericResp deleteNursingRecordTemplate(String reqJson) {
+        GenericResp resp = nursingOrderTemplateService.deleteNursingRecordTemplate(reqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
@@ -2163,6 +2168,7 @@ public class WebApiService {
     private LisService lisService;
     private ScoreService scoreService;
     private NursingRecordService nursingRecordService;
+    private NursingOrderTemplateService nursingOrderTemplateService;
     private PatientCriticalLisHandlingService patientCriticalLisHandlingService;
     private NursingOrderService nursingOrderService;
     private PatientShiftService patientShiftService;

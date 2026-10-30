@@ -31,6 +31,7 @@ public class NursingRecordServiceTests extends TestsBase {
         @Autowired ConfigProtoService protoService,
         @Autowired NursingRecordConfig recordConfig,
         @Autowired NursingRecordService recordService,
+        @Autowired NursingOrderTemplateService templateService,
         @Autowired NursingRecordTemplateGroupRepository templateGroupRepo,
         @Autowired NursingRecordTemplateRepository templateRepo,
         @Autowired NursingRecordRepository recordRepo,
@@ -47,6 +48,7 @@ public class NursingRecordServiceTests extends TestsBase {
         this.configPb = protoService.getConfig().getNursingRecord();
         this.recordConfig = recordConfig;
         this.recordService = recordService;
+        this.templateService = templateService;
         this.templateGroupRepo = templateGroupRepo;
         this.templateRepo = templateRepo;
         this.recordRepo = recordRepo;
@@ -67,7 +69,8 @@ public class NursingRecordServiceTests extends TestsBase {
         GetNursingRecordTemplatesReq getReq = GetNursingRecordTemplatesReq.newBuilder()
             .setDeptId(deptId2).build();
         String getReqJson = ProtoUtils.protoToJson(getReq);
-        GetNursingRecordTemplatesResp getResp = recordService.getNursingRecordTemplates(getReqJson);
+        GetNursingRecordTemplatesResp getResp = templateService
+            .getNursingRecordTemplates(getReqJson);
         assertThat(getResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         assertThat(getResp.getDeptTemplateList()).hasSize(2);
         Integer groupId1 = getResp.getDeptTemplate(0).getId();
@@ -82,11 +85,12 @@ public class NursingRecordServiceTests extends TestsBase {
                 .build()
             ).build();
         String addGroupReqJson = ProtoUtils.protoToJson(addGroupReq);
-        AddNursingRecordTemplateGroupResp addGroupResp = recordService.addNursingRecordTemplateGroup(addGroupReqJson);
+        AddNursingRecordTemplateGroupResp addGroupResp = templateService
+            .addNursingRecordTemplateGroup(addGroupReqJson);
         assertThat(addGroupResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         Integer groupId3 = addGroupResp.getId();
 
-        addGroupResp = recordService.addNursingRecordTemplateGroup(addGroupReqJson);
+        addGroupResp = templateService.addNursingRecordTemplateGroup(addGroupReqJson);
         assertThat(addGroupResp.getRt().getCode()).isEqualTo(
             StatusCode.NURSING_RECORD_TEMPLATE_GROUP_ALREADY_EXISTS.ordinal());
 
@@ -98,7 +102,7 @@ public class NursingRecordServiceTests extends TestsBase {
                 .build()
             ).build();
         addGroupReqJson = ProtoUtils.protoToJson(addGroupReq);
-        addGroupResp = recordService.addNursingRecordTemplateGroup(addGroupReqJson);
+        addGroupResp = templateService.addNursingRecordTemplateGroup(addGroupReqJson);
         assertThat(addGroupResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         Integer groupId4 = addGroupResp.getId();
 
@@ -118,7 +122,8 @@ public class NursingRecordServiceTests extends TestsBase {
                 .build()
             ).build();
         String updateGroupsReqJson = ProtoUtils.protoToJson(updateGroupsReq);
-        GenericResp updateGroupsResp = recordService.updateNursingRecordTemplateGroups(updateGroupsReqJson);
+        GenericResp updateGroupsResp = templateService
+            .updateNursingRecordTemplateGroups(updateGroupsReqJson);
         assertThat(updateGroupsResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
         updateGroupsReq = UpdateNursingRecordTemplateGroupsReq.newBuilder()
@@ -129,17 +134,18 @@ public class NursingRecordServiceTests extends TestsBase {
                 .build()
             ).build();
         updateGroupsReqJson = ProtoUtils.protoToJson(updateGroupsReq);
-        updateGroupsResp = recordService.updateNursingRecordTemplateGroups(updateGroupsReqJson);
+        updateGroupsResp = templateService.updateNursingRecordTemplateGroups(updateGroupsReqJson);
         assertThat(updateGroupsResp.getRt().getCode()).isEqualTo(StatusCode.NURSING_RECORD_TEMPLATE_GROUP_NOT_EXISTS.ordinal());
 
         // 删除组
         DeleteNursingRecordTemplateGroupReq deleteGroupReq = DeleteNursingRecordTemplateGroupReq.newBuilder()
             .setId(groupId3).build();
         String deleteGroupReqJson = ProtoUtils.protoToJson(deleteGroupReq);
-        GenericResp deleteGroupResp = recordService.deleteNursingRecordTemplateGroup(deleteGroupReqJson);
+        GenericResp deleteGroupResp = templateService
+            .deleteNursingRecordTemplateGroup(deleteGroupReqJson);
         assertThat(deleteGroupResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
-        getResp = recordService.getNursingRecordTemplates(getReqJson);
+        getResp = templateService.getNursingRecordTemplates(getReqJson);
         assertThat(getResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         assertThat(getResp.getDeptTemplateList()).hasSize(3);
         assertThat(getResp.getDeptTemplate(2).getName()).isEqualTo("NursingRecordServiceTests-admin-group4");
@@ -156,11 +162,11 @@ public class NursingRecordServiceTests extends TestsBase {
                 .build()
             ).build();
         String addReqJson = ProtoUtils.protoToJson(addReq);
-        AddNursingRecordTemplateResp addResp = recordService.addNursingRecordTemplate(addReqJson);
+        AddNursingRecordTemplateResp addResp = templateService.addNursingRecordTemplate(addReqJson);
         assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         Integer templateId1 = addResp.getId();
 
-        addResp = recordService.addNursingRecordTemplate(addReqJson);
+        addResp = templateService.addNursingRecordTemplate(addReqJson);
         assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.NURSING_RECORD_TEMPLATE_ALREADY_EXISTS.ordinal());
 
         addReq = AddNursingRecordTemplateReq.newBuilder()
@@ -174,7 +180,7 @@ public class NursingRecordServiceTests extends TestsBase {
                 .build()
             ).build();
         addReqJson = ProtoUtils.protoToJson(addReq);
-        addResp = recordService.addNursingRecordTemplate(addReqJson);
+        addResp = templateService.addNursingRecordTemplate(addReqJson);
         assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         Integer templateId2 = addResp.getId();
 
@@ -189,7 +195,8 @@ public class NursingRecordServiceTests extends TestsBase {
                 .build()
             ).build();
         String duplicateNameReqJson = ProtoUtils.protoToJson(duplicateNameReq);
-        GenericResp duplicateNameResp = recordService.updateNursingRecordTemplate(duplicateNameReqJson);
+        GenericResp duplicateNameResp = templateService
+            .updateNursingRecordTemplate(duplicateNameReqJson);
         assertThat(duplicateNameResp.getRt().getCode())
             .isEqualTo(StatusCode.NURSING_RECORD_TEMPLATE_GROUP_ALREADY_EXISTS.ordinal());
 
@@ -205,17 +212,17 @@ public class NursingRecordServiceTests extends TestsBase {
                 .build()
             ).build();
         String updateDeptReqJson = ProtoUtils.protoToJson(updateDeptReq);
-        GenericResp updateDeptResp = recordService.updateNursingRecordTemplate(updateDeptReqJson);
+        GenericResp updateDeptResp = templateService.updateNursingRecordTemplate(updateDeptReqJson);
         assertThat(updateDeptResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
         // 删除科室模板
         DeleteNursingRecordTemplateReq deleteReq = DeleteNursingRecordTemplateReq.newBuilder()
             .setId(templateId2).build();
         String deleteReqJson = ProtoUtils.protoToJson(deleteReq);
-        GenericResp deleteResp = recordService.deleteNursingRecordTemplate(deleteReqJson);
+        GenericResp deleteResp = templateService.deleteNursingRecordTemplate(deleteReqJson);
         assertThat(deleteResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
-        getResp = recordService.getNursingRecordTemplates(getReqJson);
+        getResp = templateService.getNursingRecordTemplates(getReqJson);
         assertThat(getResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         assertThat(getResp.getDeptTemplateList()).hasSize(3);
         assertThat(getResp.getDeptTemplate(2).getName()).isEqualTo("NursingRecordServiceTests-admin-group4");
@@ -340,6 +347,7 @@ public class NursingRecordServiceTests extends TestsBase {
     private final NursingRecordConfigPB configPb;
     private final NursingRecordConfig recordConfig;
     private final NursingRecordService recordService;
+    private final NursingOrderTemplateService templateService;
     private final NursingRecordTemplateGroupRepository templateGroupRepo;
     private final NursingRecordTemplateRepository templateRepo;
     private final NursingRecordRepository recordRepo;

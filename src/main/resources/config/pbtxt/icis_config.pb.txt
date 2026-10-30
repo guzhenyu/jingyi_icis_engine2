@@ -8204,28 +8204,6 @@ nursing_record {
         word: "查动脉血气分析示"
         word: "全天出入量"
     }
-    default_dept_group {
-        name: "nursing_record_g1"
-        nursing_record_template {
-            name: "nursing_record_g1_t1"
-            content: "nursing_record_g1_t1"
-            is_common: 1
-        }
-        nursing_record_template {
-            name: "nursing_record_g1_t2"
-            content: "nursing_record_g1_t2"
-            is_common: 0
-        }
-    }
-    default_dept_group {
-        name: "nursing_record_g2"
-        display_order: 2
-        nursing_record_template {
-            name: "nursing_record_g2_t1"
-            content: "nursing_record_g2_t1"
-            is_common: 1
-        }
-    }
 }
 nursing_order {
     allowed_order_type {

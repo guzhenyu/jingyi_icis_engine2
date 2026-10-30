@@ -8,7 +8,10 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public interface NursingRecordTemplateRepository extends JpaRepository<NursingRecordTemplate, Integer> {
+public interface NursingRecordTemplateRepository
+    extends JpaRepository<NursingRecordTemplate, Integer> {
+    Optional<NursingRecordTemplate> findByIdAndIsDeletedFalse(Integer id);
+
     List<NursingRecordTemplate> findByEntityTypeAndIsDeletedFalse(Integer entityType);
 
     List<NursingRecordTemplate> findByEntityTypeAndEntityIdAndIsDeletedFalse(
