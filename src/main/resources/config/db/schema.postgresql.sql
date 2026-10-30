@@ -5,6 +5,10 @@
 -- CREATE DATABASE jingyi_icis_db;
 -- \connect jingyi_icis_db;
 
+CREATE TABLE IF NOT EXISTS app_transaction_locks (
+    resource_key VARCHAR(255)  PRIMARY KEY NOT NULL
+);
+
 ---- 1. 用户权限模块
 CREATE TABLE rbac_permissions (
     id INT,

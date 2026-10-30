@@ -133,4 +133,10 @@ public class StrUtils {
         String format = "%." + decimalPlaces + "f";
         return String.format(format, result);
     }
+
+    public static void requireNonBlank(String value, String name) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(name + " must not be blank");
+        }
+    }
 }
