@@ -36,7 +36,7 @@ import com.jingyicare.jingyi_icis_engine.testutils.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 /** Exercises committed API calls so JPA identity sharing and JDBC balance writes match production. */
-@SpringBootTest(properties = "spring.datasource.url=jdbc:h2:mem:medication_reschedule_test")
+@SpringBootTest(properties = "jingyi.test.postgresql.database-name=medication_reschedule_test")
 @DirtiesContext
 class MedicationIntakeRescheduleTests extends TestsBase {
     private static final String DEPT_ID = "med_reschedule";

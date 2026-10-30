@@ -16,7 +16,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.boot.test.web.server.LocalManagementPort;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
+
+import com.jingyicare.jingyi_icis_engine.testutils.PostgreSqlTestConfiguration;
 
 @SpringBootTest(
     webEnvironment = WebEnvironment.RANDOM_PORT,
@@ -26,6 +29,7 @@ import org.springframework.test.context.ActiveProfiles;
         "management.server.port=0"
     })
 @ActiveProfiles("test")
+@Import(PostgreSqlTestConfiguration.class)
 @AutoConfigureObservability
 class ManagementEndpointBoundaryTests {
     private final HttpClient httpClient = HttpClient.newHttpClient();

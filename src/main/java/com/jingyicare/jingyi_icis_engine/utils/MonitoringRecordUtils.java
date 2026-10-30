@@ -393,7 +393,7 @@ public class MonitoringRecordUtils {
 
         try (PreparedStatement ps = batchMode ?
             conn.prepareStatement(sql) :
-            conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)
+            conn.prepareStatement(sql, new String[] {"id"})
         ) {
             ps.setLong(1, record.getPid());
             ps.setString(2, record.getDeptId());
@@ -414,7 +414,7 @@ public class MonitoringRecordUtils {
                 // 获取自动生成的主键
                 try (ResultSet keys = ps.getGeneratedKeys()) {
                     if (keys.next()) {
-                        long generatedId = keys.getLong(1);
+                        long generatedId = keys.getLong("id");
                         record.setId(generatedId);
                     } else {
                         throw new SQLException("插入记录失败，未能获取生成的ID");
@@ -664,7 +664,7 @@ public class MonitoringRecordUtils {
 
         try (PreparedStatement ps = batchMode ?
             conn.prepareStatement(sql) :
-            conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)
+            conn.prepareStatement(sql, new String[] {"id"})
         ) {
             ps.setLong(1, record.getPid());
             ps.setString(2, record.getDeptId());
@@ -684,7 +684,7 @@ public class MonitoringRecordUtils {
                 // 获取自动生成的主键
                 try (ResultSet keys = ps.getGeneratedKeys()) {
                     if (keys.next()) {
-                        record.setId(keys.getLong(1));
+                        record.setId(keys.getLong("id"));
                     } else {
                         throw new SQLException("insertDailyStats failed: unable to retrieve generated ID");
                     }

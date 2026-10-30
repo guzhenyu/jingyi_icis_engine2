@@ -6,12 +6,14 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 import lombok.extern.slf4j.Slf4j;
 
 @SpringBootTest
 @ActiveProfiles("test")
+@Import(PostgreSqlTestConfiguration.class)
 @Slf4j
 public class TestsBase {
     @BeforeAll

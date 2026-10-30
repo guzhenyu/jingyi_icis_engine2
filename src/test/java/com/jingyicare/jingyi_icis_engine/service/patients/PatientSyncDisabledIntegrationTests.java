@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.SpyBean;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.ActiveProfiles;
 
 import com.jingyicare.jingyi_icis_engine.entity.patients.HisPatientRecord;
@@ -20,10 +21,12 @@ import com.jingyicare.jingyi_icis_engine.repository.patients.HisPatientRecordRep
 import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.testutils.PatientTestUtils;
+import com.jingyicare.jingyi_icis_engine.testutils.PostgreSqlTestConfiguration;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
 @SpringBootTest(properties = "patient.sync.enabled=false")
 @ActiveProfiles("test")
+@Import(PostgreSqlTestConfiguration.class)
 public class PatientSyncDisabledIntegrationTests {
     @Autowired
     private PatientService patientService;

@@ -25,7 +25,6 @@ public class MedicationFrequency {
     @Column(name = "name")
     private String name;
 
-    @Lob
     @Column(name = "freq_spec", nullable = false, columnDefinition = "TEXT")
     private String freqSpec;
 
