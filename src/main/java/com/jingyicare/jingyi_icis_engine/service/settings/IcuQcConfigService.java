@@ -1,4 +1,4 @@
-package com.jingyicare.jingyi_icis_engine.service.qcs;
+package com.jingyicare.jingyi_icis_engine.service.settings;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -21,6 +21,8 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.SystemSetting
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.repository.settings.SystemSettingsRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
+import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.users.UserService;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
@@ -48,21 +50,23 @@ public class IcuQcConfigService {
         @Value("${jingyi.textresources.charset}") String charsetName,
         ConfigProtoService protoService,
         SystemSettingsRepository systemSettingsRepo,
-        UserService userService
+        UserService userService,
+        LockExecutor lockExecutor
     ) {
         this.statusCodeMsgList = protoService.getConfig().getText().getStatusCodeMsgList();
         this.systemSettingsRepo = systemSettingsRepo;
         this.userService = userService;
+        this.lockExecutor = lockExecutor;
 
         this.defaultIcuQcConfigPb = normalizeConfig(
             loadDefaultIcuQcConfig(icuQcConfigResource, charsetName),
             null
         );
-        this.icuQcConfigPb = loadCurrentIcuQcConfig(defaultIcuQcConfigPb);
     }
 
+    @Transactional(readOnly = true)
     public IcuQcConfigPB getIcuQcConfigPb() {
-        return icuQcConfigPb;
+        return loadCurrentIcuQcConfig(defaultIcuQcConfigPb);
     }
 
     @Transactional(readOnly = true)
@@ -73,17 +77,17 @@ public class IcuQcConfigService {
         } catch (Exception e) {
             log.error("Failed to convert string to proto: ", e);
             return GetIqcConfigResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
         return GetIqcConfigResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
-            .setIqcConfig(icuQcConfigPb)
+            .setIqcConfig(getIcuQcConfigPb())
             .build();
     }
 
-    @Transactional
     public GenericResp updateIqcConfig(String updateIqcConfigReqJson) {
         final UpdateIqcConfigReq req;
         try {
@@ -93,45 +97,53 @@ public class IcuQcConfigService {
         } catch (Exception e) {
             log.error("Failed to convert string to proto: ", e);
             return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
         if (!req.hasIqcConfig()) {
             log.error("UpdateIqcConfigReq missing iqc_config");
             return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
         Pair<String, String> account = userService.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
 
         IcuQcConfigPB nextConfig = normalizeConfig(req.getIqcConfig(), defaultIcuQcConfigPb);
-        final Integer functionId = SystemSettingFunctionId.GET_IQC_CONFIG.getNumber();
-        SystemSettings entity = systemSettingsRepo.findById(functionId).orElse(null);
-        String settingsStr = ProtoUtils.encodeIcuQcConfig(nextConfig);
-        LocalDateTime nowUtc = TimeUtils.getNowUtc();
-        if (entity == null) {
-            entity = SystemSettings.builder()
-                .functionId(functionId)
-                .functionName(SystemSettingFunctionId.GET_IQC_CONFIG.name())
-                .settingsPb(settingsStr)
-                .modifiedAt(nowUtc)
-                .modifiedBy(account.getFirst())
-                .build();
-        } else {
-            entity.setFunctionName(SystemSettingFunctionId.GET_IQC_CONFIG.name());
-            entity.setSettingsPb(settingsStr);
-            entity.setModifiedAt(nowUtc);
-            entity.setModifiedBy(account.getFirst());
-        }
-        systemSettingsRepo.save(entity);
-        this.icuQcConfigPb = nextConfig;
+        return saveIcuQcConfig(nextConfig, account.getFirst());
+    }
 
+    private GenericResp saveIcuQcConfig(IcuQcConfigPB nextConfig, String accountId) {
+        final int functionId = SystemSettingFunctionId.GET_IQC_CONFIG_VALUE;
+        lockExecutor.execute(List.of(LockKeys.systemSettings(functionId)), () -> {
+            SystemSettings entity = systemSettingsRepo.findById(functionId).orElse(null);
+            String settingsStr = ProtoUtils.encodeIcuQcConfig(nextConfig);
+            LocalDateTime nowUtc = TimeUtils.getNowUtc();
+            if (entity == null) {
+                entity = SystemSettings.builder()
+                    .functionId(functionId)
+                    .functionName(SystemSettingFunctionId.GET_IQC_CONFIG.name())
+                    .settingsPb(settingsStr)
+                    .modifiedAt(nowUtc)
+                    .modifiedBy(accountId)
+                    .build();
+            } else {
+                entity.setFunctionName(SystemSettingFunctionId.GET_IQC_CONFIG.name());
+                entity.setSettingsPb(settingsStr);
+                entity.setModifiedAt(nowUtc);
+                entity.setModifiedBy(accountId);
+            }
+            systemSettingsRepo.save(entity);
+            return null;
+        });
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .build();
@@ -170,24 +182,29 @@ public class IcuQcConfigService {
             log.error("Failed to load stored ICU QC config; using default config");
             return defaultConfig;
         }
-        log.info("ICU QC config loaded from SystemSettings({})", functionId);
+        log.debug("ICU QC config loaded from SystemSettings({})", functionId);
         return normalizeConfig(storedConfig, defaultConfig);
     }
 
     private IcuQcConfigPB normalizeConfig(IcuQcConfigPB config, IcuQcConfigPB fallbackConfig) {
-        IcuQcConfigPB.Builder builder = (config == null ? IcuQcConfigPB.newBuilder() : config.toBuilder());
+        IcuQcConfigPB.Builder builder = config == null
+            ? IcuQcConfigPB.newBuilder() : config.toBuilder();
 
-        if (builder.getItemCount() == 0 && fallbackConfig != null && fallbackConfig.getItemCount() > 0) {
+        if (builder.getItemCount() == 0
+            && fallbackConfig != null && fallbackConfig.getItemCount() > 0) {
             builder.addAllItem(fallbackConfig.getItemList());
         }
 
-        if (!builder.hasBedUtilization() && fallbackConfig != null && fallbackConfig.hasBedUtilization()) {
+        if (!builder.hasBedUtilization()
+            && fallbackConfig != null && fallbackConfig.hasBedUtilization()) {
             builder.setBedUtilization(fallbackConfig.getBedUtilization());
         }
-        if (!builder.hasDoctorBedRatio() && fallbackConfig != null && fallbackConfig.hasDoctorBedRatio()) {
+        if (!builder.hasDoctorBedRatio()
+            && fallbackConfig != null && fallbackConfig.hasDoctorBedRatio()) {
             builder.setDoctorBedRatio(fallbackConfig.getDoctorBedRatio());
         }
-        if (!builder.hasNurseBedRatio() && fallbackConfig != null && fallbackConfig.hasNurseBedRatio()) {
+        if (!builder.hasNurseBedRatio()
+            && fallbackConfig != null && fallbackConfig.hasNurseBedRatio()) {
             builder.setNurseBedRatio(fallbackConfig.getNurseBedRatio());
         }
         if (!builder.hasApache2Over15AdmissionRate()
@@ -204,18 +221,25 @@ public class IcuQcConfigService {
             builder.hasSepsisSepticShockDiagnosis()
                 ? builder.getSepsisSepticShockDiagnosis()
                 : fallbackSepsisConfig;
-        builder.setSepsisSepticShockDiagnosis(normalizeSepsisDiagnosisConfig(sepsisConfig, fallbackSepsisConfig));
+        builder.setSepsisSepticShockDiagnosis(
+            normalizeSepsisDiagnosisConfig(sepsisConfig, fallbackSepsisConfig));
 
         return builder.build();
     }
 
-    private void setDefaultEmptyMetricConfigs(IcuQcConfigPB.Builder builder, IcuQcConfigPB fallbackConfig) {
+    private void setDefaultEmptyMetricConfigs(
+        IcuQcConfigPB.Builder builder, IcuQcConfigPB fallbackConfig
+    ) {
         if (fallbackConfig == null) return;
-        if (!builder.hasSepticShockBundleCompletionRate() && fallbackConfig.hasSepticShockBundleCompletionRate()) {
-            builder.setSepticShockBundleCompletionRate(fallbackConfig.getSepticShockBundleCompletionRate());
+        if (!builder.hasSepticShockBundleCompletionRate()
+            && fallbackConfig.hasSepticShockBundleCompletionRate()) {
+            builder.setSepticShockBundleCompletionRate(
+                fallbackConfig.getSepticShockBundleCompletionRate());
         }
-        if (!builder.hasPreAntibioticPathogenTestRate() && fallbackConfig.hasPreAntibioticPathogenTestRate()) {
-            builder.setPreAntibioticPathogenTestRate(fallbackConfig.getPreAntibioticPathogenTestRate());
+        if (!builder.hasPreAntibioticPathogenTestRate()
+            && fallbackConfig.hasPreAntibioticPathogenTestRate()) {
+            builder.setPreAntibioticPathogenTestRate(
+                fallbackConfig.getPreAntibioticPathogenTestRate());
         }
         if (!builder.hasDvtPreventionRate() && fallbackConfig.hasDvtPreventionRate()) {
             builder.setDvtPreventionRate(fallbackConfig.getDvtPreventionRate());
@@ -229,19 +253,23 @@ public class IcuQcConfigService {
         if (!builder.hasSedationAssessmentRate() && fallbackConfig.hasSedationAssessmentRate()) {
             builder.setSedationAssessmentRate(fallbackConfig.getSedationAssessmentRate());
         }
-        if (!builder.hasStandardizedMortalityRatio() && fallbackConfig.hasStandardizedMortalityRatio()) {
+        if (!builder.hasStandardizedMortalityRatio()
+            && fallbackConfig.hasStandardizedMortalityRatio()) {
             builder.setStandardizedMortalityRatio(fallbackConfig.getStandardizedMortalityRatio());
         }
         if (!builder.hasUnplannedExtubationRate() && fallbackConfig.hasUnplannedExtubationRate()) {
             builder.setUnplannedExtubationRate(fallbackConfig.getUnplannedExtubationRate());
         }
-        if (!builder.hasReintubationWithin48HRate() && fallbackConfig.hasReintubationWithin48HRate()) {
+        if (!builder.hasReintubationWithin48HRate()
+            && fallbackConfig.hasReintubationWithin48HRate()) {
             builder.setReintubationWithin48HRate(fallbackConfig.getReintubationWithin48HRate());
         }
-        if (!builder.hasUnplannedIcuAdmissionRate() && fallbackConfig.hasUnplannedIcuAdmissionRate()) {
+        if (!builder.hasUnplannedIcuAdmissionRate()
+            && fallbackConfig.hasUnplannedIcuAdmissionRate()) {
             builder.setUnplannedIcuAdmissionRate(fallbackConfig.getUnplannedIcuAdmissionRate());
         }
-        if (!builder.hasIcuReadmissionWithin48HRate() && fallbackConfig.hasIcuReadmissionWithin48HRate()) {
+        if (!builder.hasIcuReadmissionWithin48HRate()
+            && fallbackConfig.hasIcuReadmissionWithin48HRate()) {
             builder.setIcuReadmissionWithin48HRate(fallbackConfig.getIcuReadmissionWithin48HRate());
         }
         if (!builder.hasVapIncidenceRate() && fallbackConfig.hasVapIncidenceRate()) {
@@ -252,10 +280,13 @@ public class IcuQcConfigService {
         }
         if (!builder.hasBrainInjuryConsciousnessAssessmentRate()
             && fallbackConfig.hasBrainInjuryConsciousnessAssessmentRate()) {
-            builder.setBrainInjuryConsciousnessAssessmentRate(fallbackConfig.getBrainInjuryConsciousnessAssessmentRate());
+            builder.setBrainInjuryConsciousnessAssessmentRate(
+                fallbackConfig.getBrainInjuryConsciousnessAssessmentRate());
         }
-        if (!builder.hasEnteralNutritionWithin48HRate() && fallbackConfig.hasEnteralNutritionWithin48HRate()) {
-            builder.setEnteralNutritionWithin48HRate(fallbackConfig.getEnteralNutritionWithin48HRate());
+        if (!builder.hasEnteralNutritionWithin48HRate()
+            && fallbackConfig.hasEnteralNutritionWithin48HRate()) {
+            builder.setEnteralNutritionWithin48HRate(
+                fallbackConfig.getEnteralNutritionWithin48HRate());
         }
     }
 
@@ -270,7 +301,8 @@ public class IcuQcConfigService {
                 : DEFAULT_SEPSIS_AGE_LOWER_BOUND);
         }
         if (builder.getGracePeriodHoursFromAdmissionTime() <= 0) {
-            builder.setGracePeriodHoursFromAdmissionTime(fallbackConfig.getGracePeriodHoursFromAdmissionTime() > 0
+            builder.setGracePeriodHoursFromAdmissionTime(
+                fallbackConfig.getGracePeriodHoursFromAdmissionTime() > 0
                 ? fallbackConfig.getGracePeriodHoursFromAdmissionTime()
                 : DEFAULT_SEPSIS_GRACE_PERIOD_HOURS);
         }
@@ -280,7 +312,8 @@ public class IcuQcConfigService {
                 : DEFAULT_SEPSIS_DIAGNOSIS_KEYWORDS);
         }
         builder.setHypotensionCriteria(normalizeHypotensionCriteria(
-            builder.hasHypotensionCriteria() ? builder.getHypotensionCriteria() : HypotensionCriteriaPB.getDefaultInstance(),
+            builder.hasHypotensionCriteria()
+                ? builder.getHypotensionCriteria() : HypotensionCriteriaPB.getDefaultInstance(),
             fallbackConfig.hasHypotensionCriteria()
                 ? fallbackConfig.getHypotensionCriteria()
                 : defaultHypotensionCriteria()
@@ -369,13 +402,14 @@ public class IcuQcConfigService {
             .addAllLacExternalParamCode(DEFAULT_SEPSIS_LAC_EXTERNAL_PARAM_CODES)
             .setDiagnosisLookbackHoursBeforeAdmissionTime(DEFAULT_SEPSIS_DIAGNOSIS_LOOKBACK_HOURS)
             .setEnableAlarm(false)
-            .setAlarmFilter(SepsisSepticShockAlarmFilterPB.SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_UNLIMITED)
+            .setAlarmFilter(
+                SepsisSepticShockAlarmFilterPB.SEPSIS_SEPTIC_SHOCK_ALARM_FILTER_UNLIMITED)
             .build();
     }
 
     private final List<String> statusCodeMsgList;
     private final SystemSettingsRepository systemSettingsRepo;
     private final UserService userService;
+    private final LockExecutor lockExecutor;
     private final IcuQcConfigPB defaultIcuQcConfigPb;
-    private volatile IcuQcConfigPB icuQcConfigPb;
 }

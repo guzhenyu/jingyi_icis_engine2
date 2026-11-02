@@ -33,7 +33,7 @@ import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.therapies.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientConfig;
-import com.jingyicare.jingyi_icis_engine.service.qcs.IcuQcConfigService;
+import com.jingyicare.jingyi_icis_engine.service.settings.IcuQcConfigService;
 import com.jingyicare.jingyi_icis_engine.service.users.UserService;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 

@@ -26,6 +26,8 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkTemplatePB;
 import com.jingyicare.jingyi_icis_engine.repository.reports.DragableFormTemplateRepository;
 import com.jingyicare.jingyi_icis_engine.repository.settings.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
+import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.medications.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.service.nursingrecords.*;
@@ -45,7 +47,8 @@ public class SettingService {
         @Autowired ScoreConfig scoreConfig,  // nursing score
         @Autowired DeptSystemSettingsRepository deptSettingsRepo,
         @Autowired SystemSettingsRepository systemSettingsRepo,
-        @Autowired DragableFormTemplateRepository formTemplateRepo
+        @Autowired DragableFormTemplateRepository formTemplateRepo,
+        @Autowired LockExecutor lockExecutor
     ) {
         this.statusCodeMsgList = protoService.getConfig().getText().getStatusCodeMsgList();
 
@@ -58,6 +61,7 @@ public class SettingService {
         this.deptSettingsRepo = deptSettingsRepo;
         this.systemSettingsRepo = systemSettingsRepo;
         this.formTemplateRepo = formTemplateRepo;
+        this.lockExecutor = lockExecutor;
     }
 
     @Transactional(readOnly = true)
@@ -90,7 +94,6 @@ public class SettingService {
         return resolveArchiveConfig(settings);
     }
 
-    @Transactional
     public GenericResp updateArchiveConfig(String requestJson) {
         final UpdateArchiveConfigReq req;
         try {
@@ -113,6 +116,13 @@ public class SettingService {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.DEPT_IS_EMPTY)).build();
         }
+        String resourceKey = LockKeys.deptSystemSettings(
+            settings.getDeptId(), SystemSettingFunctionId.GET_ARCHIVE_CONFIG_VALUE);
+        return lockExecutor.execute(List.of(resourceKey),
+            () -> saveArchiveConfig(settings, account.getFirst()));
+    }
+
+    private GenericResp saveArchiveConfig(DeptArchiveSettings settings, String accountId) {
         GetArchiveConfigResp resolved = resolveArchiveConfig(settings);
         if (resolved.getRt().getCode() != StatusCode.OK_VALUE) {
             return GenericResp.newBuilder().setRt(resolved.getRt()).build();
@@ -124,7 +134,7 @@ public class SettingService {
         if (entity == null) entity = DeptSystemSettings.builder().id(id).build();
         entity.setSettingsPb(ProtoUtils.encodeDeptArchiveSettings(settings));
         entity.setModifiedAt(TimeUtils.getNowUtc());
-        entity.setModifiedBy(account.getFirst());
+        entity.setModifiedBy(accountId);
         deptSettingsRepo.save(entity);
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK)).build();
@@ -203,7 +213,6 @@ public class SettingService {
             .build();
     }
 
-    @Transactional
     public GenericResp updateAppSettings(String updateAppSettingsReqJson) {
         final UpdateAppSettingsReq req;
         try {
@@ -228,17 +237,49 @@ public class SettingService {
 
         // 获取请求参数
         String deptId = req.getDeptId();
-        Set<AppSettingTypeEnum> settingTypes = req.getChangedTypeList().stream().collect(Collectors.toSet());
+        Set<AppSettingTypeEnum> settingTypes = new HashSet<>(req.getChangedTypeList());
         AppSettingsPB appSettingsPb = req.getSettings();
+        Set<Integer> functionIds = settingTypes.stream().map(type -> switch (type) {
+            case AST_ENABLE_MEDICATION_SPEED ->
+                SystemSettingFunctionId.GET_MEDICAL_ORDER_SETTINGS_VALUE;
+            case AST_HEAD_CUSTOM_TIME_GRACE_MINUTES, AST_TAIL_CUSTOM_TIME_GRACE_MINUTES ->
+                SystemSettingFunctionId.GET_DEPT_MONITORING_SETTINGS_VALUE;
+            case AST_NURSING_RECORD_OVERWRITE_CREATED_BY ->
+                SystemSettingFunctionId.GET_DEPT_NURSING_RECORD_SETTINGS_VALUE;
+            case AST_SCORE_ALLOW_EDIT_RECORDED_BY ->
+                SystemSettingFunctionId.GET_DEPT_NURSING_SCORE_SETTINGS_VALUE;
+            case AST_GENERAL, AST_ENABLE_CA -> SystemSettingFunctionId.GET_DEPT_APP_SETTINGS_VALUE;
+            default -> 0;
+        }).filter(functionId -> functionId > 0).collect(Collectors.toSet());
+        if (functionIds.isEmpty()) {
+            return GenericResp.newBuilder()
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK)).build();
+        }
+        if (StrUtils.isBlank(deptId)) {
+            return GenericResp.newBuilder()
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.DEPT_IS_EMPTY))
+                .build();
+        }
+        List<String> resourceKeys = functionIds.stream()
+            .map(functionId -> LockKeys.deptSystemSettings(deptId, functionId)).toList();
+        return lockExecutor.execute(resourceKeys,
+            () -> saveAppSettings(deptId, settingTypes, appSettingsPb, accountId));
+    }
 
+    private GenericResp saveAppSettings(
+        String deptId, Set<AppSettingTypeEnum> settingTypes, AppSettingsPB appSettingsPb,
+        String accountId
+    ) {
         // 设置医嘱信息
         if (settingTypes.contains(AppSettingTypeEnum.AST_ENABLE_MEDICATION_SPEED)) {
             MedOrderGroupSettingsPB medSettingsPb = medConfig.getMedOrderGroupSettings(deptId);
             if (medSettingsPb == null) {
                 log.error("MedOrderGroupSettings not found for deptId {}", deptId);
-                medSettingsPb = MedOrderGroupSettingsPB.newBuilder().setEnableMedicationSpeed(appSettingsPb.getEnableMedicationSpeed()).build();
+                medSettingsPb = MedOrderGroupSettingsPB.newBuilder()
+                    .setEnableMedicationSpeed(appSettingsPb.getEnableMedicationSpeed()).build();
             } else {
-                medSettingsPb = medSettingsPb.toBuilder().setEnableMedicationSpeed(appSettingsPb.getEnableMedicationSpeed()).build();
+                medSettingsPb = medSettingsPb.toBuilder()
+                    .setEnableMedicationSpeed(appSettingsPb.getEnableMedicationSpeed()).build();
             }
             medConfig.setMedOrderGroupSettings(deptId, medSettingsPb, accountId);
         }
@@ -247,29 +288,40 @@ public class SettingService {
         if (settingTypes.contains(AppSettingTypeEnum.AST_HEAD_CUSTOM_TIME_GRACE_MINUTES)
             || settingTypes.contains(AppSettingTypeEnum.AST_TAIL_CUSTOM_TIME_GRACE_MINUTES)
         ) {
-            DeptMonitoringSettingsPB monitoringSettingsPb = monitoringConfig.getDeptMonitoringSettings(deptId);
-            if (monitoringSettingsPb == null) monitoringSettingsPb = DeptMonitoringSettingsPB.newBuilder().build();
-            DeptMonitoringSettingsPB.Builder monitoringSettingsPbBuilder = monitoringSettingsPb.toBuilder();
+            DeptMonitoringSettingsPB monitoringSettingsPb = monitoringConfig
+                .getDeptMonitoringSettings(deptId);
+            if (monitoringSettingsPb == null) {
+                monitoringSettingsPb = DeptMonitoringSettingsPB.newBuilder().build();
+            }
+            DeptMonitoringSettingsPB.Builder monitoringSettingsPbBuilder = monitoringSettingsPb
+                .toBuilder();
             if (settingTypes.contains(AppSettingTypeEnum.AST_HEAD_CUSTOM_TIME_GRACE_MINUTES)) {
-                monitoringSettingsPbBuilder.setHeadCustomTimePointGraceMinutes(appSettingsPb.getHeadCustomTimeGraceMinutes());
+                monitoringSettingsPbBuilder.setHeadCustomTimePointGraceMinutes(
+                    appSettingsPb.getHeadCustomTimeGraceMinutes());
             }
             if (settingTypes.contains(AppSettingTypeEnum.AST_TAIL_CUSTOM_TIME_GRACE_MINUTES)) {
-                monitoringSettingsPbBuilder.setTailCustomTimePointGraceMinutes(appSettingsPb.getTailCustomTimeGraceMinutes());
+                monitoringSettingsPbBuilder.setTailCustomTimePointGraceMinutes(
+                    appSettingsPb.getTailCustomTimeGraceMinutes());
             }
-            monitoringConfig.setDeptMonitoringSettings(deptId, monitoringSettingsPbBuilder.build(), accountId);
+            monitoringConfig.setDeptMonitoringSettings(
+                deptId, monitoringSettingsPbBuilder.build(), accountId);
         }
 
         // 设置护理记录信息
         if (settingTypes.contains(AppSettingTypeEnum.AST_NURSING_RECORD_OVERWRITE_CREATED_BY)) {
             boolean enableUpdatingCreatedBy = appSettingsPb.getNursingRecordOverwriteCreatedBy();
-            NursingRecordSettingsPB nursingRecordSettingsPb = nursingRecordConfig.getNursingRecordSettings(deptId);
+            NursingRecordSettingsPB nursingRecordSettingsPb = nursingRecordConfig
+                .getNursingRecordSettings(deptId);
             if (nursingRecordSettingsPb == null) {
                 log.error("NursingRecordSettings not found for deptId {}", deptId);
-                nursingRecordSettingsPb = NursingRecordSettingsPB.newBuilder().setEnableUpdatingCreatedBy(enableUpdatingCreatedBy).build();
+                nursingRecordSettingsPb = NursingRecordSettingsPB.newBuilder()
+                    .setEnableUpdatingCreatedBy(enableUpdatingCreatedBy).build();
             } else {
-                nursingRecordSettingsPb = nursingRecordSettingsPb.toBuilder().setEnableUpdatingCreatedBy(enableUpdatingCreatedBy).build();
+                nursingRecordSettingsPb = nursingRecordSettingsPb.toBuilder()
+                    .setEnableUpdatingCreatedBy(enableUpdatingCreatedBy).build();
             }
-            nursingRecordConfig.setNursingRecordSettings(deptId, nursingRecordSettingsPb, accountId);
+            nursingRecordConfig.setNursingRecordSettings(
+                deptId, nursingRecordSettingsPb, accountId);
         }
 
         // 设置评分记录信息
@@ -278,9 +330,11 @@ public class SettingService {
             ScoreSettingsPB scoreSettingsPb = scoreConfig.getDeptScoreSettings(deptId);
             if (scoreSettingsPb == null) {
                 log.error("ScoreSettings not found for deptId {}", deptId);
-                scoreSettingsPb = ScoreSettingsPB.newBuilder().setDeptId(deptId).setAllowEditRecordedBy(allowEditRecordedBy).build();
+                scoreSettingsPb = ScoreSettingsPB.newBuilder().setDeptId(deptId)
+                    .setAllowEditRecordedBy(allowEditRecordedBy).build();
             } else {
-                scoreSettingsPb = scoreSettingsPb.toBuilder().setAllowEditRecordedBy(allowEditRecordedBy).build();
+                scoreSettingsPb = scoreSettingsPb.toBuilder()
+                    .setAllowEditRecordedBy(allowEditRecordedBy).build();
             }
             scoreConfig.setDeptScoreSettings(deptId, scoreSettingsPb, accountId);
         }
@@ -288,7 +342,8 @@ public class SettingService {
         // 通用设置与CA开关共用同一个PB，使用读改写避免互相覆盖。
         if (settingTypes.contains(AppSettingTypeEnum.AST_GENERAL)
             || settingTypes.contains(AppSettingTypeEnum.AST_ENABLE_CA)) {
-            AppGeneralSettingsPB.Builder generalSettingsBuilder = loadGeneralSettings(deptId).toBuilder();
+            AppGeneralSettingsPB.Builder generalSettingsBuilder = loadGeneralSettings(deptId)
+                .toBuilder();
             if (settingTypes.contains(AppSettingTypeEnum.AST_GENERAL)) {
                 generalSettingsBuilder
                     .setJfkUseNativePrint(appSettingsPb.getJfkUseNativePrint())
@@ -306,8 +361,9 @@ public class SettingService {
             String settingsStr = ProtoUtils.encodeAppGeneralSettings(generalSettingsPb);
 
             LocalDateTime nowUtc = TimeUtils.getNowUtc();
-            if (entity == null) entity = new DeptSystemSettings(settingsId, settingsStr, nowUtc, accountId);
-            else {
+            if (entity == null) {
+                entity = new DeptSystemSettings(settingsId, settingsStr, nowUtc, accountId);
+            } else {
                 entity.setSettingsPb(settingsStr);
                 entity.setModifiedAt(nowUtc);
                 entity.setModifiedBy(accountId);
@@ -358,7 +414,6 @@ public class SettingService {
             .build();
     }
 
-    @Transactional
     public GenericResp updateLogo(String updateLogoReqJson) {
         final UpdateLogoReq req;
         try {
@@ -380,8 +435,13 @@ public class SettingService {
         }
         final String accountId = account.getFirst();
         final Integer functionId = SystemSettingFunctionId.GET_APP_LOGO.getNumber();
-        final LocalDateTime nowUtc = TimeUtils.getNowUtc();
         final String customLogoB64 = req.getCustomLogoB64().trim();
+        return lockExecutor.execute(List.of(LockKeys.systemSettings(functionId)),
+            () -> saveLogo(functionId, customLogoB64, accountId));
+    }
+
+    private GenericResp saveLogo(int functionId, String customLogoB64, String accountId) {
+        final LocalDateTime nowUtc = TimeUtils.getNowUtc();
 
         SystemSettings entity = systemSettingsRepo.findById(functionId).orElse(null);
         if (entity == null) {
@@ -416,4 +476,5 @@ public class SettingService {
     private final DeptSystemSettingsRepository deptSettingsRepo;
     private final SystemSettingsRepository systemSettingsRepo;
     private final DragableFormTemplateRepository formTemplateRepo;
+    private final LockExecutor lockExecutor;
 }

@@ -2,13 +2,16 @@ package com.jingyicare.jingyi_icis_engine.service.settings;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,6 +32,7 @@ import com.jingyicare.jingyi_icis_engine.repository.settings.DeptSystemSettingsR
 import com.jingyicare.jingyi_icis_engine.repository.settings.SystemSettingsRepository;
 import com.jingyicare.jingyi_icis_engine.repository.reports.DragableFormTemplateRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.medications.MedicationConfig;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.nursingrecords.NursingRecordConfig;
@@ -48,6 +52,11 @@ class SettingServiceTests {
             .build());
         userService = mock(UserService.class);
         deptSettingsRepo = mock(DeptSystemSettingsRepository.class);
+        lockExecutor = mock(LockExecutor.class);
+        when(lockExecutor.execute(anyCollection(), any())).thenAnswer(invocation -> {
+            Supplier<?> action = invocation.getArgument(1);
+            return action.get();
+        });
         service = new SettingService(
             protoService,
             userService,
@@ -57,9 +66,26 @@ class SettingServiceTests {
             mock(ScoreConfig.class),
             deptSettingsRepo,
             mock(SystemSettingsRepository.class),
-            mock(DragableFormTemplateRepository.class)
+            mock(DragableFormTemplateRepository.class),
+            lockExecutor
         );
         when(userService.getAccountWithAutoId()).thenReturn(new Pair<>("admin", "1"));
+    }
+
+    @Test
+    void unchangedOrUnsupportedSettingsDoNotAcquireEmptyLocks() {
+        for (String request : new String[] {"{}", "{\"changedType\":[0,999]}"}) {
+            assertThat(service.updateAppSettings(request).getRt().getCode())
+                .isEqualTo(StatusCode.OK_VALUE);
+        }
+        verifyNoInteractions(lockExecutor, deptSettingsRepo);
+    }
+
+    @Test
+    void rejectsBlankDepartmentBeforeAcquiringSettingsLocks() {
+        var response = service.updateAppSettings("{\"changedType\":[7],\"deptId\":\"  \"}");
+        assertThat(response.getRt().getCode()).isEqualTo(StatusCode.DEPT_IS_EMPTY_VALUE);
+        verifyNoInteractions(lockExecutor, deptSettingsRepo);
     }
 
     @Test
@@ -98,5 +124,6 @@ class SettingServiceTests {
 
     private UserService userService;
     private DeptSystemSettingsRepository deptSettingsRepo;
+    private LockExecutor lockExecutor;
     private SettingService service;
 }

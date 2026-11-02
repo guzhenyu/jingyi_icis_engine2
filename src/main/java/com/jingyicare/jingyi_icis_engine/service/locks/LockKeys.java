@@ -13,6 +13,21 @@ public final class LockKeys {
         return "department:" + deptId;
     }
 
+    public static String deptSystemSettings(String deptId, int functionId) {
+        StrUtils.requireNonBlank(deptId, "deptId");
+        if (functionId <= 0) {
+            throw new IllegalArgumentException("functionId must be positive");
+        }
+        return "dept_system_settings:" + deptId + ":" + functionId;
+    }
+
+    public static String systemSettings(int functionId) {
+        if (functionId <= 0) {
+            throw new IllegalArgumentException("functionId must be positive");
+        }
+        return "system_settings:" + functionId;
+    }
+
     /**
      * 护理记录
      */

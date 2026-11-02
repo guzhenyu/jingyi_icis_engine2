@@ -2,11 +2,13 @@ package com.jingyicare.jingyi_icis_engine.service.settings;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.*;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -27,6 +29,7 @@ import com.jingyicare.jingyi_icis_engine.repository.reports.DragableFormTemplate
 import com.jingyicare.jingyi_icis_engine.repository.settings.DeptSystemSettingsRepository;
 import com.jingyicare.jingyi_icis_engine.repository.settings.SystemSettingsRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.medications.MedicationConfig;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.nursingrecords.NursingRecordConfig;
@@ -47,9 +50,15 @@ class ArchiveConfigServiceTests {
         ConfigProtoService config = mock(ConfigProtoService.class);
         when(config.getConfig()).thenReturn(Config.newBuilder().setText(Text.newBuilder()
             .addAllStatusCodeMsg(Collections.nCopies(StatusCode.LAST_CODE_VALUE, "message"))).build());
-        service = new SettingService(config, users, mock(MedicationConfig.class), mock(MonitoringConfig.class),
+        LockExecutor lockExecutor = mock(LockExecutor.class);
+        when(lockExecutor.execute(anyCollection(), any())).thenAnswer(invocation -> {
+            Supplier<?> action = invocation.getArgument(1);
+            return action.get();
+        });
+        service = new SettingService(config, users, mock(MedicationConfig.class),
+            mock(MonitoringConfig.class),
             mock(NursingRecordConfig.class), mock(ScoreConfig.class), settingsRepo,
-            mock(SystemSettingsRepository.class), templates);
+            mock(SystemSettingsRepository.class), templates, lockExecutor);
         when(users.getAccountWithAutoId()).thenReturn(new Pair<>("admin", "1"));
     }
 
