@@ -6,23 +6,17 @@ import java.util.List;
 
 import org.springframework.stereotype.Component;
 
-import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
-import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
 @Component
 public class MonitoringTimeRangeDataSourceHandler extends AbstractJfkDataSourceHandler {
-    public MonitoringTimeRangeDataSourceHandler(
-        JfkDataSourceSupport support,
-        BalanceStatsShiftRepository balanceStatsShiftRepo
-    ) {
+    public MonitoringTimeRangeDataSourceHandler(JfkDataSourceSupport support) {
         super(support);
-        this.balanceStatsShiftRepo = balanceStatsShiftRepo;
     }
 
     @Override
@@ -32,29 +26,37 @@ public class MonitoringTimeRangeDataSourceHandler extends AbstractJfkDataSourceH
 
     @Override
     public Pair<ReturnCode, JfkDataSourcePB> handle(JfkDataSourcePB input) {
+        Long pid = getInt64Input(input, FIELD_PID);
+        boolean hasPatient = pid != null && pid > 0;
         String deptId = getDeptIdInput(input, FIELD_DEPT_ID);
         String queryStartIso = getStringInput(input, FIELD_QUERY_START);
-        if (StrUtils.isBlank(deptId) || StrUtils.isBlank(queryStartIso)) {
+        if ((!hasPatient && StrUtils.isBlank(deptId)) || StrUtils.isBlank(queryStartIso)) {
             List<String> missingFields = new ArrayList<>();
-            if (StrUtils.isBlank(deptId)) missingFields.add(FIELD_DEPT_ID);
+            if (!hasPatient && StrUtils.isBlank(deptId)) missingFields.add(FIELD_DEPT_ID);
             if (StrUtils.isBlank(queryStartIso)) missingFields.add(FIELD_QUERY_START);
             return error(StatusCode.JFK_MISSING_REQUIRED_FIELD, joinMissingFields(missingFields));
         }
 
-        LocalDateTime utcStart = TimeUtils.fromIso8601String(queryStartIso, "UTC");
-        if (utcStart == null) {
-            return error(StatusCode.INVALID_TIME_FORMAT, FIELD_QUERY_START);
+        final int monStartHour;
+        if (hasPatient) {
+            Pair<ReturnCode, JfkDataSourceSupport.PatientDayContext> windowResult = support
+                .resolvePatientDayContext(pid, queryStartIso);
+            if (windowResult.getFirst().getCode() != StatusCode.OK.ordinal()) {
+                return new Pair<>(windowResult.getFirst(), null);
+            }
+            monStartHour = windowResult.getSecond().dayWindow().monStartHour();
+        } else {
+            LocalDateTime utcStart = TimeUtils.fromIso8601String(queryStartIso, "UTC");
+            if (utcStart == null) {
+                return error(StatusCode.INVALID_TIME_FORMAT, FIELD_QUERY_START);
+            }
+            try {
+                monStartHour = support.resolveStatisticsDayWindow(deptId, utcStart).monStartHour();
+            } catch (IllegalArgumentException e) {
+                return error(StatusCode.INVALID_PARAM_VALUE, e.getMessage());
+            }
         }
-        LocalDateTime utcEnd = utcStart.plusHours(24);
 
-        BalanceStatsShift shift = balanceStatsShiftRepo
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(deptId, utcEnd)
-            .orElse(null);
-        if (shift == null) {
-            return error(StatusCode.BALANCE_STATS_SHIFT_NOT_FOUND, "deptId: " + deptId);
-        }
-
-        int monStartHour = shift.getMonStartHour() != null ? shift.getMonStartHour() : shift.getStartHour();
         JfkDataSourcePB.Builder outputBuilder = newOutputBuilder(input);
         support.addArrayOutput(outputBuilder, FIELD_TIME_TXT, List.of(TIME_TEXT));
         support.addArrayOutput(outputBuilder, FIELD_UNIT_TXT, List.of(UNIT_TEXT));
@@ -70,12 +72,11 @@ public class MonitoringTimeRangeDataSourceHandler extends AbstractJfkDataSourceH
     }
 
     private static final String META_ID = "monitoring_time_range";
+    private static final String FIELD_PID = "pid";
     private static final String FIELD_DEPT_ID = "dept_id";
     private static final String FIELD_QUERY_START = "query_start";
     private static final String FIELD_TIME_TXT = "time_txt";
     private static final String FIELD_UNIT_TXT = "unit_txt";
     private static final String TIME_TEXT = "时间";
     private static final String UNIT_TEXT = "单位";
-
-    private final BalanceStatsShiftRepository balanceStatsShiftRepo;
 }

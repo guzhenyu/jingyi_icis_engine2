@@ -38,6 +38,8 @@ import com.jingyicare.jingyi_icis_engine.service.patients.PatientDeviceService;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.shifts.ConfigShiftUtils;
+import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
+import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ReturnCodeUtils;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
@@ -57,7 +59,8 @@ public class JfkDataSourceSupport {
         @Autowired DeptScoreGroupRepository deptScoreGroupRepo,
         @Autowired PatientScoreRepository patientScoreRepo,
         @Autowired ReportProperties reportProperties,
-        @Autowired ResourceLoader resourceLoader
+        @Autowired ResourceLoader resourceLoader,
+        @Autowired StatisticsDayWindowResolver statisticsDayWindowResolver
     ) {
         this.patientService = patientService;
         this.patientDevService = patientDevService;
@@ -67,6 +70,7 @@ public class JfkDataSourceSupport {
         this.accountRepo = accountRepo;
         this.deptScoreGroupRepo = deptScoreGroupRepo;
         this.patientScoreRepo = patientScoreRepo;
+        this.statisticsDayWindowResolver = statisticsDayWindowResolver;
 
         this.zoneId = protoService.getConfig().getZoneId();
         this.statusMsgList = protoService.getConfig().getText().getStatusCodeMsgList();
@@ -257,6 +261,47 @@ public class JfkDataSourceSupport {
         return new Pair<>(ReturnCodeUtils.getReturnCode(statusMsgList, StatusCode.OK), info);
     }
 
+    public record PatientDayContext(PatientRecord patient, StatisticsDayWindow dayWindow) {}
+
+    public Pair<ReturnCode, PatientDayContext> resolvePatientDayContext(Long pid,
+        String queryStartIso) {
+        PatientRecord patient = getPatientService().getPatientRecord(pid);
+        if (patient == null) {
+            return patientDayError(StatusCode.PATIENT_NOT_FOUND, "pid: " + pid);
+        }
+        String deptId = patient.getDeptId();
+        if (StrUtils.isBlank(deptId)) {
+            return patientDayError(StatusCode.DEPT_NOT_FOUND, "pid: " + pid);
+        }
+        LocalDateTime utcStart = TimeUtils.fromIso8601String(queryStartIso, "UTC");
+        if (utcStart == null) {
+            return patientDayError(StatusCode.INVALID_TIME_FORMAT, "query_start");
+        }
+        try {
+            StatisticsDayWindow day = resolveStatisticsDayWindow(deptId, utcStart);
+            return new Pair<>(ReturnCodeUtils.getReturnCode(getStatusMsgList(), StatusCode.OK),
+                new PatientDayContext(patient, day));
+        } catch (IllegalArgumentException e) {
+            return patientDayError(StatusCode.INVALID_PARAM_VALUE, e.getMessage());
+        }
+    }
+
+    public StatisticsDayWindow resolveStatisticsDayWindow(String deptId,
+        LocalDateTime queryStartUtc) {
+        // 旧 JFK query_start 以中点所在当地日期定日；公共入口只接收当地午夜 UTC。
+        LocalDateTime localMiddle = TimeUtils.getLocalDateTimeFromUtc(queryStartUtc.plusHours(12),
+            getZoneId());
+        LocalDateTime midnightUtc = TimeUtils.getUtcFromLocalDateTime(localMiddle.toLocalDate()
+            .atStartOfDay(), getZoneId());
+        return statisticsDayWindowResolver.resolve(midnightUtc, getZoneId(), deptId);
+    }
+
+    private Pair<ReturnCode, PatientDayContext> patientDayError(StatusCode statusCode,
+        String detail) {
+        return new Pair<>(ReturnCodeUtils.getReturnCode(getStatusMsgList(), statusCode, detail),
+            null);
+    }
+
     public Optional<JfkDataSourceMetaPB> getConfiguredDataSourceMeta(String metaId) {
         return Optional.ofNullable(jfkDataSourceMetaMap.get(metaId));
     }
@@ -319,6 +364,7 @@ public class JfkDataSourceSupport {
     private final AccountRepository accountRepo;
     private final DeptScoreGroupRepository deptScoreGroupRepo;
     private final PatientScoreRepository patientScoreRepo;
+    private final StatisticsDayWindowResolver statisticsDayWindowResolver;
 
     private final String zoneId;
     private final List<String> statusMsgList;

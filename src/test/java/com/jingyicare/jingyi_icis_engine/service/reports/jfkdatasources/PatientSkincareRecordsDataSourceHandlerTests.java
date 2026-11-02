@@ -40,6 +40,7 @@ import com.jingyicare.jingyi_icis_engine.repository.skincares.SkincareTypeReposi
 import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
+import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
@@ -267,7 +268,6 @@ public class PatientSkincareRecordsDataSourceHandlerTests {
 
     private static class TestContext {
         private final JfkDataSourceSupport support = mock(JfkDataSourceSupport.class);
-        private final MonitoringWindowResolver monitoringWindowResolver = mock(MonitoringWindowResolver.class);
         private final PatientSkincareRecordRepository skincareRecordRepo = mock(PatientSkincareRecordRepository.class);
         private final PatientSkincarePlanRepository skincarePlanRepo = mock(PatientSkincarePlanRepository.class);
         private final PatientSkincarePlanAttrRepository skincarePlanAttrRepo = mock(PatientSkincarePlanAttrRepository.class);
@@ -290,12 +290,13 @@ public class PatientSkincareRecordsDataSourceHandlerTests {
                     .setMetaId(input.getMetaId())
                     .addAllInputData(input.getInputDataList());
             });
-            when(monitoringWindowResolver.resolve(10001L, "2026-04-17T00:00Z"))
+            when(support.resolvePatientDayContext(10001L, "2026-04-17T00:00Z"))
                 .thenReturn(new Pair<>(
                     ReturnCode.newBuilder().setCode(StatusCode.OK.ordinal()).build(),
-                    new MonitoringWindow(
-                        patient, "patient-dept", MON_START_UTC, MON_END_UTC,
-                        MON_START_LOCAL, MON_END_LOCAL, 7
+                    new JfkDataSourceSupport.PatientDayContext(
+                        patient, new StatisticsDayWindow(
+                            MON_START_UTC, MON_END_UTC, MON_START_UTC, MON_END_UTC,
+                            7, 7, 12)
                     )
                 ));
             reportProperties.getCompact().setFont("classpath:/fonts/msyh.ttf");
@@ -305,7 +306,6 @@ public class PatientSkincareRecordsDataSourceHandlerTests {
         private PatientSkincareRecordsDataSourceHandler handler() {
             return new PatientSkincareRecordsDataSourceHandler(
                 support,
-                monitoringWindowResolver,
                 skincareRecordRepo,
                 skincarePlanRepo,
                 skincarePlanAttrRepo,

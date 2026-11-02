@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -17,6 +18,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
@@ -25,6 +27,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkFieldDataPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
+import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 
 public class MonitoringTimeRangeDataSourceHandlerTests {
@@ -32,8 +35,10 @@ public class MonitoringTimeRangeDataSourceHandlerTests {
     public void handleReturnsTwentyFourHourLabelsFromMonitoringStartHour() {
         JfkDataSourceSupport support = mockSupport();
         BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
-        MonitoringTimeRangeDataSourceHandler handler =
-            new MonitoringTimeRangeDataSourceHandler(support, balanceStatsShiftRepo);
+        ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
+            new StatisticsDayWindowResolver(balanceStatsShiftRepo));
+        MonitoringTimeRangeDataSourceHandler handler = new MonitoringTimeRangeDataSourceHandler(
+            support);
 
         LocalDateTime utcEnd = LocalDateTime.of(2026, 4, 17, 0, 0);
         when(balanceStatsShiftRepo
@@ -71,8 +76,10 @@ public class MonitoringTimeRangeDataSourceHandlerTests {
     public void handleFallsBackToBalanceStartHourWhenMonitoringStartHourIsMissing() {
         JfkDataSourceSupport support = mockSupport();
         BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
-        MonitoringTimeRangeDataSourceHandler handler =
-            new MonitoringTimeRangeDataSourceHandler(support, balanceStatsShiftRepo);
+        ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
+            new StatisticsDayWindowResolver(balanceStatsShiftRepo));
+        MonitoringTimeRangeDataSourceHandler handler = new MonitoringTimeRangeDataSourceHandler(
+            support);
 
         LocalDateTime utcEnd = LocalDateTime.of(2026, 4, 17, 0, 0);
         when(balanceStatsShiftRepo
@@ -98,9 +105,27 @@ public class MonitoringTimeRangeDataSourceHandlerTests {
         assertThat(output.get("hour24")).containsExactly("5:00");
     }
 
+    @Test
+    public void legacyMidpointMaySelectTheFollowingLocalDate() {
+        JfkDataSourceSupport support = mockSupport();
+        when(support.getZoneId()).thenReturn("Asia/Shanghai");
+        BalanceStatsShiftRepository repo = mock(BalanceStatsShiftRepository.class);
+        ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
+            new StatisticsDayWindowResolver(repo));
+        var window = support.resolveStatisticsDayWindow("10042", LocalDateTime.of(2026, 4, 16, 6,
+            0));
+        assertThat(window.monitoringStartUtc()).isEqualTo("2026-04-17T00:00:00");
+        assertThat(window.monitoringEndUtc()).isEqualTo("2026-04-18T00:00:00");
+        verify(repo)
+            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(
+            "10042", LocalDateTime.of(2026, 4, 17, 16, 0));
+    }
+
     private JfkDataSourceSupport mockSupport() {
         JfkDataSourceSupport support = mock(JfkDataSourceSupport.class);
         when(support.getStatusMsgList()).thenReturn(Collections.nCopies(400, "status"));
+        when(support.getZoneId()).thenReturn("UTC");
+        doCallRealMethod().when(support).resolveStatisticsDayWindow(any(), any());
         when(support.newOutputBuilder(any(JfkDataSourcePB.class))).thenAnswer(invocation -> {
             JfkDataSourcePB input = invocation.getArgument(0);
             return JfkDataSourcePB.newBuilder()

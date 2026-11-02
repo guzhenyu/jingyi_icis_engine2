@@ -39,6 +39,7 @@ import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.PdfFontSet;
+import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
@@ -50,7 +51,6 @@ import com.jingyicare.jingyi_icis_engine.utils.ValueMetaUtils;
 public class PatientBgaRecordsDataSourceHandler extends AbstractJfkDataSourceHandler {
     public PatientBgaRecordsDataSourceHandler(
         JfkDataSourceSupport support,
-        MonitoringWindowResolver monitoringWindowResolver,
         PatientBgaRecordRepository recordRepo,
         PatientBgaRecordDetailRepository detailRepo,
         BgaParamRepository bgaParamRepo,
@@ -61,7 +61,6 @@ public class PatientBgaRecordsDataSourceHandler extends AbstractJfkDataSourceHan
         ResourceLoader resourceLoader
     ) {
         super(support);
-        this.monitoringWindowResolver = monitoringWindowResolver;
         this.recordRepo = recordRepo;
         this.detailRepo = detailRepo;
         this.bgaParamRepo = bgaParamRepo;
@@ -93,18 +92,20 @@ public class PatientBgaRecordsDataSourceHandler extends AbstractJfkDataSourceHan
             return error(StatusCode.JFK_MISSING_REQUIRED_FIELD, joinMissingFields(missingFields));
         }
 
-        Pair<ReturnCode, MonitoringWindow> windowResult = monitoringWindowResolver.resolve(pid, queryStartIso);
+        Pair<ReturnCode, JfkDataSourceSupport.PatientDayContext> windowResult = support
+            .resolvePatientDayContext(pid, queryStartIso);
         if (windowResult.getFirst().getCode() != StatusCode.OK.ordinal()) {
             return new Pair<>(windowResult.getFirst(), null);
         }
 
-        MonitoringWindow window = windowResult.getSecond();
+        StatisticsDayWindow window = windowResult.getSecond().dayWindow();
+        String deptId = windowResult.getSecond().patient().getDeptId();
         List<PatientBgaRecord> records = recordRepo
             .findByPidAndEffectiveTimeGreaterThanEqualAndEffectiveTimeLessThanAndIsDeletedFalseOrderByEffectiveTimeAsc(
-                pid, window.monStartUtc(), window.monEndUtc());
+                pid, window.monitoringStartUtc(), window.monitoringEndUtc());
         Map<Long, List<PatientBgaRecordDetail>> detailsByRecordId = findDetails(records);
-        Map<String, MonitoringParamPB> paramMap = monitoringConfig.getMonitoringParams(window.deptId());
-        Map<String, Integer> bgaParamOrder = bgaParamOrder(window.deptId());
+        Map<String, MonitoringParamPB> paramMap = monitoringConfig.getMonitoringParams(deptId);
+        Map<String, Integer> bgaParamOrder = bgaParamOrder(deptId);
         JfkSignatureValueResolver signatureResolver = new JfkSignatureValueResolver(
             accountRepo, bgaSignatureAccountRefs(records), log, "Compact BGA records");
 
@@ -387,7 +388,6 @@ public class PatientBgaRecordsDataSourceHandler extends AbstractJfkDataSourceHan
     private static final double DEFAULT_FONT_SIZE = 8d;
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd H:mm");
 
-    private final MonitoringWindowResolver monitoringWindowResolver;
     private final PatientBgaRecordRepository recordRepo;
     private final PatientBgaRecordDetailRepository detailRepo;
     private final BgaParamRepository bgaParamRepo;

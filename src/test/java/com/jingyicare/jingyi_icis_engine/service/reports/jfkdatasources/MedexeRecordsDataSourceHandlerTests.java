@@ -3,8 +3,13 @@ package com.jingyicare.jingyi_icis_engine.service.reports.jfkdatasources;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
@@ -16,7 +21,11 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.core.io.DefaultResourceLoader;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.jingyicare.jingyi_icis_engine.entity.medications.AdministrationRoute;
 import com.jingyicare.jingyi_icis_engine.entity.medications.MedicationExecutionAction;
@@ -44,6 +53,7 @@ import com.jingyicare.jingyi_icis_engine.service.medications.MedMonitoringServic
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
+import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
@@ -51,21 +61,37 @@ public class MedexeRecordsDataSourceHandlerTests {
     @Test
     public void handleBuildsContinuousAndNoncontinuousRowsFromStats() {
         TestContext ctx = new TestContext();
-        ctx.withShift(7);
+        ctx.withShift(6);
+        ctx.startUtc = LocalDateTime.of(2026, 4, 15, 22, 0);
+        ctx.endUtc = LocalDateTime.of(2026, 4, 16, 22, 0);
+        // 旧 UTC +24h 截止会误选当地次日 02:00 生效的新配置。
+        when(ctx.balanceStatsShiftRepo
+            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(
+                "patient-dept", LocalDateTime.of(2026, 4, 17, 0, 0)))
+            .thenReturn(Optional.of(BalanceStatsShift.builder().startHour(10).monStartHour(7)
+                .effectiveTime(LocalDateTime.of(2026, 4, 16, 18, 0)).build()));
 
         MedicationOrderGroup infusionGroup = group(201L, "iv");
         MedicationOrderGroup pushGroup = group(202L, "push");
-        MedicationExecutionRecord infusionRecord = record(301L, 201L, "iv", true, LocalDateTime.of(2026, 4, 15, 23, 10));
-        MedicationExecutionRecord pushRecord = record(302L, 202L, "push", false, LocalDateTime.of(2026, 4, 16, 0, 5));
+        MedicationExecutionRecord infusionRecord = record(301L, 201L, "iv", true, ctx.startUtc
+            .plusMinutes(10));
+        MedicationExecutionRecord pushRecord = record(302L, 202L, "push", false, ctx.startUtc
+            .plusHours(1).plusMinutes(5));
         ctx.withRecords(List.of(infusionRecord, pushRecord), List.of(infusionGroup, pushGroup));
         ctx.withRoutes(route("iv", "静脉滴注", true, 1), route("push", "静脉推注", false, 1));
         ctx.withStats(List.of(
-            stat(401L, 201L, 301L, START_UTC, 10.25),
-            stat(402L, 201L, 301L, START_UTC.plusHours(1), 5d),
-            stat(403L, 202L, 302L, START_UTC.plusHours(1), 5.5)
+            stat(401L, 201L, 301L, ctx.startUtc, 10.25),
+            stat(402L, 201L, 301L, ctx.startUtc.plusHours(1), 5d),
+            stat(403L, 202L, 302L, ctx.startUtc.plusHours(1), 5.5),
+            stat(404L, 201L, 301L, ctx.startUtc.minusHours(1), 999d),
+            stat(405L, 201L, 301L, ctx.endUtc, 999d),
+            stat(406L, 201L, 301L, ctx.startUtc.plusMinutes(30), 999d)
         ));
         ctx.withActions(List.of(
-            action(501L, 302L, START_UTC.plusHours(1).plusMinutes(38), 5.5)
+            action(501L, 302L, ctx.startUtc.plusHours(1).plusMinutes(38), 5.5),
+            action(504L, 302L, ctx.startUtc.plusHours(1).plusMinutes(45), 1d),
+            action(502L, 302L, ctx.startUtc.minusSeconds(1), 999d),
+            action(503L, 302L, ctx.endUtc, 999d)
         ));
         ctx.withDosage(infusionGroup, infusionRecord, "持续补液");
         ctx.withDosage(pushGroup, pushRecord, "静推药物");
@@ -78,8 +104,22 @@ public class MedexeRecordsDataSourceHandlerTests {
         assertThat(output.get("route_txt")).containsExactly(List.of("静脉滴注"), List.of("静脉推注"));
         assertThat(output.get("acc_ml")).containsExactly(List.of("15.3"), List.of("5.5"));
         assertThat(output.get("hour1")).containsExactly(List.of("10.3"), List.of(""));
-        assertThat(output.get("hour2")).containsExactly(List.of("5"), List.of("5.5", "8:38"));
+        assertThat(output.get("hour2")).containsExactly(List.of("5"), List.of("5.5", "7:38"));
         assertThat(output.get("hour24")).hasSize(2);
+        verify(ctx.exeRecordRepo).findInProgressRecordsByPatientId(10001L, ctx.endUtc);
+        verify(ctx.exeRecordRepo).findCompletedRecordsByPatientId(10001L, ctx.startUtc, ctx.endUtc);
+        verify(ctx.statRepo).findAllByPatientIdAndStatsTimeRange(10001L, ctx.startUtc, ctx.endUtc);
+
+        var title = new MedexeTimeRangeDataSourceHandler(ctx.support).handle(input());
+        assertThat(title.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        Map<String, String> labels = title.getSecond().getOutputDataList().stream()
+            .collect(Collectors.toMap(JfkFieldDataPB::getId, field -> field.getVals(0).getStrVal(
+                )));
+        assertThat(labels).containsEntry("hour1", "6:00").containsEntry("hour24", "5:00");
+        verify(ctx.balanceStatsShiftRepo, times(2))
+            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(
+                "patient-dept", QUERY_UTC_END);
+        verifyNoMoreInteractions(ctx.balanceStatsShiftRepo);
     }
 
     @Test
@@ -108,6 +148,10 @@ public class MedexeRecordsDataSourceHandlerTests {
         assertThat(output.get("med_order_txt")).containsExactly(List.of("临时计算补液"));
         assertThat(output.get("hour3")).containsExactly(List.of("7"));
         verify(ctx.medMonitoringService).calcFluidIntakeImpl(eq(true), eq(dosage), any(), eq(END_UTC));
+        verify(ctx.exeRecordRepo, never()).save(any());
+        verify(ctx.exeRecordRepo, never()).saveAll(any());
+        verify(ctx.statRepo, never()).save(any());
+        verify(ctx.statRepo, never()).saveAll(any());
     }
 
     @Test
@@ -177,15 +221,49 @@ public class MedexeRecordsDataSourceHandlerTests {
         assertThat(output.get("hour1")).containsExactly(List.of("8", "7:20"));
     }
 
-    @Test
-    public void handleReturnsErrorWhenStartHourIsInvalid() {
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(ints = {-1, 24})
+    public void handleReturnsErrorWhenStartHourIsInvalid(Integer startHour) {
         TestContext ctx = new TestContext();
-        ctx.withShift(24);
+        ctx.withShift(startHour);
 
         Pair<ReturnCode, JfkDataSourcePB> result = ctx.handler().handle(input());
 
         assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.INVALID_PARAM_VALUE.ordinal());
         assertThat(result.getSecond()).isNull();
+        verifyNoInteractions(ctx.exeRecordRepo, ctx.statRepo);
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(ints = {0})
+    public void handleUsesDefaultOrConfiguredMidnightWindow(Integer configuredHour) {
+        TestContext ctx = new TestContext();
+        if (configuredHour != null) ctx.withShift(configuredHour);
+        ctx.startUtc = configuredHour == null ? LocalDateTime.of(2026, 4, 16, 0, 0)
+            : LocalDateTime.of(2026, 4, 15, 16, 0);
+        ctx.endUtc = ctx.startUtc.plusDays(1);
+        ctx.withRecords(List.of(), List.of());
+
+        var result = ctx.handler().handle(input());
+
+        assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        assertThat(toOutputMap(result.getSecond()).get("hour1")).isEmpty();
+        verify(ctx.exeRecordRepo).findInProgressRecordsByPatientId(10001L, ctx.endUtc);
+        verify(ctx.exeRecordRepo).findCompletedRecordsByPatientId(10001L, ctx.startUtc, ctx.endUtc);
+    }
+
+    @Test
+    public void handleReturnsPatientNotFoundBeforeResolvingWindow() {
+        TestContext ctx = new TestContext();
+        when(ctx.patientService.getPatientRecord(10001L)).thenReturn(null);
+
+        var result = ctx.handler().handle(input());
+
+        assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.PATIENT_NOT_FOUND.ordinal());
+        assertThat(result.getSecond()).isNull();
+        verifyNoInteractions(ctx.balanceStatsShiftRepo, ctx.exeRecordRepo, ctx.statRepo);
     }
 
     @Test
@@ -204,9 +282,14 @@ public class MedexeRecordsDataSourceHandlerTests {
             .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept", QUERY_UTC_END);
     }
 
-    @Test
-    public void handleFallsBackToInputDeptWhenPidIsMissing() {
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void handleFallsBackToInputDeptWhenPidOrPatientDeptIsMissing(
+        boolean hasPatientWithoutDept) {
         TestContext ctx = new TestContext();
+        if (hasPatientWithoutDept) {
+            when(ctx.patientService.getPatientRecord(10001L)).thenReturn(new PatientRecord());
+        }
         when(ctx.balanceStatsShiftRepo
             .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(
                 "request-dept", QUERY_UTC_END))
@@ -218,13 +301,18 @@ public class MedexeRecordsDataSourceHandlerTests {
                 .isDeleted(false)
                 .build()));
 
-        Pair<ReturnCode, JfkDataSourcePB> result = ctx.handler().handle(inputWithoutPid());
+        Pair<ReturnCode, JfkDataSourcePB> result = ctx.handler().handle(
+            hasPatientWithoutDept ? input() : inputWithoutPid());
 
         assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
         Map<String, List<List<String>>> output = toOutputMap(result.getSecond());
         assertThat(output.get("med_order_txt")).isEmpty();
         verify(ctx.balanceStatsShiftRepo)
             .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc("request-dept", QUERY_UTC_END);
+        assertThat(output).hasSize(27);
+        assertThat(output.values()).allSatisfy(values -> assertThat(values).isEmpty());
+        verifyNoInteractions(ctx.statRepo);
+        if (!hasPatientWithoutDept) verifyNoInteractions(ctx.patientService, ctx.exeRecordRepo);
     }
 
     private static JfkDataSourcePB input() {
@@ -408,6 +496,8 @@ public class MedexeRecordsDataSourceHandlerTests {
         private final AdministrationRouteRepository routeRepo = mock(AdministrationRouteRepository.class);
         private final MedicationConfig medConfig = mock(MedicationConfig.class);
         private final MedMonitoringService medMonitoringService = mock(MedMonitoringService.class);
+        private LocalDateTime startUtc = START_UTC;
+        private LocalDateTime endUtc = END_UTC;
 
         private TestContext() {
             PatientRecord patient = new PatientRecord();
@@ -417,6 +507,10 @@ public class MedexeRecordsDataSourceHandlerTests {
             when(support.getStatusMsgList()).thenReturn(Collections.nCopies(400, "status"));
             when(support.getZoneId()).thenReturn("Asia/Shanghai");
             when(support.getPatientService()).thenReturn(patientService);
+            doCallRealMethod().when(support).resolveStatisticsDayWindow(any(), any());
+            doCallRealMethod().when(support).addArrayOutput(any(), any(), any());
+            ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
+                new StatisticsDayWindowResolver(balanceStatsShiftRepo));
             when(support.newOutputBuilder(any(JfkDataSourcePB.class))).thenAnswer(invocation -> {
                 JfkDataSourcePB input = invocation.getArgument(0);
                 return JfkDataSourcePB.newBuilder()
@@ -437,7 +531,6 @@ public class MedexeRecordsDataSourceHandlerTests {
             properties.getCompact().setMedicationMlDecimalPlaces(1);
             return new MedexeRecordsDataSourceHandler(
                 support,
-                balanceStatsShiftRepo,
                 exeRecordRepo,
                 statRepo,
                 orderGroupRepo,
@@ -450,7 +543,7 @@ public class MedexeRecordsDataSourceHandlerTests {
             );
         }
 
-        private void withShift(int startHour) {
+        private void withShift(Integer startHour) {
             when(balanceStatsShiftRepo
                 .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(
                     "patient-dept", QUERY_UTC_END))
@@ -458,14 +551,17 @@ public class MedexeRecordsDataSourceHandlerTests {
                     .id(1L)
                     .deptId("patient-dept")
                     .startHour(startHour)
+                    .monStartHour(7)
                     .effectiveTime(LocalDateTime.of(2026, 4, 1, 0, 0))
                     .isDeleted(false)
                     .build()));
         }
 
         private void withRecords(List<MedicationExecutionRecord> records, List<MedicationOrderGroup> groups) {
-            when(exeRecordRepo.findInProgressRecordsByPatientId(10001L, END_UTC)).thenReturn(List.of());
-            when(exeRecordRepo.findCompletedRecordsByPatientId(10001L, START_UTC, END_UTC)).thenReturn(records);
+            when(exeRecordRepo.findInProgressRecordsByPatientId(10001L, endUtc)).thenReturn(List.of(
+                ));
+            when(exeRecordRepo.findCompletedRecordsByPatientId(10001L, startUtc, endUtc))
+                .thenReturn(records);
             when(orderGroupRepo.findByIds(groups.stream().map(MedicationOrderGroup::getId).toList()))
                 .thenReturn(groups);
         }
@@ -476,7 +572,8 @@ public class MedexeRecordsDataSourceHandlerTests {
         }
 
         private void withStats(List<MedicationExecutionRecordStat> stats) {
-            when(statRepo.findAllByPatientIdAndStatsTimeRange(10001L, START_UTC, END_UTC)).thenReturn(stats);
+            when(statRepo.findAllByPatientIdAndStatsTimeRange(10001L, startUtc, endUtc)).thenReturn(
+                stats);
         }
 
         private void withActions(List<MedicationExecutionAction> actions) {
@@ -494,7 +591,7 @@ public class MedexeRecordsDataSourceHandlerTests {
         }
     }
 
-    private static final LocalDateTime QUERY_UTC_END = LocalDateTime.of(2026, 4, 17, 0, 0);
+    private static final LocalDateTime QUERY_UTC_END = LocalDateTime.of(2026, 4, 16, 16, 0);
     private static final LocalDateTime START_UTC = LocalDateTime.of(2026, 4, 15, 23, 0);
     private static final LocalDateTime END_UTC = START_UTC.plusHours(24);
 }

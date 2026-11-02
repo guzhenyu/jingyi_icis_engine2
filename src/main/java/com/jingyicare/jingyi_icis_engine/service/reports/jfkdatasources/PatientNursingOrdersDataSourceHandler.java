@@ -32,6 +32,7 @@ import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.PdfFontSet;
+import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
@@ -41,14 +42,12 @@ import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 public class PatientNursingOrdersDataSourceHandler extends AbstractJfkDataSourceHandler {
     public PatientNursingOrdersDataSourceHandler(
         JfkDataSourceSupport support,
-        MonitoringWindowResolver monitoringWindowResolver,
         NursingExecutionRecordRepository nursingExecutionRecordRepo,
         AccountRepository accountRepo,
         ReportProperties reportProperties,
         ResourceLoader resourceLoader
     ) {
         super(support);
-        this.monitoringWindowResolver = monitoringWindowResolver;
         this.nursingExecutionRecordRepo = nursingExecutionRecordRepo;
         this.accountRepo = accountRepo;
         this.reportProperties = reportProperties;
@@ -79,21 +78,23 @@ public class PatientNursingOrdersDataSourceHandler extends AbstractJfkDataSource
             return error(StatusCode.JFK_MISSING_REQUIRED_FIELD, joinMissingFields(missingFields));
         }
 
-        Pair<ReturnCode, MonitoringWindow> windowResult = monitoringWindowResolver.resolve(pid, queryStartIso);
+        Pair<ReturnCode, JfkDataSourceSupport.PatientDayContext> windowResult = support
+            .resolvePatientDayContext(pid, queryStartIso);
         if (windowResult.getFirst().getCode() != StatusCode.OK.ordinal()) {
             return new Pair<>(windowResult.getFirst(), null);
         }
 
-        MonitoringWindow window = windowResult.getSecond();
-        if (!StrUtils.isBlank(requestDeptId) && !requestDeptId.equals(window.deptId())) {
+        StatisticsDayWindow window = windowResult.getSecond().dayWindow();
+        String deptId = windowResult.getSecond().patient().getDeptId();
+        if (!StrUtils.isBlank(requestDeptId) && !requestDeptId.equals(deptId)) {
             log.warn(
                 "Compact nursing orders dept_id mismatch, pid={}, requestDeptId={}, patientDeptId={}",
-                pid, requestDeptId, window.deptId()
+                pid, requestDeptId, deptId
             );
         }
 
         List<NursingExecutionRecordReportRow> executionRecords = nursingExecutionRecordRepo.findReportNursingExecutionRecords(
-            pid, window.monStartUtc(), window.monEndUtc());
+            pid, window.monitoringStartUtc(), window.monitoringEndUtc());
 
         JfkDataSourcePB.Builder outputBuilder = newOutputBuilder(input);
         if (executionRecords.isEmpty()) {
@@ -371,7 +372,6 @@ public class PatientNursingOrdersDataSourceHandler extends AbstractJfkDataSource
     private static final double DEFAULT_FONT_SIZE = 8d;
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-    private final MonitoringWindowResolver monitoringWindowResolver;
     private final NursingExecutionRecordRepository nursingExecutionRecordRepo;
     private final AccountRepository accountRepo;
     private final ReportProperties reportProperties;

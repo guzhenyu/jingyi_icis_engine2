@@ -17,8 +17,6 @@ import org.springframework.stereotype.Component;
 import lombok.extern.slf4j.Slf4j;
 
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientMonitoringRecord;
-import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
-import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkFieldDataPB;
@@ -28,16 +26,15 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringV
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.ValueMetaPB;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientMonitoringRecordRepository;
-import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.PdfFontSet;
+import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
-import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 import com.jingyicare.jingyi_icis_engine.utils.ValueMetaUtils;
 
 @Component
@@ -46,14 +43,12 @@ public class PatientMonitoringRecordsDataSourceHandler extends AbstractJfkDataSo
     public PatientMonitoringRecordsDataSourceHandler(
         JfkDataSourceSupport support,
         PatientMonitoringRecordRepository recordRepo,
-        BalanceStatsShiftRepository balanceStatsShiftRepo,
         MonitoringConfig monitoringConfig,
         ReportProperties reportProperties,
         ResourceLoader resourceLoader
     ) {
         super(support);
         this.recordRepo = recordRepo;
-        this.balanceStatsShiftRepo = balanceStatsShiftRepo;
         this.monitoringConfig = monitoringConfig;
         this.reportProperties = reportProperties;
         this.resourceLoader = resourceLoader;
@@ -85,15 +80,13 @@ public class PatientMonitoringRecordsDataSourceHandler extends AbstractJfkDataSo
             return error(StatusCode.JFK_MISSING_REQUIRED_FIELD, joinMissingFields(missingFields));
         }
 
-        PatientRecord patient = support.getPatientService().getPatientRecord(pid);
-        if (patient == null) {
-            return error(StatusCode.PATIENT_NOT_FOUND, "pid: " + pid);
+        Pair<ReturnCode, JfkDataSourceSupport.PatientDayContext> windowResult = support
+            .resolvePatientDayContext(pid, queryStartIso);
+        if (windowResult.getFirst().getCode() != StatusCode.OK.ordinal()) {
+            return new Pair<>(windowResult.getFirst(), null);
         }
-
-        String deptId = patient.getDeptId();
-        if (StrUtils.isBlank(deptId)) {
-            return error(StatusCode.DEPT_NOT_FOUND, "pid: " + pid);
-        }
+        StatisticsDayWindow window = windowResult.getSecond().dayWindow();
+        String deptId = windowResult.getSecond().patient().getDeptId();
         if (!StrUtils.isBlank(requestDeptId) && !requestDeptId.equals(deptId)) {
             log.warn(
                 "Compact report patient dept_id mismatch, pid={}, requestDeptId={}, patientDeptId={}",
@@ -101,32 +94,8 @@ public class PatientMonitoringRecordsDataSourceHandler extends AbstractJfkDataSo
             );
         }
 
-        LocalDateTime utcStart = TimeUtils.fromIso8601String(queryStartIso, "UTC");
-        if (utcStart == null) {
-            return error(StatusCode.INVALID_TIME_FORMAT, FIELD_QUERY_START);
-        }
-        LocalDateTime utcEnd = utcStart.plusHours(24);
-
-        BalanceStatsShift shift = balanceStatsShiftRepo
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(deptId, utcEnd)
-            .orElse(null);
-        if (shift == null) {
-            return error(StatusCode.BALANCE_STATS_SHIFT_NOT_FOUND, "deptId: " + deptId);
-        }
-
-        Integer monStartHour = normalizeStartHour(shift);
-        if (monStartHour == null) {
-            return error(
-                StatusCode.INVALID_PARAM_VALUE,
-                "deptId: " + deptId + ", balanceStatsShiftId: " + shift.getId()
-            );
-        }
-
-        LocalDateTime utcMiddle = utcStart.plusHours(12);
-        LocalDateTime localMiddle = TimeUtils.getLocalDateTimeFromUtc(utcMiddle, support.getZoneId());
-        LocalDateTime localMidnight = localMiddle.toLocalDate().atStartOfDay();
-        LocalDateTime monStartUtc = TimeUtils.getUtcFromLocalDateTime(localMidnight.plusHours(monStartHour), support.getZoneId());
-        LocalDateTime monEndUtc = monStartUtc.plusHours(24);
+        LocalDateTime monStartUtc = window.monitoringStartUtc();
+        LocalDateTime monEndUtc = window.monitoringEndUtc();
 
         Map<String, MonitoringParamPB> paramMap = monitoringConfig.getMonitoringParams(deptId);
         List<String> validParamCodes = new ArrayList<>();
@@ -192,16 +161,6 @@ public class PatientMonitoringRecordsDataSourceHandler extends AbstractJfkDataSo
             result.add(paramCode);
         }
         return result;
-    }
-
-    private Integer normalizeStartHour(BalanceStatsShift shift) {
-        if (shift.getMonStartHour() != null && TimeUtils.isValidHour(shift.getMonStartHour())) {
-            return shift.getMonStartHour();
-        }
-        if (shift.getStartHour() != null && TimeUtils.isValidHour(shift.getStartHour())) {
-            return shift.getStartHour();
-        }
-        return null;
     }
 
     private Map<String, Map<Integer, PatientMonitoringRecord>> indexRecords(
@@ -401,7 +360,6 @@ public class PatientMonitoringRecordsDataSourceHandler extends AbstractJfkDataSo
     private static final double DEFAULT_FONT_SIZE = 8d;
 
     private final PatientMonitoringRecordRepository recordRepo;
-    private final BalanceStatsShiftRepository balanceStatsShiftRepo;
     private final MonitoringConfig monitoringConfig;
     private final ReportProperties reportProperties;
     private final ResourceLoader resourceLoader;

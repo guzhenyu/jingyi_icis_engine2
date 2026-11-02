@@ -3,6 +3,7 @@ package com.jingyicare.jingyi_icis_engine.service.reports.jfkdatasources;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -16,6 +17,7 @@ import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.DefaultResourceLoader;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.BgaParam;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientBgaRecord;
@@ -46,6 +48,7 @@ import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
+import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
@@ -55,7 +58,7 @@ public class PatientBgaRecordsDataSourceHandlerTests {
         TestContext ctx = new TestContext();
         PatientBgaRecordsDataSourceHandler handler = ctx.handler();
 
-        LocalDateTime queryUtcEnd = LocalDateTime.of(2026, 4, 17, 0, 0);
+        LocalDateTime queryUtcEnd = LocalDateTime.of(2026, 4, 16, 16, 0);
         when(ctx.balanceStatsShiftRepo
             .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept", queryUtcEnd))
             .thenReturn(Optional.of(BalanceStatsShift.builder()
@@ -286,6 +289,10 @@ public class PatientBgaRecordsDataSourceHandlerTests {
             when(support.getStatusMsgList()).thenReturn(Collections.nCopies(400, "status"));
             when(support.getZoneId()).thenReturn("Asia/Shanghai");
             when(support.getPatientService()).thenReturn(patientService);
+            ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
+                new StatisticsDayWindowResolver(balanceStatsShiftRepo));
+            doCallRealMethod().when(support).resolvePatientDayContext(any(), any());
+            doCallRealMethod().when(support).resolveStatisticsDayWindow(any(), any());
             when(support.newOutputBuilder(any(JfkDataSourcePB.class))).thenAnswer(invocation -> {
                 JfkDataSourcePB input = invocation.getArgument(0);
                 return JfkDataSourcePB.newBuilder()
@@ -305,7 +312,6 @@ public class PatientBgaRecordsDataSourceHandlerTests {
         private PatientBgaRecordsDataSourceHandler handler() {
             return new PatientBgaRecordsDataSourceHandler(
                 support,
-                new MonitoringWindowResolver(support, balanceStatsShiftRepo),
                 recordRepo,
                 detailRepo,
                 bgaParamRepo,

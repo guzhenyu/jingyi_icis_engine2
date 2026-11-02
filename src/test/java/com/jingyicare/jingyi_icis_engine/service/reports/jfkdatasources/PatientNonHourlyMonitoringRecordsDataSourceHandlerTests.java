@@ -40,6 +40,7 @@ import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
@@ -209,7 +210,6 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandlerTests {
 
     private static class TestContext {
         private final JfkDataSourceSupport support = mock(JfkDataSourceSupport.class);
-        private final MonitoringWindowResolver monitoringWindowResolver = mock(MonitoringWindowResolver.class);
         private final PatientMonitoringRecordRepository monitoringRecordRepo = mock(PatientMonitoringRecordRepository.class);
         private final MonitoringConfig monitoringConfig = mock(MonitoringConfig.class);
         private final ConfigProtoService configProtoService = mock(ConfigProtoService.class);
@@ -229,12 +229,13 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandlerTests {
                     .setMetaId(input.getMetaId())
                     .addAllInputData(input.getInputDataList());
             });
-            when(monitoringWindowResolver.resolve(10001L, "2026-04-17T00:00Z"))
+            when(support.resolvePatientDayContext(10001L, "2026-04-17T00:00Z"))
                 .thenReturn(new Pair<>(
                     ReturnCode.newBuilder().setCode(StatusCode.OK.ordinal()).build(),
-                    new MonitoringWindow(
-                        patient, "patient-dept", MON_START_UTC, MON_END_UTC,
-                        MON_START_LOCAL, MON_END_LOCAL, 7
+                    new JfkDataSourceSupport.PatientDayContext(
+                        patient, new StatisticsDayWindow(
+                            MON_START_UTC, MON_END_UTC, MON_START_UTC, MON_END_UTC,
+                            7, 7, 12)
                     )
                 ));
             when(monitoringRecordRepo.findByPidAndEffectiveTimeRange(10001L, MON_START_UTC, MON_END_UTC))
@@ -254,7 +255,6 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandlerTests {
             properties.getCompact().setFont("classpath:/fonts/msyh.ttf");
             return new PatientNonHourlyMonitoringRecordsDataSourceHandler(
                 support,
-                monitoringWindowResolver,
                 monitoringRecordRepo,
                 monitoringConfig,
                 configProtoService,

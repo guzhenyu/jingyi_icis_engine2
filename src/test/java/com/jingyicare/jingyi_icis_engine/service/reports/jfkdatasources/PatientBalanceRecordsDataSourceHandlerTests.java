@@ -3,8 +3,14 @@ package com.jingyicare.jingyi_icis_engine.service.reports.jfkdatasources;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doCallRealMethod;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
@@ -15,8 +21,14 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.core.io.DefaultResourceLoader;
+import org.springframework.test.util.ReflectionTestUtils;
 
+import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientMonitoringRecord;
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
 import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
@@ -41,6 +53,7 @@ import com.jingyicare.jingyi_icis_engine.service.monitorings.PatientMonitoringSe
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
+import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.service.tubes.PatientTubeImpl;
 import com.jingyicare.jingyi_icis_engine.service.users.UserService;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
@@ -50,14 +63,27 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
     @Test
     public void handleBuildsRowsFromBalanceCalculatorAndMatchesStrictHours() {
         TestContext ctx = new TestContext();
-        LocalDateTime balanceStart = LocalDateTime.of(2026, 4, 16, 7, 0);
-        ctx.withShift(7);
+        when(ctx.support.getZoneId()).thenReturn("Asia/Shanghai");
+        LocalDateTime balanceStart = LocalDateTime.of(2026, 4, 15, 22, 0);
+        LocalDateTime balanceEnd = balanceStart.plusDays(1);
+        LocalDateTime cutoff = LocalDateTime.of(2026, 4, 16, 16, 0);
+        ctx.withShift(6, cutoff);
+        // 旧 UTC +24h 截止会误选当地次日 02:00 生效的新配置。
+        when(ctx.balanceStatsShiftRepo
+            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(
+                "patient-dept", LocalDateTime.of(2026, 4, 17, 0, 0)))
+            .thenReturn(Optional.of(BalanceStatsShift.builder().startHour(10).monStartHour(7)
+                .effectiveTime(LocalDateTime.of(2026, 4, 16, 18, 0)).build()));
         ctx.withParams();
-        ctx.withBalanceRecords(List.of(
+        List<MonitoringCodeRecordsPB> displayRecords = List.of(
             codeRecords("intravenous_intake",
+                recordVal("90", balanceStart),
                 recordVal("100", balanceStart),
                 recordVal("ignored", balanceStart.plusMinutes(30)),
+                recordVal("999", balanceStart.minusHours(1)),
+                recordVal("999", balanceEnd),
                 recordVal("150", null)),
+            codeRecords("intravenous_intake", recordVal("999", balanceStart)),
             codeRecords("hourly_intake",
                 recordVal("100", balanceStart),
                 recordVal("50", balanceStart.plusHours(1)),
@@ -66,10 +92,36 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
                 recordVal("100", balanceStart),
                 recordVal("150", balanceStart.plusHours(1)),
                 recordVal("150", null))
-        ));
+        );
+        var recordsResult = ctx.withBalanceRecords(displayRecords);
+        recordsResult.recordsQueryStartUtc = balanceStart.minusDays(1);
+        recordsResult.recordsQueryEndUtc = balanceEnd.plusDays(1);
+        recordsResult.balanceStatTimeUtcHistory = List.of(balanceStart.minusDays(1), balanceStart);
+        List<PatientMonitoringRecord> fullRecords = List.of(balanceStart.minusSeconds(1),
+            balanceStart.plusHours(1), balanceStart, balanceEnd).stream()
+            .map(time -> PatientMonitoringRecord.builder().effectiveTime(time).build()).toList();
+        recordsResult.recordList = fullRecords;
+        doAnswer(invocation -> {
+            BalanceCalculator.GetGroupRecordsListArgs args = invocation.getArgument(0);
+            assertThat(args.startTime).isEqualTo(recordsResult.recordsQueryStartUtc);
+            assertThat(args.endTime).isEqualTo(recordsResult.recordsQueryEndUtc);
+            assertThat(args.balanceStatTimeUtcHistory).containsExactlyElementsOf(recordsResult
+                .balanceStatTimeUtcHistory);
+            assertThat(args.recordList).containsExactlyElementsOf(fullRecords);
+            return null;
+        }).when(ctx.balanceCalculator).storeGroupRecordsStats(any());
+        when(ctx.balanceCalculator.getGroupRecordsList(any())).thenAnswer(invocation -> {
+            BalanceCalculator.GetGroupRecordsListArgs args = invocation.getArgument(0);
+            assertThat(args.startTime).isEqualTo(balanceStart);
+            assertThat(args.endTime).isEqualTo(balanceEnd);
+            assertThat(args.recordList).containsExactly(fullRecords.get(1), fullRecords.get(2));
+            return List.of(MonitoringGroupRecordsPB.newBuilder()
+                .setDeptMonitoringGroupId(1).addAllCodeRecords(displayRecords).build());
+        });
 
-        Pair<ReturnCode, JfkDataSourcePB> result = ctx.handler().handle(input(
-            List.of("intravenous_intake", "missing", "hourly_intake", "total_intake")));
+        JfkDataSourcePB request = input(List.of("intravenous_intake", "missing", "hourly_intake",
+            "total_intake"));
+        Pair<ReturnCode, JfkDataSourcePB> result = ctx.handler().handle(request);
 
         assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
         Map<String, List<List<String>>> output = toOutputMap(result.getSecond());
@@ -85,6 +137,19 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
             eq(false), eq(List.of()), eq("42")
         );
         verify(ctx.balanceCalculator).storeGroupRecordsStats(any(BalanceCalculator.GetGroupRecordsListArgs.class));
+        var order = inOrder(ctx.balanceCalculator);
+        order.verify(ctx.balanceCalculator).storeGroupRecordsStats(any());
+        order.verify(ctx.balanceCalculator).getGroupRecordsList(any());
+        var title = new BalanceTimeRangeDataSourceHandler(ctx.support).handle(request);
+        assertThat(title.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        Map<String, String> labels = title.getSecond().getOutputDataList().stream()
+            .collect(Collectors.toMap(JfkFieldDataPB::getId, field -> field.getVals(0).getStrVal(
+                )));
+        assertThat(labels).containsEntry("hour1", "6:00").containsEntry("hour24", "5:00");
+        verify(ctx.balanceStatsShiftRepo, times(2))
+            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(
+                "patient-dept", cutoff);
+        verifyNoMoreInteractions(ctx.balanceStatsShiftRepo);
     }
 
     @Test
@@ -134,27 +199,82 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
             eq(10001L), eq("patient-dept"), eq(1), eq(tubeParamCodes), eq("42"));
     }
 
-    @Test
-    public void handleReturnsErrorWhenStartHourIsInvalid() {
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(ints = {-1, 24})
+    public void handleReturnsErrorWhenStartHourIsInvalid(Integer startHour) {
         TestContext ctx = new TestContext();
-        ctx.withShift(24);
+        ctx.withShift(startHour);
+
+        JfkDataSourcePB request = input(List.of("intravenous_intake"));
+        for (var result : List.of(ctx.handler().handle(request),
+                new BalanceTimeRangeDataSourceHandler(ctx.support).handle(request))) {
+            assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.INVALID_PARAM_VALUE
+                .ordinal());
+            assertThat(result.getSecond()).isNull();
+        }
+        verifyNoInteractions(ctx.patientMonitoringService, ctx.balanceCalculator);
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(ints = {0})
+    public void handleUsesDefaultOrConfiguredMidnightWindow(Integer configuredHour) {
+        TestContext ctx = new TestContext();
+        if (configuredHour != null) ctx.withShift(configuredHour);
+        ctx.withParams();
+        LocalDateTime start = LocalDateTime.of(2026, 4, 16,
+            configuredHour == null ? 8 : configuredHour, 0);
+        var recordsResult = ctx.withBalanceRecords(List.of(
+            codeRecords("intravenous_intake", recordVal("12", start))));
+        recordsResult.recordsQueryStartUtc = start;
+        recordsResult.recordsQueryEndUtc = start.plusDays(1);
+        recordsResult.balanceStatTimeUtcHistory = List.of(start);
 
         Pair<ReturnCode, JfkDataSourcePB> result = ctx.handler().handle(input(
             List.of("intravenous_intake")));
 
-        assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.INVALID_PARAM_VALUE.ordinal());
-        assertThat(result.getSecond()).isNull();
+        assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        assertThat(toOutputMap(result.getSecond()).get("hour1")).containsExactly(List.of("12"));
+        verify(ctx.patientMonitoringService).getMonitoringRecords(eq(10001L), eq("patient-dept"),
+            eq(1),
+            eq(start), eq(start.plusDays(1)), eq(false), eq(List.of()), eq("42"));
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = StatusCode.class, names = {"PATIENT_NOT_FOUND", "DEPT_NOT_FOUND"})
+    public void handlePatientErrorsWithoutFallingBackToRequestDept(StatusCode expected) {
+        TestContext ctx = new TestContext();
+        when(ctx.support.getPatientService().getPatientRecord(10001L))
+            .thenReturn(expected == StatusCode.PATIENT_NOT_FOUND ? null : new PatientRecord());
+        JfkDataSourcePB request = input(List.of("intravenous_intake"));
+        for (var result : List.of(ctx.handler().handle(request),
+                new BalanceTimeRangeDataSourceHandler(ctx.support).handle(request))) {
+            assertThat(result.getFirst().getCode()).isEqualTo(expected.ordinal());
+            assertThat(result.getSecond()).isNull();
+        }
+        verifyNoInteractions(ctx.balanceStatsShiftRepo, ctx.patientMonitoringService, ctx
+            .balanceCalculator);
     }
 
     @Test
-    public void handleReturnsErrorWhenBalanceStatsShiftIsMissing() {
+    public void handlePreservesAccountAndSourceErrors() {
         TestContext ctx = new TestContext();
+        when(ctx.userService.getAccountWithAutoId()).thenReturn(null);
+        var accountError = ctx.handler().handle(input(List.of("intravenous_intake")));
+        assertThat(accountError.getFirst().getCode()).isEqualTo(StatusCode.ACCOUNT_NOT_FOUND
+            .ordinal());
+        assertThat(accountError.getSecond()).isNull();
+        verifyNoInteractions(ctx.patientMonitoringService);
 
-        Pair<ReturnCode, JfkDataSourcePB> result = ctx.handler().handle(input(
-            List.of("intravenous_intake")));
-
-        assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.BALANCE_STATS_SHIFT_NOT_FOUND.ordinal());
-        assertThat(result.getSecond()).isNull();
+        when(ctx.userService.getAccountWithAutoId()).thenReturn(new Pair<>("42", "护士"));
+        ctx.withParams();
+        ctx.withBalanceRecords(List.of()).statusCode = StatusCode.INVALID_TIME_FORMAT;
+        var sourceError = ctx.handler().handle(input(List.of("intravenous_intake")));
+        assertThat(sourceError.getFirst().getCode()).isEqualTo(StatusCode.INVALID_TIME_FORMAT
+            .ordinal());
+        assertThat(sourceError.getSecond()).isNull();
+        verifyNoInteractions(ctx.balanceCalculator);
     }
 
     private static JfkDataSourcePB input(List<String> paramCodes) {
@@ -268,6 +388,8 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
         private final ConfigProtoService configProtoService = mock(ConfigProtoService.class);
 
         private TestContext() {
+            ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
+                new StatisticsDayWindowResolver(balanceStatsShiftRepo));
             when(userService.getAccountWithAutoId()).thenReturn(new Pair<>("42", "护士"));
             when(configProtoService.getConfig()).thenReturn(Config.newBuilder()
                 .setMonitoring(MonitoringPB.newBuilder()
@@ -283,7 +405,6 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
         private PatientBalanceRecordsDataSourceHandler handler() {
             return new PatientBalanceRecordsDataSourceHandler(
                 support,
-                balanceStatsShiftRepo,
                 monitoringConfig,
                 patientMonitoringService,
                 balanceCalculator,
@@ -295,15 +416,19 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
             );
         }
 
-        private void withShift(int startHour) {
+        private void withShift(Integer startHour) {
+            withShift(startHour, LocalDateTime.of(2026, 4, 17, 0, 0));
+        }
+
+        private void withShift(Integer startHour, LocalDateTime cutoff) {
             when(balanceStatsShiftRepo
                 .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(
-                    "patient-dept", LocalDateTime.of(2026, 4, 17, 0, 0)))
+                    "patient-dept", cutoff))
                 .thenReturn(Optional.of(BalanceStatsShift.builder()
                     .id(1L)
                     .deptId("patient-dept")
                     .startHour(startHour)
-                    .monStartHour(8)
+                    .monStartHour(7)
                     .effectiveTime(LocalDateTime.of(2026, 4, 1, 0, 0))
                     .isDeleted(false)
                     .build()));
@@ -322,7 +447,8 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
             ));
         }
 
-        private void withBalanceRecords(List<MonitoringCodeRecordsPB> codeRecords) {
+        private PatientMonitoringService.GetMonitoringRecordsResult withBalanceRecords(
+            List<MonitoringCodeRecordsPB> codeRecords) {
             PatientMonitoringService.GetMonitoringRecordsResult recordsResult =
                 new PatientMonitoringService.GetMonitoringRecordsResult();
             recordsResult.recordsQueryStartUtc = LocalDateTime.of(2026, 4, 16, 7, 0);
@@ -337,6 +463,7 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
                     .setDeptMonitoringGroupId(1)
                     .addAllCodeRecords(codeRecords)
                     .build()));
+            return recordsResult;
         }
 
         private static JfkDataSourceSupport mockSupport() {
@@ -350,6 +477,9 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
             when(support.getStatusMsgList()).thenReturn(Collections.nCopies(400, "status"));
             when(support.getZoneId()).thenReturn("UTC");
             when(support.getPatientService()).thenReturn(patientService);
+            doCallRealMethod().when(support).addArrayOutput(any(), any(), any());
+            doCallRealMethod().when(support).resolvePatientDayContext(any(), any());
+            doCallRealMethod().when(support).resolveStatisticsDayWindow(any(), any());
             when(support.newOutputBuilder(any(JfkDataSourcePB.class))).thenAnswer(invocation -> {
                 JfkDataSourcePB input = invocation.getArgument(0);
                 return JfkDataSourcePB.newBuilder()

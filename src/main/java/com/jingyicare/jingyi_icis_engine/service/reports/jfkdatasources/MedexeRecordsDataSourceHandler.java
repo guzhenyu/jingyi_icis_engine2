@@ -28,7 +28,6 @@ import com.jingyicare.jingyi_icis_engine.entity.medications.MedicationExecutionR
 import com.jingyicare.jingyi_icis_engine.entity.medications.MedicationExecutionRecordStat;
 import com.jingyicare.jingyi_icis_engine.entity.medications.MedicationOrderGroup;
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
-import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkFieldDataPB;
@@ -41,13 +40,13 @@ import com.jingyicare.jingyi_icis_engine.repository.medications.MedicationExecut
 import com.jingyicare.jingyi_icis_engine.repository.medications.MedicationExecutionRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.medications.MedicationExecutionRecordStatRepository;
 import com.jingyicare.jingyi_icis_engine.repository.medications.MedicationOrderGroupRepository;
-import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.service.medications.MedicationConfig;
 import com.jingyicare.jingyi_icis_engine.service.medications.MedMonitoringService;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.PdfFontSet;
+import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
@@ -58,7 +57,6 @@ import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 public class MedexeRecordsDataSourceHandler extends AbstractJfkDataSourceHandler {
     public MedexeRecordsDataSourceHandler(
         JfkDataSourceSupport support,
-        BalanceStatsShiftRepository balanceStatsShiftRepo,
         MedicationExecutionRecordRepository exeRecordRepo,
         MedicationExecutionRecordStatRepository statRepo,
         MedicationOrderGroupRepository orderGroupRepo,
@@ -70,7 +68,6 @@ public class MedexeRecordsDataSourceHandler extends AbstractJfkDataSourceHandler
         ResourceLoader resourceLoader
     ) {
         super(support);
-        this.balanceStatsShiftRepo = balanceStatsShiftRepo;
         this.exeRecordRepo = exeRecordRepo;
         this.statRepo = statRepo;
         this.orderGroupRepo = orderGroupRepo;
@@ -128,14 +125,21 @@ public class MedexeRecordsDataSourceHandler extends AbstractJfkDataSourceHandler
             return error(StatusCode.JFK_MISSING_REQUIRED_FIELD, FIELD_DEPT_ID + " ");
         }
 
-        MedexeWindow window = resolveMedexeWindow(deptId, queryStartIso);
-        if (window.errorCode() != null) {
-            return error(window.errorCode(), window.errorDetail());
+        LocalDateTime utcStart = TimeUtils.fromIso8601String(queryStartIso, "UTC");
+        if (utcStart == null) {
+            return error(StatusCode.INVALID_TIME_FORMAT, FIELD_QUERY_START);
+        }
+        final StatisticsDayWindow window;
+        try {
+            window = support.resolveStatisticsDayWindow(deptId, utcStart);
+        } catch (IllegalArgumentException e) {
+            return error(StatusCode.INVALID_PARAM_VALUE, e.getMessage());
         }
 
         int intakeTypeId = intakeTypeIdInput.intValue();
         List<RowData> rows = hasValidPid
-            ? buildRows(pid, deptId, tableId, intakeTypeId, window.startUtc(), window.endUtc())
+            ? buildRows(pid, deptId, tableId, intakeTypeId, window.balanceStartUtc(), window
+                .balanceEndUtc())
             : List.of();
 
         JfkDataSourcePB.Builder outputBuilder = newOutputBuilder(input);
@@ -148,7 +152,8 @@ public class MedexeRecordsDataSourceHandler extends AbstractJfkDataSourceHandler
                 addOutput(
                     outputBuilder,
                     "hour" + (hourIndex + 1),
-                    buildHourVals(rows, hourIndex, window.startUtc(), colWidths, font, fontSize, charSpacing, hPadding)
+                    buildHourVals(rows, hourIndex, window.balanceStartUtc(), colWidths, font,
+                        fontSize, charSpacing, hPadding)
                 );
             }
         } catch (IOException e) {
@@ -157,36 +162,6 @@ public class MedexeRecordsDataSourceHandler extends AbstractJfkDataSourceHandler
         }
 
         return new Pair<>(returnCode(StatusCode.OK), outputBuilder.build());
-    }
-
-    private MedexeWindow resolveMedexeWindow(String deptId, String queryStartIso) {
-        LocalDateTime utcStart = TimeUtils.fromIso8601String(queryStartIso, "UTC");
-        if (utcStart == null) {
-            return MedexeWindow.error(StatusCode.INVALID_TIME_FORMAT, FIELD_QUERY_START);
-        }
-        LocalDateTime utcEnd = utcStart.plusHours(24);
-
-        BalanceStatsShift shift = balanceStatsShiftRepo
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(deptId, utcEnd)
-            .orElse(null);
-        if (shift == null) {
-            return MedexeWindow.error(StatusCode.BALANCE_STATS_SHIFT_NOT_FOUND, "deptId: " + deptId);
-        }
-
-        Integer startHour = shift.getStartHour();
-        if (startHour == null || !TimeUtils.isValidHour(startHour)) {
-            return MedexeWindow.error(
-                StatusCode.INVALID_PARAM_VALUE,
-                "deptId: " + deptId + ", balanceStatsShiftId: " + shift.getId() + ", start_hour: " + startHour
-            );
-        }
-
-        LocalDateTime utcMiddle = utcStart.plusHours(12);
-        LocalDateTime localMiddle = TimeUtils.getLocalDateTimeFromUtc(utcMiddle, support.getZoneId());
-        LocalDateTime localMidnight = localMiddle.toLocalDate().atStartOfDay();
-        LocalDateTime startUtc = TimeUtils.getUtcFromLocalDateTime(
-            localMidnight.plusHours(startHour), support.getZoneId());
-        return new MedexeWindow(null, "", startUtc, startUtc.plusHours(24));
     }
 
     private List<RowData> buildRows(
@@ -667,17 +642,6 @@ public class MedexeRecordsDataSourceHandler extends AbstractJfkDataSourceHandler
         return null;
     }
 
-    private record MedexeWindow(
-        StatusCode errorCode,
-        String errorDetail,
-        LocalDateTime startUtc,
-        LocalDateTime endUtc
-    ) {
-        static MedexeWindow error(StatusCode statusCode, String detail) {
-            return new MedexeWindow(statusCode, detail, null, null);
-        }
-    }
-
     private static class RowData {
         private RowData(Long groupId, LocalDateTime sortTime, String routeName, Boolean isContinuous) {
             this.groupId = groupId == null ? 0L : groupId;
@@ -761,7 +725,6 @@ public class MedexeRecordsDataSourceHandler extends AbstractJfkDataSourceHandler
     private static final double DEFAULT_FONT_SIZE = 8d;
     private static final DateTimeFormatter HOUR_MINUTE_FORMATTER = DateTimeFormatter.ofPattern("H:mm");
 
-    private final BalanceStatsShiftRepository balanceStatsShiftRepo;
     private final MedicationExecutionRecordRepository exeRecordRepo;
     private final MedicationExecutionRecordStatRepository statRepo;
     private final MedicationOrderGroupRepository orderGroupRepo;

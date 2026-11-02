@@ -36,6 +36,7 @@ import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.PdfFontSet;
+import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
 import com.jingyicare.jingyi_icis_engine.service.users.UserService;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
@@ -48,7 +49,6 @@ import com.jingyicare.jingyi_icis_engine.utils.ValueMetaUtils;
 public class PatientNonHourlyMonitoringRecordsDataSourceHandler extends AbstractJfkDataSourceHandler {
     public PatientNonHourlyMonitoringRecordsDataSourceHandler(
         JfkDataSourceSupport support,
-        MonitoringWindowResolver monitoringWindowResolver,
         PatientMonitoringRecordRepository monitoringRecordRepo,
         MonitoringConfig monitoringConfig,
         ConfigProtoService configProtoService,
@@ -58,7 +58,6 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandler extends Abstract
         ResourceLoader resourceLoader
     ) {
         super(support);
-        this.monitoringWindowResolver = monitoringWindowResolver;
         this.monitoringRecordRepo = monitoringRecordRepo;
         this.monitoringConfig = monitoringConfig;
         this.configProtoService = configProtoService;
@@ -92,21 +91,24 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandler extends Abstract
             return error(StatusCode.JFK_MISSING_REQUIRED_FIELD, joinMissingFields(missingFields));
         }
 
-        Pair<ReturnCode, MonitoringWindow> windowResult = monitoringWindowResolver.resolve(pid, queryStartIso);
+        Pair<ReturnCode, JfkDataSourceSupport.PatientDayContext> windowResult = support
+            .resolvePatientDayContext(pid, queryStartIso);
         if (windowResult.getFirst().getCode() != StatusCode.OK.ordinal()) {
             return new Pair<>(windowResult.getFirst(), null);
         }
 
-        MonitoringWindow window = windowResult.getSecond();
-        if (!StrUtils.isBlank(requestDeptId) && !requestDeptId.equals(window.deptId())) {
+        StatisticsDayWindow window = windowResult.getSecond().dayWindow();
+        String deptId = windowResult.getSecond().patient().getDeptId();
+        if (!StrUtils.isBlank(requestDeptId) && !requestDeptId.equals(deptId)) {
             log.warn(
                 "Compact non-hourly monitoring dept_id mismatch, pid={}, requestDeptId={}, patientDeptId={}",
-                pid, requestDeptId, window.deptId()
+                pid, requestDeptId, deptId
             );
         }
 
         List<PatientMonitoringRecord> nonHourlyRecords = monitoringRecordRepo
-            .findByPidAndEffectiveTimeRange(pid, window.monStartUtc(), window.monEndUtc())
+            .findByPidAndEffectiveTimeRange(pid, window.monitoringStartUtc(), window
+                .monitoringEndUtc())
             .stream()
             .filter(record -> record.getEffectiveTime() != null)
             .filter(record -> !isStrictHour(record.getEffectiveTime()))
@@ -123,8 +125,8 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandler extends Abstract
             return error(StatusCode.ACCOUNT_NOT_FOUND, "pid: " + pid);
         }
 
-        Map<String, MonitoringParamPB> paramMap = monitoringConfig.getMonitoringParams(window.deptId());
-        Map<String, Integer> paramOrder = monitoringParamOrder(pid, window.deptId(), account.getFirst());
+        Map<String, MonitoringParamPB> paramMap = monitoringConfig.getMonitoringParams(deptId);
+        Map<String, Integer> paramOrder = monitoringParamOrder(pid, deptId, account.getFirst());
         Map<String, String> accountNameByModifiedBy = accountNameByModifiedBy(nonHourlyRecords);
         JfkSignatureValueResolver signatureResolver = new JfkSignatureValueResolver(
             accountRepo,
@@ -470,7 +472,6 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandler extends Abstract
     private static final double DEFAULT_FONT_SIZE = 8d;
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-    private final MonitoringWindowResolver monitoringWindowResolver;
     private final PatientMonitoringRecordRepository monitoringRecordRepo;
     private final MonitoringConfig monitoringConfig;
     private final ConfigProtoService configProtoService;

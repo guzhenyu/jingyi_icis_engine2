@@ -38,6 +38,7 @@ import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.PdfFontSet;
 import com.jingyicare.jingyi_icis_engine.service.shifts.ConfigShiftUtils;
+import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
 import com.jingyicare.jingyi_icis_engine.utils.Consts;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
@@ -48,7 +49,6 @@ import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 public class PatientTubeRecordsDataSourceHandler extends AbstractJfkDataSourceHandler {
     public PatientTubeRecordsDataSourceHandler(
         JfkDataSourceSupport support,
-        MonitoringWindowResolver monitoringWindowResolver,
         PatientTubeRecordRepository tubeRecordRepo,
         PatientTubeStatusRecordRepository tubeStatusRecordRepo,
         TubeTypeStatusRepository tubeTypeStatusRepo,
@@ -57,7 +57,6 @@ public class PatientTubeRecordsDataSourceHandler extends AbstractJfkDataSourceHa
         ResourceLoader resourceLoader
     ) {
         super(support);
-        this.monitoringWindowResolver = monitoringWindowResolver;
         this.tubeRecordRepo = tubeRecordRepo;
         this.tubeStatusRecordRepo = tubeStatusRecordRepo;
         this.tubeTypeStatusRepo = tubeTypeStatusRepo;
@@ -90,21 +89,23 @@ public class PatientTubeRecordsDataSourceHandler extends AbstractJfkDataSourceHa
             return error(StatusCode.JFK_MISSING_REQUIRED_FIELD, joinMissingFields(missingFields));
         }
 
-        Pair<ReturnCode, MonitoringWindow> windowResult = monitoringWindowResolver.resolve(pid, queryStartIso);
+        Pair<ReturnCode, JfkDataSourceSupport.PatientDayContext> windowResult = support
+            .resolvePatientDayContext(pid, queryStartIso);
         if (windowResult.getFirst().getCode() != StatusCode.OK.ordinal()) {
             return new Pair<>(windowResult.getFirst(), null);
         }
 
-        MonitoringWindow window = windowResult.getSecond();
-        if (!StrUtils.isBlank(requestDeptId) && !requestDeptId.equals(window.deptId())) {
+        StatisticsDayWindow window = windowResult.getSecond().dayWindow();
+        String deptId = windowResult.getSecond().patient().getDeptId();
+        if (!StrUtils.isBlank(requestDeptId) && !requestDeptId.equals(deptId)) {
             log.warn(
                 "Compact tube records dept_id mismatch, pid={}, requestDeptId={}, patientDeptId={}",
-                pid, requestDeptId, window.deptId()
+                pid, requestDeptId, deptId
             );
         }
 
         List<PatientTubeRecord> records = tubeRecordRepo.findReportTubeRecords(
-            pid, window.monStartUtc(), window.monEndUtc());
+            pid, window.monitoringStartUtc(), window.monitoringEndUtc());
 
         JfkDataSourcePB.Builder outputBuilder = newOutputBuilder(input);
         if (records.isEmpty()) {
@@ -112,14 +113,18 @@ public class PatientTubeRecordsDataSourceHandler extends AbstractJfkDataSourceHa
             return new Pair<>(returnCode(StatusCode.OK), outputBuilder.build());
         }
 
-        ShiftSettingsPB shiftSettings = configShiftUtils.getShiftByDeptId(window.deptId());
+        ShiftSettingsPB shiftSettings = configShiftUtils.getShiftByDeptId(deptId);
         if (shiftSettings == null || shiftSettings.getShiftCount() == 0) {
-            return error(StatusCode.NO_SHIFT_SETTING, "deptId: " + window.deptId());
+            return error(StatusCode.NO_SHIFT_SETTING, "deptId: " + deptId);
         }
 
-        List<ShiftRange> shiftRanges = shiftRanges(shiftSettings, window.monStartLocal(), window.monEndLocal());
+        LocalDateTime monStartLocal = TimeUtils.getLocalDateTimeFromUtc(window.monitoringStartUtc(),
+            support.getZoneId());
+        LocalDateTime monEndLocal = TimeUtils.getLocalDateTimeFromUtc(window.monitoringEndUtc(),
+            support.getZoneId());
+        List<ShiftRange> shiftRanges = shiftRanges(shiftSettings, monStartLocal, monEndLocal);
         if (shiftRanges.isEmpty()) {
-            return error(StatusCode.NO_SHIFT_SETTING, "deptId: " + window.deptId());
+            return error(StatusCode.NO_SHIFT_SETTING, "deptId: " + deptId);
         }
 
         Map<Long, LocalDateTime> rootInsertedAtByRecordId = rootInsertedAtByRecordId(records);
@@ -131,7 +136,8 @@ public class PatientTubeRecordsDataSourceHandler extends AbstractJfkDataSourceHa
             PdfFontSet font = loadFont(document);
             rows = buildRows(
                 tableId, records, rootInsertedAtByRecordId, statusesByRecordId, statusMetaById,
-                shiftRanges, window, colWidths, font, fontSize, charSpacing, hPadding
+                shiftRanges, monStartLocal, window.monStartHour(), colWidths, font, fontSize,
+                    charSpacing, hPadding
             );
         } catch (IOException e) {
             log.error("Failed to wrap compact patient tube records text: {}", e.getMessage(), e);
@@ -152,7 +158,8 @@ public class PatientTubeRecordsDataSourceHandler extends AbstractJfkDataSourceHa
         Map<Long, List<PatientTubeStatusRecord>> statusesByRecordId,
         Map<Integer, TubeTypeStatus> statusMetaById,
         List<ShiftRange> shiftRanges,
-        MonitoringWindow window,
+        LocalDateTime monStartLocal,
+        int monStartHour,
         List<Double> colWidths,
         PdfFontSet font,
         double fontSize,
@@ -174,7 +181,9 @@ public class PatientTubeRecordsDataSourceHandler extends AbstractJfkDataSourceHa
             rows.add(
                 stringsVal(wrap(tubeNameText(record), TUBE_NAME_COL_INDEX, colWidths, font, fontSize, charSpacing, hPadding)),
                 stringsVal(wrap(insertedAtText(rootInsertedAt, record.getRemovedAt()), INSERTED_AT_COL_INDEX, colWidths, font, fontSize, charSpacing, hPadding)),
-                stringsVal(wrap(durationDays(rootInsertedAt, record.getRemovedAt(), window), DURATION_DAYS_COL_INDEX, colWidths, font, fontSize, charSpacing, hPadding)),
+                stringsVal(wrap(durationDays(rootInsertedAt, record.getRemovedAt(), monStartLocal,
+                    monStartHour), DURATION_DAYS_COL_INDEX, colWidths, font, fontSize, charSpacing,
+                    hPadding)),
                 stringsVal(wrapLines(
                     maintenanceStatusLines(
                         tableId, record, statusesByRecordId.getOrDefault(record.getId(), List.of()), statusMetaById, shiftRanges),
@@ -238,7 +247,7 @@ public class PatientTubeRecordsDataSourceHandler extends AbstractJfkDataSourceHa
 
     private Map<Long, List<PatientTubeStatusRecord>> statusesByRecordId(
         List<PatientTubeRecord> records,
-        MonitoringWindow window
+        StatisticsDayWindow window
     ) {
         List<Long> recordIds = records.stream()
             .map(PatientTubeRecord::getId)
@@ -246,7 +255,8 @@ public class PatientTubeRecordsDataSourceHandler extends AbstractJfkDataSourceHa
             .distinct()
             .toList();
         if (recordIds.isEmpty()) return Map.of();
-        return tubeStatusRecordRepo.findReportStatusRecords(recordIds, window.monStartUtc(), window.monEndUtc()).stream()
+        return tubeStatusRecordRepo.findReportStatusRecords(recordIds, window.monitoringStartUtc(),
+            window.monitoringEndUtc()).stream()
             .collect(Collectors.groupingBy(
                 PatientTubeStatusRecord::getPatientTubeRecordId,
                 LinkedHashMap::new,
@@ -406,14 +416,16 @@ public class PatientTubeRecordsDataSourceHandler extends AbstractJfkDataSourceHa
         return ranges;
     }
 
-    private String durationDays(LocalDateTime rootInsertedAt, LocalDateTime removedAt, MonitoringWindow window) {
+    private String durationDays(LocalDateTime rootInsertedAt, LocalDateTime removedAt,
+        LocalDateTime monStartLocal, int monStartHour) {
         if (rootInsertedAt == null) return "";
         LocalDateTime rootInsertedLocal = TimeUtils.getLocalDateTimeFromUtc(rootInsertedAt, support.getZoneId());
         LocalDateTime removedAtLocal = removedAt == null
             ? FUTURE_LOCAL
             : TimeUtils.getLocalDateTimeFromUtc(removedAt, support.getZoneId());
-        LocalDateTime cutoffLocal = window.monStartLocal().isBefore(removedAtLocal) ? window.monStartLocal() : removedAtLocal;
-        LocalDateTime insertedShiftStartLocal = shiftStartLocal(rootInsertedLocal, window.monStartHour());
+        LocalDateTime cutoffLocal = monStartLocal.isBefore(
+            removedAtLocal) ? monStartLocal : removedAtLocal;
+        LocalDateTime insertedShiftStartLocal = shiftStartLocal(rootInsertedLocal, monStartHour);
         long hours = Math.max(0L, Duration.between(insertedShiftStartLocal, cutoffLocal).toHours());
         long days = hours / 24 + 1;
         return days + "天";
@@ -580,7 +592,6 @@ public class PatientTubeRecordsDataSourceHandler extends AbstractJfkDataSourceHa
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
     private static final String ALL_DAY_SHIFT_NAME = "全天";
 
-    private final MonitoringWindowResolver monitoringWindowResolver;
     private final PatientTubeRecordRepository tubeRecordRepo;
     private final PatientTubeStatusRecordRepository tubeStatusRecordRepo;
     private final TubeTypeStatusRepository tubeTypeStatusRepo;

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -16,6 +17,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
 import com.jingyicare.jingyi_icis_engine.entity.patients.SurgeryHistory;
@@ -33,6 +35,7 @@ import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepo
 import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
+import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 
 public class PatientInfoExtendedDataSourceHandlerTests {
@@ -46,7 +49,7 @@ public class PatientInfoExtendedDataSourceHandlerTests {
         when(ctx.deptRepo.findByDeptId("patient-dept"))
             .thenReturn(Optional.of(new RbacDepartment("patient-dept", "重症医学科")));
 
-        LocalDateTime queryUtcEnd = LocalDateTime.of(2026, 4, 17, 0, 0);
+        LocalDateTime queryUtcEnd = LocalDateTime.of(2026, 4, 16, 16, 0);
         when(ctx.balanceStatsShiftRepo
             .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept", queryUtcEnd))
             .thenReturn(Optional.of(BalanceStatsShift.builder()
@@ -103,12 +106,14 @@ public class PatientInfoExtendedDataSourceHandlerTests {
     }
 
     @Test
-    public void handleReturnsBalanceStatsShiftNotFoundWhenMonitoringWindowCannotBeResolved() {
+    public void handleUsesDefaultEightHourWindowWhenShiftIsMissing() {
         TestContext ctx = new TestContext();
         PatientInfoExtendedDataSourceHandler handler = ctx.handler();
 
         PatientRecord patient = patient();
         when(ctx.patientService.getPatientRecord(10001L)).thenReturn(patient);
+        when(ctx.deptRepo.findByDeptId("patient-dept"))
+            .thenReturn(Optional.of(new RbacDepartment("patient-dept", "重症医学科")));
         when(ctx.balanceStatsShiftRepo
             .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(
                 eq("patient-dept"), any(LocalDateTime.class)))
@@ -121,8 +126,11 @@ public class PatientInfoExtendedDataSourceHandlerTests {
             .addInputData(strInput("query_start", "2026-04-16T00:00Z"))
             .build());
 
-        assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.BALANCE_STATS_SHIFT_NOT_FOUND.ordinal());
-        assertThat(result.getSecond()).isNull();
+        assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        assertThat(toOutputMap(result.getSecond()).get("mon_record_day_range")).isEqualTo(
+            "20260416-20260417");
+        verify(ctx.patientShiftRecordRepo).findByPidAndContainedInTimeRange(
+            10001L, LocalDateTime.of(2026, 4, 16, 0, 0), LocalDateTime.of(2026, 4, 17, 0, 0));
     }
 
     @Test
@@ -164,6 +172,39 @@ public class PatientInfoExtendedDataSourceHandlerTests {
         Map<String, String> output = toOutputMap(result.getSecond());
         assertThat(output.get("illness_severity_level")).isEqualTo("99");
         assertThat(output.get("days_after_surgery")).isEqualTo("0天");
+    }
+
+    @Test
+    public void patientDayContextPreservesExistingErrorCodes() {
+        TestContext ctx = new TestContext();
+        String queryStart = "2026-04-16T00:00Z";
+        var missingPatient = ctx.support.resolvePatientDayContext(10001L, queryStart);
+        assertThat(missingPatient.getFirst().getCode()).isEqualTo(StatusCode.PATIENT_NOT_FOUND
+            .ordinal());
+        assertThat(missingPatient.getSecond()).isNull();
+
+        PatientRecord patient = patient();
+        patient.setDeptId(null);
+        when(ctx.patientService.getPatientRecord(10001L)).thenReturn(patient);
+        var missingDept = ctx.support.resolvePatientDayContext(10001L, queryStart);
+        assertThat(missingDept.getFirst().getCode()).isEqualTo(StatusCode.DEPT_NOT_FOUND.ordinal());
+        assertThat(missingDept.getSecond()).isNull();
+
+        patient.setDeptId("patient-dept");
+        var invalidTime = ctx.support.resolvePatientDayContext(10001L, "not-a-time");
+        assertThat(invalidTime.getFirst().getCode()).isEqualTo(StatusCode.INVALID_TIME_FORMAT
+            .ordinal());
+        assertThat(invalidTime.getSecond()).isNull();
+
+        when(ctx.balanceStatsShiftRepo
+            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(
+                eq("patient-dept"), any(LocalDateTime.class)))
+            .thenReturn(Optional.of(BalanceStatsShift.builder().startHour(24).monStartHour(7).build(
+                )));
+        var invalidHour = ctx.support.resolvePatientDayContext(10001L, queryStart);
+        assertThat(invalidHour.getFirst().getCode()).isEqualTo(StatusCode.INVALID_PARAM_VALUE
+            .ordinal());
+        assertThat(invalidHour.getSecond()).isNull();
     }
 
     private PatientRecord patient() {
@@ -234,6 +275,10 @@ public class PatientInfoExtendedDataSourceHandlerTests {
             when(support.getStatusMsgList()).thenReturn(Collections.nCopies(400, "status"));
             when(support.getZoneId()).thenReturn("Asia/Shanghai");
             when(support.getPatientService()).thenReturn(patientService);
+            ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
+                new StatisticsDayWindowResolver(balanceStatsShiftRepo));
+            doCallRealMethod().when(support).resolvePatientDayContext(any(), any());
+            doCallRealMethod().when(support).resolveStatisticsDayWindow(any(), any());
             when(support.getDeptRepo()).thenReturn(deptRepo);
             when(support.newOutputBuilder(any(JfkDataSourcePB.class))).thenAnswer(invocation -> {
                 JfkDataSourcePB input = invocation.getArgument(0);
@@ -257,7 +302,6 @@ public class PatientInfoExtendedDataSourceHandlerTests {
         private PatientInfoExtendedDataSourceHandler handler() {
             return new PatientInfoExtendedDataSourceHandler(
                 support,
-                new MonitoringWindowResolver(support, balanceStatsShiftRepo),
                 surgeryHistoryRepo,
                 patientShiftRecordRepo
             );

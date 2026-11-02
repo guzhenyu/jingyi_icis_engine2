@@ -22,6 +22,7 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.repository.patients.SurgeryHistoryRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patientshifts.PatientShiftRecordRepository;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
+import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
@@ -30,12 +31,10 @@ import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 public class PatientInfoExtendedDataSourceHandler extends AbstractJfkDataSourceHandler {
     public PatientInfoExtendedDataSourceHandler(
         JfkDataSourceSupport support,
-        MonitoringWindowResolver monitoringWindowResolver,
         SurgeryHistoryRepository surgeryHistoryRepo,
         PatientShiftRecordRepository patientShiftRecordRepo
     ) {
         super(support);
-        this.monitoringWindowResolver = monitoringWindowResolver;
         this.surgeryHistoryRepo = surgeryHistoryRepo;
         this.patientShiftRecordRepo = patientShiftRecordRepo;
     }
@@ -57,36 +56,46 @@ public class PatientInfoExtendedDataSourceHandler extends AbstractJfkDataSourceH
             return error(StatusCode.JFK_MISSING_REQUIRED_FIELD, joinMissingFields(missingFields));
         }
 
-        Pair<ReturnCode, MonitoringWindow> windowResult = monitoringWindowResolver.resolve(pid, queryStartIso);
+        Pair<ReturnCode, JfkDataSourceSupport.PatientDayContext> windowResult = support
+            .resolvePatientDayContext(pid, queryStartIso);
         if (windowResult.getFirst().getCode() != StatusCode.OK.ordinal()) {
             return new Pair<>(windowResult.getFirst(), null);
         }
 
-        MonitoringWindow window = windowResult.getSecond();
-        PatientRecord patient = window.patient();
-        RbacDepartment department = support.getDeptRepo().findByDeptId(window.deptId()).orElse(null);
+        StatisticsDayWindow window = windowResult.getSecond().dayWindow();
+        PatientRecord patient = windowResult.getSecond().patient();
+        RbacDepartment department = support.getDeptRepo().findByDeptId(patient.getDeptId()).orElse(
+            null);
         if (department == null) {
-            return error(StatusCode.DEPT_NOT_FOUND, "deptId: " + window.deptId());
+            return error(StatusCode.DEPT_NOT_FOUND, "deptId: " + patient.getDeptId());
         }
 
         List<SurgeryHistory> surgeries = surgeryHistoryRepo.findByPatientId(pid);
+        LocalDateTime monStartLocal = TimeUtils.getLocalDateTimeFromUtc(window.monitoringStartUtc(),
+            support.getZoneId());
+        LocalDateTime monEndLocal = TimeUtils.getLocalDateTimeFromUtc(window.monitoringEndUtc(),
+            support.getZoneId());
 
         JfkDataSourcePB.Builder outputBuilder = newOutputBuilder(input);
         support.addStrOutput(outputBuilder, "dept_name", department.getDeptName());
-        support.addStrOutput(outputBuilder, "bed_no", support.getBedNumber(patient, window.monEndUtc()));
+        support.addStrOutput(outputBuilder, "bed_no", support.getBedNumber(patient, window
+            .monitoringEndUtc()));
         support.addStrOutput(outputBuilder, "patient_name", patient.getIcuName());
         support.addStrOutput(outputBuilder, "gender", gender(patient));
-        support.addStrOutput(outputBuilder, "age", age(patient.getIcuDateOfBirth(), window.monEndLocal()));
+        support.addStrOutput(outputBuilder, "age", age(patient.getIcuDateOfBirth(), monEndLocal));
         support.addStrOutput(outputBuilder, "mrn", patient.getHisMrn());
         support.addStrOutput(outputBuilder, "diagnosis", patient.getDiagnosis());
         support.addStrOutput(outputBuilder, "height", height(patient.getHeight()));
         support.addStrOutput(outputBuilder, "weight", weight(patient.getWeight()));
         support.addStrOutput(outputBuilder, "admission_time_yyyymmdd", admissionDate(patient.getAdmissionTime()));
         support.addStrOutput(outputBuilder, "illness_severity_level", patient.getIllnessSeverityLevel());
-        support.addStrOutput(outputBuilder, "days_after_surgery", daysAfterSurgery(surgeries, window.monEndUtc()));
-        support.addStrOutput(outputBuilder, "mon_record_day_range", recordDayRange(window));
+        support.addStrOutput(outputBuilder, "days_after_surgery", daysAfterSurgery(surgeries, window
+            .monitoringEndUtc()));
+        support.addStrOutput(outputBuilder, "mon_record_day_range", recordDayRange(monStartLocal,
+            monEndLocal));
         support.addStrOutput(outputBuilder, "diagnosis_and_surgery", diagnosisAndSurgery(patient, surgeries));
-        support.addStrOutput(outputBuilder, "patient_shift_info", patientShiftInfo(pid, window.monStartUtc(), window.monEndUtc()));
+        support.addStrOutput(outputBuilder, "patient_shift_info", patientShiftInfo(pid, window
+            .monitoringStartUtc(), window.monitoringEndUtc()));
 
         return new Pair<>(returnCode(StatusCode.OK), outputBuilder.build());
     }
@@ -128,8 +137,8 @@ public class PatientInfoExtendedDataSourceHandler extends AbstractJfkDataSourceH
         return Duration.between(latestEndTime, monEndUtc).toHours() / 24 + "天";
     }
 
-    private String recordDayRange(MonitoringWindow window) {
-        return window.monStartLocal().format(DATE_FORMATTER) + "-" + window.monEndLocal().format(DATE_FORMATTER);
+    private String recordDayRange(LocalDateTime monStartLocal, LocalDateTime monEndLocal) {
+        return monStartLocal.format(DATE_FORMATTER) + "-" + monEndLocal.format(DATE_FORMATTER);
     }
 
     private String diagnosisAndSurgery(PatientRecord patient, List<SurgeryHistory> surgeries) {
@@ -166,7 +175,6 @@ public class PatientInfoExtendedDataSourceHandler extends AbstractJfkDataSourceH
     private static final String FIELD_QUERY_START = "query_start";
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
 
-    private final MonitoringWindowResolver monitoringWindowResolver;
     private final SurgeryHistoryRepository surgeryHistoryRepo;
     private final PatientShiftRecordRepository patientShiftRecordRepo;
 }

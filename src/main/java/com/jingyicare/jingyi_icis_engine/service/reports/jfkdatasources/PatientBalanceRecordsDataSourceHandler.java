@@ -15,8 +15,6 @@ import org.springframework.stereotype.Component;
 
 import lombok.extern.slf4j.Slf4j;
 
-import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
-import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkFieldDataPB;
@@ -28,7 +26,6 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringR
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.ValueMetaPB;
-import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.BalanceCalculator;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.PatientMonitoringService;
@@ -37,6 +34,7 @@ import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.PdfFontSet;
+import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
 import com.jingyicare.jingyi_icis_engine.service.tubes.PatientTubeImpl;
 import com.jingyicare.jingyi_icis_engine.service.users.UserService;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
@@ -49,7 +47,6 @@ import com.jingyicare.jingyi_icis_engine.utils.ValueMetaUtils;
 public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourceHandler {
     public PatientBalanceRecordsDataSourceHandler(
         JfkDataSourceSupport support,
-        BalanceStatsShiftRepository balanceStatsShiftRepo,
         MonitoringConfig monitoringConfig,
         PatientMonitoringService patientMonitoringService,
         BalanceCalculator balanceCalculator,
@@ -60,7 +57,6 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
         ResourceLoader resourceLoader
     ) {
         super(support);
-        this.balanceStatsShiftRepo = balanceStatsShiftRepo;
         this.monitoringConfig = monitoringConfig;
         this.patientMonitoringService = patientMonitoringService;
         this.balanceCalculator = balanceCalculator;
@@ -100,24 +96,18 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
             return error(StatusCode.JFK_MISSING_REQUIRED_FIELD, joinMissingFields(missingFields));
         }
 
-        PatientRecord patient = support.getPatientService().getPatientRecord(pid);
-        if (patient == null) {
-            return error(StatusCode.PATIENT_NOT_FOUND, "pid: " + pid);
+        Pair<ReturnCode, JfkDataSourceSupport.PatientDayContext> windowResult = support
+            .resolvePatientDayContext(pid, queryStartIso);
+        if (windowResult.getFirst().getCode() != StatusCode.OK.ordinal()) {
+            return new Pair<>(windowResult.getFirst(), null);
         }
-        String deptId = patient.getDeptId();
-        if (StrUtils.isBlank(deptId)) {
-            return error(StatusCode.DEPT_NOT_FOUND, "pid: " + pid);
-        }
+        StatisticsDayWindow window = windowResult.getSecond().dayWindow();
+        String deptId = windowResult.getSecond().patient().getDeptId();
         if (!StrUtils.isBlank(requestDeptId) && !requestDeptId.equals(deptId)) {
             log.warn(
                 "Compact report patient dept_id mismatch, pid={}, requestDeptId={}, patientDeptId={}",
                 pid, requestDeptId, deptId
             );
-        }
-
-        BalanceWindow window = resolveBalanceWindow(deptId, queryStartIso);
-        if (window.errorCode() != null) {
-            return error(window.errorCode(), window.errorDetail());
         }
 
         Pair<String, String> account = userService.getAccountWithAutoId();
@@ -186,35 +176,6 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
         }
 
         return new Pair<>(returnCode(StatusCode.OK), outputBuilder.build());
-    }
-
-    private BalanceWindow resolveBalanceWindow(String deptId, String queryStartIso) {
-        LocalDateTime utcStart = TimeUtils.fromIso8601String(queryStartIso, "UTC");
-        if (utcStart == null) {
-            return BalanceWindow.error(StatusCode.INVALID_TIME_FORMAT, FIELD_QUERY_START);
-        }
-        LocalDateTime utcEnd = utcStart.plusHours(24);
-
-        BalanceStatsShift shift = balanceStatsShiftRepo
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(deptId, utcEnd)
-            .orElse(null);
-        if (shift == null) {
-            return BalanceWindow.error(StatusCode.BALANCE_STATS_SHIFT_NOT_FOUND, "deptId: " + deptId);
-        }
-        Integer startHour = shift.getStartHour();
-        if (startHour == null || !TimeUtils.isValidHour(startHour)) {
-            return BalanceWindow.error(
-                StatusCode.INVALID_PARAM_VALUE,
-                "deptId: " + deptId + ", balanceStatsShiftId: " + shift.getId() + ", start_hour: " + startHour
-            );
-        }
-
-        LocalDateTime utcMiddle = utcStart.plusHours(12);
-        LocalDateTime localMiddle = TimeUtils.getLocalDateTimeFromUtc(utcMiddle, support.getZoneId());
-        LocalDateTime localMidnight = localMiddle.toLocalDate().atStartOfDay();
-        LocalDateTime balanceStartLocal = localMidnight.plusHours(startHour);
-        LocalDateTime balanceStartUtc = TimeUtils.getUtcFromLocalDateTime(balanceStartLocal, support.getZoneId());
-        return new BalanceWindow(null, "", balanceStartUtc, balanceStartUtc.plusHours(24));
     }
 
     private List<String> expandDrainageTubeParamCodes(
@@ -460,17 +421,6 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
         return null;
     }
 
-    private record BalanceWindow(
-        StatusCode errorCode,
-        String errorDetail,
-        LocalDateTime balanceStartUtc,
-        LocalDateTime balanceEndUtc
-    ) {
-        static BalanceWindow error(StatusCode statusCode, String detail) {
-            return new BalanceWindow(statusCode, detail, null, null);
-        }
-    }
-
     private static final String FIELD_PID = "pid";
     private static final String FIELD_DEPT_ID = "dept_id";
     private static final String FIELD_QUERY_START = "query_start";
@@ -484,7 +434,6 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
     private static final String FIELD_ACC_ML = "acc_ml";
     private static final double DEFAULT_FONT_SIZE = 8d;
 
-    private final BalanceStatsShiftRepository balanceStatsShiftRepo;
     private final MonitoringConfig monitoringConfig;
     private final PatientMonitoringService patientMonitoringService;
     private final BalanceCalculator balanceCalculator;

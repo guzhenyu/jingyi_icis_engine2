@@ -44,6 +44,7 @@ import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.PdfFontSet;
+import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
@@ -55,7 +56,6 @@ import com.jingyicare.jingyi_icis_engine.utils.ValueMetaUtils;
 public class PatientSkincareRecordsDataSourceHandler extends AbstractJfkDataSourceHandler {
     public PatientSkincareRecordsDataSourceHandler(
         JfkDataSourceSupport support,
-        MonitoringWindowResolver monitoringWindowResolver,
         PatientSkincareRecordRepository skincareRecordRepo,
         PatientSkincarePlanRepository skincarePlanRepo,
         PatientSkincarePlanAttrRepository skincarePlanAttrRepo,
@@ -67,7 +67,6 @@ public class PatientSkincareRecordsDataSourceHandler extends AbstractJfkDataSour
         ResourceLoader resourceLoader
     ) {
         super(support);
-        this.monitoringWindowResolver = monitoringWindowResolver;
         this.skincareRecordRepo = skincareRecordRepo;
         this.skincarePlanRepo = skincarePlanRepo;
         this.skincarePlanAttrRepo = skincarePlanAttrRepo;
@@ -103,22 +102,24 @@ public class PatientSkincareRecordsDataSourceHandler extends AbstractJfkDataSour
             return error(StatusCode.JFK_MISSING_REQUIRED_FIELD, joinMissingFields(missingFields));
         }
 
-        Pair<ReturnCode, MonitoringWindow> windowResult = monitoringWindowResolver.resolve(pid, queryStartIso);
+        Pair<ReturnCode, JfkDataSourceSupport.PatientDayContext> windowResult = support
+            .resolvePatientDayContext(pid, queryStartIso);
         if (windowResult.getFirst().getCode() != StatusCode.OK.ordinal()) {
             return new Pair<>(windowResult.getFirst(), null);
         }
 
-        MonitoringWindow window = windowResult.getSecond();
-        if (!StrUtils.isBlank(requestDeptId) && !requestDeptId.equals(window.deptId())) {
+        StatisticsDayWindow window = windowResult.getSecond().dayWindow();
+        String deptId = windowResult.getSecond().patient().getDeptId();
+        if (!StrUtils.isBlank(requestDeptId) && !requestDeptId.equals(deptId)) {
             log.warn(
                 "Compact skincare records dept_id mismatch, pid={}, requestDeptId={}, patientDeptId={}",
-                pid, requestDeptId, window.deptId()
+                pid, requestDeptId, deptId
             );
         }
 
         JfkDataSourcePB.Builder outputBuilder = newOutputBuilder(input);
         List<PatientSkincareRecord> records = skincareRecordRepo.findReportSkincareRecords(
-            pid, window.monStartUtc(), window.monEndUtc());
+            pid, window.monitoringStartUtc(), window.monitoringEndUtc());
         if (records.isEmpty()) {
             addEmptyOutputs(outputBuilder);
             return new Pair<>(returnCode(StatusCode.OK), outputBuilder.build());
@@ -582,7 +583,6 @@ public class PatientSkincareRecordsDataSourceHandler extends AbstractJfkDataSour
     private static final double DEFAULT_FONT_SIZE = 8d;
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
-    private final MonitoringWindowResolver monitoringWindowResolver;
     private final PatientSkincareRecordRepository skincareRecordRepo;
     private final PatientSkincarePlanRepository skincarePlanRepo;
     private final PatientSkincarePlanAttrRepository skincarePlanAttrRepo;

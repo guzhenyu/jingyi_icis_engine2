@@ -31,6 +31,7 @@ import com.jingyicare.jingyi_icis_engine.repository.tubes.TubeTypeStatusReposito
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.shifts.ConfigShiftUtils;
+import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 
 public class PatientTubeRecordsDataSourceHandlerTests {
@@ -258,7 +259,6 @@ public class PatientTubeRecordsDataSourceHandlerTests {
 
     private static class TestContext {
         private final JfkDataSourceSupport support = mock(JfkDataSourceSupport.class);
-        private final MonitoringWindowResolver monitoringWindowResolver = mock(MonitoringWindowResolver.class);
         private final PatientTubeRecordRepository tubeRecordRepo = mock(PatientTubeRecordRepository.class);
         private final PatientTubeStatusRecordRepository tubeStatusRecordRepo = mock(PatientTubeStatusRecordRepository.class);
         private final TubeTypeStatusRepository tubeTypeStatusRepo = mock(TubeTypeStatusRepository.class);
@@ -277,12 +277,13 @@ public class PatientTubeRecordsDataSourceHandlerTests {
                     .setMetaId(input.getMetaId())
                     .addAllInputData(input.getInputDataList());
             });
-            when(monitoringWindowResolver.resolve(10001L, "2026-04-17T00:00Z"))
+            when(support.resolvePatientDayContext(10001L, "2026-04-17T00:00Z"))
                 .thenReturn(new Pair<>(
                     ReturnCode.newBuilder().setCode(StatusCode.OK.ordinal()).build(),
-                    new MonitoringWindow(
-                        patient, "patient-dept", MON_START_UTC, MON_END_UTC,
-                        MON_START_LOCAL, MON_END_LOCAL, 7
+                    new JfkDataSourceSupport.PatientDayContext(
+                        patient, new StatisticsDayWindow(
+                            MON_START_UTC, MON_END_UTC, MON_START_UTC, MON_END_UTC,
+                            7, 7, 12)
                     )
                 ));
             when(configShiftUtils.getShiftByDeptId("patient-dept")).thenReturn(shiftSettings());
@@ -295,7 +296,6 @@ public class PatientTubeRecordsDataSourceHandlerTests {
             properties.getCompact().getTubePolicy().setFirstRecordInShift(firstRecordInShift);
             return new PatientTubeRecordsDataSourceHandler(
                 support,
-                monitoringWindowResolver,
                 tubeRecordRepo,
                 tubeStatusRecordRepo,
                 tubeTypeStatusRepo,

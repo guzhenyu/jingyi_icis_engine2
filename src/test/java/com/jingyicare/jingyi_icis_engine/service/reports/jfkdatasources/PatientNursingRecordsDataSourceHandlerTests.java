@@ -27,6 +27,7 @@ import com.jingyicare.jingyi_icis_engine.repository.nursingrecords.NursingRecord
 import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
+import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 
 public class PatientNursingRecordsDataSourceHandlerTests {
@@ -147,7 +148,6 @@ public class PatientNursingRecordsDataSourceHandlerTests {
 
     private static class TestContext {
         private final JfkDataSourceSupport support = mock(JfkDataSourceSupport.class);
-        private final MonitoringWindowResolver monitoringWindowResolver = mock(MonitoringWindowResolver.class);
         private final NursingRecordRepository nursingRecordRepo = mock(NursingRecordRepository.class);
         private final AccountRepository accountRepo = mock(AccountRepository.class);
 
@@ -164,12 +164,13 @@ public class PatientNursingRecordsDataSourceHandlerTests {
                     .setMetaId(input.getMetaId())
                     .addAllInputData(input.getInputDataList());
             });
-            when(monitoringWindowResolver.resolve(10001L, "2026-04-17T00:00Z"))
+            when(support.resolvePatientDayContext(10001L, "2026-04-17T00:00Z"))
                 .thenReturn(new Pair<>(
                     ReturnCode.newBuilder().setCode(StatusCode.OK.ordinal()).build(),
-                    new MonitoringWindow(
-                        patient, "patient-dept", MON_START_UTC, MON_END_UTC,
-                        MON_START_LOCAL, MON_END_LOCAL, 7
+                    new JfkDataSourceSupport.PatientDayContext(
+                        patient, new StatisticsDayWindow(
+                            MON_START_UTC, MON_END_UTC, MON_START_UTC, MON_END_UTC,
+                            7, 7, 12)
                     )
                 ));
             when(nursingRecordRepo.findReportNursingRecords(10001L, MON_START_UTC, MON_END_UTC))
@@ -181,7 +182,6 @@ public class PatientNursingRecordsDataSourceHandlerTests {
             properties.getCompact().setFont("classpath:/fonts/msyh.ttf");
             return new PatientNursingRecordsDataSourceHandler(
                 support,
-                monitoringWindowResolver,
                 nursingRecordRepo,
                 accountRepo,
                 properties,

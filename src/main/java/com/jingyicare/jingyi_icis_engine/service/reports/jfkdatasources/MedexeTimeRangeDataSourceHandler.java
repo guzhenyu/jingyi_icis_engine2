@@ -9,11 +9,9 @@ import org.springframework.stereotype.Component;
 import lombok.extern.slf4j.Slf4j;
 
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
-import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
-import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
@@ -21,12 +19,8 @@ import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 @Component
 @Slf4j
 public class MedexeTimeRangeDataSourceHandler extends AbstractJfkDataSourceHandler {
-    public MedexeTimeRangeDataSourceHandler(
-        JfkDataSourceSupport support,
-        BalanceStatsShiftRepository balanceStatsShiftRepo
-    ) {
+    public MedexeTimeRangeDataSourceHandler(JfkDataSourceSupport support) {
         super(support);
-        this.balanceStatsShiftRepo = balanceStatsShiftRepo;
     }
 
     @Override
@@ -51,21 +45,11 @@ public class MedexeTimeRangeDataSourceHandler extends AbstractJfkDataSourceHandl
         if (utcStart == null) {
             return error(StatusCode.INVALID_TIME_FORMAT, FIELD_QUERY_START);
         }
-        LocalDateTime utcEnd = utcStart.plusHours(24);
-
-        BalanceStatsShift shift = balanceStatsShiftRepo
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(deptId, utcEnd)
-            .orElse(null);
-        if (shift == null) {
-            return error(StatusCode.BALANCE_STATS_SHIFT_NOT_FOUND, "deptId: " + deptId);
-        }
-
-        Integer startHour = shift.getStartHour();
-        if (startHour == null || !TimeUtils.isValidHour(startHour)) {
-            return error(
-                StatusCode.INVALID_PARAM_VALUE,
-                "deptId: " + deptId + ", balanceStatsShiftId: " + shift.getId() + ", start_hour: " + startHour
-            );
+        final int startHour;
+        try {
+            startHour = support.resolveStatisticsDayWindow(deptId, utcStart).startHour();
+        } catch (IllegalArgumentException e) {
+            return error(StatusCode.INVALID_PARAM_VALUE, e.getMessage());
         }
 
         JfkDataSourcePB.Builder outputBuilder = newOutputBuilder(input);
@@ -111,6 +95,4 @@ public class MedexeTimeRangeDataSourceHandler extends AbstractJfkDataSourceHandl
     private static final String MED_ORDER_TEXT = "用药医嘱";
     private static final String ROUTE_TEXT = "用药途径";
     private static final String ACC_TEXT = "累计量";
-
-    private final BalanceStatsShiftRepository balanceStatsShiftRepo;
 }
