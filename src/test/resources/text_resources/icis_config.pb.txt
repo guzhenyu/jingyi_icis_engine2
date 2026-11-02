@@ -247,30 +247,6 @@ patient {
             id: 6
             name: "空白选项"
         }
-        blood_type {
-            id: 1
-            name: "A"
-        }
-        blood_type {
-            id: 2
-            name: "B"
-        }
-        blood_type {
-            id: 3
-            name: "O"
-        }
-        blood_type {
-            id: 4
-            name: "AB"
-        }
-        blood_rh {
-            id: 1
-            name: "RH阴性"
-        }
-        blood_rh {
-            id: 2
-            name: "RH阳性"
-        }
         weigh_type {
             id: 1
             name: "平车"

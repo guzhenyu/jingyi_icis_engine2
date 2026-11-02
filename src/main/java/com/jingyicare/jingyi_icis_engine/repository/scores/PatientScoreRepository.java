@@ -36,6 +36,19 @@ public interface PatientScoreRepository extends JpaRepository<PatientScore, Long
         @Param("endTime") LocalDateTime endTime
     );
 
+    // 全部评分类型的 UTC 半开窗口 [startUtc, endUtc)，按生效时间、ID 升序。
+    @Query("SELECT ps FROM PatientScore ps " +
+        "WHERE ps.isDeleted = false " +
+        "AND ps.pid = :pid " +
+        "AND ps.effectiveTime >= :startUtc " +
+        "AND ps.effectiveTime < :endUtc " +
+        "ORDER BY ps.effectiveTime ASC, ps.id ASC")
+    List<PatientScore> findPatientScoresInWindow(
+        @Param("pid") Long pid,
+        @Param("startUtc") LocalDateTime startUtc,
+        @Param("endUtc") LocalDateTime endUtc
+    );
+
     Optional<PatientScore> findByIdAndIsDeletedFalse(Long id);
     Optional<PatientScore> findByPidAndScoreGroupCodeAndEffectiveTimeAndIsDeletedFalse(
         Long pid, String scoreGroupCode, LocalDateTime effectiveTime

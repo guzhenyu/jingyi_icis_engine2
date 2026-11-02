@@ -52,7 +52,8 @@ class PatientReadmissionInfoTests {
             .build());
         patientRepo = mock(PatientRecordRepository.class);
         patientService = new PatientService(
-            null, protoService, null, null, null, null, null, null, null, null,
+            null, protoService, new PatientEnumConverter(protoService),
+            null, null, null, null, null, null, null, null,
             patientRepo, null, null, null, null, null, null);
     }
 

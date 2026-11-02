@@ -72,6 +72,8 @@ class ConfigPbtxtTests {
         assertThat(builder.getStatusCodeMsgList()).contains("ok", "患者不存在");
         assertThat(builder.getStatusCodeMsgCount()).isEqualTo(StatusCode.LAST_CODE_VALUE);
         assertThat(builder.getWebApiMessage().getYesStr()).isNotBlank();
+        assertThat(builder.getEnumText().getBloodRhNegativeStrList()).containsExactly("RH阴性");
+        assertThat(builder.getEnumText().getBloodRhPositiveStrList()).containsExactly("RH阳性");
     }
 
     @Test

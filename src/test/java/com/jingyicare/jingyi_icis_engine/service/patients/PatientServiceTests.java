@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import com.jingyicare.jingyi_icis_engine.consts.PatientConsts;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
@@ -69,6 +70,82 @@ public class PatientServiceTests extends TestsBase {
         this.accountRepo = accountRepo;
         this.rbacAccountRepo = rbacAccountRepo;
         this.diagnosisHistoryRepo = diagnosisHistoryRepo;
+    }
+
+    @Autowired
+    private jakarta.persistence.EntityManager entityManager;
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional
+    public void testPatientInfoBloodTypes() throws Exception {
+        PatientRecord patient = patientTestUtils.newPatientRecord(99010L, IN_ICU_VAL, "10013");
+        patient.setId(null);
+        patient.setBloodType("A");
+        patient.setBloodRh("RH阳性");
+        PatientConfig.clearDischargeFields(patient);
+        patient.setAttendingDoctorId(null);
+        patient.setPrimaryCareDoctorId(null);
+        patient.setAdmittingDoctorId(null);
+        patient.setResponsibleNurseId(null);
+        patient = patientRecordRepo.save(patient);
+
+        String request = ProtoUtils.protoToJson(
+            GetPatientInfoV2Req.newBuilder().setId(patient.getId()).build());
+        GetPatientInfoV2Resp response = patientService.getPatientInfoV2(request);
+        assertThat(response.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        assertThat(response.getPatientInfo().getBloodType()).isEqualTo(PatientConsts.BLOOD_TYPE_A);
+        assertThat(response.getPatientInfo().getBloodRh())
+            .isEqualTo(PatientConsts.BLOOD_RH_POSITIVE);
+
+        // 保存历史中文值后采用规范名称；从数据库重新加载验证写入。
+        GenericResp saved = patientService.updatePatientInfoV2(ProtoUtils.protoToJson(
+            UpdatePatientInfoV2Req.newBuilder().setPatientInfo(response.getPatientInfo()).build()));
+        assertThat(saved.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        patientRecordRepo.flush();
+        entityManager.clear();
+        patient = patientRecordRepo.findById(patient.getId()).orElseThrow();
+        assertThat(patient.getBloodType()).isEqualTo("A");
+        assertThat(patient.getBloodRh()).isEqualTo("RH+");
+
+        PatientInfoPB selected = response.getPatientInfo().toBuilder()
+            .setBloodType(PatientConsts.BLOOD_TYPE_AB)
+            .setBloodRh(PatientConsts.BLOOD_RH_NEGATIVE).build();
+        saved = patientService.updatePatientInfoV2(ProtoUtils.protoToJson(
+            UpdatePatientInfoV2Req.newBuilder().setPatientInfo(selected).build()));
+        assertThat(saved.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        patientRecordRepo.flush();
+        entityManager.clear();
+        patient = patientRecordRepo.findById(patient.getId()).orElseThrow();
+        assertThat(patient.getBloodType()).isEqualTo("AB");
+        assertThat(patient.getBloodRh()).isEqualTo("RH-");
+        response = patientService.getPatientInfoV2(request);
+        assertThat(response.getPatientInfo().getBloodType()).isEqualTo(PatientConsts.BLOOD_TYPE_AB);
+        assertThat(response.getPatientInfo().getBloodRh())
+            .isEqualTo(PatientConsts.BLOOD_RH_NEGATIVE);
+
+        // 前端清空单选后，JSON 会省略这两个字段。
+        String cleared = com.google.protobuf.util.JsonFormat.printer().print(
+            UpdatePatientInfoV2Req.newBuilder().setPatientInfo(
+                selected.toBuilder().clearBloodType().clearBloodRh()).build());
+        assertThat(cleared).doesNotContain("bloodType", "bloodRh");
+        saved = patientService.updatePatientInfoV2(cleared);
+        assertThat(saved.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        patientRecordRepo.flush();
+        entityManager.clear();
+        patient = patientRecordRepo.findById(patient.getId()).orElseThrow();
+        assertThat(patient.getBloodType()).isEmpty();
+        assertThat(patient.getBloodRh()).isEmpty();
+        response = patientService.getPatientInfoV2(request);
+        assertThat(response.getPatientInfo().getBloodType()).isZero();
+        assertThat(response.getPatientInfo().getBloodRh()).isZero();
+
+        patient.setBloodType(null);
+        patient.setBloodRh(null);
+        patientRecordRepo.save(patient);
+        response = patientService.getPatientInfoV2(request);
+        assertThat(response.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        assertThat(response.getPatientInfo().getBloodType()).isZero();
+        assertThat(response.getPatientInfo().getBloodRh()).isZero();
     }
 
     @Test

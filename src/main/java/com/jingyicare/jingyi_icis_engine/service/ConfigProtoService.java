@@ -23,6 +23,7 @@ import com.google.protobuf.TextFormat;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.consts.PatientConsts;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.*;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisCommon.*;
@@ -76,26 +77,15 @@ public class ConfigProtoService {
 
             Config.Builder builder = Config.newBuilder();
             TextFormat.getParser().merge(reader, builder);
+            // 血型字典由固定常量生成；外部旧配置中的同名字段不再作为定义来源
+            builder.getPatientBuilder().getEnumsV2Builder()
+                .clearBloodType().addAllBloodType(PatientConsts.BLOOD_TYPES)
+                .clearBloodRh().addAllBloodRh(PatientConsts.BLOOD_RHS);
             this.config = builder.build();
             reader.close();
             log.info("Config loaded successfully");
 
-            if (this.config.getText().getStatusCodeMsgCount() == 0
-                && commonTextResource != null && commonTextResource.exists()
-            ) {
-                reader = new BufferedReader(new InputStreamReader(
-                    commonTextResource.getInputStream(), charsetName));
-                Text.Builder textBuilder = Text.newBuilder();
-                TextFormat.getParser().merge(reader, textBuilder);
-                reader.close();
-
-                this.config = this.config.toBuilder()
-                    .setText(textBuilder.build())
-                    .build();
-                log.info("Common text config loaded successfully");
-            } else if (this.config.getText().getStatusCodeMsgCount() > 0) {
-                log.info("Using text config from primary config resource");
-            }
+            loadCommonText(commonTextResource, charsetName);
 
             if (!this.config.hasUser() && userConfigResource != null && userConfigResource.exists()) {
                 reader = new BufferedReader(new InputStreamReader(
@@ -202,6 +192,39 @@ public class ConfigProtoService {
 
         this.deptSettingsRepo = deptSettingsRepo;
         this.intakeTypeRepo = intakeTypeRepo;
+    }
+
+    private void loadCommonText(Resource resource, String charsetName) throws IOException {
+        Text text = this.config.getText();
+        EnumTextPB enumText = text.getEnumText();
+        boolean needsText = text.getStatusCodeMsgCount() == 0;
+        boolean needsNegative = enumText.getBloodRhNegativeStrCount() == 0;
+        boolean needsPositive = enumText.getBloodRhPositiveStrCount() == 0;
+        if ((!needsText && !needsNegative && !needsPositive)
+            || resource == null || !resource.exists()) {
+            return;
+        }
+
+        Text.Builder commonText = Text.newBuilder();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(
+                resource.getInputStream(), charsetName))) {
+            TextFormat.getParser().merge(reader, commonText);
+        }
+
+        // Rh 别名逐列表回填，不受旧配置是否包含状态码文本的影响。
+        EnumTextPB.Builder mergedEnums = enumText.toBuilder();
+        if (needsNegative) {
+            mergedEnums.addAllBloodRhNegativeStr(
+                commonText.getEnumText().getBloodRhNegativeStrList());
+        }
+        if (needsPositive) {
+            mergedEnums.addAllBloodRhPositiveStr(
+                commonText.getEnumText().getBloodRhPositiveStrList());
+        }
+        Text.Builder mergedText = needsText ? commonText : text.toBuilder();
+        mergedText.setEnumText(mergedEnums);
+        this.config = this.config.toBuilder().setText(mergedText).build();
+        log.info("Common text config loaded successfully");
     }
 
     public ReturnCode getReturnCode(StatusCode code) {

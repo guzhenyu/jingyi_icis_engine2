@@ -34,8 +34,15 @@ message UnitsPB {
     repeated int32 other_unit = 4;    // 其他单位
 }
 
+message EnumTextPB {
+    // Rh 输入别名，按原文精确匹配；规范输出仍使用 RH-/RH+。
+    repeated string blood_rh_negative_str = 1;
+    repeated string blood_rh_positive_str = 2;
+}
+
 message Text {
     repeated string status_code_msg = 1;
     UnitsPB units = 2;
     WebApiMessage web_api_message = 3;
+    EnumTextPB enum_text = 4;
 }

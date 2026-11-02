@@ -242,30 +242,6 @@ patient {
             id: 5
             name: "保护性隔离"
         }
-        blood_type {
-            id: 1
-            name: "A"
-        }
-        blood_type {
-            id: 2
-            name: "B"
-        }
-        blood_type {
-            id: 3
-            name: "O"
-        }
-        blood_type {
-            id: 4
-            name: "AB"
-        }
-        blood_rh {
-            id: 1
-            name: "RH-"
-        }
-        blood_rh {
-            id: 2
-            name: "RH+"
-        }
         weigh_type {
             id: 0
             name: "平车"

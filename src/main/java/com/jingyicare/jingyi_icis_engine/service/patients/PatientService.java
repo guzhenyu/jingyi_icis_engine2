@@ -44,6 +44,7 @@ public class PatientService {
     public PatientService(
         ConfigurableApplicationContext context,
         @Autowired ConfigProtoService protoService,
+        @Autowired PatientEnumConverter patientEnumConverter,
         @Autowired ConfigShiftUtils shiftUtils,
         @Autowired PatientConfig patientConfig,
         @Autowired PatientSyncService patientSyncService,
@@ -115,6 +116,7 @@ public class PatientService {
         this.DISCHARGE_TYPE_EXIT_HOSPITAL_ID = dischargeType.getId();
 
         this.protoService = protoService;
+        this.patientEnumConverter = patientEnumConverter;
         this.statusCodeMsgs = protoService.getConfig().getText().getStatusCodeMsgList();
         this.shiftUtils = shiftUtils;
         this.patientConfig = patientConfig;
@@ -1895,18 +1897,8 @@ public class PatientService {
             builder.setBmi(String.format("%.1f", bmi));
         }
 
-        Integer bloodTypeId = enumsV2.getBloodTypeList().stream()
-            .filter(bloodType -> bloodType.getName().equals(patient.getBloodType()))
-            .map(EnumValue::getId)
-            .findFirst()
-            .orElse(0);
-        builder.setBloodType(bloodTypeId);
-        Integer bloodRhId = enumsV2.getBloodRhList().stream()
-            .filter(bloodRh -> bloodRh.getName().equals(patient.getBloodRh()))
-            .map(EnumValue::getId)
-            .findFirst()
-            .orElse(0);
-        builder.setBloodRh(bloodRhId);
+        builder.setBloodType(patientEnumConverter.getBloodTypeId(patient.getBloodType()));
+        builder.setBloodRh(patientEnumConverter.getBloodRhId(patient.getBloodRh()));
         builder.setBsa(patient.getBsa());
         builder.setPastMedicalHistory(patient.getPastMedicalHistory());
         builder.setAllergies(patient.getAllergies());
@@ -1999,18 +1991,8 @@ public class PatientService {
         patient.setWeightType(patientInfo.getWeightType().isEmpty() ? null : patientInfo.getWeightType());
         patient.setWeightIbw(patientInfo.getWeightIbw().isEmpty() ? null : patientInfo.getWeightIbw());
 
-        String bloodType = enumsV2.getBloodTypeList().stream()
-            .filter(bldType -> bldType.getId() == patientInfo.getBloodType())
-            .map(EnumValue::getName)
-            .findFirst()
-            .orElse("");
-        patient.setBloodType(bloodType);
-        String bloodRh = enumsV2.getBloodRhList().stream()
-            .filter(bldRh -> bldRh.getId() == patientInfo.getBloodRh())
-            .map(EnumValue::getName)
-            .findFirst()
-            .orElse("");
-        patient.setBloodRh(bloodRh);
+        patient.setBloodType(patientEnumConverter.getBloodTypeName(patientInfo.getBloodType()));
+        patient.setBloodRh(patientEnumConverter.getBloodRhName(patientInfo.getBloodRh()));
         patient.setBsa(patientInfo.getBsa() != 0.0f ? patientInfo.getBsa() : null);
         patient.setPastMedicalHistory(patientInfo.getPastMedicalHistory().isEmpty() 
             ? null : patientInfo.getPastMedicalHistory());
@@ -2217,6 +2199,7 @@ public class PatientService {
     private PatientSyncService patientSyncService;
     private PatientReadmissionService patientReadmissionService;
     private PatientDeviceService patientDeviceService;
+    private final PatientEnumConverter patientEnumConverter;
     private PatientRecordRepository patientRecordRepository;
     private BedConfigRepository bedConfigRepository;
     private DiagnosisHistoryRepository diagnosisHistoryRepository;

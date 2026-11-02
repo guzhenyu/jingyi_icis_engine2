@@ -725,6 +725,10 @@
             name_en: "mL/beat"
         }
     } 
+    enum_text {
+        blood_rh_negative_str: "RH阴性"
+        blood_rh_positive_str: "RH阳性"
+    }
     web_api_message {
         undefined_username: "undefined"
         yes_str: "是"
