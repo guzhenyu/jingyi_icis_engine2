@@ -26,6 +26,7 @@ import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.PatientNursingReportInvalidationService;
+import com.jingyicare.jingyi_icis_engine.service.settings.SettingService;
 import com.jingyicare.jingyi_icis_engine.service.users.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -36,7 +37,7 @@ public class PatientCriticalLisHandlingService {
         @Autowired ConfigProtoService protoService,
         @Autowired UserService userService,
         @Autowired PatientService patientService,
-        @Autowired NursingRecordConfig nursingRecordConfig,
+        @Autowired SettingService settingService,
         @Autowired NursingRecordUtils nursingRecordUtils,
         @Autowired PatientNursingReportInvalidationService pnrUtils,
         @Autowired NursingRecordRepository recordRepo,
@@ -51,7 +52,7 @@ public class PatientCriticalLisHandlingService {
         this.protoService = protoService;
         this.userService = userService;
         this.patientService = patientService;
-        this.nursingRecordConfig = nursingRecordConfig;
+        this.settingService = settingService;
         this.nursingRecordUtils = nursingRecordUtils;
         this.pnrUtils = pnrUtils;
         this.recordRepo = recordRepo;
@@ -269,7 +270,8 @@ public class PatientCriticalLisHandlingService {
                     .build();
                 recordRepo.save(nursingRecord);
             } else {
-                NursingRecordSettingsPB settingsPb = nursingRecordConfig.getNursingRecordSettings(deptId);
+                NursingRecordSettingsPB settingsPb = settingService
+                    .getNursingRecordSettings(deptId);
                 boolean enableUpdatingCreatedBy = settingsPb.getEnableUpdatingCreatedBy();
                 StatusCode status = nursingRecordUtils.updateNursingRecord(
                     nursingRecord.getId(), actions, effectiveTime, accountId, accountName,
@@ -479,7 +481,7 @@ public class PatientCriticalLisHandlingService {
     private final ConfigProtoService protoService;
     private final UserService userService;
     private final PatientService patientService;
-    private final NursingRecordConfig nursingRecordConfig;
+    private final SettingService settingService;
     private final NursingRecordUtils nursingRecordUtils;
     private final PatientNursingReportInvalidationService pnrUtils;
 

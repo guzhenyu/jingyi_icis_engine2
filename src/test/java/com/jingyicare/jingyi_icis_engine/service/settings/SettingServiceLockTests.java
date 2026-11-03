@@ -9,6 +9,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -28,11 +29,13 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import com.jingyicare.jingyi_icis_engine.entity.reports.DragableFormTemplate;
+import com.jingyicare.jingyi_icis_engine.entity.settings.DeptSystemSettingsId;
 import com.jingyicare.jingyi_icis_engine.entity.settings.SystemSettings;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkPagePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkTemplatePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.DeptMonitoringSettingsPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingRecord.NursingRecordSettingsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
 import com.jingyicare.jingyi_icis_engine.repository.reports.DragableFormTemplateRepository;
@@ -43,7 +46,6 @@ import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.medications.MedicationConfig;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
-import com.jingyicare.jingyi_icis_engine.service.nursingrecords.NursingRecordConfig;
 import com.jingyicare.jingyi_icis_engine.service.scores.ScoreConfig;
 import com.jingyicare.jingyi_icis_engine.service.users.UserService;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
@@ -97,6 +99,35 @@ class SettingServiceLockTests extends TestsBase {
         for (int functionId : List.of(6, 8, 9, 10, 11)) {
             assertThat(lockCount(LockKeys.deptSystemSettings(DEPT_ID, functionId))).isEqualTo(1);
         }
+    }
+
+    @Test
+    void nursingSettingsReturnDefaultsAndPersistUpdatesWithMetadata() {
+        assertThat(service.getNursingRecordSettings(DEPT_ID))
+            .isEqualTo(NursingRecordSettingsPB.getDefaultInstance());
+        var type = AppSettingTypeEnum.AST_NURSING_RECORD_OVERWRITE_CREATED_BY;
+        assertOk(updateApp(AppSettingsPB.newBuilder()
+            .setNursingRecordOverwriteCreatedBy(true).build(), type));
+        assertThat(service.getNursingRecordSettings(DEPT_ID).getEnableUpdatingCreatedBy()).isTrue();
+
+        var id = new DeptSystemSettingsId(
+            DEPT_ID, SystemSettingFunctionId.GET_DEPT_NURSING_RECORD_SETTINGS_VALUE);
+        var created = deptSettingsRepo.findById(id).orElseThrow();
+        assertThat(created.getModifiedBy()).isEqualTo(ACCOUNT);
+        assertThat(created.getModifiedAt()).isNotNull();
+
+        LocalDateTime oldTime = LocalDateTime.of(2020, 1, 1, 0, 0);
+        created.setModifiedAt(oldTime);
+        created.setModifiedBy("previous-user");
+        deptSettingsRepo.save(created);
+        assertOk(updateApp(AppSettingsPB.getDefaultInstance(), type));
+
+        assertThat(service.getNursingRecordSettings(DEPT_ID).getEnableUpdatingCreatedBy())
+            .isFalse();
+        var updated = deptSettingsRepo.findById(id).orElseThrow();
+        assertThat(updated.getModifiedBy()).isEqualTo(ACCOUNT);
+        assertThat(updated.getModifiedAt()).isAfter(oldTime);
+        assertThat(departmentSettingsCount()).isEqualTo(1);
     }
 
     @ParameterizedTest
@@ -183,7 +214,7 @@ class SettingServiceLockTests extends TestsBase {
         doThrow(new IllegalStateException("保存观察项设置失败")).when(failingConfig)
             .setDeptMonitoringSettings(eq(DEPT_ID), any(), eq(ACCOUNT));
         var failingService = new SettingService(protoService, users, medConfig, failingConfig,
-            nursingConfig, scoreConfig, deptSettingsRepo, systemSettingsRepo, templates, executor);
+            scoreConfig, deptSettingsRepo, systemSettingsRepo, templates, executor);
         var request = UpdateAppSettingsReq.newBuilder().setDeptId(DEPT_ID)
             .addChangedType(AppSettingTypeEnum.AST_ENABLE_MEDICATION_SPEED)
             .addChangedType(AppSettingTypeEnum.AST_HEAD_CUSTOM_TIME_GRACE_MINUTES)
@@ -300,7 +331,6 @@ class SettingServiceLockTests extends TestsBase {
     @Autowired private ConfigProtoService protoService;
     @Autowired private UserService users;
     @Autowired private MedicationConfig medConfig;
-    @Autowired private NursingRecordConfig nursingConfig;
     @Autowired private ScoreConfig scoreConfig;
     @Autowired private DeptSystemSettingsRepository deptSettingsRepo;
     @Autowired private SystemSettingsRepository systemSettingsRepo;

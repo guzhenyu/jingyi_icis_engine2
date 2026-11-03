@@ -21,6 +21,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -32,7 +33,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.PreparedStatementSetter;
@@ -42,10 +43,11 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.NursingRecord;
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingRecord.NursingRecordPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingRecord.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientMonitoringRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.nursingrecords.NursingRecordRepository;
+import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.lis.LisService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
@@ -56,6 +58,7 @@ import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.PatientMonitoringService;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.*;
+import com.jingyicare.jingyi_icis_engine.service.settings.SettingService;
 import com.jingyicare.jingyi_icis_engine.service.shifts.ConfigShiftUtils;
 import com.jingyicare.jingyi_icis_engine.service.tubes.PatientTubeImpl;
 import com.jingyicare.jingyi_icis_engine.service.users.UserService;
@@ -85,11 +88,16 @@ class NursingRecordServiceLockTests extends TestsBase {
         patient.setId(PID);
         patient.setDeptId(DEPT_ID);
         when(patients.getPatientRecord(PID)).thenReturn(patient);
+        patientRepo = mock(PatientRecordRepository.class);
+        when(patientRepo.findById(PID)).thenReturn(Optional.of(patient));
+        settings = mock(SettingService.class);
+        when(settings.getNursingRecordSettings(DEPT_ID))
+            .thenReturn(NursingRecordSettingsPB.getDefaultInstance());
         return new NursingRecordService(protoService, users, patients,
             mock(MedReportUtils.class), mock(MonitoringConfig.class),
             mock(PatientMonitoringService.class), mock(BalanceCalculator.class),
             mock(ConfigShiftUtils.class), mock(PatientTubeImpl.class), mock(LisService.class),
-            invalidation, mock(NursingRecordConfig.class), records,
+            invalidation, settings, records, patientRepo,
             mock(PatientMonitoringRecordRepository.class), executor, readerJdbc);
     }
 
@@ -222,25 +230,33 @@ class NursingRecordServiceLockTests extends TestsBase {
     }
 
     @ParameterizedTest
-    @ValueSource(longs = {0, 1, 24})
-    void replacementPreservesSourceAndCreationAndClearsReview(long hoursToMove) {
+    @CsvSource({"0, false", "1, false", "24, false", "1, true"})
+    void replacementUsesCreatorSettingAndClearsReview(long hoursToMove, boolean updateCreator) {
+        when(settings.getNursingRecordSettings(DEPT_ID)).thenReturn(
+            NursingRecordSettingsPB.newBuilder().setEnableUpdatingCreatedBy(updateCreator).build());
         NursingRecord original = records.save(record(TIME).source("template_id=7&params=记录")
             .patientCriticalLisHandlingId(7).reviewedBy("previous-reviewer")
             .reviewedByAccountName("原审核人").reviewedAt(TIME.plusMinutes(10))
             .createdAt(TIME.minusDays(1).plusSeconds(59).plusNanos(123456000)).build());
         LocalDateTime targetTime = TIME.plusHours(hoursToMove);
+        LocalDateTime now = TIME.plusDays(2);
 
-        assertOk(update(original.getId(), targetTime.plusSeconds(59).plusNanos(999999999)));
+        try (var clock = mockStatic(TimeUtils.class, CALLS_REAL_METHODS)) {
+            clock.when(TimeUtils::getNowUtc).thenReturn(now.plusSeconds(59).plusNanos(123456789));
+            assertOk(update(original.getId(), targetTime.plusSeconds(59).plusNanos(999999999)));
+        }
 
         NursingRecord replacement = activeRecord(targetTime, 7);
         assertThat(replacement.getId()).isNotEqualTo(original.getId());
         assertThat(replacement.getContent()).isEqualTo("更新后的内容");
         assertThat(replacement.getSource()).isEqualTo(original.getSource());
         assertThat(replacement.getPatientCriticalLisHandlingId()).isEqualTo(7);
-        assertThat(replacement.getCreatedBy()).isEqualTo(original.getCreatedBy());
+        assertThat(replacement.getCreatedBy())
+            .isEqualTo(updateCreator ? ACCOUNT : original.getCreatedBy());
         assertThat(replacement.getCreatedByAccountName())
-            .isEqualTo(original.getCreatedByAccountName());
-        assertThat(replacement.getCreatedAt()).isEqualTo(TIME.minusDays(1));
+            .isEqualTo(updateCreator ? ACCOUNT_NAME : original.getCreatedByAccountName());
+        assertThat(replacement.getCreatedAt()).isEqualTo(updateCreator ? now : TIME.minusDays(1));
+        verify(settings).getNursingRecordSettings(DEPT_ID);
         assertThat(replacement.getModifiedBy()).isEqualTo(ACCOUNT);
         assertThat(replacement.getModifiedByAccountName()).isEqualTo(ACCOUNT_NAME);
         assertMinutePrecision(replacement.getModifiedAt());
@@ -259,6 +275,16 @@ class NursingRecordServiceLockTests extends TestsBase {
             verify(invalidation).updateLatestDataTime(
                 eq(PID), eq(DEPT_ID), eq(targetTime), eq(targetTime), any());
         }
+    }
+
+    @Test
+    void missingRecordOrPatientDisablesCreatorUpdates() {
+        assertThat(service.getEnableUpdatingCreatedBy(Long.MAX_VALUE)).isFalse();
+
+        NursingRecord original = saveRecord(TIME);
+        when(patientRepo.findById(PID)).thenReturn(Optional.empty());
+        assertThat(service.getEnableUpdatingCreatedBy(original.getId())).isFalse();
+        verifyNoInteractions(settings);
     }
 
     @Test
@@ -529,6 +555,8 @@ class NursingRecordServiceLockTests extends TestsBase {
     private static final LocalDateTime TIME = LocalDateTime.of(2026, 1, 2, 3, 4);
 
     private NursingRecordService service;
+    private SettingService settings;
+    private PatientRecordRepository patientRepo;
     private PatientNursingReportInvalidationService invalidation;
 
     @Autowired private ConfigProtoService protoService;

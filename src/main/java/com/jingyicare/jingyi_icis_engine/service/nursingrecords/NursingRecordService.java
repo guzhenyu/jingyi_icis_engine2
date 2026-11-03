@@ -37,6 +37,7 @@ import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.*;
 import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientMonitoringRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.nursingrecords.*;
+import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
@@ -46,6 +47,7 @@ import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.PatientNursingReportInvalidationService;
+import com.jingyicare.jingyi_icis_engine.service.settings.SettingService;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
 import com.jingyicare.jingyi_icis_engine.service.tubes.*;
 import com.jingyicare.jingyi_icis_engine.service.users.*;
@@ -66,8 +68,9 @@ public class NursingRecordService {
         @Autowired PatientTubeImpl patientTubeImpl,
         @Autowired LisService lisService,
         @Autowired PatientNursingReportInvalidationService pnrUtils,
-        @Autowired NursingRecordConfig recordConfig,
+        @Autowired SettingService settingService,
         @Autowired NursingRecordRepository recordRepo,
+        @Autowired PatientRecordRepository patientRepo,
         @Autowired PatientMonitoringRecordRepository monitoringRecordRepo,
         @Autowired LockExecutor lockExecutor,
         @Autowired JdbcTemplate jdbcTemplate
@@ -95,8 +98,9 @@ public class NursingRecordService {
         this.patientTubeImpl = patientTubeImpl;
         this.lisService = lisService;
         this.pnrUtils = pnrUtils;
-        this.recordConfig = recordConfig;
+        this.settingService = settingService;
         this.recordRepo = recordRepo;
+        this.patientRepo = patientRepo;
         this.monitoringRecordRepo = monitoringRecordRepo;
         this.lockExecutor = lockExecutor;
         this.jdbcTemplate = jdbcTemplate;
@@ -259,7 +263,7 @@ public class NursingRecordService {
                 return nursingRecordResponse(StatusCode.OK);
             }
 
-            boolean updateCreator = recordConfig.getEnableUpdatingCreatedBy(old.getId());
+            boolean updateCreator = getEnableUpdatingCreatedBy(old.getId());
             LocalDateTime nowUtc = TimeUtils.getNowUtc();
             NursingRecord replacement = old.toBuilder()
                 .id(null)
@@ -297,6 +301,16 @@ public class NursingRecordService {
             }
             return nursingRecordResponse(StatusCode.OK);
         });
+    }
+
+    public boolean getEnableUpdatingCreatedBy(Long nursingRecordId) {
+        NursingRecord record = recordRepo.findByIdAndIsDeletedFalse(nursingRecordId).orElse(null);
+        if (record == null) return false;
+        PatientRecord patient = patientRepo.findById(record.getPatientId()).orElse(null);
+        if (patient == null) return false;
+
+        return settingService.getNursingRecordSettings(patient.getDeptId())
+            .getEnableUpdatingCreatedBy();
     }
 
     public GenericResp deleteNursingRecord(String deleteNursingRecordReqJson) {
@@ -981,8 +995,9 @@ public class NursingRecordService {
     private final PatientTubeImpl patientTubeImpl;
     private final LisService lisService;
     private final PatientNursingReportInvalidationService pnrUtils;
-    private final NursingRecordConfig recordConfig;
+    private final SettingService settingService;
     private final NursingRecordRepository recordRepo;
+    private final PatientRecordRepository patientRepo;
     private final PatientMonitoringRecordRepository monitoringRecordRepo;
     private final LockExecutor lockExecutor;
     private final JdbcTemplate jdbcTemplate;

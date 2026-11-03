@@ -30,7 +30,6 @@ import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.medications.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
-import com.jingyicare.jingyi_icis_engine.service.nursingrecords.*;
 import com.jingyicare.jingyi_icis_engine.service.scores.*;
 import com.jingyicare.jingyi_icis_engine.service.users.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -43,7 +42,6 @@ public class SettingService {
         @Autowired UserService userService,
         @Autowired MedicationConfig medConfig,
         @Autowired MonitoringConfig monitoringConfig,
-        @Autowired NursingRecordConfig nursingRecordConfig,
         @Autowired ScoreConfig scoreConfig,  // nursing score
         @Autowired DeptSystemSettingsRepository deptSettingsRepo,
         @Autowired SystemSettingsRepository systemSettingsRepo,
@@ -56,7 +54,6 @@ public class SettingService {
         this.userService = userService;
         this.medConfig = medConfig;
         this.monitoringConfig = monitoringConfig;
-        this.nursingRecordConfig = nursingRecordConfig;
         this.scoreConfig = scoreConfig;
         this.deptSettingsRepo = deptSettingsRepo;
         this.systemSettingsRepo = systemSettingsRepo;
@@ -192,7 +189,7 @@ public class SettingService {
     public AppSettingsPB getAppSettingsForService(String deptId) {
         MedOrderGroupSettingsPB medSettingsPb = medConfig.getMedOrderGroupSettings(deptId);
         DeptMonitoringSettingsPB monitoringSettingsPb = monitoringConfig.getDeptMonitoringSettings(deptId);
-        NursingRecordSettingsPB nursingRecordSettingsPb = nursingRecordConfig.getNursingRecordSettings(deptId);
+        NursingRecordSettingsPB nursingRecordSettingsPb = getNursingRecordSettings(deptId);
         ScoreSettingsPB scoreSettingsPb = scoreConfig.getDeptScoreSettings(deptId);
         AppGeneralSettingsPB generalSettingsPb = loadGeneralSettings(deptId);
 
@@ -203,7 +200,7 @@ public class SettingService {
             .setTailCustomTimeGraceMinutes(
                 monitoringSettingsPb == null ? 0 : monitoringSettingsPb.getTailCustomTimePointGraceMinutes())
             .setNursingRecordOverwriteCreatedBy(
-                nursingRecordSettingsPb != null && nursingRecordSettingsPb.getEnableUpdatingCreatedBy())
+                nursingRecordSettingsPb.getEnableUpdatingCreatedBy())
             .setScoreAllowEditRecordedBy(
                 scoreSettingsPb != null && scoreSettingsPb.getAllowEditRecordedBy())
             .setJfkUseNativePrint(generalSettingsPb.getJfkUseNativePrint())
@@ -310,18 +307,9 @@ public class SettingService {
         // 设置护理记录信息
         if (settingTypes.contains(AppSettingTypeEnum.AST_NURSING_RECORD_OVERWRITE_CREATED_BY)) {
             boolean enableUpdatingCreatedBy = appSettingsPb.getNursingRecordOverwriteCreatedBy();
-            NursingRecordSettingsPB nursingRecordSettingsPb = nursingRecordConfig
-                .getNursingRecordSettings(deptId);
-            if (nursingRecordSettingsPb == null) {
-                log.error("NursingRecordSettings not found for deptId {}", deptId);
-                nursingRecordSettingsPb = NursingRecordSettingsPB.newBuilder()
-                    .setEnableUpdatingCreatedBy(enableUpdatingCreatedBy).build();
-            } else {
-                nursingRecordSettingsPb = nursingRecordSettingsPb.toBuilder()
-                    .setEnableUpdatingCreatedBy(enableUpdatingCreatedBy).build();
-            }
-            nursingRecordConfig.setNursingRecordSettings(
-                deptId, nursingRecordSettingsPb, accountId);
+            NursingRecordSettingsPB nursingRecordSettingsPb = getNursingRecordSettings(deptId)
+                .toBuilder().setEnableUpdatingCreatedBy(enableUpdatingCreatedBy).build();
+            setNursingRecordSettings(deptId, nursingRecordSettingsPb, accountId);
         }
 
         // 设置评分记录信息
@@ -374,6 +362,38 @@ public class SettingService {
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .build();
+    }
+
+    public NursingRecordSettingsPB getNursingRecordSettings(String deptId) {
+        DeptSystemSettingsId settingsId = new DeptSystemSettingsId(
+            deptId, SystemSettingFunctionId.GET_DEPT_NURSING_RECORD_SETTINGS.getNumber());
+        DeptSystemSettings entity = deptSettingsRepo.findById(settingsId).orElse(null);
+
+        NursingRecordSettingsPB settingsPb = null;
+        if (entity != null) {
+            settingsPb = ProtoUtils.decodeNursingRecordSettings(entity.getSettingsPb());
+        }
+        if (settingsPb == null) settingsPb = NursingRecordSettingsPB.newBuilder().build();
+
+        return settingsPb;
+    }
+
+    public void setNursingRecordSettings(
+        String deptId, NursingRecordSettingsPB settingsPb, String modifiedBy
+    ) {
+        DeptSystemSettingsId settingsId = new DeptSystemSettingsId(
+            deptId, SystemSettingFunctionId.GET_DEPT_NURSING_RECORD_SETTINGS.getNumber());
+        DeptSystemSettings entity = deptSettingsRepo.findById(settingsId).orElse(null);
+        String settingsStr = ProtoUtils.encodeNursingRecordSettings(settingsPb);
+        LocalDateTime nowUtc = TimeUtils.getNowUtc();
+        if (entity == null) {
+            entity = new DeptSystemSettings(settingsId, settingsStr, nowUtc, modifiedBy);
+        } else {
+            entity.setSettingsPb(settingsStr);
+            entity.setModifiedAt(nowUtc);
+            entity.setModifiedBy(modifiedBy);
+        }
+        deptSettingsRepo.save(entity);
     }
 
     private AppGeneralSettingsPB loadGeneralSettings(String deptId) {
@@ -471,7 +491,6 @@ public class SettingService {
     private final UserService userService;
     private final MedicationConfig medConfig;
     private final MonitoringConfig monitoringConfig;
-    private final NursingRecordConfig nursingRecordConfig;
     private final ScoreConfig scoreConfig;
     private final DeptSystemSettingsRepository deptSettingsRepo;
     private final SystemSettingsRepository systemSettingsRepo;
