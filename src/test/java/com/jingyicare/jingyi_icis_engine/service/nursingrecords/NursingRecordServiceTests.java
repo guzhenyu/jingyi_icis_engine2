@@ -254,9 +254,9 @@ public class NursingRecordServiceTests extends TestsBase {
         LocalDateTime recTimeUtc1 = LocalDateTime.of(2024, 12, 24, 1, 0, 0);
         AddNursingRecordReq addReq = AddNursingRecordReq.newBuilder()
             .setPid(patientId)
-            .setRecord(PatientNursingRecordValPB.newBuilder()
+            .setRecord(NursingRecordPB.newBuilder()
                 .setContent("NursingRecordServiceTests-admin-record1")
-                .setRecordedAtIso8601(TimeUtils.toIso8601String(recTimeUtc1, ZONE_ID))
+                .setEffectiveTimeIso8601(TimeUtils.toIso8601String(recTimeUtc1, ZONE_ID))
                 .build()
             )
             .build();
@@ -271,9 +271,9 @@ public class NursingRecordServiceTests extends TestsBase {
         LocalDateTime recTimeUtc2 = LocalDateTime.of(2024, 12, 24, 2, 0, 0);
         addReq = AddNursingRecordReq.newBuilder()
             .setPid(patientId)
-            .setRecord(PatientNursingRecordValPB.newBuilder()
+            .setRecord(NursingRecordPB.newBuilder()
                 .setContent("NursingRecordServiceTests-admin-record2")
-                .setRecordedAtIso8601(TimeUtils.toIso8601String(recTimeUtc2, ZONE_ID))
+                .setEffectiveTimeIso8601(TimeUtils.toIso8601String(recTimeUtc2, ZONE_ID))
                 .build()
             )
             .build();
@@ -284,7 +284,7 @@ public class NursingRecordServiceTests extends TestsBase {
 
         // 更新
         UpdateNursingRecordReq updateReq = UpdateNursingRecordReq.newBuilder()
-            .setRecord(PatientNursingRecordValPB.newBuilder()
+            .setRecord(NursingRecordPB.newBuilder()
                 .setId(recordId1)
                 .setContent("NursingRecordServiceTests-admin-record1-updated")
                 .build()
@@ -294,7 +294,7 @@ public class NursingRecordServiceTests extends TestsBase {
         assertThat(updateResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
         updateReq = UpdateNursingRecordReq.newBuilder()
-            .setRecord(PatientNursingRecordValPB.newBuilder()
+            .setRecord(NursingRecordPB.newBuilder()
                 .setId(100000)  // 一个不存在的id
                 .setContent("NursingRecordServiceTests-admin-recordx-updated")
                 .build()

@@ -42,6 +42,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.NursingRecord;
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingRecord.NursingRecordPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientMonitoringRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.nursingrecords.NursingRecordRepository;
@@ -95,6 +96,66 @@ class NursingRecordServiceLockTests extends TestsBase {
     @AfterEach
     void cleanUp() {
         cleanRecords();
+    }
+
+    @Test
+    void getReturnsDatabaseMetadataWithConfiguredTimeZoneAndNullDefaults() {
+        LocalDateTime effectiveTime = TIME.plusSeconds(59).plusNanos(123456000);
+        NursingRecord full = records.save(record(effectiveTime).source("template_id=7")
+            .patientCriticalLisHandlingId(7).reviewedBy("reviewer")
+            .reviewedByAccountName("审核人").reviewedAt(effectiveTime.plusMinutes(1))
+            .modifiedBy("modifier").modifiedByAccountName("修改人")
+            .modifiedAt(effectiveTime.plusMinutes(2)).createdBy("creator")
+            .createdByAccountName("创建人").createdAt(effectiveTime.minusMinutes(1)).build());
+        NursingRecord nullable = records.save(NursingRecord.builder().patientId(PID)
+            .content("旧记录").effectiveTime(TIME.plusHours(1)).isDeleted(false)
+            .modifiedBy("legacy-modifier").build());
+        var request = GetNursingRecordReq.newBuilder().setPid(PID)
+            .setQueryStartIso8601(iso8601(TIME))
+            .setQueryEndIso8601(iso8601(TIME.plusHours(2))).build();
+
+        GetNursingRecordResp response = service.getNursingRecord(ProtoUtils.protoToJson(request));
+
+        String zoneId = protoService.getZoneId();
+        assertThat(response.getRt().getCode()).isEqualTo(StatusCode.OK_VALUE);
+        assertThat(response.getRecordList()).containsExactly(
+            NursingRecordPB.newBuilder().setId(full.getId()).setPatientId(PID)
+                .setContent(full.getContent())
+                .setEffectiveTimeIso8601(TimeUtils.toIso8601String(TIME, zoneId))
+                .setSource("template_id=7").setPatientCriticalLisHandlingId(7)
+                .setReviewedBy("reviewer").setReviewedByAccountName("审核人")
+                .setReviewedAtIso8601(TimeUtils.toIso8601String(TIME.plusMinutes(1), zoneId))
+                .setModifiedBy("modifier").setModifiedByAccountName("修改人")
+                .setModifiedAtIso8601(TimeUtils.toIso8601String(TIME.plusMinutes(2), zoneId))
+                .setCreatedBy("creator").setCreatedByAccountName("创建人")
+                .setCreatedAtIso8601(TimeUtils.toIso8601String(TIME.minusMinutes(1), zoneId))
+                .build(),
+            NursingRecordPB.newBuilder().setId(nullable.getId()).setPatientId(PID)
+                .setContent("旧记录")
+                .setEffectiveTimeIso8601(TimeUtils.toIso8601String(TIME.plusHours(1), zoneId))
+                .setModifiedBy("legacy-modifier").setModifiedByAccountName("legacy-modifier")
+                .build());
+    }
+
+    @Test
+    void addIgnoresClientMetadataAndUsesServerAuditFields() {
+        LocalDateTime now = TIME.plusHours(2).plusSeconds(59).plusNanos(123456789);
+        var request = AddNursingRecordReq.newBuilder().setPid(PID)
+            .setRecord(clientMetadataRecord().setId(Long.MAX_VALUE).setContent("新增记录")
+                .setEffectiveTimeIso8601(iso8601(TIME.plusSeconds(59)))).build();
+        AddNursingRecordResp response;
+        try (var clock = mockStatic(TimeUtils.class, CALLS_REAL_METHODS)) {
+            clock.when(TimeUtils::getNowUtc).thenReturn(now);
+            response = service.addNursingRecord(ProtoUtils.protoToJson(request));
+        }
+
+        assertThat(response.getRt().getCode()).isEqualTo(StatusCode.OK_VALUE);
+        assertThat(response.getId()).isNotEqualTo(Long.MAX_VALUE);
+        assertThat(activeRecord(TIME, null)).isEqualTo(NursingRecord.builder()
+            .id(response.getId()).patientId(PID).content("新增记录").effectiveTime(TIME)
+            .isDeleted(false).createdBy(ACCOUNT).createdByAccountName(ACCOUNT_NAME)
+            .createdAt(TIME.plusHours(2)).modifiedBy(ACCOUNT)
+            .modifiedByAccountName(ACCOUNT_NAME).modifiedAt(TIME.plusHours(2)).build());
     }
 
     @Test
@@ -204,7 +265,7 @@ class NursingRecordServiceLockTests extends TestsBase {
     void unchangedContentWithoutTimeDoesNotReplaceRecordOrInvalidateReport() {
         NursingRecord original = saveRecord(TIME);
         var request = UpdateNursingRecordReq.newBuilder()
-            .setRecord(PatientNursingRecordValPB.newBuilder().setId(original.getId())
+            .setRecord(NursingRecordPB.newBuilder().setId(original.getId())
                 .setContent(original.getContent())).build();
 
         assertOk(service.updateNursingRecord(ProtoUtils.protoToJson(request)));
@@ -219,7 +280,7 @@ class NursingRecordServiceLockTests extends TestsBase {
     void updateWithoutTimeNormalizesExistingEffectiveTime() {
         NursingRecord original = saveRecord(TIME.plusSeconds(59).plusNanos(123456000));
         var request = UpdateNursingRecordReq.newBuilder()
-            .setRecord(PatientNursingRecordValPB.newBuilder().setId(original.getId())
+            .setRecord(NursingRecordPB.newBuilder().setId(original.getId())
                 .setContent(original.getContent())).build();
 
         assertOk(service.updateNursingRecord(ProtoUtils.protoToJson(request)));
@@ -359,16 +420,27 @@ class NursingRecordServiceLockTests extends TestsBase {
 
     private AddNursingRecordResp add(LocalDateTime time, String content) {
         return service.addNursingRecord(ProtoUtils.protoToJson(AddNursingRecordReq.newBuilder()
-            .setPid(PID).setRecord(PatientNursingRecordValPB.newBuilder().setContent(content)
-                .setRecordedAtIso8601(iso8601(time))).build()));
+            .setPid(PID).setRecord(NursingRecordPB.newBuilder().setContent(content)
+                .setEffectiveTimeIso8601(iso8601(time))).build()));
     }
 
     private GenericResp update(long id, LocalDateTime time) {
         var request = UpdateNursingRecordReq.newBuilder()
-            .setRecord(PatientNursingRecordValPB.newBuilder().setId(id)
+            .setRecord(clientMetadataRecord().setId(id)
                 .setContent("更新后的内容")
-                .setRecordedAtIso8601(iso8601(time))).build();
+                .setEffectiveTimeIso8601(iso8601(time))).build();
         return service.updateNursingRecord(ProtoUtils.protoToJson(request));
+    }
+
+    private NursingRecordPB.Builder clientMetadataRecord() {
+        return NursingRecordPB.newBuilder().setPatientId(PID + 1)
+            .setSource("client-source").setPatientCriticalLisHandlingId(999)
+            .setReviewedBy("client-reviewer").setReviewedByAccountName("客户端审核人")
+            .setReviewedAtIso8601(iso8601(TIME.minusYears(1)))
+            .setModifiedBy("client-modifier").setModifiedByAccountName("客户端修改人")
+            .setModifiedAtIso8601(iso8601(TIME.minusYears(1)))
+            .setCreatedBy("client-creator").setCreatedByAccountName("客户端创建人")
+            .setCreatedAtIso8601(iso8601(TIME.minusYears(1)));
     }
 
     private GenericResp delete(long id) {

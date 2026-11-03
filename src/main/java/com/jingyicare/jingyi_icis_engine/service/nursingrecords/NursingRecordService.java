@@ -116,30 +116,29 @@ public class NursingRecordService {
         LocalDateTime queryStartUtc = TimeUtils.fromIso8601String(req.getQueryStartIso8601(), "UTC");
         LocalDateTime queryEndUtc = TimeUtils.fromIso8601String(req.getQueryEndIso8601(), "UTC");
 
-        List<PatientNursingRecordValPB> records = recordRepo
+        List<NursingRecordPB> records = recordRepo
             .findByPatientIdAndEffectiveTimeBetweenAndIsDeletedFalse(req.getPid(), queryStartUtc, queryEndUtc)
             .stream()
             .sorted(Comparator.comparing(NursingRecord::getEffectiveTime))
-            .map(record -> {
-                PatientNursingRecordValPB.Builder recordBuilder = PatientNursingRecordValPB.newBuilder()
-                    .setId(record.getId())
-                    .setContent(record.getContent())
-                    .setRecordedBy(StrUtils.isBlank(record.getCreatedBy()) ?
-                        record.getModifiedBy() : record.getCreatedBy()
-                    )
-                    .setRecordedByAccountName(StrUtils.isBlank(record.getCreatedByAccountName()) ?
-                        record.getModifiedByAccountName() : record.getCreatedByAccountName()
-                    )
-                    .setRecordedAtIso8601(TimeUtils.toIso8601String(record.getEffectiveTime(), ZONE_ID));
-                if (!StrUtils.isBlank(record.getReviewedBy())) {
-                    recordBuilder.setReviewedBy(record.getReviewedBy());
-                }
-                if (!StrUtils.isBlank(record.getReviewedByAccountName())) {
-                    recordBuilder.setReviewedByAccountName(record.getReviewedByAccountName());
-                }
-                recordBuilder.setReviewedAtIso8601(TimeUtils.toIso8601String(record.getReviewedAt(), ZONE_ID));
-                return recordBuilder.build();
-            })
+            .map(record -> NursingRecordPB.newBuilder()
+                .setId(record.getId())
+                .setPatientId(record.getPatientId())
+                .setContent(record.getContent())
+                .setEffectiveTimeIso8601(
+                    TimeUtils.toIso8601String(record.getEffectiveTime(), ZONE_ID))
+                .setSource(Objects.toString(record.getSource(), ""))
+                .setPatientCriticalLisHandlingId(record.getPatientCriticalLisHandlingId() == null
+                    ? 0 : record.getPatientCriticalLisHandlingId())
+                .setReviewedBy(Objects.toString(record.getReviewedBy(), ""))
+                .setReviewedByAccountName(Objects.toString(record.getReviewedByAccountName(), ""))
+                .setReviewedAtIso8601(TimeUtils.toIso8601String(record.getReviewedAt(), ZONE_ID))
+                .setModifiedBy(Objects.toString(record.getModifiedBy(), ""))
+                .setModifiedByAccountName(Objects.toString(record.getModifiedByAccountName(), ""))
+                .setModifiedAtIso8601(TimeUtils.toIso8601String(record.getModifiedAt(), ZONE_ID))
+                .setCreatedBy(Objects.toString(record.getCreatedBy(), ""))
+                .setCreatedByAccountName(Objects.toString(record.getCreatedByAccountName(), ""))
+                .setCreatedAtIso8601(TimeUtils.toIso8601String(record.getCreatedAt(), ZONE_ID))
+                .build())
             .collect(Collectors.toList());
 
         return GetNursingRecordResp.newBuilder()
@@ -172,9 +171,9 @@ public class NursingRecordService {
         final String accountName = account.getSecond();
 
         long patientId = req.getPid();
-        PatientNursingRecordValPB recordPb = req.getRecord();
+        NursingRecordPB recordPb = req.getRecord();
         LocalDateTime effectiveTime = formatTime(TimeUtils.fromIso8601String(
-            recordPb.getRecordedAtIso8601(), "UTC"));
+            recordPb.getEffectiveTimeIso8601(), "UTC"));
         if (patientId <= 0 || effectiveTime == null) {
             StatusCode code = patientId <= 0 ? StatusCode.INVALID_PARAM_VALUE
                 : StatusCode.INVALID_TIME_FORMAT;
@@ -230,12 +229,12 @@ public class NursingRecordService {
         Pair<String, String> account = userService.getAccountWithAutoId();
         if (account == null) return nursingRecordResponse(StatusCode.ACCOUNT_NOT_FOUND);
 
-        PatientNursingRecordValPB recordPb = req.getRecord();
+        NursingRecordPB recordPb = req.getRecord();
         if (recordPb.getId() <= 0) return nursingRecordResponse(StatusCode.INVALID_PARAM_VALUE);
         LocalDateTime targetTime = formatTime(TimeUtils.fromIso8601String(
-            recordPb.getRecordedAtIso8601(), "UTC"));
+            recordPb.getEffectiveTimeIso8601(), "UTC"));
         // 未提供时间沿用旧时间；提供了无法解析的时间则拒绝更新。
-        if (!recordPb.getRecordedAtIso8601().isEmpty() && targetTime == null) {
+        if (!recordPb.getEffectiveTimeIso8601().isEmpty() && targetTime == null) {
             return nursingRecordResponse(StatusCode.INVALID_TIME_FORMAT);
         }
         return withNursingRecordLocks(List.of(recordPb.getId()), targetTime, records -> {
