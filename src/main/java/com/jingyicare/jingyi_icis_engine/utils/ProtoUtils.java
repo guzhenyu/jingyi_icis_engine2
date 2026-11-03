@@ -118,7 +118,15 @@ public class ProtoUtils {
     }
 
     static public String encodeScoreGroupPB(ScoreGroupPB pb) {
-        return Base64.getEncoder().encodeToString(pb.toByteArray());
+        // 记录元数据由 patient_scores 的独立列维护，不保存在 score 序列化内容中。
+        ScoreGroupPB storedPb = pb.toBuilder()
+            .clearId()
+            .clearRecordedBy()
+            .clearRecordedByAccountName()
+            .clearRecordedAtIso8601()
+            .clearNote()
+            .build();
+        return Base64.getEncoder().encodeToString(storedPb.toByteArray());
     }
 
     static public ScoreGroupPB decodeScoreGroupPB(String base64) {

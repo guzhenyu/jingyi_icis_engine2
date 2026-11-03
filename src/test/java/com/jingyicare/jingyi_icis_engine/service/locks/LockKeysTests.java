@@ -1,0 +1,62 @@
+package com.jingyicare.jingyi_icis_engine.service.locks;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
+
+class LockKeysTests {
+    @ParameterizedTest
+    @CsvSource({
+        "2026-11-03T12:00:00.123456499, 2026-11-03T12:00:00.123456",
+        "2026-11-03T12:00:00.123456500, 2026-11-03T12:00:00.123457",
+        "2026-11-03T23:59:59.999999500, 2026-11-04T00:00:00"
+    })
+    void shouldUseSameKeyBeforeAndAfterPostgresMicrosecondRounding(
+        LocalDateTime input, LocalDateTime stored
+    ) {
+        assertThat(LockKeys.nursingRecord(42L, input))
+            .isEqualTo(LockKeys.nursingRecord(42L, stored));
+    }
+
+    @Test
+    void shouldDistinguishPatientsAndEffectiveTimes() {
+        LocalDateTime time = LocalDateTime.of(2026, 11, 3, 12, 0);
+        String key = LockKeys.nursingRecord(42L, time);
+
+        assertThat(key).isNotEqualTo(LockKeys.nursingRecord(43L, time));
+        assertThat(key).isNotEqualTo(LockKeys.nursingRecord(42L, time.plusNanos(1_000)));
+    }
+
+    @Test
+    void shouldScopeSnapshotKeyToPatientAndStatisticsDate() {
+        LocalDate date = LocalDate.of(2026, 11, 3);
+        String key = LockKeys.patientSnapshot(42L, date);
+
+        assertThat(key).isEqualTo("patient_snapshot:42:2026-11-03");
+        assertThat(key).isNotEqualTo(LockKeys.patientSnapshot(43L, date));
+        assertThat(key).isNotEqualTo(LockKeys.patientSnapshot(42L, date.plusDays(1)));
+        assertThat(key).isNotEqualTo(LockKeys.nursingRecord(42L, date.atStartOfDay()));
+    }
+
+    @ParameterizedTest
+    @ValueSource(longs = {0L, -1L})
+    void shouldRejectNonPositivePatientIds(long pid) {
+        assertThatIllegalArgumentException().isThrownBy(() ->
+            LockKeys.nursingRecord(pid, LocalDateTime.of(2026, 11, 3, 12, 0)));
+        assertThatIllegalArgumentException().isThrownBy(() ->
+            LockKeys.patientSnapshot(pid, LocalDate.of(2026, 11, 3)));
+    }
+
+    @Test
+    void shouldRejectMissingEffectiveTimeOrStatisticsDate() {
+        assertThatIllegalArgumentException().isThrownBy(() -> LockKeys.nursingRecord(42L, null));
+        assertThatIllegalArgumentException().isThrownBy(() -> LockKeys.patientSnapshot(42L, null));
+    }
+}

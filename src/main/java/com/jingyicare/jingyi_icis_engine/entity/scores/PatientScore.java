@@ -55,6 +55,10 @@ public class PatientScore {
         }
         return modifiedByAccountName;
     }
+
+    public String getRawModifiedByAccountName() {
+        return modifiedByAccountName;
+    }
     @Column(name = "modified_by_account_name")
     private String modifiedByAccountName;  // 记录人的账号名
 

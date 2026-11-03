@@ -80,7 +80,7 @@ public class DoctorDataFetcher {
         @Autowired PatientScoreRepository patientScoreRepo,
         @Autowired PatientTubeRecordRepository patientTubeRecordRepo
     ) {
-        this.ZONE_ID = protoService.getConfig().getZoneId();
+        this.ZONE_ID = protoService.getZoneId();
 
         // 观察项
         this.IBP_S_MONITORING_CODE = protoService.getConfig().getDiagnosis().getIbpSMonitoringCode();
@@ -305,7 +305,7 @@ public class DoctorDataFetcher {
             .findByPidAndScoreGroupCodeAndEffectiveTimeBetweenAndIsDeletedFalse(pid, code, queryStartUtc, queryEndUtc)
             .stream().sorted(Comparator.comparing(PatientScore::getEffectiveTime)).toList()
         ) {
-            ScoreGroupPB scoreGroupPb = ProtoUtils.decodeScoreGroupPB(record.getScore());
+            ScoreGroupPB scoreGroupPb = PatientScoreMapper.toProto(record, ZONE_ID);
             if (scoreGroupPb == null) continue;
             GenericValuePB scoreGenericValue = scoreGroupPb.getGroupScore();
 

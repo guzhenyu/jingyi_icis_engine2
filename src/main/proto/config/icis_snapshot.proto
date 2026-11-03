@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+import "config/icis_nursing_record.proto";
+import "config/icis_nursing_score.proto";
+
+package com.jingyicare.jingyi_icis_engine.proto.config;
+
+message PatientDeptSnapshotPB {
+    string dept_id = 1;  // 本节点采用统计规则的科室
+    string monitoring_start_utc = 2;  // 本次观察窗口，包含起点
+    string monitoring_end_utc = 3;  // 不包含终点
+
+    // 护理评分记录
+    repeated ScoreGroupPB score_group_records = 4;
+    string score_group_snapshot_at_iso8601 = 5;  // 快照时间，ISO 8601 格式
+
+    // 护理记录
+    // repeated NursingRecordPB nursing_record_records = 6;
+    // string nursing_record_snapshot_at_iso8601 = 7;  // 快照时间，ISO 8601 格式
+
+}
+
+message PatientSnapshotPB {
+    int64 pid = 1;
+    string day_midnight_utc = 2;  // statistics_date 在系统配置时区下的午夜 UTC
+    repeated PatientDeptSnapshotPB dept_snapshots = 3;
+}

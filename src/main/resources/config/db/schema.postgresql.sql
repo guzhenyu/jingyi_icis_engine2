@@ -9,6 +9,24 @@ CREATE TABLE IF NOT EXISTS app_transaction_locks (
     resource_key VARCHAR(255)  PRIMARY KEY NOT NULL
 );
 
+CREATE TABLE patient_snapshots (
+    id BIGSERIAL PRIMARY KEY,
+    pid BIGINT NOT NULL,
+    statistics_date DATE NOT NULL,
+    payload TEXT,
+    last_modified_at TIMESTAMP,
+    snapshot_at TIMESTAMP
+);
+COMMENT ON TABLE patient_snapshots IS '患者每日临床快照，内容按科室组织';
+COMMENT ON COLUMN patient_snapshots.id IS '自增主键';
+COMMENT ON COLUMN patient_snapshots.pid IS '病人ID，对应patient_records.id';
+COMMENT ON COLUMN patient_snapshots.statistics_date IS '统计日期，只有年月日，不含时间和时区';
+COMMENT ON COLUMN patient_snapshots.payload IS 'PatientSnapshotPB 的Base64字节码，snapshot_at为空时不可复用';
+COMMENT ON COLUMN patient_snapshots.last_modified_at IS '相关业务增删改时记录的当前UTC时间';
+COMMENT ON COLUMN patient_snapshots.snapshot_at IS '快照时点（UTC），持续计算内容的实际截止；为空时payload失效';
+CREATE UNIQUE INDEX idx_patient_snapshots_pid_statistics_date
+    ON patient_snapshots (pid, statistics_date);
+
 ---- 1. 用户权限模块
 CREATE TABLE rbac_permissions (
     id INT,

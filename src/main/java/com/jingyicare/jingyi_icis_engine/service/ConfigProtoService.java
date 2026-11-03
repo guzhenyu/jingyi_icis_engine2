@@ -320,6 +320,10 @@ public class ConfigProtoService {
         return true;
     }
 
+    public String getZoneId() {
+        return config.getZoneId();
+    }
+
     @Getter
     private Config config;
 

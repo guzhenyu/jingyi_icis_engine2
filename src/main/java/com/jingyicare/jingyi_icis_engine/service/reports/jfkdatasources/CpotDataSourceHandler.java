@@ -23,6 +23,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingScore.ScoreGrou
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingScore.ScoreItemPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingScore.ScoreOptionPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
+import com.jingyicare.jingyi_icis_engine.service.scores.PatientScoreMapper;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
@@ -99,7 +100,7 @@ public class CpotDataSourceHandler extends AbstractJfkDataSourceHandler {
             .toList();
 
         for (PatientScore record : patientScores) {
-            ScoreGroupPB scoreGroupPb = ProtoUtils.decodeScoreGroupPB(record.getScore());
+            ScoreGroupPB scoreGroupPb = PatientScoreMapper.toProto(record, support.getZoneId());
             if (scoreGroupPb == null) continue;
 
             scoreDateTimeList.add(JfkValPB.newBuilder()

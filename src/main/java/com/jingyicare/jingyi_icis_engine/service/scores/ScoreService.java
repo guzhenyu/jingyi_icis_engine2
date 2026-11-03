@@ -53,7 +53,7 @@ public class ScoreService {
     ) {
         this.protoService = protoService;
         this.monitoringConfig = monitoringConfig;
-        this.ZONE_ID = protoService.getConfig().getZoneId();
+        this.ZONE_ID = protoService.getZoneId();
 
         this.scorePb = protoService.getConfig().getScore();
         this.SCORE_ITEM_TYPE_SINGLE_SELECTION = scorePb.getEnums().getScoreItemTypeSingleSelection().getId();
@@ -385,16 +385,8 @@ public class ScoreService {
 
         List<ScoreRecordPB> scoreRecords = patientScores.stream()
             .sorted(Comparator.comparing(PatientScore::getEffectiveTime).reversed())
-            .map(patientScore -> ScoreRecordPB.newBuilder()
-                .setId(patientScore.getId())
-                .setGroup(ProtoUtils.decodeScoreGroupPB(patientScore.getScore()))
-                .setRecordedBy(patientScore.getModifiedBy())
-                .setRecordedByAccountName(patientScore.getModifiedByAccountName())
-                .setRecordedAtIso8601(TimeUtils.toIso8601String(patientScore.getEffectiveTime(), ZONE_ID))
-                .setNote(patientScore.getNote())
-                .build()
-            )
-            .filter(scoreRecordPb -> scoreRecordPb.getGroup() != null)
+            .map(this::toScoreRecord)
+            .filter(Objects::nonNull)
             .toList();
 
         return GetPatientScoresResp.newBuilder()
@@ -467,17 +459,26 @@ public class ScoreService {
             .setFound(patientScore != null)
             .setScoreGroupMeta(scoreGroupMeta);
         if (patientScore != null) {
-            respBuilder.setRecord(ScoreRecordPB.newBuilder()
-                .setId(patientScore.getId())
-                .setGroup(ProtoUtils.decodeScoreGroupPB(patientScore.getScore()))
-                .setRecordedBy(patientScore.getModifiedBy())
-                .setRecordedByAccountName(patientScore.getModifiedByAccountName())
-                .setRecordedAtIso8601(TimeUtils.toIso8601String(patientScore.getEffectiveTime(), ZONE_ID))
-                .setNote(patientScore.getNote())
-                .build());
+            ScoreRecordPB recordPb = toScoreRecord(patientScore);
+            if (recordPb != null) respBuilder.setRecord(recordPb);
         }
 
         return respBuilder.build();
+    }
+
+    private ScoreRecordPB toScoreRecord(PatientScore patientScore) {
+        ScoreGroupPB group = PatientScoreMapper.toProto(patientScore, ZONE_ID);
+        if (group == null) return null;
+        return ScoreRecordPB.newBuilder()
+            .setId(patientScore.getId())
+            .setGroup(group)
+            .setRecordedBy(Objects.toString(patientScore.getModifiedBy(), ""))
+            .setRecordedByAccountName(
+                Objects.toString(patientScore.getModifiedByAccountName(), ""))
+            .setRecordedAtIso8601(
+                TimeUtils.toIso8601String(patientScore.getEffectiveTime(), ZONE_ID))
+            .setNote(Objects.toString(patientScore.getNote(), ""))
+            .build();
     }
 
     @Transactional
@@ -1484,7 +1485,7 @@ public class ScoreService {
             .sorted(Comparator.comparing(PatientScore::getEffectiveTime))
             .toList()
         ) {
-            ScoreGroupPB scoreGroupPb = ProtoUtils.decodeScoreGroupPB(record.getScore());
+            ScoreGroupPB scoreGroupPb = PatientScoreMapper.toProto(record, ZONE_ID);
             if (scoreGroupPb == null) continue;
             GenericValuePB scoreGenericValue = scoreGroupPb.getGroupScore();
 

@@ -1,5 +1,9 @@
 package com.jingyicare.jingyi_icis_engine.service.locks;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 
 public final class LockKeys {
@@ -56,5 +60,30 @@ public final class LockKeys {
         StrUtils.requireNonBlank(templateName, "templateName");
 
         return NURSING_RECORD_TEMPLATES + ":" + entityType + ":" + entityId + ":" + templateName;
+    }
+
+    public static String nursingRecord(long pid, LocalDateTime effectiveTimeUtc) {
+        if (pid <= 0) {
+            throw new IllegalArgumentException("pid must be positive");
+        }
+        if (effectiveTimeUtc == null) {
+            throw new IllegalArgumentException("effectiveTimeUtc must not be null");
+        }
+        LocalDateTime roundedTime = effectiveTimeUtc.truncatedTo(ChronoUnit.SECONDS);
+        return "nursing_record:" + pid + ":" + roundedTime;
+    }
+
+    /**
+     * 患者快照
+     */
+
+    public static String patientSnapshot(long pid, LocalDate statisticsDate) {
+        if (pid <= 0) {
+            throw new IllegalArgumentException("pid must be positive");
+        }
+        if (statisticsDate == null) {
+            throw new IllegalArgumentException("statisticsDate must not be null");
+        }
+        return "patient_snapshot:" + pid + ":" + statisticsDate;
     }
 }

@@ -13,11 +13,13 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.google.protobuf.util.JsonFormat;
 import lombok.*;
@@ -36,6 +38,8 @@ import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientMonitoringRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.nursingrecords.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
+import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.lis.*;
 import com.jingyicare.jingyi_icis_engine.service.medications.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
@@ -63,9 +67,10 @@ public class NursingRecordService {
         @Autowired LisService lisService,
         @Autowired PatientNursingReportInvalidationService pnrUtils,
         @Autowired NursingRecordConfig recordConfig,
-        @Autowired NursingRecordUtils recordUtils,
         @Autowired NursingRecordRepository recordRepo,
-        @Autowired PatientMonitoringRecordRepository monitoringRecordRepo
+        @Autowired PatientMonitoringRecordRepository monitoringRecordRepo,
+        @Autowired LockExecutor lockExecutor,
+        @Autowired JdbcTemplate jdbcTemplate
     ) {
         MonitoringPB monitoringPb = protoService.getConfig().getMonitoring();
         this.ZONE_ID = protoService.getConfig().getZoneId();
@@ -91,9 +96,10 @@ public class NursingRecordService {
         this.lisService = lisService;
         this.pnrUtils = pnrUtils;
         this.recordConfig = recordConfig;
-        this.recordUtils = recordUtils;
         this.recordRepo = recordRepo;
         this.monitoringRecordRepo = monitoringRecordRepo;
+        this.lockExecutor = lockExecutor;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     public GetNursingRecordResp getNursingRecord(String getNursingRecordReqJson) {
@@ -145,7 +151,8 @@ public class NursingRecordService {
     public AddNursingRecordResp addNursingRecord(String addNursingRecordReqJson) {
         final AddNursingRecordReq req;
         try {
-            req = ProtoUtils.parseJsonToProto(addNursingRecordReqJson, AddNursingRecordReq.newBuilder());
+            req = ProtoUtils.parseJsonToProto(
+                addNursingRecordReqJson, AddNursingRecordReq.newBuilder());
         } catch (Exception e) {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
             return AddNursingRecordResp.newBuilder()
@@ -164,244 +171,247 @@ public class NursingRecordService {
         final String accountId = account.getFirst();
         final String accountName = account.getSecond();
 
-        // 根据req.pid和effectiveTime查找护理记录是否存在
-        Long patientId = req.getPid();
+        long patientId = req.getPid();
         PatientNursingRecordValPB recordPb = req.getRecord();
-        LocalDateTime effectiveTime = TimeUtils.fromIso8601String(recordPb.getRecordedAtIso8601(), "UTC");
-        NursingRecord patientNursingRecord = recordRepo
-            .findByPatientIdAndEffectiveTimeAndPatientCriticalLisHandlingIdAndIsDeletedFalse(patientId, effectiveTime, null)
-            .orElse(null);
-        if (patientNursingRecord != null) {
-            log.error("Nursing record already exists: {}", patientId);
+        LocalDateTime effectiveTime = TimeUtils.fromIso8601String(
+            recordPb.getRecordedAtIso8601(), "UTC");
+        if (patientId <= 0 || effectiveTime == null) {
+            StatusCode code = patientId <= 0 ? StatusCode.INVALID_PARAM_VALUE
+                : StatusCode.INVALID_TIME_FORMAT;
             return AddNursingRecordResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.NURSING_RECORD_ALREADY_EXISTS))
-                .build();
+                .setRt(protoService.getReturnCode(code)).build();
         }
 
-        // 获取患者信息
-        final PatientRecord patientRecord = patientService.getPatientRecord(patientId);
-        if (patientRecord == null) {
-            log.error("Patient not found.");
-            return AddNursingRecordResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
-                .build();
-        }
-        final String deptId = patientRecord.getDeptId();
+        return lockExecutor.execute(List.of(LockKeys.nursingRecord(patientId, effectiveTime)),
+            () -> {
+                NursingRecord existing = recordRepo
+                .findByPatientIdAndEffectiveTimeAndPatientCriticalLisHandlingIdAndIsDeletedFalse(
+                    patientId, effectiveTime, null).orElse(null);
+                if (existing != null) {
+                    return AddNursingRecordResp.newBuilder().setRt(protoService.getReturnCode(
+                        StatusCode.NURSING_RECORD_ALREADY_EXISTS)).build();
+                }
+                PatientRecord patient = patientService.getPatientRecord(patientId);
+                if (patient == null) {
+                    return AddNursingRecordResp.newBuilder().setRt(protoService.getReturnCode(
+                        StatusCode.PATIENT_NOT_FOUND)).build();
+                }
 
-        // 创建新的护理记录
-        LocalDateTime nowUtc = TimeUtils.getNowUtc();
-        NursingRecord record = NursingRecord.builder()
-            .patientId(patientId)
-            .content(recordPb.getContent())
-            .effectiveTime(effectiveTime)
-            .isDeleted(false)
-            .modifiedBy(accountId)
-            .modifiedByAccountName(accountName)
-            .modifiedAt(nowUtc)
-            .createdBy(accountId)
-            .createdByAccountName(accountName)
-            .createdAt(nowUtc)
-            .build();
-        record = recordRepo.save(record);
-
-        // 更新护理单的处理时间（为 打印从首页到尾页都一致的护理单 提效，省二院）
-        pnrUtils.updateLatestDataTime(patientId, deptId, effectiveTime, effectiveTime, nowUtc);
-
-        return AddNursingRecordResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .setId(record.getId())
-            .build();
+                LocalDateTime nowUtc = TimeUtils.getNowUtc();
+                NursingRecord record = recordRepo.save(NursingRecord.builder()
+                    .patientId(patientId)
+                    .content(recordPb.getContent())
+                    .effectiveTime(effectiveTime)
+                    .isDeleted(false)
+                    .modifiedBy(accountId)
+                    .modifiedByAccountName(accountName)
+                    .modifiedAt(nowUtc)
+                    .createdBy(accountId)
+                    .createdByAccountName(accountName)
+                    .createdAt(nowUtc)
+                    .build());
+                pnrUtils.updateLatestDataTime(patientId, patient.getDeptId(),
+                    effectiveTime, effectiveTime, nowUtc);
+                return AddNursingRecordResp.newBuilder()
+                    .setRt(protoService.getReturnCode(StatusCode.OK))
+                    .setId(record.getId()).build();
+            });
     }
 
     public GenericResp updateNursingRecord(String updateNursingRecordReqJson) {
         final UpdateNursingRecordReq req;
         try {
-            req = ProtoUtils.parseJsonToProto(updateNursingRecordReqJson, UpdateNursingRecordReq.newBuilder());
+            req = ProtoUtils.parseJsonToProto(
+                updateNursingRecordReqJson, UpdateNursingRecordReq.newBuilder());
         } catch (Exception e) {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
+            return nursingRecordResponse(StatusCode.PARSE_JSON_FAILED);
         }
+        Pair<String, String> account = userService.getAccountWithAutoId();
+        if (account == null) return nursingRecordResponse(StatusCode.ACCOUNT_NOT_FOUND);
 
-        // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
-            log.error("accountId is empty.");
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-        final String accountId = accountWithAutoId.getFirst();
-        final String accountName = accountWithAutoId.getSecond();
-
-        // 提取关键参数
         PatientNursingRecordValPB recordPb = req.getRecord();
-        long entityId = recordPb.getId();
-        String content = recordPb.getContent();
-        LocalDateTime effectiveTimeUtc = TimeUtils.fromIso8601String(recordPb.getRecordedAtIso8601(), "UTC");
-        boolean enableUpdatingCreatedBy = recordConfig.getEnableUpdatingCreatedBy(entityId);
-        // String modifiedBy = !StrUtils.isBlank(recordPb.getRecordedBy()) ? recordPb.getRecordedBy() : accountId;
-        // String modifiedByAccountName = !StrUtils.isBlank(recordPb.getRecordedBy()) ?
-        //     userService.getNameByAutoId(recordPb.getRecordedBy()) : accountName;
-
-        // 查找记录
-        NursingRecord record = recordRepo.findByIdAndIsDeletedFalse(entityId).orElse(null);
-        if (record == null) {
-            log.error("Nursing record not exists: {}", entityId);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.NURSING_RECORD_NOT_EXISTS))
-                .build();
+        if (recordPb.getId() <= 0) return nursingRecordResponse(StatusCode.INVALID_PARAM_VALUE);
+        LocalDateTime targetTime = TimeUtils.fromIso8601String(
+            recordPb.getRecordedAtIso8601(), "UTC");
+        // 未提供时间沿用旧时间；提供了无法解析的时间则拒绝更新。
+        if (!recordPb.getRecordedAtIso8601().isEmpty() && targetTime == null) {
+            return nursingRecordResponse(StatusCode.INVALID_TIME_FORMAT);
         }
-        LocalDateTime effectiveTime = record.getEffectiveTime();
+        return withNursingRecordLocks(List.of(recordPb.getId()), targetTime, records -> {
+            if (records.isEmpty()) {
+                return nursingRecordResponse(StatusCode.NURSING_RECORD_NOT_EXISTS);
+            }
+            NursingRecord old = records.get(0);
+            LocalDateTime oldTime = old.getEffectiveTime();
+            LocalDateTime newTime = targetTime == null ? oldTime : targetTime;
+            PatientRecord patient = patientService.getPatientRecord(old.getPatientId());
+            if (patient == null) return nursingRecordResponse(StatusCode.PATIENT_NOT_FOUND);
 
-        // 获取患者信息
-        final Long pid = record.getPatientId();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
-        if (patientRecord == null) {
-            log.error("Patient not found.");
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
+            NursingRecord duplicate = recordRepo
+                .findByPatientIdAndEffectiveTimeAndPatientCriticalLisHandlingIdAndIsDeletedFalse(
+                    old.getPatientId(), newTime, old.getPatientCriticalLisHandlingId())
+                .orElse(null);
+            if (duplicate != null && !duplicate.getId().equals(old.getId())) {
+                return nursingRecordResponse(StatusCode.NURSING_RECORD_ALREADY_EXISTS);
+            }
+            if (Objects.equals(old.getContent(), recordPb.getContent())
+                && LockKeys.nursingRecord(old.getPatientId(), oldTime)
+                    .equals(LockKeys.nursingRecord(old.getPatientId(), newTime))) {
+                return nursingRecordResponse(StatusCode.OK);
+            }
+
+            boolean updateCreator = recordConfig.getEnableUpdatingCreatedBy(old.getId());
+            LocalDateTime nowUtc = TimeUtils.getNowUtc();
+            NursingRecord replacement = old.toBuilder()
+                .id(null)
+                .content(recordPb.getContent())
+                .effectiveTime(newTime)
+                .isDeleted(false)
+                .deletedBy(null)
+                .deletedAt(null)
+                .reviewedBy(null)
+                .reviewedByAccountName(null)
+                .reviewedAt(null)
+                .modifiedBy(account.getFirst())
+                .modifiedByAccountName(account.getSecond())
+                .modifiedAt(nowUtc)
+                .createdBy(updateCreator ? account.getFirst() : old.getCreatedBy())
+                .createdByAccountName(updateCreator
+                    ? account.getSecond() : old.getCreatedByAccountName())
+                .createdAt(updateCreator ? nowUtc : old.getCreatedAt())
                 .build();
-        }
-        final String deptId = patientRecord.getDeptId();
 
-        // 更新护理单的处理时间（为 打印从首页到尾页都一致的护理单 提效，省二院）
-        pnrUtils.updateLatestDataTime(pid, deptId, effectiveTime, effectiveTime, TimeUtils.getNowUtc());
+            // 先 flush 释放部分唯一索引中的旧键，但不提前提交；任何后续异常整体回滚。
+            old.setIsDeleted(true);
+            old.setDeletedBy(account.getFirst());
+            old.setDeletedAt(nowUtc);
+            recordRepo.saveAndFlush(old);
+            recordRepo.save(replacement);
+            if (StrUtils.isBlank(old.getContent())) recordRepo.delete(old);
 
-        StatusCode statusCode = recordUtils.updateNursingRecord(
-            entityId, content, effectiveTimeUtc,
-            accountId, accountName, enableUpdatingCreatedBy
-        );
-
-        return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(statusCode))
-            .build();
+            // 跨日修改按时间顺序更新护理单，避免反向移动记录时交叉等待日报行锁。
+            List<LocalDateTime> affectedTimes = List.of(oldTime, newTime).stream()
+                .distinct().sorted().toList();
+            for (LocalDateTime time : affectedTimes) {
+                pnrUtils.updateLatestDataTime(old.getPatientId(), patient.getDeptId(),
+                    time, time, nowUtc);
+            }
+            return nursingRecordResponse(StatusCode.OK);
+        });
     }
 
     public GenericResp deleteNursingRecord(String deleteNursingRecordReqJson) {
         final DeleteNursingRecordReq req;
         try {
-            req = ProtoUtils.parseJsonToProto(deleteNursingRecordReqJson, DeleteNursingRecordReq.newBuilder());
+            req = ProtoUtils.parseJsonToProto(
+                deleteNursingRecordReqJson, DeleteNursingRecordReq.newBuilder());
         } catch (Exception e) {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
+            return nursingRecordResponse(StatusCode.PARSE_JSON_FAILED);
         }
+        Pair<String, String> account = userService.getAccountWithAutoId();
+        if (account == null) return nursingRecordResponse(StatusCode.ACCOUNT_NOT_FOUND);
 
-        // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
-            log.error("accountId is empty.");
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-        final String accountId = accountWithAutoId.getFirst();
+        return withNursingRecordLocks(List.of(req.getId()), null, records -> {
+            if (records.isEmpty()) return nursingRecordResponse(StatusCode.OK);
+            NursingRecord record = records.get(0);
+            PatientRecord patient = patientService.getPatientRecord(record.getPatientId());
+            if (patient == null) return nursingRecordResponse(StatusCode.PATIENT_NOT_FOUND);
 
-        // 查找记录
-        NursingRecord record = recordRepo.findByIdAndIsDeletedFalse(req.getId()).orElse(null);
-        if (record == null) {
-            log.error("Nursing record not exists: {}", req.getId());
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.OK))
-                .build();
-        }
-        LocalDateTime effectiveTime = record.getEffectiveTime();
-
-        // 获取患者信息
-        final Long pid = record.getPatientId();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
-        if (patientRecord == null) {
-            log.error("Patient not found.");
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
-                .build();
-        }
-        final String deptId = patientRecord.getDeptId();
-
-        // 删除
-        LocalDateTime nowUtc = TimeUtils.getNowUtc();
-        record.setIsDeleted(true);
-        record.setModifiedBy(accountId);
-        record.setModifiedAt(nowUtc);
-        recordRepo.save(record);
-
-        // 更新护理单的处理时间（为 打印从首页到尾页都一致的护理单 提效，省二院）
-        pnrUtils.updateLatestDataTime(pid, deptId, effectiveTime, effectiveTime, nowUtc);
-
-        return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .build();
+            LocalDateTime nowUtc = TimeUtils.getNowUtc();
+            record.setIsDeleted(true);
+            record.setDeletedBy(account.getFirst());
+            record.setDeletedAt(nowUtc);
+            record.setModifiedBy(account.getFirst());
+            record.setModifiedByAccountName(account.getSecond());
+            record.setModifiedAt(nowUtc);
+            recordRepo.save(record);
+            pnrUtils.updateLatestDataTime(record.getPatientId(), patient.getDeptId(),
+                record.getEffectiveTime(), record.getEffectiveTime(), nowUtc);
+            return nursingRecordResponse(StatusCode.OK);
+        });
     }
 
-    @Transactional
     public GenericResp reviewNursingRecords(String reviewNursingRecordsReqJson) {
         final ReviewNursingRecordsReq req;
         try {
-            req = ProtoUtils.parseJsonToProto(reviewNursingRecordsReqJson, ReviewNursingRecordsReq.newBuilder());
+            req = ProtoUtils.parseJsonToProto(
+                reviewNursingRecordsReqJson, ReviewNursingRecordsReq.newBuilder());
         } catch (Exception e) {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
+            return nursingRecordResponse(StatusCode.PARSE_JSON_FAILED);
         }
+        Pair<String, String> account = userService.getAccountWithAutoId();
+        if (account == null) return nursingRecordResponse(StatusCode.ACCOUNT_NOT_FOUND);
 
-        // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
-            log.error("accountId is empty.");
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-        final String accountId = accountWithAutoId.getFirst();
-        final String accountName = accountWithAutoId.getSecond();
-
-        // 审核时间
         LocalDateTime reviewTime = TimeUtils.fromIso8601String(req.getReviewTimeIso8601(), "UTC");
-        if (reviewTime == null) {
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.INVALID_TIME_FORMAT))
-                .build();
-        }
-
-        // 空ID沿用BGA审核接口行为：直接返回OK，不做更新
+        if (reviewTime == null) return nursingRecordResponse(StatusCode.INVALID_TIME_FORMAT);
         List<Long> recordIds = req.getIdList().stream().distinct().toList();
-        if (recordIds.isEmpty()) {
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.OK))
-                .build();
-        }
+        if (recordIds.isEmpty()) return nursingRecordResponse(StatusCode.OK);
 
-        List<NursingRecord> recordsToUpdate = recordRepo.findByIdInAndIsDeletedFalse(recordIds);
-        if (recordsToUpdate.size() != recordIds.size()) {
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.NURSING_RECORD_NOT_EXISTS))
-                .build();
-        }
-        boolean reviewTimeBeforeRecordTime = recordsToUpdate.stream()
-            .anyMatch(record -> record.getEffectiveTime() != null && reviewTime.isBefore(record.getEffectiveTime()));
-        if (reviewTimeBeforeRecordTime) {
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.NURSING_RECORD_REVIEW_TIME_BEFORE_RECORD_TIME))
-                .build();
-        }
-
-        for (NursingRecord record : recordsToUpdate) {
-            record.setReviewedBy(accountId);
-            record.setReviewedByAccountName(accountName);
-            record.setReviewedAt(reviewTime);
-        }
-        recordRepo.saveAll(recordsToUpdate);
-        log.info("Reviewed nursing records. accountId={}, accountName={}, recordIds={}",
-            accountId, accountName, recordIds);
-
-        return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .build();
+        return withNursingRecordLocks(recordIds, null, records -> {
+            if (records.size() != recordIds.size()) {
+                return nursingRecordResponse(StatusCode.NURSING_RECORD_NOT_EXISTS);
+            }
+            if (records.stream().anyMatch(r -> reviewTime.isBefore(r.getEffectiveTime()))) {
+                return nursingRecordResponse(
+                    StatusCode.NURSING_RECORD_REVIEW_TIME_BEFORE_RECORD_TIME);
+            }
+            for (NursingRecord record : records) {
+                record.setReviewedBy(account.getFirst());
+                record.setReviewedByAccountName(account.getSecond());
+                record.setReviewedAt(reviewTime);
+            }
+            recordRepo.saveAll(records);
+            return nursingRecordResponse(StatusCode.OK);
+        });
     }
+
+    private GenericResp nursingRecordResponse(StatusCode code) {
+        return GenericResp.newBuilder().setRt(protoService.getReturnCode(code)).build();
+    }
+
+    private <T> T withNursingRecordLocks(
+        List<Long> ids, LocalDateTime targetTime, Function<List<NursingRecord>, T> action
+    ) {
+        Supplier<List<NursingRecord>> loader =
+            () -> NursingRecordJdbc.findActiveRecords(jdbcTemplate, ids);
+        List<NursingRecord> initial = loader.get();
+        if (initial.isEmpty()) return action.apply(initial);
+        List<String> fallbackKeys = new ArrayList<>(nursingRecordKeys(initial).values());
+        return lockExecutor.executePlanned(
+            () -> {
+                List<NursingRecord> plannedRecords = loader.get();
+                Map<Long, String> recordKeys = nursingRecordKeys(plannedRecords);
+                List<String> resourceKeys = new ArrayList<>(recordKeys.values());
+                // 预读后记录可能被删除；仍需合法锁集合，以便在事务中确认已不存在。
+                if (resourceKeys.isEmpty()) resourceKeys.addAll(fallbackKeys);
+                if (targetTime != null) {
+                    for (NursingRecord record : plannedRecords) {
+                        resourceKeys.add(LockKeys.nursingRecord(record.getPatientId(), targetTime));
+                    }
+                }
+                return new NursingRecordLockPlan(recordKeys, resourceKeys, new ArrayList<>());
+            },
+            NursingRecordLockPlan::resourceKeys,
+            plan -> {
+                List<NursingRecord> current = loader.get();
+                if (!plan.recordKeys().equals(nursingRecordKeys(current))) return false;
+                plan.records().addAll(current);
+                return true;
+            },
+            plan -> action.apply(plan.records()));
+    }
+
+    private Map<Long, String> nursingRecordKeys(List<NursingRecord> records) {
+        return records.stream().collect(Collectors.toMap(NursingRecord::getId,
+            record -> LockKeys.nursingRecord(record.getPatientId(), record.getEffectiveTime())));
+    }
+
+    private record NursingRecordLockPlan(
+        Map<Long, String> recordKeys, List<String> resourceKeys, List<NursingRecord> records
+    ) {}
 
     public GetNursingRecordShortcutsResp getNursingRecordShortcuts(String getNursingRecordShortcutsReqJson) {
         final GetNursingRecordShortcutsReq req;
@@ -967,7 +977,8 @@ public class NursingRecordService {
     private final LisService lisService;
     private final PatientNursingReportInvalidationService pnrUtils;
     private final NursingRecordConfig recordConfig;
-    private final NursingRecordUtils recordUtils;
     private final NursingRecordRepository recordRepo;
     private final PatientMonitoringRecordRepository monitoringRecordRepo;
+    private final LockExecutor lockExecutor;
+    private final JdbcTemplate jdbcTemplate;
 }
