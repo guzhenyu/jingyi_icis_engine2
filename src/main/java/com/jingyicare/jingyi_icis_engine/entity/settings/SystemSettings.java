@@ -19,7 +19,6 @@ public class SystemSettings {
     @Column(name = "function_name")
     private String functionName;
 
-    @Lob
     @Column(name = "settings_pb", nullable = false, columnDefinition = "TEXT")
     private String settingsPb;
 

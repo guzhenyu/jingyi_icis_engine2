@@ -32,7 +32,6 @@ public class PatientDiagnosis {
     @Column(name = "disease_code", nullable = false)
     private String diseaseCode; // 疾病编码
 
-    @Lob
     @Column(name = "disease_pbtxt", nullable = false, columnDefinition = "TEXT")
     private String diseasePbtxt; // 将DiseasePB序列化并base64后的字符串
 

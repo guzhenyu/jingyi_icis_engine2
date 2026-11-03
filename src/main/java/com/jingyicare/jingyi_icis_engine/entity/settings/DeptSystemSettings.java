@@ -16,7 +16,6 @@ public class DeptSystemSettings {
     @EmbeddedId
     private DeptSystemSettingsId id;
 
-    @Lob
     @Column(name = "settings_pb", nullable = false, columnDefinition = "TEXT")
     private String settingsPb;
 

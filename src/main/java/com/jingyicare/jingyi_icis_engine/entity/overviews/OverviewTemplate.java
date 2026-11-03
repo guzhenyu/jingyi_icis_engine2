@@ -35,7 +35,6 @@ public class OverviewTemplate {
     @Column(name = "template_name", nullable = false)
     private String templateName; // 模板名称
 
-    @Lob
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes; // 备注
 

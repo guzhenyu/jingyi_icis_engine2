@@ -21,7 +21,6 @@ public class DiseaseMeta {
     @Column(name = "description", length = 1000)
     private String description; // 疾病描述
 
-    @Lob
     @Column(name = "disease_meta_pbtxt", nullable = false, columnDefinition = "TEXT")
     private String diseaseMetaPbtxt; // 将DiseaseMetaPB序列化并base64后的字符串
 }
