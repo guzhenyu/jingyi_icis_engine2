@@ -383,9 +383,9 @@ public class ScoreService {
             TimeUtils.fromIso8601String(req.getQueryEndIso8601(), "UTC")
         );
 
-        List<ScoreRecordPB> scoreRecords = patientScores.stream()
+        List<ScoreGroupPB> scoreRecords = patientScores.stream()
             .sorted(Comparator.comparing(PatientScore::getEffectiveTime).reversed())
-            .map(this::toScoreRecord)
+            .map(record -> PatientScoreMapper.toProto(record, ZONE_ID))
             .filter(Objects::nonNull)
             .toList();
 
@@ -459,26 +459,11 @@ public class ScoreService {
             .setFound(patientScore != null)
             .setScoreGroupMeta(scoreGroupMeta);
         if (patientScore != null) {
-            ScoreRecordPB recordPb = toScoreRecord(patientScore);
+            ScoreGroupPB recordPb = PatientScoreMapper.toProto(patientScore, ZONE_ID);
             if (recordPb != null) respBuilder.setRecord(recordPb);
         }
 
         return respBuilder.build();
-    }
-
-    private ScoreRecordPB toScoreRecord(PatientScore patientScore) {
-        ScoreGroupPB group = PatientScoreMapper.toProto(patientScore, ZONE_ID);
-        if (group == null) return null;
-        return ScoreRecordPB.newBuilder()
-            .setId(patientScore.getId())
-            .setGroup(group)
-            .setRecordedBy(Objects.toString(patientScore.getModifiedBy(), ""))
-            .setRecordedByAccountName(
-                Objects.toString(patientScore.getModifiedByAccountName(), ""))
-            .setRecordedAtIso8601(
-                TimeUtils.toIso8601String(patientScore.getEffectiveTime(), ZONE_ID))
-            .setNote(Objects.toString(patientScore.getNote(), ""))
-            .build();
     }
 
     @Transactional
@@ -506,8 +491,8 @@ public class ScoreService {
 
         // 提取元数据
         final Long pid = req.getPid();
-        final String scoreGroupCode = req.getScoreGroupCode();
-        final ScoreRecordPB scoreRecordPb = req.getRecord();
+        final ScoreGroupPB scoreRecordPb = req.getRecord();
+        final String scoreGroupCode = scoreRecordPb.getCode();
         LocalDateTime effectiveTime = TimeUtils.fromIso8601String(
             scoreRecordPb.getRecordedAtIso8601(), "UTC");
         if (effectiveTime == null) {
@@ -560,7 +545,7 @@ public class ScoreService {
         }
 
         // 校验总评分和评分项是否一致
-        StatusCode statusCode = scoreCalculator.validateScoreGroup(scoreGroupMeta, scoreRecordPb.getGroup());
+        StatusCode statusCode = scoreCalculator.validateScoreGroup(scoreGroupMeta, scoreRecordPb);
         if (statusCode != StatusCode.OK) {
             log.error("Group score validation failed for pid: {}, scoreGroupCode: {}, effectiveTime: {}",
                 pid, scoreGroupCode, effectiveTime);
@@ -580,8 +565,8 @@ public class ScoreService {
         patientScore = PatientScore.builder()
             .pid(pid)
             .scoreGroupCode(scoreGroupCode)
-            .score(ProtoUtils.encodeScoreGroupPB(scoreRecordPb.getGroup()))
-            .scoreStr(scoreRecordPb.getGroup().getGroupScoreText())
+            .score(ProtoUtils.encodeScoreGroupPB(scoreRecordPb))
+            .scoreStr(scoreRecordPb.getGroupScoreText())
             .effectiveTime(effectiveTime)
             .note(scoreRecordPb.getNote())
             .isDeleted(false)
@@ -626,7 +611,7 @@ public class ScoreService {
         final String accountId = accountWithAutoId.getFirst();
 
         // 提取关键信息
-        ScoreGroupPB scoreGroup = req.getGroup();
+        ScoreGroupPB scoreGroup = req.getRecord();
         String scoreGroupCode = scoreGroup.getCode();
         ScoreGroupMetaPB scoreGroupMeta = scoreConfig.getScoreGroupMeta(scoreGroupCode);
         if (scoreGroupMeta == null) {
@@ -638,27 +623,28 @@ public class ScoreService {
         StatusCode statusCode = scoreCalculator.validateScoreGroup(scoreGroupMeta, scoreGroup);
         if (statusCode != StatusCode.OK) {
             log.error("Group score validation failed for id: {}, group code: {}, status code: {}",
-                req.getId(), scoreGroupCode, statusCode);
+                scoreGroup.getId(), scoreGroupCode, statusCode);
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(statusCode))
                 .build();
         }
 
         // 更新患者评分
-        PatientScore patientScore = patientScoreRepo.findById(req.getId()).orElse(null);
+        PatientScore patientScore = patientScoreRepo.findById(scoreGroup.getId()).orElse(null);
         if (patientScore == null) {
-            log.error("Patient score not found for id: {}, accountId {}", req.getId(), accountId);
+            log.error("Patient score not found for id: {}, accountId {}",
+                scoreGroup.getId(), accountId);
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.PATIENT_SCORE_NOT_FOUND))
                 .build();
         }
 
-        patientScore.setScore(ProtoUtils.encodeScoreGroupPB(req.getGroup()));
-        patientScore.setScoreStr(req.getGroup().getGroupScoreText());
-        patientScore.setNote(req.getNote());
+        patientScore.setScore(ProtoUtils.encodeScoreGroupPB(scoreGroup));
+        patientScore.setScoreStr(scoreGroup.getGroupScoreText());
+        patientScore.setNote(scoreGroup.getNote());
 
         LocalDateTime effectiveTime = TimeUtils.fromIso8601String(
-            req.getRecordedAtIso8601(), "UTC");
+            scoreGroup.getRecordedAtIso8601(), "UTC");
         if (effectiveTime != null) {
             patientScore.setEffectiveTime(effectiveTime);
         } else {
@@ -666,7 +652,7 @@ public class ScoreService {
         }
 
         final LocalDateTime nowUtc = TimeUtils.getNowUtc();
-        String modifiedBy = req.getRecordedBy();
+        String modifiedBy = scoreGroup.getRecordedBy();
         String modifiedByAccountName = null;
         if (!StrUtils.isBlank(modifiedBy)) {
             modifiedByAccountName = userService.getNameByAutoId(modifiedBy);
@@ -675,7 +661,7 @@ public class ScoreService {
         patientScore.setModifiedByAccountName(modifiedByAccountName);
         patientScore.setModifiedAt(nowUtc);
         patientScoreRepo.save(patientScore);
-        log.info("Updated patient score for id: {}, accountId: {}", req.getId(), accountId);
+        log.info("Updated patient score for id: {}, accountId: {}", scoreGroup.getId(), accountId);
 
         // 获取患者信息
         final Long pid = patientScore.getPid();
@@ -729,15 +715,14 @@ public class ScoreService {
                 .build();
         }
         final String deptId = patientRec.getDeptId();
-        final String scoreGroupCode = req.getScoreGroupCode();
+        final ScoreGroupPB scoreGroup = req.getRecord();
+        final String scoreGroupCode = scoreGroup.getCode();
         String monitoringParamCode = scoreCodeParamCodeMap.get(scoreGroupCode);
         if (monitoringParamCode != null) {
             MonitoringParam monitoringParam = monitoringParamRepo.findByCode(monitoringParamCode).orElse(null);
             if (monitoringParam == null) log.error("Monitoring param not found for code: {}", monitoringParamCode);
             else if (StrUtils.isBlank(monitoringParam.getUiModalCode())) monitoringParamCode = null;
         }
-        final ScoreRecordPB scoreRecordPb = req.getRecord();
-        final ScoreGroupPB scoreGroup = scoreRecordPb.getGroup();
         final ScoreGroupMetaPB scoreGroupMeta = scoreConfig.getScoreGroupMeta(scoreGroupCode);
         if (scoreGroupMeta == null) {
             log.error("Score group meta not found for scoreGroupCode: {}", scoreGroupCode);
@@ -748,9 +733,9 @@ public class ScoreService {
         ValueMetaPB valueMeta = scoreGroupMeta.getValueMeta();
         final GenericValuePB groupScore = scoreGroup.getGroupScore();
         LocalDateTime effectiveTime = TimeUtils.fromIso8601String(
-            scoreRecordPb.getRecordedAtIso8601(), "UTC");
+            scoreGroup.getRecordedAtIso8601(), "UTC");
         if (effectiveTime == null) {
-            log.error("Failed to parse effective time: {}", scoreRecordPb.getRecordedAtIso8601());
+            log.error("Failed to parse effective time: {}", scoreGroup.getRecordedAtIso8601());
             return SavePatientScoreResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.INVALID_SCORE_RECORD_TIME))
                 .build();
@@ -789,7 +774,7 @@ public class ScoreService {
         if (patientScore != null) {  // 更新
             patientScore.setScore(ProtoUtils.encodeScoreGroupPB(scoreGroup));
             patientScore.setScoreStr(groupScoreText);
-            patientScore.setNote(scoreRecordPb.getNote());
+            patientScore.setNote(scoreGroup.getNote());
             patientScore.setModifiedBy(accountId);
             patientScore.setModifiedByAccountName(accountName);
             patientScore.setModifiedAt(nowUtc);
@@ -802,7 +787,7 @@ public class ScoreService {
                 .score(ProtoUtils.encodeScoreGroupPB(scoreGroup))
                 .scoreStr(groupScoreText)
                 .effectiveTime(effectiveTime)
-                .note(scoreRecordPb.getNote())
+                .note(scoreGroup.getNote())
                 .isDeleted(false)
                 .modifiedBy(accountId)
                 .modifiedByAccountName(accountName)
@@ -830,7 +815,7 @@ public class ScoreService {
                 ))
                 .paramValueStr(groupScoreText)
                 .source("")
-                .note(scoreRecordPb.getNote())
+                .note(scoreGroup.getNote())
                 .isDeleted(false)
                 .modifiedBy(accountId)
                 .modifiedAt(nowUtc)

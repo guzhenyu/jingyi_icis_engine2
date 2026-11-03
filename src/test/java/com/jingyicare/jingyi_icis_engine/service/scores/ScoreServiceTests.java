@@ -314,28 +314,25 @@ public class ScoreServiceTests extends TestsBase {
         // 添加患者评分
         AddPatientScoreReq addPatientScoreReq = AddPatientScoreReq.newBuilder()
             .setPid(pid)
-            .setScoreGroupCode(scoreGroupCode)
-            .setRecord(ScoreRecordPB.newBuilder()
-                .setGroup(ScoreGroupPB.newBuilder()
-                    .setCode(scoreGroupCode)
-                    .addItem(ScoreItemPB.newBuilder()
-                        .setCode("test_group1_item1")
-                        .addScoreOptionCode("group1_item1_option1")
-                        .build()
-                    )
-                    .addItem(ScoreItemPB.newBuilder()
-                        .setCode("test_group1_item2")
-                        .addScoreOptionCode("group1_item2_option1")
-                        .build()
-                    )
-                    .addItem(ScoreItemPB.newBuilder()
-                        .setCode("test_group1_item3")
-                        .addScoreOptionCode("group1_item3_option1")
-                        .build()
-                    )
-                    .setGroupScore(GenericValuePB.newBuilder().setInt32Val(3).build())
-                    .setGroupScoreText("3分")
+            .setRecord(ScoreGroupPB.newBuilder()
+                .setCode(scoreGroupCode)
+                .addItem(ScoreItemPB.newBuilder()
+                    .setCode("test_group1_item1")
+                    .addScoreOptionCode("group1_item1_option1")
+                    .build()
                 )
+                .addItem(ScoreItemPB.newBuilder()
+                    .setCode("test_group1_item2")
+                    .addScoreOptionCode("group1_item2_option1")
+                    .build()
+                )
+                .addItem(ScoreItemPB.newBuilder()
+                    .setCode("test_group1_item3")
+                    .addScoreOptionCode("group1_item3_option1")
+                    .build()
+                )
+                .setGroupScore(GenericValuePB.newBuilder().setInt32Val(3).build())
+                .setGroupScoreText("3分")
                 .setRecordedBy(accountId)
                 .setRecordedAtIso8601(TimeUtils.toIso8601String(effectiveTime, ZONE_ID))
                 .setNote("111")
@@ -356,11 +353,13 @@ public class ScoreServiceTests extends TestsBase {
         assertThat(getPatientScoresResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         assertThat(getPatientScoresResp.getRecordList()).hasSize(1);
         assertThat(getPatientScoresResp.getRecord(0).getNote()).isEqualTo("111");
+        assertThat(getPatientScoresResp.getRecord(0).getCode()).isEqualTo(scoreGroupCode);
+        assertThat(getPatientScoresResp.getRecord(0).getGroupScore().getInt32Val()).isEqualTo(3);
 
         // 更新患者评分
         UpdatePatientScoreReq updatePatientScoreReq = UpdatePatientScoreReq.newBuilder()
-            .setId(getPatientScoresResp.getRecord(0).getId())
-            .setGroup(ScoreGroupPB.newBuilder()
+            .setRecord(ScoreGroupPB.newBuilder()
+                .setId(getPatientScoresResp.getRecord(0).getId())
                 .setCode(scoreGroupCode)
                 .addItem(ScoreItemPB.newBuilder()
                     .setCode("test_group1_item1")
@@ -379,9 +378,9 @@ public class ScoreServiceTests extends TestsBase {
                 )
                 .setGroupScore(GenericValuePB.newBuilder().setInt32Val(6).build())
                 .setGroupScoreText("6分")
+                .setRecordedBy(accountId)
+                .setNote("222")
             )
-            .setRecordedBy(accountId)
-            .setNote("222")
             .build();
         String updatePatientScoreReqJson = ProtoUtils.protoToJson(updatePatientScoreReq);
         GenericResp updatePatientScoreResp = scoreService.updatePatientScore(updatePatientScoreReqJson);
@@ -392,6 +391,9 @@ public class ScoreServiceTests extends TestsBase {
         assertThat(getPatientScoresResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         assertThat(getPatientScoresResp.getRecordList()).hasSize(1);
         assertThat(getPatientScoresResp.getRecord(0).getNote()).isEqualTo("222");
+        assertThat(getPatientScoresResp.getRecord(0).getRecordedAtIso8601())
+            .isEqualTo(TimeUtils.toIso8601String(effectiveTime, ZONE_ID));
+        assertThat(getPatientScoresResp.getRecord(0).getGroupScore().getInt32Val()).isEqualTo(6);
 
         // 删除患者评分
         DeletePatientScoreReq deletePatientScoreReq = DeletePatientScoreReq.newBuilder()

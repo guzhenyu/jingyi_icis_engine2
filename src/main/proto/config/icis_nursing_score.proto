@@ -104,12 +104,13 @@ message ScoreGroupMeasurePB {
     string notes = 3;
 }
 
+// 评分内容及记录信息，供评分接口和快照共用。
 message ScoreGroupPB {
     string code = 1;  // 对应于 ScoreGroupMetaPB.code
     repeated ScoreItemPB item = 2;
     shared.GenericValuePB group_score = 3;
 
-    // 快照评分展示文本优先取 patient_scores.score_str；
+    // 查询评分展示文本优先取 patient_scores.score_str；
     // 空白时回退到 patient_scores.score 解码后的原 group_score_text，均为空白则返回空串。
     // 选中文本原样保留，不按当前配置重新生成。
     // 例：icis_config.pb.txt 的 gcs 单位为“分”；score_str 为“15分”、PB 原文为“15”，则取“15分”。
@@ -117,11 +118,11 @@ message ScoreGroupPB {
 
     repeated ScoreGroupMeasurePB measure = 5;  // 护理评分措施
 
-    // 快照记录信息：从源列覆盖填充，不写入 patient_scores.score。
-    int64 id = 6;  // patient_scores.id
-    string recorded_by = 7;  // modified_by 原值，NULL 转空串
-    string recorded_by_account_name = 8;  // 原名称列，NULL 转空串
-    string recorded_at_iso8601 = 9;  // effective_time 按系统配置时区格式化的时间，仅保留到分钟
+    // 记录信息：查询时从源列覆盖填充，写入 patient_scores.score 时清除以下字段。
+    int64 id = 6;  // patient_scores.id；新增时不传，按 ID 更新时必填
+    string recorded_by = 7;  // 记录人；查询取 modified_by 原值，NULL 转空串
+    string recorded_by_account_name = 8;  // 服务端填充原名称列，NULL 转空串
+    string recorded_at_iso8601 = 9;  // 评分生效时间；查询按系统配置时区格式化，仅保留到分钟
     string note = 10;  // note 原值，NULL 转空串
 }
 

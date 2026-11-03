@@ -16,8 +16,10 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.MonitoringParam;
+import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientMonitoringRecord;
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
 import com.jingyicare.jingyi_icis_engine.entity.scores.PatientScore;
+import com.jingyicare.jingyi_icis_engine.entity.users.Account;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
@@ -45,6 +47,7 @@ class ScoreMetadataServiceTests {
     private static final LocalDateTime TIME = LocalDateTime.parse("2026-11-03T01:02:03.123456");
 
     private PatientScoreRepository repository;
+    private MonitoringRecordUtils monitoringRecordUtils;
     private ScoreService service;
 
     @BeforeEach
@@ -72,6 +75,14 @@ class ScoreMetadataServiceTests {
         });
         UserService userService = mock(UserService.class);
         when(userService.getAccountWithAutoId()).thenReturn(new Pair<>("123", "数据库记录人"));
+        when(userService.getNameByAutoId("321")).thenReturn("指定记录人");
+        AccountRepository accountRepository = mock(AccountRepository.class);
+        Account recorder = new Account();
+        recorder.setId(321L);
+        recorder.setAccountId("recorder");
+        recorder.setName("指定记录人");
+        when(accountRepository.findByAccountIdAndIsDeletedFalse("recorder"))
+            .thenReturn(Optional.of(recorder));
         PatientService patientService = mock(PatientService.class);
         PatientRecord patient = new PatientRecord();
         patient.setId(PID);
@@ -87,11 +98,12 @@ class ScoreMetadataServiceTests {
         MonitoringParamRepository paramRepository = mock(MonitoringParamRepository.class);
         when(paramRepository.findByCode("gcs_param")).thenReturn(Optional.of(
             MonitoringParam.builder().code("gcs_param").uiModalCode("gcs_modal").build()));
+        monitoringRecordUtils = mock(MonitoringRecordUtils.class);
         service = new ScoreService(protoService, mock(MonitoringConfig.class), scoreConfig,
-            calculator, userService, patientService, mock(MonitoringRecordUtils.class),
+            calculator, userService, patientService, monitoringRecordUtils,
             mock(PatientNursingReportInvalidationService.class),
             mock(DeptScoreGroupRepository.class), repository, paramRepository,
-            mock(PatientMonitoringRecordRepository.class), mock(AccountRepository.class));
+            mock(PatientMonitoringRecordRepository.class), accountRepository);
     }
 
     @Test
@@ -118,49 +130,66 @@ class ScoreMetadataServiceTests {
         assertThat(listResponse.getRecordCount()).isEqualTo(1);
         assertThat(singleResponse.getRt().getCode()).isEqualTo(StatusCode.OK.getNumber());
         assertThat(singleResponse.getFound()).isTrue();
-        ScoreGroupPB mapped = singleResponse.getRecord().getGroup();
-        assertThat(listResponse.getRecord(0).getGroup()).isEqualTo(mapped);
+        ScoreGroupPB mapped = singleResponse.getRecord();
+        assertThat(listResponse.getRecord(0)).isEqualTo(mapped);
         assertThat(mapped.getId()).isEqualTo(RECORD_ID);
         assertThat(mapped.getRecordedBy()).isEqualTo("123");
         assertThat(mapped.getRecordedByAccountName()).isEmpty();
         assertThat(mapped.getNote()).isEmpty();
         assertThat(mapped.getRecordedAtIso8601()).isEqualTo("2026-11-03T09:02+08:00");
-        assertThat(singleResponse.getRecord().getRecordedAtIso8601())
-            .isEqualTo(mapped.getRecordedAtIso8601());
-        assertThat(listResponse.getRecord(0).getRecordedAtIso8601())
-            .isEqualTo(mapped.getRecordedAtIso8601());
         assertThat(mapped.getGroupScoreText()).isEqualTo("历史15分");
     }
 
     @Test
-    void shouldStripEmbeddedMetadataOnAdd() {
+    void shouldPersistMetadataOutsideScorePayloadOnAdd() {
         AddPatientScoreResp response = service.addPatientScore(ProtoUtils.protoToJson(
-            AddPatientScoreReq.newBuilder().setPid(PID).setScoreGroupCode(CODE)
+            AddPatientScoreReq.newBuilder().setPid(PID)
                 .setRecord(requestRecord()).build()));
 
         assertThat(response.getRt().getCode()).isEqualTo(StatusCode.OK.getNumber());
-        assertStoredPayload();
+        PatientScore stored = assertStoredPayload("列备注");
+        assertThat(stored.getModifiedBy()).isEqualTo("321");
+        assertThat(stored.getRawModifiedByAccountName()).isEqualTo("指定记录人");
     }
 
     @Test
-    void shouldStripEmbeddedMetadataOnUpdate() {
+    void shouldPersistMetadataOutsideScorePayloadOnUpdate() {
         when(repository.findById(RECORD_ID)).thenReturn(Optional.of(existingRecord()));
         GenericResp response = service.updatePatientScore(ProtoUtils.protoToJson(
-            UpdatePatientScoreReq.newBuilder().setId(RECORD_ID).setGroup(requestGroup())
-                .setRecordedBy("123").setRecordedAtIso8601(TIME_TEXT)
-                .setNote("列备注").build()));
+            UpdatePatientScoreReq.newBuilder().setRecord(requestRecord().toBuilder()
+                .setId(RECORD_ID).setRecordedBy("321")).build()));
 
         assertThat(response.getRt().getCode()).isEqualTo(StatusCode.OK.getNumber());
-        assertStoredPayload();
+        PatientScore stored = assertStoredPayload("列备注");
+        assertThat(stored.getModifiedBy()).isEqualTo("321");
+        assertThat(stored.getRawModifiedByAccountName()).isEqualTo("指定记录人");
     }
 
     @Test
-    void shouldStripEmbeddedMetadataWhenSaveCreatesRecord() {
+    void shouldKeepTimeAndClearEmptyMetadataOnUpdate() {
+        PatientScore existing = existingRecord();
+        existing.setNote("旧备注");
+        existing.setModifiedBy("321");
+        existing.setModifiedByAccountName("指定记录人");
+        when(repository.findById(RECORD_ID)).thenReturn(Optional.of(existing));
+        GenericResp response = service.updatePatientScore(ProtoUtils.protoToJson(
+            UpdatePatientScoreReq.newBuilder().setRecord(requestRecord().toBuilder()
+                .setId(RECORD_ID).clearRecordedAtIso8601().clearNote().clearRecordedBy())
+                .build()));
+
+        assertThat(response.getRt().getCode()).isEqualTo(StatusCode.OK.getNumber());
+        PatientScore stored = assertStoredPayload("");
+        assertThat(stored.getModifiedBy()).isEmpty();
+        assertThat(stored.getRawModifiedByAccountName()).isNull();
+    }
+
+    @Test
+    void shouldPersistMetadataOutsideScorePayloadWhenSaveCreatesRecord() {
         saveAndAssertPayload();
     }
 
     @Test
-    void shouldStripEmbeddedMetadataWhenSaveUpdatesRecord() {
+    void shouldPersistMetadataOutsideScorePayloadWhenSaveUpdatesRecord() {
         when(repository.findByPidAndScoreGroupCodeAndEffectiveTimeAndIsDeletedFalse(
             PID, CODE, TIME))
             .thenReturn(Optional.of(existingRecord()));
@@ -169,21 +198,40 @@ class ScoreMetadataServiceTests {
 
     private void saveAndAssertPayload() {
         SavePatientScoreResp response = service.savePatientScore(ProtoUtils.protoToJson(
-            SavePatientScoreReq.newBuilder().setPid(PID).setScoreGroupCode(CODE)
+            SavePatientScoreReq.newBuilder().setPid(PID)
                 .setRecord(requestRecord()).build()));
         assertThat(response.getRt().getCode()).isEqualTo(StatusCode.OK.getNumber());
-        assertStoredPayload();
+        assertThat(response.getGroupScoreText()).isEqualTo("15分");
+        PatientScore stored = assertStoredPayload("列备注");
+        assertThat(stored.getModifiedBy()).isEqualTo("123");
+        assertThat(stored.getRawModifiedByAccountName()).isEqualTo("数据库记录人");
+        assertThat(stored.getScoreStr()).isEqualTo("15分");
+        verify(repository).findByPidAndScoreGroupCodeAndEffectiveTimeAndIsDeletedFalse(
+            PID, CODE, TIME);
+        ArgumentCaptor<PatientMonitoringRecord> monitoringCaptor =
+            ArgumentCaptor.forClass(PatientMonitoringRecord.class);
+        verify(monitoringRecordUtils).saveRecordJdbc(monitoringCaptor.capture());
+        PatientMonitoringRecord monitoring = monitoringCaptor.getValue();
+        assertThat(monitoring.getPid()).isEqualTo(PID);
+        assertThat(monitoring.getMonitoringParamCode()).isEqualTo("gcs_param");
+        assertThat(monitoring.getEffectiveTime()).isEqualTo(TIME);
+        assertThat(monitoring.getParamValueStr()).isEqualTo("15分");
+        assertThat(monitoring.getNote()).isEqualTo("列备注");
+        assertThat(monitoring.getModifiedBy()).isEqualTo("123");
     }
 
-    private void assertStoredPayload() {
+    private PatientScore assertStoredPayload(String note) {
         ArgumentCaptor<PatientScore> captor = ArgumentCaptor.forClass(PatientScore.class);
         verify(repository).save(captor.capture());
         PatientScore stored = captor.getValue();
         assertThat(ProtoUtils.decodeScoreGroupPB(stored.getScore())).isEqualTo(
             requestGroup().toBuilder().clearId().clearRecordedBy().clearRecordedByAccountName()
                 .clearRecordedAtIso8601().clearNote().build());
-        assertThat(stored.getNote()).isEqualTo("列备注");
+        assertThat(stored.getId()).isEqualTo(RECORD_ID);
+        assertThat(stored.getScoreGroupCode()).isEqualTo(CODE);
+        assertThat(stored.getNote()).isEqualTo(note);
         assertThat(stored.getEffectiveTime()).isEqualTo(TIME);
+        return stored;
     }
 
     private PatientScore existingRecord() {
@@ -192,8 +240,8 @@ class ScoreMetadataServiceTests {
             .scoreStr("历史15分").effectiveTime(TIME).modifiedAt(TIME).isDeleted(false).build();
     }
 
-    private ScoreRecordPB requestRecord() {
-        return ScoreRecordPB.newBuilder().setGroup(requestGroup()).setRecordedBy("123")
+    private ScoreGroupPB requestRecord() {
+        return requestGroup().toBuilder().setRecordedBy("recorder")
             .setRecordedAtIso8601(TIME_TEXT).setNote("列备注").build();
     }
 

@@ -2436,18 +2436,9 @@ message GetPatientScoresReq {
     string query_end_iso8601 = 4;
 }
 
-message ScoreRecordPB {
-    int64 id = 1;
-    config.ScoreGroupPB group = 2;
-    string recorded_by = 3;
-    string recorded_by_account_name = 4;
-    string recorded_at_iso8601 = 5;
-    string note = 6;
-}
-
 message GetPatientScoresResp {
     shared.ReturnCode rt = 1;
-    repeated ScoreRecordPB record = 2;
+    repeated config.ScoreGroupPB record = 2;
 }
 
 /*
@@ -2465,7 +2456,7 @@ message GetPatientScoreResp {
     shared.ReturnCode rt = 1;
     bool found = 2;  // 是否找到记录
     config.ScoreGroupMetaPB score_group_meta = 3;
-    ScoreRecordPB record = 4;
+    config.ScoreGroupPB record = 4;
 }
 
 /*
@@ -2475,8 +2466,9 @@ message GetPatientScoreResp {
  */
 message AddPatientScoreReq {
     int64 pid = 1;
-    string score_group_code = 2;
-    ScoreRecordPB record = 3;
+    // record.code、record.recorded_at_iso8601 必填，record.id 不传。
+    // record.recorded_by 使用登录账号；相同患者、评分类型和时间已存在时返回重复错误。
+    config.ScoreGroupPB record = 2;
 }
 
 message AddPatientScoreResp {
@@ -2490,11 +2482,9 @@ message AddPatientScoreResp {
  *  output: GenericResp
  */
 message UpdatePatientScoreReq {
-    int64 id = 1;  // patient_scores.id
-    config.ScoreGroupPB group = 2;
-    string recorded_by = 3;
-    string recorded_at_iso8601 = 4;
-    string note = 5;
+    // record.id、record.code 必填；record.recorded_at_iso8601 为空时沿用原时间。
+    // record.recorded_by 使用账号自动 ID；record.recorded_by、record.note 为空时覆盖原值。
+    config.ScoreGroupPB record = 1;
 }
 
 /*
@@ -2504,8 +2494,9 @@ message UpdatePatientScoreReq {
  */
 message SavePatientScoreReq {
     int64 pid = 1;
-    string score_group_code = 2;  // 评分类型编码
-    ScoreRecordPB record = 3;  // ScoreRecordPB.group, ScoreRecordPB.recorded_at_iso8601 必填
+    // record.code、record.recorded_at_iso8601 必填；按患者、评分类型和时间新增或更新。
+    // 不使用 record.id 定位，记录人使用当前登录用户。
+    config.ScoreGroupPB record = 2;
 }
 
 message SavePatientScoreResp {
