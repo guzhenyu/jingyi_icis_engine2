@@ -8,21 +8,18 @@ import java.time.LocalDateTime;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class LockKeysTests {
     @ParameterizedTest
-    @CsvSource({
-        "2026-11-03T12:00:00.123456499, 2026-11-03T12:00:00.123456",
-        "2026-11-03T12:00:00.123456500, 2026-11-03T12:00:00.123457",
-        "2026-11-03T23:59:59.999999500, 2026-11-04T00:00:00"
+    @ValueSource(strings = {
+        "2026-11-03T12:00:00",
+        "2026-11-03T12:00:30.123456789",
+        "2026-11-03T23:59:59.999999999"
     })
-    void shouldUseSameKeyBeforeAndAfterPostgresMicrosecondRounding(
-        LocalDateTime input, LocalDateTime stored
-    ) {
+    void shouldPreserveEffectiveTimePrecision(LocalDateTime input) {
         assertThat(LockKeys.nursingRecord(42L, input))
-            .isEqualTo(LockKeys.nursingRecord(42L, stored));
+            .isEqualTo("nursing_record:42:" + input);
     }
 
     @Test
@@ -31,7 +28,7 @@ class LockKeysTests {
         String key = LockKeys.nursingRecord(42L, time);
 
         assertThat(key).isNotEqualTo(LockKeys.nursingRecord(43L, time));
-        assertThat(key).isNotEqualTo(LockKeys.nursingRecord(42L, time.plusNanos(1_000)));
+        assertThat(key).isNotEqualTo(LockKeys.nursingRecord(42L, time.plusNanos(1)));
     }
 
     @Test

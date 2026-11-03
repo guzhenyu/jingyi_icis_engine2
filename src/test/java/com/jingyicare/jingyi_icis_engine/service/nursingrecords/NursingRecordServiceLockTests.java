@@ -7,9 +7,11 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.AdditionalAnswers.delegatesTo;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -59,6 +61,7 @@ import com.jingyicare.jingyi_icis_engine.service.users.UserService;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
+import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
 class NursingRecordServiceLockTests extends TestsBase {
     @BeforeEach
@@ -95,7 +98,7 @@ class NursingRecordServiceLockTests extends TestsBase {
     }
 
     @Test
-    void concurrentAddsAtSameTimeOnlyInsertOneOrdinaryRecord() throws Exception {
+    void concurrentAddsWithinSameMinuteOnlyInsertOneOrdinaryRecord() throws Exception {
         String key = LockKeys.nursingRecord(PID, TIME);
         CountDownLatch locked = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
@@ -113,8 +116,10 @@ class NursingRecordServiceLockTests extends TestsBase {
                 return null;
             }));
             assertTrue(locked.await(10, TimeUnit.SECONDS), "未取得护理记录锁");
-            Future<AddNursingRecordResp> first = pool.submit(() -> add(TIME, "第一条记录"));
-            Future<AddNursingRecordResp> second = pool.submit(() -> add(TIME, "第二条记录"));
+            Future<AddNursingRecordResp> first = pool.submit(
+                () -> add(TIME.plusSeconds(1).plusNanos(123456789), "第一条记录"));
+            Future<AddNursingRecordResp> second = pool.submit(
+                () -> add(TIME.plusSeconds(59).plusNanos(999999999), "第二条记录"));
             assertTrue(waitForTwoBlockedRequests(),
                 "两个新增请求应同时等待护理记录锁");
             release.countDown();
@@ -125,8 +130,10 @@ class NursingRecordServiceLockTests extends TestsBase {
                 .containsExactlyInAnyOrder(StatusCode.OK_VALUE,
                     StatusCode.NURSING_RECORD_ALREADY_EXISTS_VALUE);
             assertThat(recordCount()).isEqualTo(1);
-            assertThat(activeRecord(TIME, null).getContent())
-                .isIn("第一条记录", "第二条记录");
+            NursingRecord added = activeRecord(TIME, null);
+            assertThat(added.getContent()).isIn("第一条记录", "第二条记录");
+            assertMinutePrecision(added.getCreatedAt());
+            assertMinutePrecision(added.getModifiedAt());
             assertThat(lockCount(key)).isEqualTo(1);
             verify(invalidation, times(1)).updateLatestDataTime(
                 eq(PID), eq(DEPT_ID), eq(TIME), eq(TIME), any());
@@ -142,7 +149,8 @@ class NursingRecordServiceLockTests extends TestsBase {
         NursingRecord original = saveRecord(TIME);
         NursingRecord occupied = saveRecord(TIME.plusHours(1));
 
-        GenericResp response = update(original.getId(), occupied.getEffectiveTime());
+        GenericResp response = update(original.getId(),
+            occupied.getEffectiveTime().plusSeconds(59).plusNanos(999999999));
 
         assertThat(response.getRt().getCode())
             .isEqualTo(StatusCode.NURSING_RECORD_ALREADY_EXISTS_VALUE);
@@ -157,10 +165,11 @@ class NursingRecordServiceLockTests extends TestsBase {
     void replacementPreservesSourceAndCreationAndClearsReview(long hoursToMove) {
         NursingRecord original = records.save(record(TIME).source("template_id=7&params=记录")
             .patientCriticalLisHandlingId(7).reviewedBy("previous-reviewer")
-            .reviewedByAccountName("原审核人").reviewedAt(TIME.plusMinutes(10)).build());
+            .reviewedByAccountName("原审核人").reviewedAt(TIME.plusMinutes(10))
+            .createdAt(TIME.minusDays(1).plusSeconds(59).plusNanos(123456000)).build());
         LocalDateTime targetTime = TIME.plusHours(hoursToMove);
 
-        assertOk(update(original.getId(), targetTime));
+        assertOk(update(original.getId(), targetTime.plusSeconds(59).plusNanos(999999999)));
 
         NursingRecord replacement = activeRecord(targetTime, 7);
         assertThat(replacement.getId()).isNotEqualTo(original.getId());
@@ -170,13 +179,16 @@ class NursingRecordServiceLockTests extends TestsBase {
         assertThat(replacement.getCreatedBy()).isEqualTo(original.getCreatedBy());
         assertThat(replacement.getCreatedByAccountName())
             .isEqualTo(original.getCreatedByAccountName());
-        assertThat(replacement.getCreatedAt()).isEqualTo(original.getCreatedAt());
+        assertThat(replacement.getCreatedAt()).isEqualTo(TIME.minusDays(1));
         assertThat(replacement.getModifiedBy()).isEqualTo(ACCOUNT);
         assertThat(replacement.getModifiedByAccountName()).isEqualTo(ACCOUNT_NAME);
+        assertMinutePrecision(replacement.getModifiedAt());
         assertThat(replacement.getReviewedBy()).isNull();
         assertThat(replacement.getReviewedByAccountName()).isNull();
         assertThat(replacement.getReviewedAt()).isNull();
-        assertThat(records.findById(original.getId()).orElseThrow().getIsDeleted()).isTrue();
+        NursingRecord deleted = records.findById(original.getId()).orElseThrow();
+        assertThat(deleted.getIsDeleted()).isTrue();
+        assertMinutePrecision(deleted.getDeletedAt());
         assertThat(recordCount()).isEqualTo(2);
         assertThat(lockCount(LockKeys.nursingRecord(PID, TIME))).isEqualTo(1);
         assertThat(lockCount(LockKeys.nursingRecord(PID, targetTime))).isEqualTo(1);
@@ -201,6 +213,22 @@ class NursingRecordServiceLockTests extends TestsBase {
         assertThat(recordCount()).isEqualTo(1);
         assertThat(lockCount(LockKeys.nursingRecord(PID, TIME))).isEqualTo(1);
         verifyNoInteractions(invalidation);
+    }
+
+    @Test
+    void updateWithoutTimeNormalizesExistingEffectiveTime() {
+        NursingRecord original = saveRecord(TIME.plusSeconds(59).plusNanos(123456000));
+        var request = UpdateNursingRecordReq.newBuilder()
+            .setRecord(PatientNursingRecordValPB.newBuilder().setId(original.getId())
+                .setContent(original.getContent())).build();
+
+        assertOk(service.updateNursingRecord(ProtoUtils.protoToJson(request)));
+
+        NursingRecord replacement = activeRecord(TIME, null);
+        assertThat(replacement.getId()).isNotEqualTo(original.getId());
+        assertThat(replacement.getContent()).isEqualTo(original.getContent());
+        assertThat(records.findById(original.getId()).orElseThrow().getIsDeleted()).isTrue();
+        assertThat(recordCount()).isEqualTo(2);
     }
 
     @Test
@@ -244,21 +272,23 @@ class NursingRecordServiceLockTests extends TestsBase {
     }
 
     @Test
-    void reviewDeduplicatesIdsAndLocksEachRecordTime() {
+    void reviewDeduplicatesIdsAndLocksEachRecordMinute() {
         NursingRecord first = saveRecord(TIME);
-        NursingRecord second = saveRecord(TIME.plusHours(1));
-        LocalDateTime reviewTime = TIME.plusHours(2);
+        NursingRecord second = saveRecord(TIME.plusHours(1).plusSeconds(59));
+        LocalDateTime reviewTime = TIME.plusHours(1);
 
-        assertOk(review(reviewTime, first.getId(), second.getId(), first.getId()));
+        assertOk(review(reviewTime.plusSeconds(1).plusNanos(123456789),
+            first.getId(), second.getId(), first.getId()));
 
         for (NursingRecord original : List.of(first, second)) {
             NursingRecord reviewed = records.findById(original.getId()).orElseThrow();
             assertThat(reviewed.getReviewedBy()).isEqualTo(ACCOUNT);
             assertThat(reviewed.getReviewedByAccountName()).isEqualTo(ACCOUNT_NAME);
             assertThat(reviewed.getReviewedAt()).isEqualTo(reviewTime);
-            assertThat(lockCount(LockKeys.nursingRecord(PID, original.getEffectiveTime())))
-                .isEqualTo(1);
         }
+        assertThat(lockCount(LockKeys.nursingRecord(PID, TIME))).isEqualTo(1);
+        assertThat(lockCount(LockKeys.nursingRecord(PID, TIME.plusHours(1)))).isEqualTo(1);
+        assertThat(lockCount(LockKeys.nursingRecord(PID, second.getEffectiveTime()))).isZero();
         assertThat(recordCount()).isEqualTo(2);
     }
 
@@ -310,14 +340,21 @@ class NursingRecordServiceLockTests extends TestsBase {
     @Test
     void repeatedDeletionSucceedsWithoutInvalidatingAgain() {
         NursingRecord original = saveRecord(TIME);
+        LocalDateTime nowUtc = TIME.plusHours(2).plusSeconds(59).plusNanos(123456789);
 
-        assertOk(delete(original.getId()));
-        assertOk(delete(original.getId()));
+        try (var clock = mockStatic(TimeUtils.class, CALLS_REAL_METHODS)) {
+            clock.when(TimeUtils::getNowUtc).thenReturn(nowUtc);
+            assertOk(delete(original.getId()));
+            assertOk(delete(original.getId()));
+        }
 
-        assertThat(records.findById(original.getId()).orElseThrow().getIsDeleted()).isTrue();
+        NursingRecord deleted = records.findById(original.getId()).orElseThrow();
+        assertThat(deleted.getIsDeleted()).isTrue();
+        assertThat(deleted.getDeletedAt()).isEqualTo(TIME.plusHours(2));
+        assertThat(deleted.getModifiedAt()).isEqualTo(deleted.getDeletedAt());
         assertThat(recordCount()).isEqualTo(1);
         verify(invalidation, times(1)).updateLatestDataTime(
-            eq(PID), eq(DEPT_ID), eq(TIME), eq(TIME), any());
+            eq(PID), eq(DEPT_ID), eq(TIME), eq(TIME), eq(nowUtc));
     }
 
     private AddNursingRecordResp add(LocalDateTime time, String content) {
@@ -375,6 +412,12 @@ class NursingRecordServiceLockTests extends TestsBase {
         assertThat(response.getRt().getCode()).isEqualTo(StatusCode.OK_VALUE);
     }
 
+    private void assertMinutePrecision(LocalDateTime time) {
+        assertThat(time).isNotNull();
+        assertThat(time.getSecond()).isZero();
+        assertThat(time.getNano()).isZero();
+    }
+
     private int recordCount() {
         return jdbcTemplate.queryForObject(
             "SELECT COUNT(*) FROM nursing_records WHERE patient_id = ?", Integer.class, PID);
@@ -411,7 +454,7 @@ class NursingRecordServiceLockTests extends TestsBase {
     private static final String DEPT_ID = "nursing-record-lock-tests";
     private static final String ACCOUNT = "nursing-record-lock-user";
     private static final String ACCOUNT_NAME = "护理记录测试用户";
-    private static final LocalDateTime TIME = LocalDateTime.of(2026, 1, 2, 3, 4, 5);
+    private static final LocalDateTime TIME = LocalDateTime.of(2026, 1, 2, 3, 4);
 
     private NursingRecordService service;
     private PatientNursingReportInvalidationService invalidation;

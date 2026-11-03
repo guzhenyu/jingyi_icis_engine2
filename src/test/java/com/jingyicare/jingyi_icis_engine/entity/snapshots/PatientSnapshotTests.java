@@ -13,7 +13,6 @@ import org.postgresql.util.PSQLException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 
 @Transactional
@@ -47,10 +46,6 @@ class PatientSnapshotTests extends TestsBase {
         assertThat(stored.getPayload()).isEqualTo(payload);
         assertThat(stored.getLastModifiedAt()).isEqualTo("2026-11-03T12:00:00.123456");
         assertThat(stored.getSnapshotAt()).isEqualTo("2026-11-04T00:00:00");
-        assertThat(LockKeys.nursingRecord(PID, modifiedAt))
-            .isEqualTo(LockKeys.nursingRecord(PID, stored.getLastModifiedAt()));
-        assertThat(LockKeys.nursingRecord(PID, snapshotAt))
-            .isEqualTo(LockKeys.nursingRecord(PID, stored.getSnapshotAt()));
     }
 
     @Test

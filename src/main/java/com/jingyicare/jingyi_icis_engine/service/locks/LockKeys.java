@@ -2,7 +2,6 @@ package com.jingyicare.jingyi_icis_engine.service.locks;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 
@@ -69,8 +68,7 @@ public final class LockKeys {
         if (effectiveTimeUtc == null) {
             throw new IllegalArgumentException("effectiveTimeUtc must not be null");
         }
-        LocalDateTime roundedTime = effectiveTimeUtc.truncatedTo(ChronoUnit.SECONDS);
-        return "nursing_record:" + pid + ":" + roundedTime;
+        return "nursing_record:" + pid + ":" + effectiveTimeUtc;
     }
 
     /**

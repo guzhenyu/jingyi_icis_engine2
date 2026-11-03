@@ -173,8 +173,8 @@ public class NursingRecordService {
 
         long patientId = req.getPid();
         PatientNursingRecordValPB recordPb = req.getRecord();
-        LocalDateTime effectiveTime = TimeUtils.fromIso8601String(
-            recordPb.getRecordedAtIso8601(), "UTC");
+        LocalDateTime effectiveTime = formatTime(TimeUtils.fromIso8601String(
+            recordPb.getRecordedAtIso8601(), "UTC"));
         if (patientId <= 0 || effectiveTime == null) {
             StatusCode code = patientId <= 0 ? StatusCode.INVALID_PARAM_VALUE
                 : StatusCode.INVALID_TIME_FORMAT;
@@ -205,10 +205,10 @@ public class NursingRecordService {
                     .isDeleted(false)
                     .modifiedBy(accountId)
                     .modifiedByAccountName(accountName)
-                    .modifiedAt(nowUtc)
+                    .modifiedAt(formatTime(nowUtc))
                     .createdBy(accountId)
                     .createdByAccountName(accountName)
-                    .createdAt(nowUtc)
+                    .createdAt(formatTime(nowUtc))
                     .build());
                 pnrUtils.updateLatestDataTime(patientId, patient.getDeptId(),
                     effectiveTime, effectiveTime, nowUtc);
@@ -232,8 +232,8 @@ public class NursingRecordService {
 
         PatientNursingRecordValPB recordPb = req.getRecord();
         if (recordPb.getId() <= 0) return nursingRecordResponse(StatusCode.INVALID_PARAM_VALUE);
-        LocalDateTime targetTime = TimeUtils.fromIso8601String(
-            recordPb.getRecordedAtIso8601(), "UTC");
+        LocalDateTime targetTime = formatTime(TimeUtils.fromIso8601String(
+            recordPb.getRecordedAtIso8601(), "UTC"));
         // 未提供时间沿用旧时间；提供了无法解析的时间则拒绝更新。
         if (!recordPb.getRecordedAtIso8601().isEmpty() && targetTime == null) {
             return nursingRecordResponse(StatusCode.INVALID_TIME_FORMAT);
@@ -244,7 +244,7 @@ public class NursingRecordService {
             }
             NursingRecord old = records.get(0);
             LocalDateTime oldTime = old.getEffectiveTime();
-            LocalDateTime newTime = targetTime == null ? oldTime : targetTime;
+            LocalDateTime newTime = targetTime == null ? formatTime(oldTime) : targetTime;
             PatientRecord patient = patientService.getPatientRecord(old.getPatientId());
             if (patient == null) return nursingRecordResponse(StatusCode.PATIENT_NOT_FOUND);
 
@@ -256,8 +256,7 @@ public class NursingRecordService {
                 return nursingRecordResponse(StatusCode.NURSING_RECORD_ALREADY_EXISTS);
             }
             if (Objects.equals(old.getContent(), recordPb.getContent())
-                && LockKeys.nursingRecord(old.getPatientId(), oldTime)
-                    .equals(LockKeys.nursingRecord(old.getPatientId(), newTime))) {
+                && Objects.equals(oldTime, newTime)) {
                 return nursingRecordResponse(StatusCode.OK);
             }
 
@@ -275,17 +274,17 @@ public class NursingRecordService {
                 .reviewedAt(null)
                 .modifiedBy(account.getFirst())
                 .modifiedByAccountName(account.getSecond())
-                .modifiedAt(nowUtc)
+                .modifiedAt(formatTime(nowUtc))
                 .createdBy(updateCreator ? account.getFirst() : old.getCreatedBy())
                 .createdByAccountName(updateCreator
                     ? account.getSecond() : old.getCreatedByAccountName())
-                .createdAt(updateCreator ? nowUtc : old.getCreatedAt())
+                .createdAt(formatTime(updateCreator ? nowUtc : old.getCreatedAt()))
                 .build();
 
             // 先 flush 释放部分唯一索引中的旧键，但不提前提交；任何后续异常整体回滚。
             old.setIsDeleted(true);
             old.setDeletedBy(account.getFirst());
-            old.setDeletedAt(nowUtc);
+            old.setDeletedAt(formatTime(nowUtc));
             recordRepo.saveAndFlush(old);
             recordRepo.save(replacement);
             if (StrUtils.isBlank(old.getContent())) recordRepo.delete(old);
@@ -322,10 +321,10 @@ public class NursingRecordService {
             LocalDateTime nowUtc = TimeUtils.getNowUtc();
             record.setIsDeleted(true);
             record.setDeletedBy(account.getFirst());
-            record.setDeletedAt(nowUtc);
+            record.setDeletedAt(formatTime(nowUtc));
             record.setModifiedBy(account.getFirst());
             record.setModifiedByAccountName(account.getSecond());
-            record.setModifiedAt(nowUtc);
+            record.setModifiedAt(formatTime(nowUtc));
             recordRepo.save(record);
             pnrUtils.updateLatestDataTime(record.getPatientId(), patient.getDeptId(),
                 record.getEffectiveTime(), record.getEffectiveTime(), nowUtc);
@@ -345,7 +344,8 @@ public class NursingRecordService {
         Pair<String, String> account = userService.getAccountWithAutoId();
         if (account == null) return nursingRecordResponse(StatusCode.ACCOUNT_NOT_FOUND);
 
-        LocalDateTime reviewTime = TimeUtils.fromIso8601String(req.getReviewTimeIso8601(), "UTC");
+        LocalDateTime reviewTime = formatTime(
+            TimeUtils.fromIso8601String(req.getReviewTimeIso8601(), "UTC"));
         if (reviewTime == null) return nursingRecordResponse(StatusCode.INVALID_TIME_FORMAT);
         List<Long> recordIds = req.getIdList().stream().distinct().toList();
         if (recordIds.isEmpty()) return nursingRecordResponse(StatusCode.OK);
@@ -354,7 +354,8 @@ public class NursingRecordService {
             if (records.size() != recordIds.size()) {
                 return nursingRecordResponse(StatusCode.NURSING_RECORD_NOT_EXISTS);
             }
-            if (records.stream().anyMatch(r -> reviewTime.isBefore(r.getEffectiveTime()))) {
+            if (records.stream()
+                .anyMatch(r -> reviewTime.isBefore(formatTime(r.getEffectiveTime())))) {
                 return nursingRecordResponse(
                     StatusCode.NURSING_RECORD_REVIEW_TIME_BEFORE_RECORD_TIME);
             }
@@ -366,6 +367,10 @@ public class NursingRecordService {
             recordRepo.saveAll(records);
             return nursingRecordResponse(StatusCode.OK);
         });
+    }
+
+    private static LocalDateTime formatTime(LocalDateTime time) {
+        return time == null ? null : time.truncatedTo(ChronoUnit.MINUTES);
     }
 
     private GenericResp nursingRecordResponse(StatusCode code) {
@@ -406,7 +411,8 @@ public class NursingRecordService {
 
     private Map<Long, String> nursingRecordKeys(List<NursingRecord> records) {
         return records.stream().collect(Collectors.toMap(NursingRecord::getId,
-            record -> LockKeys.nursingRecord(record.getPatientId(), record.getEffectiveTime())));
+            record -> LockKeys.nursingRecord(
+                record.getPatientId(), formatTime(record.getEffectiveTime()))));
     }
 
     private record NursingRecordLockPlan(
