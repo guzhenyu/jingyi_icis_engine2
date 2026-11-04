@@ -2,10 +2,14 @@ package com.jingyicare.jingyi_icis_engine.service.shifts;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,7 +31,7 @@ class StatisticsDayWindowResolverPostgreSqlTests extends TestsBase {
     private EntityManager entityManager;
 
     @Test
-    void shouldSelectLatestActiveConfigurationStrictlyBeforeNextLocalMidnight() {
+    void shouldSelectLatestActiveConfigurationForEachBatchDayInInputOrder() {
         save(DEPT, ANCHOR.minusDays(1), 8, 8, false);
         save(DEPT, ANCHOR.plusHours(12), 6, 7, false);
         save(DEPT, ANCHOR.plusHours(23), 9, 9, true);
@@ -36,14 +40,20 @@ class StatisticsDayWindowResolverPostgreSqlTests extends TestsBase {
         repository.flush();
         entityManager.clear();
 
-        StatisticsDayWindow day = resolver.resolve(ANCHOR, ZONE, DEPT);
+        List<StatisticsDayWindow> windows = resolver.resolveInternal(
+            List.of(ANCHOR.plusDays(1), ANCHOR, ANCHOR.plusDays(1)), ZONE, DEPT);
+        assertThat(windows).hasSize(3);
+        assertThat(windows.get(2)).isEqualTo(windows.get(0));
+
+        // 输入乱序且重复，各日期仍须分别按严格截止时间选择配置。
+        StatisticsDayWindow day = windows.get(1);
         assertThat(day.balanceStartUtc()).isEqualTo(ANCHOR.plusHours(6));
         assertThat(day.balanceEndUtc()).isEqualTo(ANCHOR.plusDays(1).plusHours(6));
         assertThat(day.monitoringStartUtc()).isEqualTo(ANCHOR.plusHours(7));
         assertThat(day.monitoringEndUtc()).isEqualTo(ANCHOR.plusDays(1).plusHours(7));
         assertThat(day.halfDayShiftHours()).isEqualTo(9);
 
-        StatisticsDayWindow next = resolver.resolve(ANCHOR.plusDays(1), ZONE, DEPT);
+        StatisticsDayWindow next = windows.get(0);
         assertThat(next.balanceStartUtc()).isEqualTo(ANCHOR.plusDays(1).plusHours(10));
         assertThat(next.monitoringStartUtc()).isEqualTo(ANCHOR.plusDays(1).plusHours(11));
     }
@@ -63,6 +73,28 @@ class StatisticsDayWindowResolverPostgreSqlTests extends TestsBase {
         assertThat(day.balanceEndUtc()).isEqualTo(ANCHOR.plusDays(1).plusHours(8));
         assertThat(day.monitoringStartUtc()).isEqualTo(day.balanceStartUtc());
         assertThat(day.monitoringEndUtc()).isEqualTo(day.balanceEndUtc());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"6, 7", "10, 9"})
+    void shouldResolveStatisticDatesAcrossConfigurationOverlapAndGap(
+        int nextStartHour, int instantHour
+    ) {
+        save(DEPT, ANCHOR.minusDays(1), 8, 8, false);
+        // 恰好在前一统计日截止时生效，前一日必须继续使用旧配置。
+        save(DEPT, ANCHOR, nextStartHour, nextStartHour, false);
+        int interferingHour = nextStartHour == 6 ? 10 : 6;
+        save(DEPT, ANCHOR.plusHours(22), interferingHour, interferingHour, true);
+        save("statistics-window-other", ANCHOR.plusHours(23),
+            interferingHour, interferingHour, false);
+        repository.flush();
+        entityManager.clear();
+
+        List<LocalDate> expected = nextStartHour == 6
+            ? List.of(LocalDate.of(2026, 10, 22), LocalDate.of(2026, 10, 23))
+            : List.of();
+        assertThat(resolver.resolveStatisticDates(ANCHOR.plusHours(instantHour), ZONE, DEPT))
+            .containsExactlyElementsOf(expected);
     }
 
     private void save(

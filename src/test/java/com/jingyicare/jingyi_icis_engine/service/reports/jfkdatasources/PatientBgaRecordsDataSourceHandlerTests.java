@@ -12,7 +12,6 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
@@ -60,15 +59,18 @@ public class PatientBgaRecordsDataSourceHandlerTests {
 
         LocalDateTime queryUtcEnd = LocalDateTime.of(2026, 4, 16, 16, 0);
         when(ctx.balanceStatsShiftRepo
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept", queryUtcEnd))
-            .thenReturn(Optional.of(BalanceStatsShift.builder()
-                .id(1L)
-                .deptId("patient-dept")
-                .startHour(7)
-                .monStartHour(null)
-                .effectiveTime(LocalDateTime.of(2026, 4, 1, 0, 0))
-                .isDeleted(false)
-                .build()));
+            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept"))
+            .thenReturn(List.of(
+                BalanceStatsShift.builder().startHour(23).monStartHour(23)
+                    .effectiveTime(queryUtcEnd).build(),
+                BalanceStatsShift.builder()
+                    .id(1L)
+                    .deptId("patient-dept")
+                    .startHour(7)
+                    .monStartHour(null)
+                    .effectiveTime(LocalDateTime.of(2026, 4, 1, 0, 0))
+                    .isDeleted(false)
+                    .build()));
 
         LocalDateTime monStartUtc = LocalDateTime.of(2026, 4, 15, 23, 0);
         LocalDateTime monEndUtc = LocalDateTime.of(2026, 4, 16, 23, 0);
@@ -116,9 +118,8 @@ public class PatientBgaRecordsDataSourceHandlerTests {
         PatientBgaRecordsDataSourceHandler handler = ctx.handler();
 
         when(ctx.balanceStatsShiftRepo
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(
-                eq("patient-dept"), any(LocalDateTime.class)))
-            .thenReturn(Optional.of(BalanceStatsShift.builder()
+            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept"))
+            .thenReturn(List.of(BalanceStatsShift.builder()
                 .id(1L)
                 .deptId("patient-dept")
                 .startHour(7)

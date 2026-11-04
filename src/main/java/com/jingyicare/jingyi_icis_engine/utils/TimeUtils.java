@@ -2,6 +2,7 @@ package com.jingyicare.jingyi_icis_engine.utils;
 
 import java.time.DateTimeException;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -175,6 +176,10 @@ public class TimeUtils {
             log.warn("Failed to parse time string '{}' with pattern '{}': {}", timeStr, pattern, e.getMessage());
             return null;
         }
+    }
+
+    public static LocalDateTime getDayMidnightUtc(LocalDate day, ZoneId zone) {
+        return getUtcFromLocalDateTime(day.atStartOfDay(zone).toLocalDateTime(), zone.getId());
     }
 
     public static final ZoneId ASIA_SHANGHAI;

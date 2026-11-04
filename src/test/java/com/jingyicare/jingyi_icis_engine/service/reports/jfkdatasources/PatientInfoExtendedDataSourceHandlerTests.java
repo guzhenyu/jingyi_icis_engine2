@@ -51,15 +51,18 @@ public class PatientInfoExtendedDataSourceHandlerTests {
 
         LocalDateTime queryUtcEnd = LocalDateTime.of(2026, 4, 16, 16, 0);
         when(ctx.balanceStatsShiftRepo
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept", queryUtcEnd))
-            .thenReturn(Optional.of(BalanceStatsShift.builder()
-                .id(1L)
-                .deptId("patient-dept")
-                .startHour(7)
-                .monStartHour(null)
-                .effectiveTime(LocalDateTime.of(2026, 4, 1, 0, 0))
-                .isDeleted(false)
-                .build()));
+            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept"))
+            .thenReturn(List.of(
+                BalanceStatsShift.builder().startHour(23).monStartHour(23)
+                    .effectiveTime(queryUtcEnd).build(),
+                BalanceStatsShift.builder()
+                    .id(1L)
+                    .deptId("patient-dept")
+                    .startHour(7)
+                    .monStartHour(null)
+                    .effectiveTime(LocalDateTime.of(2026, 4, 1, 0, 0))
+                    .isDeleted(false)
+                    .build()));
 
         LocalDateTime monStartUtc = LocalDateTime.of(2026, 4, 15, 23, 0);
         LocalDateTime monEndUtc = LocalDateTime.of(2026, 4, 16, 23, 0);
@@ -101,7 +104,7 @@ public class PatientInfoExtendedDataSourceHandlerTests {
         assertThat(output.get("patient_shift_info")).isEqualTo("白班: 张护士  夜班: 李护士");
 
         verify(ctx.balanceStatsShiftRepo)
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept", queryUtcEnd);
+            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept");
         verify(ctx.patientShiftRecordRepo).findByPidAndContainedInTimeRange(10001L, monStartUtc, monEndUtc);
     }
 
@@ -115,9 +118,8 @@ public class PatientInfoExtendedDataSourceHandlerTests {
         when(ctx.deptRepo.findByDeptId("patient-dept"))
             .thenReturn(Optional.of(new RbacDepartment("patient-dept", "重症医学科")));
         when(ctx.balanceStatsShiftRepo
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(
-                eq("patient-dept"), any(LocalDateTime.class)))
-            .thenReturn(Optional.empty());
+            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept"))
+            .thenReturn(List.of());
 
         Pair<ReturnCode, JfkDataSourcePB> result = handler.handle(JfkDataSourcePB.newBuilder()
             .setId("request-1")
@@ -144,9 +146,8 @@ public class PatientInfoExtendedDataSourceHandlerTests {
         when(ctx.deptRepo.findByDeptId("patient-dept"))
             .thenReturn(Optional.of(new RbacDepartment("patient-dept", "重症医学科")));
         when(ctx.balanceStatsShiftRepo
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(
-                eq("patient-dept"), any(LocalDateTime.class)))
-            .thenReturn(Optional.of(BalanceStatsShift.builder()
+            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept"))
+            .thenReturn(List.of(BalanceStatsShift.builder()
                 .id(1L)
                 .deptId("patient-dept")
                 .startHour(7)
@@ -197,10 +198,9 @@ public class PatientInfoExtendedDataSourceHandlerTests {
         assertThat(invalidTime.getSecond()).isNull();
 
         when(ctx.balanceStatsShiftRepo
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(
-                eq("patient-dept"), any(LocalDateTime.class)))
-            .thenReturn(Optional.of(BalanceStatsShift.builder().startHour(24).monStartHour(7).build(
-                )));
+            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept"))
+            .thenReturn(List.of(BalanceStatsShift.builder().startHour(24).monStartHour(7)
+                .effectiveTime(LocalDateTime.of(2026, 4, 1, 0, 0)).build()));
         var invalidHour = ctx.support.resolvePatientDayContext(10001L, queryStart);
         assertThat(invalidHour.getFirst().getCode()).isEqualTo(StatusCode.INVALID_PARAM_VALUE
             .ordinal());

@@ -17,7 +17,6 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
@@ -67,13 +66,16 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
         LocalDateTime balanceStart = LocalDateTime.of(2026, 4, 15, 22, 0);
         LocalDateTime balanceEnd = balanceStart.plusDays(1);
         LocalDateTime cutoff = LocalDateTime.of(2026, 4, 16, 16, 0);
-        ctx.withShift(6, cutoff);
-        // 旧 UTC +24h 截止会误选当地次日 02:00 生效的新配置。
+        // 次日零点及其后的配置均不属于本统计日；旧 UTC +24h 截止会误选 10 点配置。
         when(ctx.balanceStatsShiftRepo
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(
-                "patient-dept", LocalDateTime.of(2026, 4, 17, 0, 0)))
-            .thenReturn(Optional.of(BalanceStatsShift.builder().startHour(10).monStartHour(7)
-                .effectiveTime(LocalDateTime.of(2026, 4, 16, 18, 0)).build()));
+            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept"))
+            .thenReturn(List.of(
+                BalanceStatsShift.builder().startHour(10).monStartHour(7)
+                    .effectiveTime(cutoff.plusHours(2)).build(),
+                BalanceStatsShift.builder().startHour(9).monStartHour(7)
+                    .effectiveTime(cutoff).build(),
+                BalanceStatsShift.builder().startHour(6).monStartHour(7)
+                    .effectiveTime(LocalDateTime.of(2026, 4, 1, 0, 0)).build()));
         ctx.withParams();
         List<MonitoringCodeRecordsPB> displayRecords = List.of(
             codeRecords("intravenous_intake",
@@ -147,8 +149,7 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
                 )));
         assertThat(labels).containsEntry("hour1", "6:00").containsEntry("hour24", "5:00");
         verify(ctx.balanceStatsShiftRepo, times(2))
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(
-                "patient-dept", cutoff);
+            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept");
         verifyNoMoreInteractions(ctx.balanceStatsShiftRepo);
     }
 
@@ -417,14 +418,9 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
         }
 
         private void withShift(Integer startHour) {
-            withShift(startHour, LocalDateTime.of(2026, 4, 17, 0, 0));
-        }
-
-        private void withShift(Integer startHour, LocalDateTime cutoff) {
             when(balanceStatsShiftRepo
-                .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(
-                    "patient-dept", cutoff))
-                .thenReturn(Optional.of(BalanceStatsShift.builder()
+                .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept"))
+                .thenReturn(List.of(BalanceStatsShift.builder()
                     .id(1L)
                     .deptId("patient-dept")
                     .startHour(startHour)

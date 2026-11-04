@@ -14,7 +14,6 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
@@ -49,14 +48,17 @@ public class BalanceTimeRangeDataSourceHandlerTests {
 
         LocalDateTime utcEnd = LocalDateTime.of(2026, 4, 17, 16, 0);
         when(balanceStatsShiftRepo
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc("10042", utcEnd))
-            .thenReturn(Optional.of(BalanceStatsShift.builder()
-                .deptId("10042")
-                .startHour(startHour)
-                .monStartHour(7)
-                .effectiveTime(LocalDateTime.of(2026, 4, 1, 0, 0))
-                .isDeleted(false)
-                .build()));
+            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("10042"))
+            .thenReturn(List.of(
+                BalanceStatsShift.builder().startHour(23).monStartHour(23)
+                    .effectiveTime(utcEnd).build(),
+                BalanceStatsShift.builder()
+                    .deptId("10042")
+                    .startHour(startHour)
+                    .monStartHour(7)
+                    .effectiveTime(LocalDateTime.of(2026, 4, 1, 0, 0))
+                    .isDeleted(false)
+                    .build()));
 
         Pair<ReturnCode, JfkDataSourcePB> result = handler.handle(JfkDataSourcePB.newBuilder()
             .setId("request-1")
@@ -76,7 +78,7 @@ public class BalanceTimeRangeDataSourceHandlerTests {
         assertThat(output).containsKeys("hour1", "hour24").hasSize(26);
 
         verify(balanceStatsShiftRepo)
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc("10042", utcEnd);
+            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("10042");
     }
 
     @Test
@@ -89,9 +91,8 @@ public class BalanceTimeRangeDataSourceHandlerTests {
             new StatisticsDayWindowResolver(balanceStatsShiftRepo));
 
         when(balanceStatsShiftRepo
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(
-                anyString(), any(LocalDateTime.class)))
-            .thenReturn(Optional.empty());
+            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc(anyString()))
+            .thenReturn(List.of());
 
         Pair<ReturnCode, JfkDataSourcePB> result = handler.handle(JfkDataSourcePB.newBuilder()
             .setId("request-1")
@@ -113,9 +114,9 @@ public class BalanceTimeRangeDataSourceHandlerTests {
         BalanceStatsShiftRepository repo = mock(BalanceStatsShiftRepository.class);
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
             new StatisticsDayWindowResolver(repo));
-        when(repo.findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(
-                "10042", LocalDateTime.of(2026, 4, 16, 16, 0)))
-            .thenReturn(Optional.of(BalanceStatsShift.builder().startHour(startHour).monStartHour(7)
+        when(repo.findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("10042"))
+            .thenReturn(List.of(BalanceStatsShift.builder().startHour(startHour).monStartHour(7)
+                .effectiveTime(LocalDateTime.of(2026, 4, 1, 0, 0))
                 .build()));
 
         var result = new BalanceTimeRangeDataSourceHandler(support).handle(JfkDataSourcePB

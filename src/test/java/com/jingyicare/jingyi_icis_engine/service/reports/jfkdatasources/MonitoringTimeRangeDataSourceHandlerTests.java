@@ -14,7 +14,6 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
@@ -42,14 +41,17 @@ public class MonitoringTimeRangeDataSourceHandlerTests {
 
         LocalDateTime utcEnd = LocalDateTime.of(2026, 4, 17, 0, 0);
         when(balanceStatsShiftRepo
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc("10042", utcEnd))
-            .thenReturn(Optional.of(BalanceStatsShift.builder()
-                .deptId("10042")
-                .startHour(8)
-                .monStartHour(7)
-                .effectiveTime(LocalDateTime.of(2026, 4, 1, 0, 0))
-                .isDeleted(false)
-                .build()));
+            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("10042"))
+            .thenReturn(List.of(
+                BalanceStatsShift.builder().startHour(23).monStartHour(23)
+                    .effectiveTime(utcEnd).build(),
+                BalanceStatsShift.builder()
+                    .deptId("10042")
+                    .startHour(8)
+                    .monStartHour(7)
+                    .effectiveTime(LocalDateTime.of(2026, 4, 1, 0, 0))
+                    .isDeleted(false)
+                    .build()));
 
         Pair<ReturnCode, JfkDataSourcePB> result = handler.handle(JfkDataSourcePB.newBuilder()
             .setId("request-1")
@@ -69,7 +71,7 @@ public class MonitoringTimeRangeDataSourceHandlerTests {
         assertThat(output).containsKeys("hour1", "hour24").hasSize(26);
 
         verify(balanceStatsShiftRepo)
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc("10042", utcEnd);
+            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("10042");
     }
 
     @Test
@@ -81,10 +83,9 @@ public class MonitoringTimeRangeDataSourceHandlerTests {
         MonitoringTimeRangeDataSourceHandler handler = new MonitoringTimeRangeDataSourceHandler(
             support);
 
-        LocalDateTime utcEnd = LocalDateTime.of(2026, 4, 17, 0, 0);
         when(balanceStatsShiftRepo
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc("10042", utcEnd))
-            .thenReturn(Optional.of(BalanceStatsShift.builder()
+            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("10042"))
+            .thenReturn(List.of(BalanceStatsShift.builder()
                 .deptId("10042")
                 .startHour(6)
                 .monStartHour(null)
@@ -117,8 +118,7 @@ public class MonitoringTimeRangeDataSourceHandlerTests {
         assertThat(window.monitoringStartUtc()).isEqualTo("2026-04-17T00:00:00");
         assertThat(window.monitoringEndUtc()).isEqualTo("2026-04-18T00:00:00");
         verify(repo)
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(
-            "10042", LocalDateTime.of(2026, 4, 17, 16, 0));
+            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("10042");
     }
 
     private JfkDataSourceSupport mockSupport() {

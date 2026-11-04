@@ -13,7 +13,6 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
@@ -63,15 +62,18 @@ public class PatientMonitoringRecordsDataSourceHandlerTests {
 
         LocalDateTime utcEnd = LocalDateTime.of(2026, 4, 16, 16, 0);
         when(balanceStatsShiftRepo
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept", utcEnd))
-            .thenReturn(Optional.of(BalanceStatsShift.builder()
-                .id(1L)
-                .deptId("patient-dept")
-                .startHour(6)
-                .monStartHour(7)
-                .effectiveTime(LocalDateTime.of(2026, 4, 1, 0, 0))
-                .isDeleted(false)
-                .build()));
+            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept"))
+            .thenReturn(List.of(
+                BalanceStatsShift.builder().startHour(23).monStartHour(23)
+                    .effectiveTime(utcEnd).build(),
+                BalanceStatsShift.builder()
+                    .id(1L)
+                    .deptId("patient-dept")
+                    .startHour(6)
+                    .monStartHour(7)
+                    .effectiveTime(LocalDateTime.of(2026, 4, 1, 0, 0))
+                    .isDeleted(false)
+                    .build()));
 
         when(monitoringConfig.getMonitoringParams("patient-dept")).thenReturn(Map.of(
             "temperature", param("temperature", "体温", valueMeta(TypeEnumPB.FLOAT, "℃")),
@@ -124,8 +126,7 @@ public class PatientMonitoringRecordsDataSourceHandlerTests {
             .flatExtracting(JfkFieldDataPB::getValsList)
             .extracting(JfkValPB::getStrVal).containsExactly("7:00");
         verify(balanceStatsShiftRepo, times(2))
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(
-                "patient-dept", utcEnd);
+            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept");
         verifyNoMoreInteractions(balanceStatsShiftRepo);
     }
 
@@ -147,10 +148,9 @@ public class PatientMonitoringRecordsDataSourceHandlerTests {
             new DefaultResourceLoader()
         );
 
-        LocalDateTime utcEnd = LocalDateTime.of(2026, 4, 17, 0, 0);
         when(balanceStatsShiftRepo
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept", utcEnd))
-            .thenReturn(Optional.of(BalanceStatsShift.builder()
+            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept"))
+            .thenReturn(List.of(BalanceStatsShift.builder()
                 .id(1L)
                 .deptId("patient-dept")
                 .startHour(6)

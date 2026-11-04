@@ -14,7 +14,6 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
@@ -51,15 +50,18 @@ public class MedexeTimeRangeDataSourceHandlerTests {
 
         LocalDateTime utcEnd = LocalDateTime.of(2026, 4, 17, 16, 0);
         when(balanceStatsShiftRepo
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc("10042", utcEnd))
-            .thenReturn(Optional.of(BalanceStatsShift.builder()
-                .id(1L)
-                .deptId("10042")
-                .startHour(startHour)
-                .monStartHour(8)
-                .effectiveTime(LocalDateTime.of(2026, 4, 1, 0, 0))
-                .isDeleted(false)
-                .build()));
+            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("10042"))
+            .thenReturn(List.of(
+                BalanceStatsShift.builder().startHour(23).monStartHour(23)
+                    .effectiveTime(utcEnd).build(),
+                BalanceStatsShift.builder()
+                    .id(1L)
+                    .deptId("10042")
+                    .startHour(startHour)
+                    .monStartHour(8)
+                    .effectiveTime(LocalDateTime.of(2026, 4, 1, 0, 0))
+                    .isDeleted(false)
+                    .build()));
 
         Pair<ReturnCode, JfkDataSourcePB> result = handler.handle(input("10042",
             "2026-04-16T06:00Z"));
@@ -76,7 +78,7 @@ public class MedexeTimeRangeDataSourceHandlerTests {
         assertThat(output).containsKeys("hour1", "hour24").hasSize(27);
 
         verify(balanceStatsShiftRepo)
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc("10042", utcEnd);
+            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("10042");
     }
 
     @Test
@@ -122,9 +124,8 @@ public class MedexeTimeRangeDataSourceHandlerTests {
             new StatisticsDayWindowResolver(balanceStatsShiftRepo));
 
         when(balanceStatsShiftRepo
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(
-                anyString(), any(LocalDateTime.class)))
-            .thenReturn(Optional.empty());
+            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc(anyString()))
+            .thenReturn(List.of());
 
         Pair<ReturnCode, JfkDataSourcePB> result = handler.handle(input("10042", "2026-04-16T00:00Z"));
 
@@ -145,9 +146,8 @@ public class MedexeTimeRangeDataSourceHandlerTests {
             new StatisticsDayWindowResolver(balanceStatsShiftRepo));
 
         when(balanceStatsShiftRepo
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(
-                anyString(), any(LocalDateTime.class)))
-            .thenReturn(Optional.of(BalanceStatsShift.builder()
+            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc(anyString()))
+            .thenReturn(List.of(BalanceStatsShift.builder()
                 .id(1L)
                 .deptId("10042")
                 .startHour(startHour)
@@ -178,10 +178,9 @@ public class MedexeTimeRangeDataSourceHandlerTests {
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
             new StatisticsDayWindowResolver(balanceStatsShiftRepo));
 
-        LocalDateTime utcEnd = LocalDateTime.of(2026, 4, 16, 16, 0);
         when(balanceStatsShiftRepo
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept", utcEnd))
-            .thenReturn(Optional.of(BalanceStatsShift.builder()
+            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept"))
+            .thenReturn(List.of(BalanceStatsShift.builder()
                 .id(1L)
                 .deptId("patient-dept")
                 .startHour(7)
@@ -193,7 +192,7 @@ public class MedexeTimeRangeDataSourceHandlerTests {
 
         assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
         verify(balanceStatsShiftRepo)
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept", utcEnd);
+            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept");
     }
 
     @ParameterizedTest
@@ -214,8 +213,7 @@ public class MedexeTimeRangeDataSourceHandlerTests {
         assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
         assertThat(toOutputMap(result.getSecond()).get("hour1")).containsExactly("8:00");
         verify(repo)
-            .findFirstByDeptIdAndEffectiveTimeBeforeAndIsDeletedFalseOrderByEffectiveTimeDesc(
-            "request-dept", LocalDateTime.of(2026, 4, 16, 16, 0));
+            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("request-dept");
     }
 
     private JfkDataSourceSupport mockSupport() {
