@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 
@@ -12,15 +13,17 @@ import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 // departments: pid -> deptId
 // statisticsDates: effectiveTime 对应的 统计日列表
 public record SnapshotChangePlan(
-    List<Change> changes, Map<Long, String> departments,
-    Map<Change, List<LocalDate>> statisticsDates
+    Map<Long, String> departments, Map<Change, List<LocalDate>> statisticsDates
 ) {
     public SnapshotChangePlan {
-        changes = List.copyOf(changes);
         departments = Map.copyOf(departments);
         Map<Change, List<LocalDate>> dates = new LinkedHashMap<>();
         statisticsDates.forEach((change, values) -> dates.put(change, List.copyOf(values)));
         statisticsDates = Map.copyOf(dates);
+    }
+
+    public Set<Change> changes() {
+        return statisticsDates.keySet();
     }
 
     public List<String> resourceKeys() {

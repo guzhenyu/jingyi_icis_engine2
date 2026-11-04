@@ -93,7 +93,11 @@ public class SnapshotService {
         }
     }
 
-    /** 从事务外预读锁计划；缺失患者由业务入口返回对应错误，不在此创建快照。 */
+    /**
+     * 供 executePlanned 的 planSupplier 从事务外预读快照锁计划。
+     * isPlanCurrent 在锁后复用本方法，比较患者科室和时间点对应的统计日。
+     * 缺失患者由业务入口返回对应错误，不在此创建快照。
+     */
     public SnapshotChangePlan planChanges(Collection<Change> changes) {
         List<Change> points = changes.stream().distinct()
             .sorted(Comparator.comparing(Change::pid).thenComparing(Change::effectiveTime))
@@ -109,7 +113,7 @@ public class SnapshotService {
                 : windowResolver.resolveStatisticDatesFromShifts(change.effectiveTime(), zoneId,
                     shifts.getOrDefault(deptId, List.of())));
         }
-        return new SnapshotChangePlan(points, departments, dates);
+        return new SnapshotChangePlan(departments, dates);
     }
 
     /** 取得全部锁后再次通过 JDBC 读取，避免 JPA 一级缓存掩盖计划变化。 */
