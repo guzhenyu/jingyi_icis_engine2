@@ -7,6 +7,7 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 
 import org.springframework.stereotype.Component;
 
@@ -69,8 +70,20 @@ public class StatisticsDayWindowResolver {
      * 以及莫斯科（1918）的跨午夜前拨，可能使时间点归属当地前两天的统计窗口。
      */
     public List<LocalDate> resolveStatisticDates(LocalDateTime utc, String zoneId, String deptId) {
-        ZoneId zone = validateArguments(zoneId, deptId);
+        validateArguments(zoneId, deptId);
         if (utc == null) throw new IllegalArgumentException("Time is required");
+        List<BalanceStatsShift> shifts = balanceStatsShiftRepo
+            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc(deptId);
+        return resolveStatisticDatesFromShifts(utc, zoneId, shifts);
+    }
+
+    /** 动态锁计划使用 JDBC 预读的配置，按生效时间倒序传入，不再通过 JPA 查询。 */
+    public List<LocalDate> resolveStatisticDatesFromShifts(
+        LocalDateTime utc, String zoneId, List<BalanceStatsShift> shifts
+    ) {
+        ZoneId zone = validateZoneId(zoneId);
+        if (utc == null) throw new IllegalArgumentException("Time is required");
+        Objects.requireNonNull(shifts, "shifts");
 
         // 取当前时间点的当地日期及前后各一天，避免配置变更时遗漏。
         LocalDate day = TimeUtils.getLocalDateTimeFromUtc(utc, zoneId).toLocalDate();
@@ -78,10 +91,8 @@ public class StatisticsDayWindowResolver {
 
         // 获取合法统计日
         List<LocalDate> statisticDates = new ArrayList<>();
-        List<StatisticsDayWindow> windows = resolveInternal(
-            candidateDays.stream()
-                .map(candidate -> TimeUtils.getDayMidnightUtc(candidate, zone)).toList(),
-            zoneId, deptId);
+        List<StatisticsDayWindow> windows = candidateDays.stream()
+            .map(candidate -> resolveDay(candidate, zone, shifts)).toList();
         for (int i = 0; i < windows.size(); i++) {
             StatisticsDayWindow window = windows.get(i);
             if (containsUtc(utc, window.monitoringStartUtc(), window.monitoringEndUtc())
@@ -98,8 +109,15 @@ public class StatisticsDayWindowResolver {
     }
 
     private ZoneId validateArguments(String zoneId, String deptId) {
-        if (zoneId == null || zoneId.isBlank() || deptId == null || deptId.isBlank()) {
-            throw new IllegalArgumentException("Timezone and department are required");
+        if (deptId == null || deptId.isBlank()) {
+            throw new IllegalArgumentException("Department is required");
+        }
+        return validateZoneId(zoneId);
+    }
+
+    private ZoneId validateZoneId(String zoneId) {
+        if (zoneId == null || zoneId.isBlank()) {
+            throw new IllegalArgumentException("Timezone is required");
         }
         try {
             return ZoneId.of(zoneId);

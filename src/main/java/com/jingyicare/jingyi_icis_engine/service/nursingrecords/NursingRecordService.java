@@ -13,6 +13,7 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -40,7 +41,6 @@ import com.jingyicare.jingyi_icis_engine.repository.nursingrecords.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
-import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.lis.*;
 import com.jingyicare.jingyi_icis_engine.service.medications.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
@@ -49,6 +49,10 @@ import com.jingyicare.jingyi_icis_engine.service.reports.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.PatientNursingReportInvalidationService;
 import com.jingyicare.jingyi_icis_engine.service.settings.SettingService;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
+import com.jingyicare.jingyi_icis_engine.service.snapshots.SnapshotChangePlan;
+import com.jingyicare.jingyi_icis_engine.service.snapshots.SnapshotChangePlan.Change;
+import com.jingyicare.jingyi_icis_engine.service.snapshots.SnapshotModule;
+import com.jingyicare.jingyi_icis_engine.service.snapshots.SnapshotService;
 import com.jingyicare.jingyi_icis_engine.service.tubes.*;
 import com.jingyicare.jingyi_icis_engine.service.users.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -73,7 +77,9 @@ public class NursingRecordService {
         @Autowired PatientRecordRepository patientRepo,
         @Autowired PatientMonitoringRecordRepository monitoringRecordRepo,
         @Autowired LockExecutor lockExecutor,
-        @Autowired JdbcTemplate jdbcTemplate
+        @Autowired JdbcTemplate jdbcTemplate,
+        @Autowired NursingRecordReader recordReader,
+        @Autowired SnapshotService snapshotService
     ) {
         MonitoringPB monitoringPb = protoService.getConfig().getMonitoring();
         this.ZONE_ID = protoService.getConfig().getZoneId();
@@ -104,6 +110,8 @@ public class NursingRecordService {
         this.monitoringRecordRepo = monitoringRecordRepo;
         this.lockExecutor = lockExecutor;
         this.jdbcTemplate = jdbcTemplate;
+        this.recordReader = recordReader;
+        this.snapshotService = snapshotService;
     }
 
     public GetNursingRecordResp getNursingRecord(String getNursingRecordReqJson) {
@@ -120,30 +128,17 @@ public class NursingRecordService {
         LocalDateTime queryStartUtc = TimeUtils.fromIso8601String(req.getQueryStartIso8601(), "UTC");
         LocalDateTime queryEndUtc = TimeUtils.fromIso8601String(req.getQueryEndIso8601(), "UTC");
 
-        List<NursingRecordPB> records = recordRepo
-            .findByPatientIdAndEffectiveTimeBetweenAndIsDeletedFalse(req.getPid(), queryStartUtc, queryEndUtc)
-            .stream()
-            .sorted(Comparator.comparing(NursingRecord::getEffectiveTime))
-            .map(record -> NursingRecordPB.newBuilder()
-                .setId(record.getId())
-                .setPatientId(record.getPatientId())
-                .setContent(record.getContent())
-                .setEffectiveTimeIso8601(
-                    TimeUtils.toIso8601String(record.getEffectiveTime(), ZONE_ID))
-                .setSource(Objects.toString(record.getSource(), ""))
-                .setPatientCriticalLisHandlingId(record.getPatientCriticalLisHandlingId() == null
-                    ? 0 : record.getPatientCriticalLisHandlingId())
-                .setReviewedBy(Objects.toString(record.getReviewedBy(), ""))
-                .setReviewedByAccountName(Objects.toString(record.getReviewedByAccountName(), ""))
-                .setReviewedAtIso8601(TimeUtils.toIso8601String(record.getReviewedAt(), ZONE_ID))
-                .setModifiedBy(Objects.toString(record.getModifiedBy(), ""))
-                .setModifiedByAccountName(Objects.toString(record.getModifiedByAccountName(), ""))
-                .setModifiedAtIso8601(TimeUtils.toIso8601String(record.getModifiedAt(), ZONE_ID))
-                .setCreatedBy(Objects.toString(record.getCreatedBy(), ""))
-                .setCreatedByAccountName(Objects.toString(record.getCreatedByAccountName(), ""))
-                .setCreatedAtIso8601(TimeUtils.toIso8601String(record.getCreatedAt(), ZONE_ID))
-                .build())
-            .collect(Collectors.toList());
+        if (req.getPid() <= 0) {
+            return GetNursingRecordResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.INVALID_PARAM_VALUE)).build();
+        }
+        if (queryStartUtc == null || queryEndUtc == null
+            || !queryStartUtc.isBefore(queryEndUtc)) {
+            return GetNursingRecordResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.INVALID_TIME_RANGE)).build();
+        }
+        List<NursingRecordPB> records = recordReader.getRecords(
+            req.getPid(), queryStartUtc, queryEndUtc);
 
         return GetNursingRecordResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -185,8 +180,12 @@ public class NursingRecordService {
                 .setRt(protoService.getReturnCode(code)).build();
         }
 
-        return lockExecutor.execute(List.of(LockKeys.nursingRecord(patientId, effectiveTime)),
-            () -> {
+        Change change = new Change(patientId, effectiveTime);
+        return lockExecutor.executePlanned(
+            () -> snapshotService.planChanges(List.of(change)),
+            plan -> NursingRecordLockPlan.resourceKeys(plan, List.of()),
+            snapshotService::isPlanCurrent,
+            plan -> {
                 NursingRecord existing = recordRepo
                 .findByPatientIdAndEffectiveTimeAndPatientCriticalLisHandlingIdAndIsDeletedFalse(
                     patientId, effectiveTime, null).orElse(null);
@@ -213,6 +212,8 @@ public class NursingRecordService {
                     .createdByAccountName(accountName)
                     .createdAt(formatTime(nowUtc))
                     .build());
+                snapshotService.markModified(SnapshotModule.Kind.NURSING_RECORD,
+                    plan, List.of(change), nowUtc);
                 pnrUtils.updateLatestDataTime(patientId, patient.getDeptId(),
                     effectiveTime, effectiveTime, nowUtc);
                 return AddNursingRecordResp.newBuilder()
@@ -241,7 +242,9 @@ public class NursingRecordService {
         if (!recordPb.getEffectiveTimeIso8601().isEmpty() && targetTime == null) {
             return nursingRecordResponse(StatusCode.INVALID_TIME_FORMAT);
         }
-        return withNursingRecordLocks(List.of(recordPb.getId()), targetTime, records -> {
+        return withNursingRecordLocks(List.of(recordPb.getId()),
+            record -> targetTime == null ? formatTime(record.getEffectiveTime()) : targetTime,
+            (records, snapshotPlan) -> {
             if (records.isEmpty()) {
                 return nursingRecordResponse(StatusCode.NURSING_RECORD_NOT_EXISTS);
             }
@@ -292,6 +295,9 @@ public class NursingRecordService {
             recordRepo.save(replacement);
             if (StrUtils.isBlank(old.getContent())) recordRepo.delete(old);
 
+            snapshotService.markModified(SnapshotModule.Kind.NURSING_RECORD, snapshotPlan,
+                List.of(new Change(old.getPatientId(), oldTime),
+                    new Change(old.getPatientId(), newTime)), nowUtc);
             // 跨日修改按时间顺序更新护理单，避免反向移动记录时交叉等待日报行锁。
             List<LocalDateTime> affectedTimes = List.of(oldTime, newTime).stream()
                 .distinct().sorted().toList();
@@ -325,7 +331,7 @@ public class NursingRecordService {
         Pair<String, String> account = userService.getAccountWithAutoId();
         if (account == null) return nursingRecordResponse(StatusCode.ACCOUNT_NOT_FOUND);
 
-        return withNursingRecordLocks(List.of(req.getId()), null, records -> {
+        return withNursingRecordLocks(List.of(req.getId()), null, (records, snapshotPlan) -> {
             if (records.isEmpty()) return nursingRecordResponse(StatusCode.OK);
             NursingRecord record = records.get(0);
             PatientRecord patient = patientService.getPatientRecord(record.getPatientId());
@@ -339,6 +345,9 @@ public class NursingRecordService {
             record.setModifiedByAccountName(account.getSecond());
             record.setModifiedAt(formatTime(nowUtc));
             recordRepo.save(record);
+            snapshotService.markModified(SnapshotModule.Kind.NURSING_RECORD, snapshotPlan,
+                List.of(new Change(
+                    record.getPatientId(), record.getEffectiveTime())), nowUtc);
             pnrUtils.updateLatestDataTime(record.getPatientId(), patient.getDeptId(),
                 record.getEffectiveTime(), record.getEffectiveTime(), nowUtc);
             return nursingRecordResponse(StatusCode.OK);
@@ -363,7 +372,7 @@ public class NursingRecordService {
         List<Long> recordIds = req.getIdList().stream().distinct().toList();
         if (recordIds.isEmpty()) return nursingRecordResponse(StatusCode.OK);
 
-        return withNursingRecordLocks(recordIds, null, records -> {
+        return withNursingRecordLocks(recordIds, null, (records, snapshotPlan) -> {
             if (records.size() != recordIds.size()) {
                 return nursingRecordResponse(StatusCode.NURSING_RECORD_NOT_EXISTS);
             }
@@ -372,12 +381,20 @@ public class NursingRecordService {
                 return nursingRecordResponse(
                     StatusCode.NURSING_RECORD_REVIEW_TIME_BEFORE_RECORD_TIME);
             }
-            for (NursingRecord record : records) {
+            List<NursingRecord> changed = records.stream().filter(record ->
+                !Objects.equals(record.getReviewedBy(), account.getFirst())
+                    || !Objects.equals(record.getReviewedByAccountName(), account.getSecond())
+                    || !Objects.equals(record.getReviewedAt(), reviewTime)).toList();
+            if (changed.isEmpty()) return nursingRecordResponse(StatusCode.OK);
+            LocalDateTime nowUtc = TimeUtils.getNowUtc();
+            for (NursingRecord record : changed) {
                 record.setReviewedBy(account.getFirst());
                 record.setReviewedByAccountName(account.getSecond());
                 record.setReviewedAt(reviewTime);
             }
-            recordRepo.saveAll(records);
+            recordRepo.saveAll(changed);
+            snapshotService.markModified(SnapshotModule.Kind.NURSING_RECORD, snapshotPlan,
+                NursingRecordLockPlan.recordChanges(changed).values(), nowUtc);
             return nursingRecordResponse(StatusCode.OK);
         });
     }
@@ -391,46 +408,31 @@ public class NursingRecordService {
     }
 
     private <T> T withNursingRecordLocks(
-        List<Long> ids, LocalDateTime targetTime, Function<List<NursingRecord>, T> action
+        List<Long> ids, Function<NursingRecord, LocalDateTime> targetTimeResolver,
+        BiFunction<List<NursingRecord>, SnapshotChangePlan, T> action
     ) {
         Supplier<List<NursingRecord>> loader =
             () -> NursingRecordJdbc.findActiveRecords(jdbcTemplate, ids);
         List<NursingRecord> initial = loader.get();
-        if (initial.isEmpty()) return action.apply(initial);
-        List<String> fallbackKeys = new ArrayList<>(nursingRecordKeys(initial).values());
+        if (initial.isEmpty()) return action.apply(initial, null);
+        List<String> fallbackKeys = NursingRecordLockPlan.recordKeys(initial);
         return lockExecutor.executePlanned(
             () -> {
                 List<NursingRecord> plannedRecords = loader.get();
-                Map<Long, String> recordKeys = nursingRecordKeys(plannedRecords);
-                List<String> resourceKeys = new ArrayList<>(recordKeys.values());
-                // 预读后记录可能被删除；仍需合法锁集合，以便在事务中确认已不存在。
-                if (resourceKeys.isEmpty()) resourceKeys.addAll(fallbackKeys);
-                if (targetTime != null) {
-                    for (NursingRecord record : plannedRecords) {
-                        resourceKeys.add(LockKeys.nursingRecord(record.getPatientId(), targetTime));
-                    }
-                }
-                return new NursingRecordLockPlan(recordKeys, resourceKeys, new ArrayList<>());
+                SnapshotChangePlan snapshotPlan = snapshotService.planChanges(
+                    NursingRecordLockPlan.affectedChanges(plannedRecords, targetTimeResolver));
+                return NursingRecordLockPlan.create(plannedRecords, snapshotPlan, fallbackKeys);
             },
             NursingRecordLockPlan::resourceKeys,
             plan -> {
                 List<NursingRecord> current = loader.get();
-                if (!plan.recordKeys().equals(nursingRecordKeys(current))) return false;
+                if (!plan.matchesRecords(current)
+                    || !snapshotService.isPlanCurrent(plan.snapshotPlan())) return false;
                 plan.records().addAll(current);
                 return true;
             },
-            plan -> action.apply(plan.records()));
+            plan -> action.apply(plan.records(), plan.snapshotPlan()));
     }
-
-    private Map<Long, String> nursingRecordKeys(List<NursingRecord> records) {
-        return records.stream().collect(Collectors.toMap(NursingRecord::getId,
-            record -> LockKeys.nursingRecord(
-                record.getPatientId(), formatTime(record.getEffectiveTime()))));
-    }
-
-    private record NursingRecordLockPlan(
-        Map<Long, String> recordKeys, List<String> resourceKeys, List<NursingRecord> records
-    ) {}
 
     public GetNursingRecordShortcutsResp getNursingRecordShortcuts(String getNursingRecordShortcutsReqJson) {
         final GetNursingRecordShortcutsReq req;
@@ -1001,4 +1003,6 @@ public class NursingRecordService {
     private final PatientMonitoringRecordRepository monitoringRecordRepo;
     private final LockExecutor lockExecutor;
     private final JdbcTemplate jdbcTemplate;
+    private final NursingRecordReader recordReader;
+    private final SnapshotService snapshotService;
 }

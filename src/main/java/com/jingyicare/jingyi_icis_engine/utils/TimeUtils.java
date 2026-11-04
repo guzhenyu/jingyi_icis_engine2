@@ -131,6 +131,15 @@ public class TimeUtils {
         return dstTime.format(formatter);
     }
 
+    /** 将 UTC 时间转换为指定时区的 ISO 8601 字符串，保留到秒，舍弃小数秒。 */
+    public static String toIso8601StringWithSeconds(LocalDateTime dateTimeUtc, String zoneId) {
+        if (dateTimeUtc == null) return "";
+
+        ZonedDateTime dstTime = dateTimeUtc.atZone(UTC)
+            .withZoneSameInstant(ZoneId.of(zoneId));
+        return dstTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX"));
+    }
+
     // 其他
     public static boolean isValidHour(int hour) {
         return hour >= 0 && hour <= 23;

@@ -17,11 +17,13 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Stream;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -44,6 +46,7 @@ import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.NursingRecord;
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingRecord.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisSnapshot.PatientSnapshotPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientMonitoringRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.nursingrecords.NursingRecordRepository;
@@ -60,6 +63,8 @@ import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.*;
 import com.jingyicare.jingyi_icis_engine.service.settings.SettingService;
 import com.jingyicare.jingyi_icis_engine.service.shifts.ConfigShiftUtils;
+import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindowResolver;
+import com.jingyicare.jingyi_icis_engine.service.snapshots.SnapshotService;
 import com.jingyicare.jingyi_icis_engine.service.tubes.PatientTubeImpl;
 import com.jingyicare.jingyi_icis_engine.service.users.UserService;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
@@ -71,6 +76,10 @@ class NursingRecordServiceLockTests extends TestsBase {
     @BeforeEach
     void prepare() {
         cleanRecords();
+        jdbcTemplate.update("""
+            INSERT INTO patient_records (id, his_mrn, dept_id)
+            VALUES (?, ?, ?), (?, ?, ?)
+            """, PID, "snapshot-test-1", DEPT_ID, PID + 1, "snapshot-test-2", DEPT_ID);
         jdbcTemplate.execute("""
             CREATE UNIQUE INDEX idx_nursing_record_lock_tests_unique
             ON nursing_records (patient_id, effective_time, patient_critical_lis_handling_id)
@@ -98,7 +107,8 @@ class NursingRecordServiceLockTests extends TestsBase {
             mock(PatientMonitoringService.class), mock(BalanceCalculator.class),
             mock(ConfigShiftUtils.class), mock(PatientTubeImpl.class), mock(LisService.class),
             invalidation, settings, records, patientRepo,
-            mock(PatientMonitoringRecordRepository.class), executor, readerJdbc);
+            mock(PatientMonitoringRecordRepository.class), executor, readerJdbc,
+            recordReader, snapshots);
     }
 
     @AfterEach
@@ -189,7 +199,7 @@ class NursingRecordServiceLockTests extends TestsBase {
                 () -> add(TIME.plusSeconds(1).plusNanos(123456789), "第一条记录"));
             Future<AddNursingRecordResp> second = pool.submit(
                 () -> add(TIME.plusSeconds(59).plusNanos(999999999), "第二条记录"));
-            assertTrue(waitForTwoBlockedRequests(),
+            assertTrue(waitForBlockedRequests(2),
                 "两个新增请求应同时等待护理记录锁");
             release.countDown();
             holder.get(15, TimeUnit.SECONDS);
@@ -330,6 +340,7 @@ class NursingRecordServiceLockTests extends TestsBase {
         assertThat(recordCount()).isEqualTo(1);
         assertThat(lockCount(LockKeys.nursingRecord(PID, TIME))).isZero();
         assertThat(lockCount(LockKeys.nursingRecord(PID, TIME.plusHours(1)))).isZero();
+        assertThat(snapshotCount()).isZero();
     }
 
     @Test
@@ -342,6 +353,7 @@ class NursingRecordServiceLockTests extends TestsBase {
         assertThat(records.findById(original.getId()).orElseThrow()).isEqualTo(original);
         assertThat(recordCount()).isEqualTo(1);
         assertThat(lockCount(LockKeys.nursingRecord(PID, TIME))).isZero();
+        assertThat(snapshotCount()).isZero();
     }
 
     @Test
@@ -444,6 +456,243 @@ class NursingRecordServiceLockTests extends TestsBase {
             eq(PID), eq(DEPT_ID), eq(TIME), eq(TIME), eq(nowUtc));
     }
 
+    @Test
+    void getUsesHalfOpenRangeAndRejectsInvalidArguments() {
+        NursingRecord included = saveRecord(TIME);
+        saveRecord(TIME.plusHours(1));
+        var request = GetNursingRecordReq.newBuilder().setPid(PID)
+            .setQueryStartIso8601(iso8601(TIME))
+            .setQueryEndIso8601(iso8601(TIME.plusHours(1)));
+
+        assertThat(service.getNursingRecord(ProtoUtils.protoToJson(request.build()))
+            .getRecordList()).extracting(NursingRecordPB::getId).containsExactly(included.getId());
+        assertThat(service.getNursingRecord(ProtoUtils.protoToJson(request.clone().setPid(0)
+            .build())).getRt().getCode()).isEqualTo(StatusCode.INVALID_PARAM_VALUE_VALUE);
+        assertThat(service.getNursingRecord(ProtoUtils.protoToJson(request.clone()
+            .setQueryEndIso8601(iso8601(TIME)).build())).getRt().getCode())
+            .isEqualTo(StatusCode.INVALID_TIME_RANGE_VALUE);
+        assertThat(service.getNursingRecord(ProtoUtils.protoToJson(request.clone()
+            .setQueryStartIso8601("invalid").build())).getRt().getCode())
+            .isEqualTo(StatusCode.INVALID_TIME_RANGE_VALUE);
+    }
+
+    @Test
+    void addMarksSnapshotWithActualServerTimeAndLeavesItUnrefreshed() {
+        LocalDateTime now = TIME.plusHours(2).plusSeconds(37);
+        try (var clock = mockStatic(TimeUtils.class, CALLS_REAL_METHODS)) {
+            clock.when(TimeUtils::getNowUtc).thenReturn(now);
+            assertThat(add(TIME, "新增护理记录").getRt().getCode()).isEqualTo(StatusCode.OK_VALUE);
+        }
+
+        assertSnapshotModified(PID, TIME, now);
+        assertThat(jdbcTemplate.queryForObject("""
+            SELECT COUNT(*) FROM patient_snapshots WHERE pid = ? AND snapshot_at IS NOT NULL
+            """, Integer.class, PID)).isZero();
+    }
+
+    @Test
+    void addWaitsForSnapshotLockBeforeWritingRecordAndModificationMarker() throws Exception {
+        LocalDate date = statDates(TIME).get(0);
+        CountDownLatch locked = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> holder = pool.submit(() -> executor.execute(
+                List.of(LockKeys.patientSnapshot(PID, date)), () -> {
+                    locked.countDown();
+                    try {
+                        assertTrue(release.await(30, TimeUnit.SECONDS), "等待释放快照锁超时");
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new IllegalStateException(e);
+                    }
+                    return null;
+                }));
+            assertTrue(locked.await(10, TimeUnit.SECONDS), "未取得快照锁");
+            Future<AddNursingRecordResp> addition = pool.submit(() -> add(TIME, "新增护理记录"));
+            assertTrue(waitForBlockedRequests(1), "护理新增请求应等待快照锁");
+            assertThat(recordCount()).isZero();
+            assertThat(snapshotCount()).isZero();
+            release.countDown();
+            holder.get(15, TimeUnit.SECONDS);
+            assertThat(addition.get(15, TimeUnit.SECONDS).getRt().getCode())
+                .isEqualTo(StatusCode.OK_VALUE);
+            assertThat(recordCount()).isEqualTo(1);
+            assertThat(snapshotCount()).isPositive();
+            var refreshed = snapshots.get(PID, List.of(date), false);
+            assertThat(refreshed.getFirst().getCode()).isEqualTo(StatusCode.OK_VALUE);
+            assertThat(refreshed.getSecond().get(0).getNursingRecordsList())
+                .extracting(NursingRecordPB::getContent).containsExactly("新增护理记录");
+        } finally {
+            release.countDown();
+            pool.shutdownNow();
+            assertTrue(pool.awaitTermination(15, TimeUnit.SECONDS));
+        }
+    }
+
+    @Test
+    void movingRecordInvalidatesBothDatesAndRefreshRemovesOldRecord() {
+        NursingRecord original = saveRecord(TIME);
+        LocalDateTime targetTime = TIME.plusDays(1);
+        List<LocalDate> dates = Stream.concat(
+            statDates(TIME).stream(), statDates(targetTime).stream()).distinct().sorted().toList();
+        LocalDateTime initialSnapshotTime = TIME.plusDays(2);
+        try (var clock = mockStatic(TimeUtils.class, CALLS_REAL_METHODS)) {
+            clock.when(TimeUtils::getNowUtc).thenReturn(initialSnapshotTime);
+            assertThat(snapshots.get(PID, dates, false).getFirst().getCode())
+                .isEqualTo(StatusCode.OK_VALUE);
+        }
+        LocalDateTime modifiedAt = initialSnapshotTime.plusSeconds(37);
+        try (var clock = mockStatic(TimeUtils.class, CALLS_REAL_METHODS)) {
+            clock.when(TimeUtils::getNowUtc).thenReturn(modifiedAt);
+            assertOk(update(original.getId(), targetTime));
+        }
+        assertSnapshotModified(PID, TIME, modifiedAt);
+        assertSnapshotModified(PID, targetTime, modifiedAt);
+
+        var result = snapshots.get(PID, dates, false);
+        assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.OK_VALUE);
+        assertThat(result.getSecond()).flatExtracting(PatientSnapshotPB::getNursingRecordsList)
+            .extracting(NursingRecordPB::getContent).containsExactly("更新后的内容");
+        assertThat(jdbcTemplate.queryForList("""
+            SELECT snapshot_at FROM patient_snapshots WHERE pid = ? ORDER BY statistics_date
+            """, LocalDateTime.class, PID)).doesNotContain(initialSnapshotTime);
+    }
+
+    @Test
+    void unchangedUpdateAndRepeatedReviewOrDeleteDoNotAdvanceSnapshotModificationTime() {
+        NursingRecord original = saveRecord(TIME);
+        LocalDateTime firstChange = TIME.plusDays(1).plusSeconds(17);
+        LocalDateTime laterTime = firstChange.plusSeconds(20);
+        LocalDateTime reviewTime = TIME.plusHours(1);
+        try (var clock = mockStatic(TimeUtils.class, CALLS_REAL_METHODS)) {
+            clock.when(TimeUtils::getNowUtc).thenReturn(firstChange);
+            assertOk(review(reviewTime, original.getId()));
+            clock.when(TimeUtils::getNowUtc).thenReturn(laterTime);
+            assertOk(review(reviewTime, original.getId()));
+            assertOk(service.updateNursingRecord(ProtoUtils.protoToJson(
+                UpdateNursingRecordReq.newBuilder().setRecord(NursingRecordPB.newBuilder()
+                    .setId(original.getId()).setContent(original.getContent())).build())));
+        }
+        assertSnapshotModified(PID, TIME, firstChange);
+
+        try (var clock = mockStatic(TimeUtils.class, CALLS_REAL_METHODS)) {
+            clock.when(TimeUtils::getNowUtc).thenReturn(laterTime);
+            assertOk(delete(original.getId()));
+            clock.when(TimeUtils::getNowUtc).thenReturn(laterTime.plusSeconds(20));
+            assertOk(delete(original.getId()));
+        }
+        assertSnapshotModified(PID, TIME, laterTime);
+    }
+
+    @Test
+    void reviewMarksOnlyChangedRecordsAcrossPatientsUsingServerTime() {
+        LocalDateTime reviewTime = TIME.plusHours(2);
+        NursingRecord unchanged = records.save(record(TIME).reviewedBy(ACCOUNT)
+            .reviewedByAccountName(ACCOUNT_NAME).reviewedAt(reviewTime).build());
+        NursingRecord changed = records.save(record(TIME).patientId(PID + 1).build());
+        LocalDateTime modifiedAt = TIME.plusDays(2).plusSeconds(41);
+        try (var clock = mockStatic(TimeUtils.class, CALLS_REAL_METHODS)) {
+            clock.when(TimeUtils::getNowUtc).thenReturn(modifiedAt);
+            assertOk(review(reviewTime, unchanged.getId(), changed.getId()));
+        }
+
+        assertThat(snapshotCount()).isZero();
+        assertSnapshotModified(PID + 1, TIME, modifiedAt);
+        assertThat(records.findById(changed.getId()).orElseThrow().getReviewedAt())
+            .isEqualTo(reviewTime);
+    }
+
+    @Test
+    void reviewReplansWhenRecordMovesWithinSameMinute() {
+        NursingRecord original = saveRecord(TIME);
+        LocalDateTime changedTime = TIME.plusSeconds(20);
+        AtomicInteger reads = new AtomicInteger();
+        JdbcTemplate replanningJdbc = mock(JdbcTemplate.class, delegatesTo(jdbcTemplate));
+        doAnswer(invocation -> {
+            List<NursingRecord> result = jdbcTemplate.query(invocation.<String>getArgument(0),
+                invocation.<PreparedStatementSetter>getArgument(1),
+                invocation.<RowMapper<NursingRecord>>getArgument(2));
+            if (reads.incrementAndGet() == 2) {
+                jdbcTemplate.update("UPDATE nursing_records SET effective_time = ? WHERE id = ?",
+                    changedTime, original.getId());
+            }
+            return result;
+        }).when(replanningJdbc).query(anyString(), any(PreparedStatementSetter.class),
+            any(RowMapper.class));
+        service = createService(replanningJdbc);
+
+        assertOk(review(TIME.plusHours(2), original.getId()));
+
+        assertThat(reads.get()).isGreaterThanOrEqualTo(5);
+        assertThat(records.findById(original.getId()).orElseThrow().getEffectiveTime())
+            .isEqualTo(changedTime);
+    }
+
+    @Test
+    void reviewReplansWhenPatientDepartmentChangesAfterPreRead() throws Exception {
+        NursingRecord original = saveRecord(TIME);
+        AtomicInteger reads = new AtomicInteger();
+        JdbcTemplate replanningJdbc = mock(JdbcTemplate.class, delegatesTo(jdbcTemplate));
+        ExecutorService pool = Executors.newSingleThreadExecutor();
+        try {
+            doAnswer(invocation -> {
+                List<NursingRecord> result = jdbcTemplate.query(invocation.<String>getArgument(0),
+                    invocation.<PreparedStatementSetter>getArgument(1),
+                    invocation.<RowMapper<NursingRecord>>getArgument(2));
+                if (reads.incrementAndGet() == 3) {
+                    // 在独立连接提交科室变更，保证锁计划回滚后仍能看到新科室。
+                    pool.submit(() -> jdbcTemplate.update(
+                        "UPDATE patient_records SET dept_id = ? WHERE id = ?",
+                        DEPT_ID + "-moved", PID)).get(10, TimeUnit.SECONDS);
+                }
+                return result;
+            }).when(replanningJdbc).query(anyString(), any(PreparedStatementSetter.class),
+                any(RowMapper.class));
+            service = createService(replanningJdbc);
+
+            assertOk(review(TIME.plusHours(2), original.getId()));
+
+            assertThat(reads.get()).isGreaterThanOrEqualTo(5);
+            assertThat(jdbcTemplate.queryForObject(
+                "SELECT dept_id FROM patient_records WHERE id = ?", String.class, PID))
+                .isEqualTo(DEPT_ID + "-moved");
+            assertThat(records.findById(original.getId()).orElseThrow().getReviewedBy())
+                .isEqualTo(ACCOUNT);
+            assertThat(snapshotCount()).isPositive();
+        } finally {
+            pool.shutdownNow();
+            assertTrue(pool.awaitTermination(15, TimeUnit.SECONDS));
+        }
+    }
+
+    private List<LocalDate> statDates(LocalDateTime effectiveTime) {
+        return windowResolver.resolveStatisticDates(
+            effectiveTime, protoService.getZoneId(), DEPT_ID);
+    }
+
+    private void assertSnapshotModified(long pid, LocalDateTime effectiveTime,
+        LocalDateTime expectedTime) {
+        for (LocalDate date : statDates(effectiveTime)) {
+            String payload = jdbcTemplate.queryForObject("""
+                SELECT payload FROM patient_snapshots WHERE pid = ? AND statistics_date = ?
+                """, String.class, pid, date);
+            PatientSnapshotPB snapshot = ProtoUtils.decodePatientSnapshot(payload);
+            assertThat(snapshot.getNursingRecordLmaIso8601())
+                .isEqualTo(TimeUtils.toIso8601StringWithSeconds(expectedTime, "UTC"));
+            assertThat(jdbcTemplate.queryForObject("""
+                SELECT last_modified_at FROM patient_snapshots
+                WHERE pid = ? AND statistics_date = ?
+                """, LocalDateTime.class, pid, date)).isEqualTo(expectedTime);
+            assertThat(lockCount(LockKeys.patientSnapshot(pid, date))).isEqualTo(1);
+        }
+    }
+
+    private int snapshotCount() {
+        return jdbcTemplate.queryForObject(
+            "SELECT COUNT(*) FROM patient_snapshots WHERE pid = ?", Integer.class, PID);
+    }
+
     private AddNursingRecordResp add(LocalDateTime time, String content) {
         return service.addNursingRecord(ProtoUtils.protoToJson(AddNursingRecordReq.newBuilder()
             .setPid(PID).setRecord(NursingRecordPB.newBuilder().setContent(content)
@@ -527,7 +776,7 @@ class NursingRecordServiceLockTests extends TestsBase {
             Integer.class, key);
     }
 
-    private boolean waitForTwoBlockedRequests() throws InterruptedException {
+    private boolean waitForBlockedRequests(int expected) throws InterruptedException {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
         while (System.nanoTime() < deadline) {
             Integer waiting = jdbcTemplate.queryForObject("""
@@ -535,7 +784,7 @@ class NursingRecordServiceLockTests extends TestsBase {
                 WHERE datname = current_database() AND wait_event_type = 'Lock'
                   AND query LIKE '%app_transaction_locks%'
                 """, Integer.class);
-            if (waiting != null && waiting == 2) return true;
+            if (waiting != null && waiting == expected) return true;
             Thread.sleep(50);
         }
         return false;
@@ -543,9 +792,15 @@ class NursingRecordServiceLockTests extends TestsBase {
 
     private void cleanRecords() {
         jdbcTemplate.execute("DROP INDEX IF EXISTS idx_nursing_record_lock_tests_unique");
-        jdbcTemplate.update("DELETE FROM nursing_records WHERE patient_id = ?", PID);
-        jdbcTemplate.update("DELETE FROM app_transaction_locks WHERE resource_key LIKE ?",
-            "nursing_record:" + PID + ":%");
+        for (long pid : List.of(PID, PID + 1)) {
+            jdbcTemplate.update("DELETE FROM nursing_records WHERE patient_id = ?", pid);
+            jdbcTemplate.update("DELETE FROM patient_snapshots WHERE pid = ?", pid);
+            jdbcTemplate.update("DELETE FROM patient_records WHERE id = ?", pid);
+            jdbcTemplate.update("DELETE FROM app_transaction_locks WHERE resource_key LIKE ?",
+                "nursing_record:" + pid + ":%");
+            jdbcTemplate.update("DELETE FROM app_transaction_locks WHERE resource_key LIKE ?",
+                "patient_snapshot:" + pid + ":%");
+        }
     }
 
     private static final long PID = 9_300_031L;
@@ -563,4 +818,7 @@ class NursingRecordServiceLockTests extends TestsBase {
     @Autowired private NursingRecordRepository records;
     @Autowired private LockExecutor executor;
     @Autowired private JdbcTemplate jdbcTemplate;
+    @Autowired private NursingRecordReader recordReader;
+    @Autowired private SnapshotService snapshots;
+    @Autowired private StatisticsDayWindowResolver windowResolver;
 }

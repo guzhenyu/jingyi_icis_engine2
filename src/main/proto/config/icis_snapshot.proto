@@ -5,6 +5,9 @@ import "config/icis_nursing_score.proto";
 
 package com.jingyicare.jingyi_icis_engine.proto.config;
 
+// next id: 13
+// lma = last_modified_at
+// sa = snapshot_at
 message PatientSnapshotPB {
     int64 pid = 1;
 
@@ -16,9 +19,11 @@ message PatientSnapshotPB {
 
     // 护理评分记录
     repeated ScoreGroupPB score_groups = 7;
-    string score_group_snapshot_at_iso8601 = 8;  // 快照时间，ISO 8601 格式
+    string score_group_lma_iso8601 = 8;  // 最后修改时间，ISO 8601 格式
+    string score_group_sa_iso8601 = 9;  // 快照时间，ISO 8601 格式
 
     // 护理记录
-    repeated NursingRecordPB nursing_records = 9;
-    string nursing_record_snapshot_at_iso8601 = 10;  // 快照时间，ISO 8601 格式
+    repeated NursingRecordPB nursing_records = 10;
+    string nursing_record_lma_iso8601 = 11;
+    string nursing_record_sa_iso8601 = 12;
 }

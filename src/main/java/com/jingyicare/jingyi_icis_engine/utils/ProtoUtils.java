@@ -34,6 +34,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisQualityControl.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSepticShock.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisShift.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisSnapshot.PatientSnapshotPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisTube.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUrl.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.*;
@@ -43,6 +44,21 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.EnumValue;
 
 @Slf4j
 public class ProtoUtils {
+    public static String encodePatientSnapshot(PatientSnapshotPB snapshot) {
+        return Base64.getEncoder().encodeToString(snapshot.toByteArray());
+    }
+
+    public static PatientSnapshotPB decodePatientSnapshot(String base64) {
+        if (StrUtils.isBlank(base64)) return null;
+        try {
+            return PatientSnapshotPB.parseFrom(Base64.getDecoder().decode(base64));
+        } catch (Exception e) {
+            // 快照可以重新生成，解码失败时返回空；不将患者 payload 写入日志。
+            log.warn("患者快照解码失败，将在读取时重新生成");
+            return null;
+        }
+    }
+
     public static String protoToJson(MessageOrBuilder msg) {
         try {
             return jsonPrinter.print(msg);
