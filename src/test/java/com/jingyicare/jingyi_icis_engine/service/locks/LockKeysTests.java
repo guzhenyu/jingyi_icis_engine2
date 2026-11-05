@@ -8,9 +8,33 @@ import java.time.LocalDateTime;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 class LockKeysTests {
+    @Test
+    void shouldScopeScoreKeysToDepartmentAndCode() {
+        assertThat(LockKeys.deptScoreGroup("icu"))
+            .isEqualTo("dept_score_groups:icu");
+        assertThat(LockKeys.deptScoreGroup("icu", "gcs"))
+            .isEqualTo("dept_score_groups:icu:gcs")
+            .isNotEqualTo(LockKeys.deptScoreGroup("other-icu", "gcs"))
+            .isNotEqualTo(LockKeys.deptScoreGroup("icu", "rass"))
+            .isNotEqualTo(LockKeys.deptScoreGroup("icu"));
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "\t\n"})
+    void shouldRejectMissingDepartmentOrScoreCode(String invalid) {
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> LockKeys.deptScoreGroup(invalid));
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> LockKeys.deptScoreGroup(invalid, "gcs"));
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> LockKeys.deptScoreGroup("icu", invalid));
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {
         "2026-11-03T12:00:00",

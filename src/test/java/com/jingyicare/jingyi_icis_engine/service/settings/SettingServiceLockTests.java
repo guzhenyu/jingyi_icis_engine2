@@ -3,8 +3,10 @@ package com.jingyicare.jingyi_icis_engine.service.settings;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -29,6 +31,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import com.jingyicare.jingyi_icis_engine.entity.reports.DragableFormTemplate;
+import com.jingyicare.jingyi_icis_engine.entity.settings.DeptSystemSettings;
 import com.jingyicare.jingyi_icis_engine.entity.settings.DeptSystemSettingsId;
 import com.jingyicare.jingyi_icis_engine.entity.settings.SystemSettings;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
@@ -36,6 +39,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkPagePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkTemplatePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.DeptMonitoringSettingsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingRecord.NursingRecordSettingsPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingScore.ScoreSettingsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
 import com.jingyicare.jingyi_icis_engine.repository.reports.DragableFormTemplateRepository;
@@ -46,7 +50,6 @@ import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.medications.MedicationConfig;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
-import com.jingyicare.jingyi_icis_engine.service.scores.ScoreConfig;
 import com.jingyicare.jingyi_icis_engine.service.users.UserService;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
@@ -127,6 +130,67 @@ class SettingServiceLockTests extends TestsBase {
         var updated = deptSettingsRepo.findById(id).orElseThrow();
         assertThat(updated.getModifiedBy()).isEqualTo(ACCOUNT);
         assertThat(updated.getModifiedAt()).isAfter(oldTime);
+        assertThat(departmentSettingsCount()).isEqualTo(1);
+    }
+
+    @Test
+    void scoreSettingsReturnDefaultsAndPersistUpdatesWithMetadata() {
+        int functionId = SystemSettingFunctionId.GET_DEPT_NURSING_SCORE_SETTINGS_VALUE;
+        String key = LockKeys.deptSystemSettings(DEPT_ID, functionId);
+        assertThat(service.getDeptScoreSettings(DEPT_ID))
+            .isEqualTo(ScoreSettingsPB.getDefaultInstance());
+        assertThat(lockCount(key)).isZero();
+        assertThat(departmentSettingsCount()).isZero();
+
+        var settings = ScoreSettingsPB.newBuilder().setDeptId(DEPT_ID)
+            .setAllowEditRecordedBy(true).build();
+        service.setDeptScoreSettings(DEPT_ID, settings, ACCOUNT);
+        assertThat(service.getDeptScoreSettings(DEPT_ID)).isEqualTo(settings);
+        var id = new DeptSystemSettingsId(DEPT_ID, functionId);
+        var created = deptSettingsRepo.findById(id).orElseThrow();
+        assertThat(created.getModifiedBy()).isEqualTo(ACCOUNT);
+        assertThat(created.getModifiedAt()).isNotNull();
+        assertThat(lockCount(key)).isEqualTo(1);
+
+        LocalDateTime oldTime = LocalDateTime.of(2020, 1, 1, 0, 0);
+        created.setModifiedAt(oldTime);
+        created.setModifiedBy("previous-user");
+        deptSettingsRepo.save(created);
+        var updatedSettings = settings.toBuilder().setAllowEditRecordedBy(false).build();
+        service.setDeptScoreSettings(DEPT_ID, updatedSettings, ACCOUNT);
+
+        var updated = deptSettingsRepo.findById(id).orElseThrow();
+        assertThat(service.getDeptScoreSettings(DEPT_ID)).isEqualTo(updatedSettings);
+        assertThat(updated.getModifiedBy()).isEqualTo(ACCOUNT);
+        assertThat(updated.getModifiedAt()).isAfter(oldTime);
+        assertThat(departmentSettingsCount()).isEqualTo(1);
+
+        updated.setSettingsPb("invalid-base64");
+        deptSettingsRepo.save(updated);
+        assertThat(service.getDeptScoreSettings(DEPT_ID))
+            .isEqualTo(ScoreSettingsPB.getDefaultInstance());
+        assertThat(deptSettingsRepo.findById(id).orElseThrow().getSettingsPb())
+            .isEqualTo("invalid-base64");
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void directAndAppScoreSettingsUpdatesShareTheSameLock(boolean settingsExist) throws Exception {
+        if (settingsExist) {
+            service.setDeptScoreSettings(DEPT_ID, ScoreSettingsPB.getDefaultInstance(), ACCOUNT);
+        }
+        var settings = ScoreSettingsPB.newBuilder().setDeptId(DEPT_ID)
+            .setAllowEditRecordedBy(true).build();
+        String key = LockKeys.deptSystemSettings(
+            DEPT_ID, SystemSettingFunctionId.GET_DEPT_NURSING_SCORE_SETTINGS_VALUE);
+
+        runContendingUpdates(key, () -> {
+            service.setDeptScoreSettings(DEPT_ID, settings, ACCOUNT);
+            return GenericResp.getDefaultInstance();
+        }, () -> updateApp(AppSettingsPB.newBuilder().setScoreAllowEditRecordedBy(true).build(),
+            AppSettingTypeEnum.AST_SCORE_ALLOW_EDIT_RECORDED_BY));
+
+        assertThat(service.getDeptScoreSettings(DEPT_ID)).isEqualTo(settings);
         assertThat(departmentSettingsCount()).isEqualTo(1);
     }
 
@@ -214,7 +278,7 @@ class SettingServiceLockTests extends TestsBase {
         doThrow(new IllegalStateException("保存观察项设置失败")).when(failingConfig)
             .setDeptMonitoringSettings(eq(DEPT_ID), any(), eq(ACCOUNT));
         var failingService = new SettingService(protoService, users, medConfig, failingConfig,
-            scoreConfig, deptSettingsRepo, systemSettingsRepo, templates, executor);
+            deptSettingsRepo, systemSettingsRepo, templates, executor);
         var request = UpdateAppSettingsReq.newBuilder().setDeptId(DEPT_ID)
             .addChangedType(AppSettingTypeEnum.AST_ENABLE_MEDICATION_SPEED)
             .addChangedType(AppSettingTypeEnum.AST_HEAD_CUSTOM_TIME_GRACE_MINUTES)
@@ -226,6 +290,39 @@ class SettingServiceLockTests extends TestsBase {
         assertThat(departmentSettingsCount()).isZero();
         assertThat(lockCount(LockKeys.deptSystemSettings(DEPT_ID, 6))).isZero();
         assertThat(lockCount(LockKeys.deptSystemSettings(DEPT_ID, 8))).isZero();
+    }
+
+    @Test
+    void failedGeneralSettingRollsBackNursingAndScoreSettingsTogether() {
+        var failingRepository = mock(DeptSystemSettingsRepository.class,
+            delegatesTo(deptSettingsRepo));
+        doAnswer(invocation -> {
+            DeptSystemSettings entity = invocation.getArgument(0);
+            if (entity.getId().getFunctionId()
+                == SystemSettingFunctionId.GET_DEPT_APP_SETTINGS_VALUE
+            ) {
+                throw new IllegalStateException("保存通用设置失败");
+            }
+            return deptSettingsRepo.save(entity);
+        }).when(failingRepository).save(any(DeptSystemSettings.class));
+        var failingService = new SettingService(protoService, users, medConfig,
+            mock(MonitoringConfig.class), failingRepository, systemSettingsRepo, templates,
+            executor);
+        var request = UpdateAppSettingsReq.newBuilder().setDeptId(DEPT_ID)
+            .addChangedType(AppSettingTypeEnum.AST_NURSING_RECORD_OVERWRITE_CREATED_BY)
+            .addChangedType(AppSettingTypeEnum.AST_SCORE_ALLOW_EDIT_RECORDED_BY)
+            .addChangedType(AppSettingTypeEnum.AST_GENERAL)
+            .setSettings(AppSettingsPB.newBuilder().setNursingRecordOverwriteCreatedBy(true)
+                .setScoreAllowEditRecordedBy(true).setJfkUseNativePrint(true)).build();
+
+        IllegalStateException failure = assertThrows(IllegalStateException.class,
+            () -> failingService.updateAppSettings(ProtoUtils.protoToJson(request)));
+
+        assertThat(failure).hasMessage("保存通用设置失败");
+        assertThat(departmentSettingsCount()).isZero();
+        for (int functionId : List.of(9, 10, 11)) {
+            assertThat(lockCount(LockKeys.deptSystemSettings(DEPT_ID, functionId))).isZero();
+        }
     }
 
     private void runContendingUpdates(
@@ -331,7 +428,6 @@ class SettingServiceLockTests extends TestsBase {
     @Autowired private ConfigProtoService protoService;
     @Autowired private UserService users;
     @Autowired private MedicationConfig medConfig;
-    @Autowired private ScoreConfig scoreConfig;
     @Autowired private DeptSystemSettingsRepository deptSettingsRepo;
     @Autowired private SystemSettingsRepository systemSettingsRepo;
     @Autowired private DragableFormTemplateRepository templates;

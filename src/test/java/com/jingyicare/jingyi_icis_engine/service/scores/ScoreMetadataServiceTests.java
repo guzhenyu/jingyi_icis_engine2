@@ -64,8 +64,8 @@ class ScoreMetadataServiceTests {
         when(protoService.getReturnCode(any(StatusCode.class))).thenAnswer(invocation ->
             ReturnCode.newBuilder().setCode(
                 ((StatusCode) invocation.getArgument(0)).getNumber()).build());
-        ScoreConfig scoreConfig = mock(ScoreConfig.class);
-        when(scoreConfig.getScoreGroupMeta(CODE))
+        ScoreMetaService scoreMetaService = mock(ScoreMetaService.class);
+        when(scoreMetaService.getConfiguredScoreGroupMeta(CODE))
             .thenReturn(ScoreGroupMetaPB.newBuilder().setCode(CODE).build());
         ScoreCalculator calculator = mock(ScoreCalculator.class);
         when(calculator.validateScoreGroup(any(), any())).thenReturn(StatusCode.OK);
@@ -99,10 +99,10 @@ class ScoreMetadataServiceTests {
         when(paramRepository.findByCode("gcs_param")).thenReturn(Optional.of(
             MonitoringParam.builder().code("gcs_param").uiModalCode("gcs_modal").build()));
         monitoringRecordUtils = mock(MonitoringRecordUtils.class);
-        service = new ScoreService(protoService, mock(MonitoringConfig.class), scoreConfig,
+        service = new ScoreService(protoService, mock(MonitoringConfig.class), scoreMetaService,
             calculator, userService, patientService, monitoringRecordUtils,
             mock(PatientNursingReportInvalidationService.class),
-            mock(DeptScoreGroupRepository.class), repository, paramRepository,
+            repository, paramRepository,
             mock(PatientMonitoringRecordRepository.class), accountRepository);
     }
 

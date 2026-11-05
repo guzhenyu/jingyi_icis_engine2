@@ -40,6 +40,7 @@ public class DoctorDataFetcherTests extends TestsBase {
         @Autowired PatientMonitoringService patientMonitoringService,
         @Autowired ScoreConfig scoreConfig,
         @Autowired ScoreService scoreService,
+        @Autowired ScoreMetaService scoreMetaService,
         @Autowired TubeService tubeService,
         @Autowired PatientTubeService patientTubeService,
         @Autowired DoctorDataFetcher doctorDataFetcher,
@@ -57,6 +58,7 @@ public class DoctorDataFetcherTests extends TestsBase {
         this.patientMonitoringService = patientMonitoringService;
         this.scoreConfig = scoreConfig;
         this.scoreService = scoreService;
+        this.scoreMetaService = scoreMetaService;
         this.tubeService = tubeService;
         this.patientTubeService = patientTubeService;
         this.doctorDataFetcher = doctorDataFetcher;
@@ -224,7 +226,8 @@ public class DoctorDataFetcherTests extends TestsBase {
             .setDisplayOrder(1)
             .build();
         String addDeptScoreGroupReqJson = ProtoUtils.protoToJson(addDeptScoreGroupReq);
-        AddDeptScoreGroupResp addDeptScoreGroupResp = scoreService.addDeptScoreGroup(addDeptScoreGroupReqJson);
+        AddDeptScoreGroupResp addDeptScoreGroupResp = scoreMetaService
+            .addDeptScoreGroup(addDeptScoreGroupReqJson);
         assertThat(addDeptScoreGroupResp.getRt().getCode()).isEqualTo(0);
 
         // 病人
@@ -433,6 +436,7 @@ public class DoctorDataFetcherTests extends TestsBase {
     private final PatientMonitoringService patientMonitoringService;
     private final ScoreConfig scoreConfig;
     private final ScoreService scoreService;
+    private final ScoreMetaService scoreMetaService;
     private final TubeService tubeService;
     private final PatientTubeService patientTubeService;
     private final DoctorDataFetcher doctorDataFetcher;

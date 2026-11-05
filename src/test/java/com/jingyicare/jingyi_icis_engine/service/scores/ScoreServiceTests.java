@@ -31,6 +31,7 @@ public class ScoreServiceTests extends TestsBase {
         @Autowired ConfigProtoService protoService,
         @Autowired ScoreConfig scoreConfig,
         @Autowired ScoreService scoreService,
+        @Autowired ScoreMetaService scoreMetaService,
         @Autowired PatientScoreRepository patientScoreRepo,
         @Autowired RbacDepartmentRepository rbacDepartmentRepo,
         @Autowired PatientRecordRepository patientRepo
@@ -42,6 +43,7 @@ public class ScoreServiceTests extends TestsBase {
         this.protoService = protoService;
         this.scoreConfig = scoreConfig;
         this.scoreService = scoreService;
+        this.scoreMetaService = scoreMetaService;
         this.patientScoreRepo = patientScoreRepo;
         this.rbacDepartmentRepo = rbacDepartmentRepo;
         this.patientRepo = patientRepo;
@@ -63,13 +65,15 @@ public class ScoreServiceTests extends TestsBase {
         // 查询部门评分
         GetScoreGroupMetaReq getScoreGroupMetaReq = GetScoreGroupMetaReq.newBuilder().setDeptId("").build();
         String getScoreGroupMetaReqJson = ProtoUtils.protoToJson(getScoreGroupMetaReq);
-        GetScoreGroupMetaResp getScoreGroupMetaResp = scoreService.getScoreGroupMeta(getScoreGroupMetaReqJson);
+        GetScoreGroupMetaResp getScoreGroupMetaResp = scoreMetaService
+            .getScoreGroupMeta(getScoreGroupMetaReqJson);
         assertThat(getScoreGroupMetaResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         assertThat(getScoreGroupMetaResp.getScoreGroupMetaList()).hasSize(4);
 
         getScoreGroupMetaReq = GetScoreGroupMetaReq.newBuilder().setDeptId(deptId).build();
         getScoreGroupMetaReqJson = ProtoUtils.protoToJson(getScoreGroupMetaReq);
-        getScoreGroupMetaResp = scoreService.getScoreGroupMeta(getScoreGroupMetaReqJson);
+        getScoreGroupMetaResp = scoreMetaService
+            .getScoreGroupMeta(getScoreGroupMetaReqJson);
         assertThat(getScoreGroupMetaResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         assertThat(getScoreGroupMetaResp.getScoreGroupMetaList()).hasSize(1);
 
@@ -80,7 +84,8 @@ public class ScoreServiceTests extends TestsBase {
             .setDisplayOrder(1)
             .build();
         String addDeptScoreGroupReqJson = ProtoUtils.protoToJson(addDeptScoreGroupReq);
-        AddDeptScoreGroupResp addDeptScoreGroupResp = scoreService.addDeptScoreGroup(addDeptScoreGroupReqJson);
+        AddDeptScoreGroupResp addDeptScoreGroupResp = scoreMetaService
+            .addDeptScoreGroup(addDeptScoreGroupReqJson);
         // default_score_group_code: "test_score_1"
         assertThat(addDeptScoreGroupResp.getRt().getCode()).isEqualTo(StatusCode.DEPT_SCORE_GROUP_ALREADY_EXISTS.ordinal());
 
@@ -90,7 +95,8 @@ public class ScoreServiceTests extends TestsBase {
             .setDisplayOrder(2)
             .build();
         addDeptScoreGroupReqJson = ProtoUtils.protoToJson(addDeptScoreGroupReq);
-        addDeptScoreGroupResp = scoreService.addDeptScoreGroup(addDeptScoreGroupReqJson);
+        addDeptScoreGroupResp = scoreMetaService
+            .addDeptScoreGroup(addDeptScoreGroupReqJson);
         assertThat(addDeptScoreGroupResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
         addDeptScoreGroupReq = AddDeptScoreGroupReq.newBuilder()
@@ -99,12 +105,14 @@ public class ScoreServiceTests extends TestsBase {
             .setDisplayOrder(3)
             .build();
         addDeptScoreGroupReqJson = ProtoUtils.protoToJson(addDeptScoreGroupReq);
-        addDeptScoreGroupResp = scoreService.addDeptScoreGroup(addDeptScoreGroupReqJson);
+        addDeptScoreGroupResp = scoreMetaService
+            .addDeptScoreGroup(addDeptScoreGroupReqJson);
         assertThat(addDeptScoreGroupResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
         getScoreGroupMetaReq = GetScoreGroupMetaReq.newBuilder().setDeptId(deptId).build();
         getScoreGroupMetaReqJson = ProtoUtils.protoToJson(getScoreGroupMetaReq);
-        getScoreGroupMetaResp = scoreService.getScoreGroupMeta(getScoreGroupMetaReqJson);
+        getScoreGroupMetaResp = scoreMetaService
+            .getScoreGroupMeta(getScoreGroupMetaReqJson);
         assertThat(getScoreGroupMetaResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         assertThat(getScoreGroupMetaResp.getScoreGroupMetaList()).hasSize(3);
 
@@ -128,12 +136,14 @@ public class ScoreServiceTests extends TestsBase {
             )
             .build();
         String reorderDeptScoreGroupsReqJson = ProtoUtils.protoToJson(reorderDeptScoreGroupsReq);
-        GenericResp reorderDeptScoreGroupsResp = scoreService.reorderDeptScoreGroups(reorderDeptScoreGroupsReqJson);
+        GenericResp reorderDeptScoreGroupsResp = scoreMetaService
+            .reorderDeptScoreGroups(reorderDeptScoreGroupsReqJson);
         assertThat(reorderDeptScoreGroupsResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
         getScoreGroupMetaReq = GetScoreGroupMetaReq.newBuilder().setDeptId(deptId).build();
         getScoreGroupMetaReqJson = ProtoUtils.protoToJson(getScoreGroupMetaReq);
-        getScoreGroupMetaResp = scoreService.getScoreGroupMeta(getScoreGroupMetaReqJson);
+        getScoreGroupMetaResp = scoreMetaService
+            .getScoreGroupMeta(getScoreGroupMetaReqJson);
         assertThat(getScoreGroupMetaResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         assertThat(getScoreGroupMetaResp.getScoreGroupMetaList()).hasSize(3);
         assertThat(getScoreGroupMetaResp.getScoreGroupMeta(0).getCode()).isEqualTo("test_score_3");
@@ -145,12 +155,14 @@ public class ScoreServiceTests extends TestsBase {
             .setId(getScoreGroupMetaResp.getScoreGroupMeta(0).getId())
             .build();
         String deleteDeptScoreGroupReqJson = ProtoUtils.protoToJson(deleteDeptScoreGroupReq);
-        GenericResp deleteDeptScoreGroupResp = scoreService.deleteDeptScoreGroup(deleteDeptScoreGroupReqJson);
+        GenericResp deleteDeptScoreGroupResp = scoreMetaService
+            .deleteDeptScoreGroup(deleteDeptScoreGroupReqJson);
         assertThat(deleteDeptScoreGroupResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
         getScoreGroupMetaReq = GetScoreGroupMetaReq.newBuilder().setDeptId(deptId).build();
         getScoreGroupMetaReqJson = ProtoUtils.protoToJson(getScoreGroupMetaReq);
-        getScoreGroupMetaResp = scoreService.getScoreGroupMeta(getScoreGroupMetaReqJson);
+        getScoreGroupMetaResp = scoreMetaService
+            .getScoreGroupMeta(getScoreGroupMetaReqJson);
         assertThat(getScoreGroupMetaResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         assertThat(getScoreGroupMetaResp.getScoreGroupMetaList()).hasSize(2);
         assertThat(getScoreGroupMetaResp.getScoreGroupMeta(0).getCode()).isEqualTo("test_score_2");
@@ -301,7 +313,8 @@ public class ScoreServiceTests extends TestsBase {
 
         GetScoreGroupMetaReq getScoreGroupMetaReq = GetScoreGroupMetaReq.newBuilder().setDeptId(deptId2).build();
         String getScoreGroupMetaReqJson = ProtoUtils.protoToJson(getScoreGroupMetaReq);
-        GetScoreGroupMetaResp getScoreGroupMetaResp = scoreService.getScoreGroupMeta(getScoreGroupMetaReqJson);
+        GetScoreGroupMetaResp getScoreGroupMetaResp = scoreMetaService
+            .getScoreGroupMeta(getScoreGroupMetaReqJson);
         assertThat(getScoreGroupMetaResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         assertThat(getScoreGroupMetaResp.getScoreGroupMetaList()).hasSize(1);
         final Integer deptScoreGroupId = getScoreGroupMetaResp.getScoreGroupMeta(0).getId();
@@ -442,6 +455,7 @@ public class ScoreServiceTests extends TestsBase {
     private final ConfigProtoService protoService;
     private final ScoreConfig scoreConfig;
     private final ScoreService scoreService;
+    private final ScoreMetaService scoreMetaService;
     private final PatientScoreRepository patientScoreRepo;
     private final RbacDepartmentRepository rbacDepartmentRepo;
     private final PatientRecordRepository patientRepo;

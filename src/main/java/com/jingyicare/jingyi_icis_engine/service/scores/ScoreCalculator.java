@@ -23,10 +23,7 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 @Component
 @Slf4j
 public class ScoreCalculator {
-    public ScoreCalculator(
-        @Autowired ConfigProtoService protoService,
-        @Autowired ScoreConfig scoreConfig
-    ) {
+    public ScoreCalculator(@Autowired ConfigProtoService protoService) {
         this.protoService = protoService;
         this.ZONE_ID = protoService.getConfig().getZoneId();
 
@@ -46,8 +43,6 @@ public class ScoreCalculator {
         this.POSITIVE_STR = scorePb.getEnums().getPositiveStr();
         this.NEGATIVE_STR = scorePb.getEnums().getNegativeStr();
         this.UNKNOWN_STR = scorePb.getEnums().getUnknownStr();
-
-        this.scoreConfig = scoreConfig;
     }
 
     public Pair<StatusCode, List<GenericValuePB>> getScoreItemValues(
@@ -86,7 +81,8 @@ public class ScoreCalculator {
 
         List<GenericValuePB> scoreItemScores = new ArrayList<>();
         for (ScoreItemPB scoreItem : scoreItems) {
-            final ScoreItemMetaPB scoreItemMeta = scoreConfig.getScoreItemMeta(scoreGroupMeta, scoreItem.getCode());
+            final ScoreItemMetaPB scoreItemMeta = getScoreItemMeta(
+                scoreGroupMeta, scoreItem.getCode());
             if (scoreItemMeta == null) return new Pair<>(StatusCode.SCORE_ITEM_NOT_FOUND, Collections.emptyList());
 
             GenericValuePB.Builder itemScoreBuilder = GenericValuePB.newBuilder();
@@ -252,6 +248,15 @@ public class ScoreCalculator {
         return StatusCode.OK;
     }
 
+    private ScoreItemMetaPB getScoreItemMeta(ScoreGroupMetaPB scoreGroupMeta, String code) {
+        for (ScoreItemMetaPB scoreItemMeta : scoreGroupMeta.getItemList()) {
+            if (scoreItemMeta.getCode().equals(code)) {
+                return scoreItemMeta;
+            }
+        }
+        return null;
+    }
+
     private StatusCode getScoreOptionScore(
         ScoreItemMetaPB scoreItemMeta, String scoreOptionCode, GenericValuePB.Builder scoreOptionScoreBuilder
     ) {
@@ -282,6 +287,4 @@ public class ScoreCalculator {
     private final String POSITIVE_STR;
     private final String NEGATIVE_STR;
     private final String UNKNOWN_STR;
-
-    private final ScoreConfig scoreConfig;
 }

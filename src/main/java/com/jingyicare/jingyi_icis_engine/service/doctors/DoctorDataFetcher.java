@@ -74,7 +74,7 @@ public class DoctorDataFetcher {
     public DoctorDataFetcher(
         @Autowired ConfigProtoService protoService,
         @Autowired MonitoringConfig monitoringConfig,
-        @Autowired ScoreConfig scoreConfig,
+        @Autowired ScoreMetaService scoreMetaService,
         @Autowired TubeSetting tubeSetting,
         @Autowired PatientMonitoringRecordRepository patientMonRecRepo,
         @Autowired PatientScoreRepository patientScoreRepo,
@@ -112,7 +112,7 @@ public class DoctorDataFetcher {
 
         this.protoService = protoService;
         this.monitoringConfig = monitoringConfig;
-        this.scoreConfig = scoreConfig;
+        this.scoreMetaService = scoreMetaService;
         this.tubeSetting = tubeSetting;
         this.patientMonRecRepo = patientMonRecRepo;
         this.patientScoreRepo = patientScoreRepo;
@@ -287,7 +287,8 @@ public class DoctorDataFetcher {
         queryEndUtc = queryEndUtc.isAfter(nowUtc) ? nowUtc : queryEndUtc;
 
         // 获取监测参数元数据
-        ScoreGroupMetaPB scoreGroupMeta = scoreConfig.getScoreGroupMeta(code);
+        ScoreGroupMetaPB scoreGroupMeta = scoreMetaService
+            .getConfiguredScoreGroupMeta(code);
         if (scoreGroupMeta == null) {
             log.error("No score group meta found for code: {}", code);
             return new Pair<>(false, null);
@@ -477,7 +478,7 @@ public class DoctorDataFetcher {
 
     private final ConfigProtoService protoService;
     private final MonitoringConfig monitoringConfig;
-    private final ScoreConfig scoreConfig;
+    private final ScoreMetaService scoreMetaService;
     private final TubeSetting tubeSetting;
     private final PatientMonitoringRecordRepository patientMonRecRepo;
     private final PatientScoreRepository patientScoreRepo;

@@ -31,6 +31,7 @@ import com.jingyicare.jingyi_icis_engine.service.patientshifts.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.ah2report.Ah2ReportService;
 import com.jingyicare.jingyi_icis_engine.service.qcs.*;
+import com.jingyicare.jingyi_icis_engine.service.scores.ScoreMetaService;
 import com.jingyicare.jingyi_icis_engine.service.scores.ScoreService;
 import com.jingyicare.jingyi_icis_engine.service.settings.*;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
@@ -62,6 +63,7 @@ public class WebApiService {
         @Autowired BgaService bgaService,
         @Autowired LisService lisService,
         @Autowired ScoreService scoreService,
+        @Autowired ScoreMetaService scoreMetaService,
         @Autowired NursingRecordService nursingRecordService,
         @Autowired NursingOrderTemplateService nursingOrderTemplateService,
         @Autowired PatientCriticalLisHandlingService patientCriticalLisHandlingService,
@@ -100,6 +102,7 @@ public class WebApiService {
         this.bgaService = bgaService;
         this.lisService = lisService;
         this.scoreService = scoreService;
+        this.scoreMetaService = scoreMetaService;
         this.nursingRecordService = nursingRecordService;
         this.nursingOrderTemplateService = nursingOrderTemplateService;
         this.patientCriticalLisHandlingService = patientCriticalLisHandlingService;
@@ -855,31 +858,36 @@ public class WebApiService {
     }
 
     public GetScoreGroupMetaResp getScoreGroupMeta(String getScoreGroupMetaReqJson) {
-        GetScoreGroupMetaResp resp = scoreService.getScoreGroupMeta(getScoreGroupMetaReqJson);
+        GetScoreGroupMetaResp resp = scoreMetaService
+            .getScoreGroupMeta(getScoreGroupMetaReqJson);
         resp = metricService.recordApiMetrics(resp, GetScoreGroupMetaResp::getRt);
         return resp;
     }
 
     public AddDeptScoreGroupResp addDeptScoreGroup(String addDeptScoreGroupReqJson) {
-        AddDeptScoreGroupResp resp = scoreService.addDeptScoreGroup(addDeptScoreGroupReqJson);
+        AddDeptScoreGroupResp resp = scoreMetaService
+            .addDeptScoreGroup(addDeptScoreGroupReqJson);
         resp = metricService.recordApiMetrics(resp, AddDeptScoreGroupResp::getRt);
         return resp;
     }
 
     public AddDeptScoreGroupsResp addDeptScoreGroups(String addDeptScoreGroupsReqJson) {
-        AddDeptScoreGroupsResp resp = scoreService.addDeptScoreGroups(addDeptScoreGroupsReqJson);
+        AddDeptScoreGroupsResp resp = scoreMetaService
+            .addDeptScoreGroups(addDeptScoreGroupsReqJson);
         resp = metricService.recordApiMetrics(resp, AddDeptScoreGroupsResp::getRt);
         return resp;
     }
 
     public GenericResp deleteDeptScoreGroup(String deleteDeptScoreGroupReqJson) {
-        GenericResp resp = scoreService.deleteDeptScoreGroup(deleteDeptScoreGroupReqJson);
+        GenericResp resp = scoreMetaService
+            .deleteDeptScoreGroup(deleteDeptScoreGroupReqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
 
     public GenericResp reorderDeptScoreGroups(String reorderDeptScoreGroupsReqJson) {
-        GenericResp resp = scoreService.reorderDeptScoreGroups(reorderDeptScoreGroupsReqJson);
+        GenericResp resp = scoreMetaService
+            .reorderDeptScoreGroups(reorderDeptScoreGroupsReqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
@@ -927,43 +935,50 @@ public class WebApiService {
     }
 
     public GetOneScoreGroupMetaResp getOneScoreGroupMeta(String getOneScoreGroupMetaReqJson) {
-        GetOneScoreGroupMetaResp resp = scoreService.getOneScoreGroupMeta(getOneScoreGroupMetaReqJson);
+        GetOneScoreGroupMetaResp resp = scoreMetaService
+            .getOneScoreGroupMeta(getOneScoreGroupMetaReqJson);
         resp = metricService.recordApiMetrics(resp, GetOneScoreGroupMetaResp::getRt);
         return resp;
     }
 
     public GenericResp updateScoreGroupMeta(String updateScoreGroupMetaReqJson) {
-        GenericResp resp = scoreService.updateScoreGroupMeta(updateScoreGroupMetaReqJson);
+        GenericResp resp = scoreMetaService
+            .updateScoreGroupMeta(updateScoreGroupMetaReqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
 
     public GenericResp updateScoreItemName(String updateScoreItemNameReqJson) {
-        GenericResp resp = scoreService.updateScoreItemName(updateScoreItemNameReqJson);
+        GenericResp resp = scoreMetaService
+            .updateScoreItemName(updateScoreItemNameReqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
 
     public GenericResp updateScoreOptionName(String updateScoreOptionNameReqJson) {
-        GenericResp resp = scoreService.updateScoreOptionName(updateScoreOptionNameReqJson);
+        GenericResp resp = scoreMetaService
+            .updateScoreOptionName(updateScoreOptionNameReqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
 
     public GenericResp addScoreGroupMeasureMeta(String addScoreGroupMeasureMetaReqJson) {
-        GenericResp resp = scoreService.addScoreGroupMeasureMeta(addScoreGroupMeasureMetaReqJson);
+        GenericResp resp = scoreMetaService
+            .addScoreGroupMeasureMeta(addScoreGroupMeasureMetaReqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
 
     public GenericResp updateScoreGroupMeasureMeta(String updateScoreGroupMeasureMetaReqJson) {
-        GenericResp resp = scoreService.updateScoreGroupMeasureMeta(updateScoreGroupMeasureMetaReqJson);
+        GenericResp resp = scoreMetaService
+            .updateScoreGroupMeasureMeta(updateScoreGroupMeasureMetaReqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
 
     public GenericResp deleteScoreGroupMeasureMeta(String deleteScoreGroupMeasureMetaReqJson) {
-        GenericResp resp = scoreService.deleteScoreGroupMeasureMeta(deleteScoreGroupMeasureMetaReqJson);
+        GenericResp resp = scoreMetaService
+            .deleteScoreGroupMeasureMeta(deleteScoreGroupMeasureMetaReqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
@@ -2167,6 +2182,7 @@ public class WebApiService {
     private BgaService bgaService;
     private LisService lisService;
     private ScoreService scoreService;
+    private final ScoreMetaService scoreMetaService;
     private NursingRecordService nursingRecordService;
     private NursingOrderTemplateService nursingOrderTemplateService;
     private PatientCriticalLisHandlingService patientCriticalLisHandlingService;

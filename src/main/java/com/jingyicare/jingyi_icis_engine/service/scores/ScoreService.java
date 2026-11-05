@@ -39,13 +39,12 @@ public class ScoreService {
     public ScoreService(
         @Autowired ConfigProtoService protoService,
         @Autowired MonitoringConfig monitoringConfig,
-        @Autowired ScoreConfig scoreConfig,
+        @Autowired ScoreMetaService scoreMetaService,
         @Autowired ScoreCalculator scoreCalculator,
         @Autowired UserService userService,
         @Autowired PatientService patientService,
         @Autowired MonitoringRecordUtils monitoringRecordUtils,
         @Autowired PatientNursingReportInvalidationService pnrUtils,
-        @Autowired DeptScoreGroupRepository deptScoreGroupRepo,
         @Autowired PatientScoreRepository patientScoreRepo,
         @Autowired MonitoringParamRepository monitoringParamRepo,
         @Autowired PatientMonitoringRecordRepository pmrRepo,
@@ -77,290 +76,16 @@ public class ScoreService {
             paramCodeModalMap.put(paramCode, options);
         }
 
-        this.allScoreGroupMeta = new ArrayList<>();
-        for (ScoreGroupMetaPB meta : scorePb.getGroupList()) {
-            allScoreGroupMeta.add(meta.toBuilder().setOrigName(meta.getName()).build());
-        }
-
-        this.scoreConfig = scoreConfig;
+        this.scoreMetaService = scoreMetaService;
         this.scoreCalculator = scoreCalculator;
         this.userService = userService;
         this.patientService = patientService;
         this.monitoringRecordUtils = monitoringRecordUtils;
         this.pnrUtils = pnrUtils;
-        this.deptScoreGroupRepo = deptScoreGroupRepo;
         this.patientScoreRepo = patientScoreRepo;
         this.monitoringParamRepo = monitoringParamRepo;
         this.pmrRepo = pmrRepo;
         this.accountRepo = accountRepo;
-    }
-
-    @Transactional
-    public GetScoreGroupMetaResp getScoreGroupMeta(String getScoreGroupMetaReqJson) {
-        final GetScoreGroupMetaReq req;
-
-        try {
-            req = ProtoUtils.parseJsonToProto(getScoreGroupMetaReqJson, GetScoreGroupMetaReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
-            return GetScoreGroupMetaResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        if (StrUtils.isBlank(req.getDeptId())) {
-            return GetScoreGroupMetaResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.OK))
-                .addAllScoreGroupMeta(allScoreGroupMeta)
-                .build();
-        }
-
-        List<ScoreGroupMetaPB> scoreGroupMetaList = new ArrayList<>();
-        scoreGroupMetaList.addAll(
-            deptScoreGroupRepo
-                .findByDeptIdAndIsDeletedFalse(req.getDeptId())
-                .stream()
-                .sorted(Comparator.comparing(DeptScoreGroup::getDisplayOrder))
-                .map(deptScoreGroup -> {
-                    ScoreGroupMetaPB scoreGroupMeta = ProtoUtils.decodeScoreGroupMetaPB(deptScoreGroup.getScoreGroupMeta());
-                if (scoreGroupMeta == null) {
-                    scoreGroupMeta = scoreConfig.getScoreGroupMeta(deptScoreGroup.getScoreGroupCode());
-                }
-                scoreGroupMeta = scoreGroupMeta.toBuilder()
-                    .setId(deptScoreGroup.getId())
-                    .setDisplayOrder(deptScoreGroup.getDisplayOrder())
-                    .build();
-                return scoreGroupMeta;
-            })
-            .filter(Objects::nonNull)
-            .sorted(Comparator.comparing(ScoreGroupMetaPB::getDisplayOrder)
-                .thenComparing(ScoreGroupMetaPB::getId)
-            )
-            .toList()
-        );
-
-        return GetScoreGroupMetaResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .addAllScoreGroupMeta(scoreGroupMetaList)
-            .build();
-    }
-
-    @Transactional
-    public AddDeptScoreGroupResp addDeptScoreGroup(String addDeptScoreGroupReqJson) {
-        final AddDeptScoreGroupReq req;
-
-        try {
-            req = ProtoUtils.parseJsonToProto(addDeptScoreGroupReqJson, AddDeptScoreGroupReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
-            return AddDeptScoreGroupResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        // Get current account ID
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
-            log.error("Account ID is empty.");
-            return AddDeptScoreGroupResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-        final String accountId = accountWithAutoId.getFirst();
-
-        // Get current time
-        final LocalDateTime now = TimeUtils.getNowUtc();
-
-        // Check if the department score group already exists
-        if (deptScoreGroupRepo.existsByDeptIdAndScoreGroupCodeAndIsDeletedFalse(req.getDeptId(), req.getScoreGroupCode())) {
-            log.error("Department score group already exists for deptId: {}, scoreGroupCode: {}", req.getDeptId(), req.getScoreGroupCode());
-            return AddDeptScoreGroupResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.DEPT_SCORE_GROUP_ALREADY_EXISTS))
-                .build();
-        }
-
-        ScoreGroupMetaPB scoreGroupMeta = allScoreGroupMeta.stream()
-            .filter(meta -> meta.getCode().equals(req.getScoreGroupCode()))
-            .findFirst()
-            .orElse(null);
-        if (scoreGroupMeta == null) {
-            return AddDeptScoreGroupResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.DEPT_SCORE_GROUP_NOT_FOUND))
-                .build();
-        }
-        Integer id = saveOrUpdateDeptScoreGroup(null, req.getDeptId(), req.getScoreGroupCode(), scoreGroupMeta, accountId, now);
-
-        return AddDeptScoreGroupResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .setId(id)
-            .build();
-    }
-
-    @Transactional
-    public AddDeptScoreGroupsResp addDeptScoreGroups(String addDeptScoreGroupsReqJson) {
-        final AddDeptScoreGroupsReq req;
-
-        try {
-            req = ProtoUtils.parseJsonToProto(addDeptScoreGroupsReqJson, AddDeptScoreGroupsReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
-            return AddDeptScoreGroupsResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        // Get current account ID
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
-            log.error("Account ID is empty.");
-            return AddDeptScoreGroupsResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-        final String accountId = accountWithAutoId.getFirst();
-
-        // Get current time
-        final LocalDateTime now = TimeUtils.getNowUtc();
-
-        // Check if the department score group already exists
-        for (DeptScoreGroupPB deptScoreGroup : req.getGroupList()) {
-            if (deptScoreGroupRepo.existsByDeptIdAndScoreGroupCodeAndIsDeletedFalse(
-                req.getDeptId(), deptScoreGroup.getScoreGroupCode())
-            ) {
-                log.error("Department score group already exists for deptId: {}, scoreGroupCode: {}",
-                    req.getDeptId(), deptScoreGroup.getScoreGroupCode()
-                );
-                return AddDeptScoreGroupsResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.DEPT_SCORE_GROUP_ALREADY_EXISTS))
-                    .build();
-            }
-        }
-
-        List<Integer> addedIds = new ArrayList<>();
-        Map<String/*groupCode*/, ScoreGroupMetaPB> scoreGroupMetaMap = allScoreGroupMeta
-            .stream().collect(Collectors.toMap(ScoreGroupMetaPB::getCode, meta -> meta));
-        for (DeptScoreGroupPB deptScoreGroupPb : req.getGroupList()) {
-            ScoreGroupMetaPB scoreGroupMeta = scoreGroupMetaMap.get(deptScoreGroupPb.getScoreGroupCode());
-            if (scoreGroupMeta == null && !deptScoreGroupPb.getScoreGroupCode().equals("vte_caprini")) {
-                return AddDeptScoreGroupsResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.DEPT_SCORE_GROUP_NOT_FOUND))
-                    .build();
-            }
-            Integer id = saveOrUpdateDeptScoreGroup(
-                null, req.getDeptId(), deptScoreGroupPb.getScoreGroupCode(),
-                scoreGroupMeta, accountId, now
-            );
-            addedIds.add(id);
-        }
-
-        return AddDeptScoreGroupsResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .addAllId(addedIds)
-            .build();
-    }
-
-    @Transactional
-    public GenericResp deleteDeptScoreGroup(String deleteDeptScoreGroupReqJson) {
-        final DeleteDeptScoreGroupReq req;
-
-        try {
-            req = ProtoUtils.parseJsonToProto(deleteDeptScoreGroupReqJson, DeleteDeptScoreGroupReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        // Get current account ID
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
-            log.error("Account ID is empty.");
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-        final String accountId = accountWithAutoId.getFirst();
-
-        // Get current time
-        final LocalDateTime now = TimeUtils.getNowUtc();
-
-        DeptScoreGroup deptScoreGroup = deptScoreGroupRepo.findByIdAndIsDeletedFalse(req.getId()).orElse(null);
-        if (deptScoreGroup == null) {
-            log.error("Department score group not found for id: {}, accountId {}", req.getId(), accountId);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.OK))
-                .build();
-        }
-
-        deptScoreGroup.setIsDeleted(true);
-        deptScoreGroup.setDeletedBy(accountId);
-        deptScoreGroup.setDeletedAt(now);
-        deptScoreGroupRepo.save(deptScoreGroup);
-        log.info("Deleted dept_score_group for id: {}, accountId: {}", req.getId(), accountId);
-
-        return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .build();
-    }
-
-    @Transactional
-    public GenericResp reorderDeptScoreGroups(String reorderDeptScoreGroupsReqJson) {
-        final ReorderDeptScoreGroupsReq req;
-
-        try {
-            req = ProtoUtils.parseJsonToProto(reorderDeptScoreGroupsReqJson, ReorderDeptScoreGroupsReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        // Get current account ID
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
-            log.error("Account ID is empty.");
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-        final String accountId = accountWithAutoId.getFirst();
-
-        // Get current time
-        final LocalDateTime now = TimeUtils.getNowUtc();
-
-        // Find display_order modified
-        List<DeptScoreGroup> deptScoreGroups = deptScoreGroupRepo.findByDeptIdAndIsDeletedFalse(req.getDeptId());
-        Map<Integer, DeptScoreGroup> deptScoreGroupMap = deptScoreGroups.stream()
-            .collect(Collectors.toMap(DeptScoreGroup::getId, deptScoreGroup -> deptScoreGroup));
-
-        List<DeptScoreGroup> reorderedDeptScoreGroups = new ArrayList<>();
-        for (ScoreGroupOrder order : req.getGroupOrderList()) {
-            DeptScoreGroup deptScoreGroup = deptScoreGroupMap.get(order.getId());
-            if (deptScoreGroup == null) {
-                log.error("Department score group not found for id: {}, accountId {}", order.getId(), accountId);
-                return GenericResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.DEPT_SCORE_GROUP_NOT_FOUND))
-                    .build();
-            }
-            if (Objects.equals(deptScoreGroup.getDisplayOrder(), order.getDisplayOrder())) {
-                continue;
-            }
-            deptScoreGroup.setDisplayOrder(order.getDisplayOrder());
-            deptScoreGroup.setModifiedBy(accountId);
-            deptScoreGroup.setModifiedAt(now);
-            reorderedDeptScoreGroups.add(deptScoreGroup);
-        }
-
-        for (DeptScoreGroup deptScoreGroup : reorderedDeptScoreGroups) {
-            deptScoreGroupRepo.save(deptScoreGroup);
-            log.info("Reordered dept_score_group for id: {}, accountId: {}", deptScoreGroup.getId(), accountId);
-        }
-
-        return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .build();
     }
 
     @Transactional
@@ -441,7 +166,8 @@ public class ScoreService {
         }
 
         // 查找评分元数据
-        ScoreGroupMetaPB scoreGroupMeta = scoreConfig.getScoreGroupMeta(deptScoreGroupCode);
+        ScoreGroupMetaPB scoreGroupMeta = scoreMetaService
+            .getConfiguredScoreGroupMeta(deptScoreGroupCode);
         if (scoreGroupMeta == null) {
             return GetPatientScoreResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.SCORE_GROUP_NOT_FOUND))
@@ -512,7 +238,8 @@ public class ScoreService {
         }
         final String deptId = patientRec.getDeptId();
 
-        final ScoreGroupMetaPB scoreGroupMeta = scoreConfig.getScoreGroupMeta(scoreGroupCode);
+        final ScoreGroupMetaPB scoreGroupMeta = scoreMetaService
+            .getConfiguredScoreGroupMeta(scoreGroupCode);
         if (scoreGroupMeta == null) {
             log.error("Score group meta not found for scoreGroupCode: {}", scoreGroupCode);
             return AddPatientScoreResp.newBuilder()
@@ -613,7 +340,8 @@ public class ScoreService {
         // 提取关键信息
         ScoreGroupPB scoreGroup = req.getRecord();
         String scoreGroupCode = scoreGroup.getCode();
-        ScoreGroupMetaPB scoreGroupMeta = scoreConfig.getScoreGroupMeta(scoreGroupCode);
+        ScoreGroupMetaPB scoreGroupMeta = scoreMetaService
+            .getConfiguredScoreGroupMeta(scoreGroupCode);
         if (scoreGroupMeta == null) {
             log.error("Score group meta not found for group code: {}", scoreGroupCode);
             return GenericResp.newBuilder()
@@ -723,7 +451,8 @@ public class ScoreService {
             if (monitoringParam == null) log.error("Monitoring param not found for code: {}", monitoringParamCode);
             else if (StrUtils.isBlank(monitoringParam.getUiModalCode())) monitoringParamCode = null;
         }
-        final ScoreGroupMetaPB scoreGroupMeta = scoreConfig.getScoreGroupMeta(scoreGroupCode);
+        final ScoreGroupMetaPB scoreGroupMeta = scoreMetaService
+            .getConfiguredScoreGroupMeta(scoreGroupCode);
         if (scoreGroupMeta == null) {
             log.error("Score group meta not found for scoreGroupCode: {}", scoreGroupCode);
             return SavePatientScoreResp.newBuilder()
@@ -914,7 +643,8 @@ public class ScoreService {
                 .build();
         }
 
-        final ScoreGroupMetaPB scoreGroupMeta = scoreConfig.getScoreGroupMeta(req.getScoreGroupCode());
+        final ScoreGroupMetaPB scoreGroupMeta = scoreMetaService
+            .getConfiguredScoreGroupMeta(req.getScoreGroupCode());
         if (scoreGroupMeta == null) {
             return CalcPatientScoreResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.SCORE_GROUP_NOT_FOUND))
@@ -959,495 +689,6 @@ public class ScoreService {
     }
 
     @Transactional
-    public GetOneScoreGroupMetaResp getOneScoreGroupMeta(String getOneScoreGroupMetaReqJson) {
-        final GetOneScoreGroupMetaReq req;
-
-        try {
-            req = ProtoUtils.parseJsonToProto(getOneScoreGroupMetaReqJson, GetOneScoreGroupMetaReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
-            return GetOneScoreGroupMetaResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        // 提取关键参数
-        String deptId = req.getDeptId();
-        String code = req.getCode();
-
-        // 查找对应的元数据
-        ScoreGroupMetaPB scoreGroupMeta = null;
-        DeptScoreGroup deptScoreGroup = deptScoreGroupRepo
-            .findByDeptIdAndScoreGroupCodeAndIsDeletedFalse(deptId, code)
-            .orElse(null);
-        if (deptScoreGroup != null) {
-            scoreGroupMeta = ProtoUtils.decodeScoreGroupMetaPB(deptScoreGroup.getScoreGroupMeta());
-        }
-        if (scoreGroupMeta == null) {
-            scoreGroupMeta = scoreConfig.getScoreGroupMeta(req.getCode());
-        }
-        if (scoreGroupMeta == null) {
-            return GetOneScoreGroupMetaResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.SCORE_GROUP_NOT_FOUND))
-                .build();
-        }
-
-        return GetOneScoreGroupMetaResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .setScoreGroupMeta(scoreGroupMeta)
-            .build();
-    }
-
-    @Transactional
-    public GenericResp updateScoreGroupMeta(String updateScoreGroupMetaReqJson) {
-        final UpdateScoreGroupMetaReq req;
-
-        try {
-            req = ProtoUtils.parseJsonToProto(updateScoreGroupMetaReqJson, UpdateScoreGroupMetaReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
-            log.error("Account ID is empty.");
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-        final String accountId = accountWithAutoId.getFirst();
-        LocalDateTime nowUtc = TimeUtils.getNowUtc();
-
-        // 提取关键参数
-        String deptId = req.getDeptId();
-        String code = req.getScoreGroupCode();
-        String name = req.getName();
-        Boolean measureMultiSelection = req.getMeasureMultiSelection();
-        String notes = req.getNotes();
-
-        // 查找元数据
-        DeptScoreGroup deptScoreGroup = deptScoreGroupRepo
-            .findByDeptIdAndScoreGroupCodeAndIsDeletedFalse(deptId, code)
-            .orElse(null);
-        ScoreGroupMetaPB scoreGroupMeta = null;
-        if (deptScoreGroup == null || StrUtils.isBlank(deptScoreGroup.getScoreGroupMeta())) {
-            scoreGroupMeta = scoreConfig.getScoreGroupMeta(code);
-        } else {
-            scoreGroupMeta = ProtoUtils.decodeScoreGroupMetaPB(deptScoreGroup.getScoreGroupMeta());
-        }
-        if (scoreGroupMeta == null) {
-            log.error("Failed to decode score group meta for deptId: {}, code: {}", deptId, code);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.DEPT_SCORE_GROUP_NOT_FOUND))
-                .build();
-        }
-
-        // 重新设置元数据
-        ScoreGroupMetaPB.Builder scoreGroupMetaBuilder = scoreGroupMeta.toBuilder();
-        if (req.getUpdateName()) {
-            scoreGroupMetaBuilder.setName(name);
-        }
-        if (req.getUpdateMeasureMultiSelection()) {
-            scoreGroupMetaBuilder.setMeasureMultiSelection(measureMultiSelection);
-        }
-        if (req.getUpdateNotes()) {
-            scoreGroupMetaBuilder.setNotes(notes);
-        }
-        scoreGroupMeta = scoreGroupMetaBuilder.build();
-
-        // 保存元数据
-        saveOrUpdateDeptScoreGroup(deptScoreGroup, deptId, code, scoreGroupMeta, accountId, nowUtc);
-
-        return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .build();
-    }
-
-    @Transactional
-    public GenericResp updateScoreItemName(String updateScoreItemNameReqJson) {
-        final UpdateScoreItemNameReq req;
-
-        try {
-            req = ProtoUtils.parseJsonToProto(updateScoreItemNameReqJson, UpdateScoreItemNameReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
-            log.error("Account ID is empty.");
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-        final String accountId = accountWithAutoId.getFirst();
-        LocalDateTime nowUtc = TimeUtils.getNowUtc();
-
-        // 提取关键参数
-        String deptId = req.getDeptId();
-        String groupCode = req.getScoreGroupCode();
-        String itemCode = req.getScoreItemCode();
-        String name = req.getName();
-
-        // 查找元数据
-        DeptScoreGroup deptScoreGroup = deptScoreGroupRepo
-            .findByDeptIdAndScoreGroupCodeAndIsDeletedFalse(deptId, groupCode)
-            .orElse(null);
-        ScoreGroupMetaPB scoreGroupMeta = null;
-        if (deptScoreGroup == null || StrUtils.isBlank(deptScoreGroup.getScoreGroupMeta())) {
-            scoreGroupMeta = scoreConfig.getScoreGroupMeta(groupCode);
-        } else {
-            scoreGroupMeta = ProtoUtils.decodeScoreGroupMetaPB(deptScoreGroup.getScoreGroupMeta());
-        }
-        if (scoreGroupMeta == null) {
-            log.error("Failed to decode score group meta for deptId: {}, code: {}", deptId, groupCode);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.DEPT_SCORE_GROUP_NOT_FOUND))
-                .build();
-        }
-
-        // 更新评分项
-        List<ScoreItemMetaPB> updatedItems = new ArrayList<>();
-        boolean itemFound = false;
-        for (ScoreItemMetaPB item : scoreGroupMeta.getItemList()) {
-            ScoreItemMetaPB newItem = item;
-            if (item.getCode().equals(itemCode)) {
-                itemFound = true;
-                newItem = item.toBuilder().setName(name).build();
-            }
-            updatedItems.add(newItem);
-        }
-        if (!itemFound) {
-            log.error("Score item not found for deptId: {}, groupCode: {}, itemCode: {}", deptId, groupCode, itemCode);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.SCORE_ITEM_NOT_FOUND))
-                .build();
-        }
-        scoreGroupMeta = scoreGroupMeta.toBuilder().clearItem().addAllItem(updatedItems).build();
-
-        // 保存评分元数据
-        scoreGroupMeta = scoreGroupMeta.toBuilder().clearItem().addAllItem(updatedItems).build();
-        saveOrUpdateDeptScoreGroup(deptScoreGroup, deptId, groupCode, scoreGroupMeta, accountId, nowUtc);
-
-        return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .build();
-    }
-
-    @Transactional
-    public GenericResp updateScoreOptionName(String updateScoreOptionNameReqJson) {
-        final UpdateScoreOptionNameReq req;
-
-        try {
-            req = ProtoUtils.parseJsonToProto(updateScoreOptionNameReqJson, UpdateScoreOptionNameReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
-            log.error("Account ID is empty.");
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-        final String accountId = accountWithAutoId.getFirst();
-        LocalDateTime nowUtc = TimeUtils.getNowUtc();
-
-        // 提取关键参数
-        String deptId = req.getDeptId();
-        String groupCode = req.getScoreGroupCode();
-        String itemCode = req.getScoreItemCode();
-        String optionCode = req.getScoreOptionCode();
-        String name = req.getName();
-
-        // 查找元数据
-        DeptScoreGroup deptScoreGroup = deptScoreGroupRepo
-            .findByDeptIdAndScoreGroupCodeAndIsDeletedFalse(deptId, groupCode)
-            .orElse(null);
-        ScoreGroupMetaPB scoreGroupMeta = null;
-        if (deptScoreGroup == null || StrUtils.isBlank(deptScoreGroup.getScoreGroupMeta())) {
-            scoreGroupMeta = scoreConfig.getScoreGroupMeta(groupCode);
-        } else {
-            scoreGroupMeta = ProtoUtils.decodeScoreGroupMetaPB(deptScoreGroup.getScoreGroupMeta());
-        }
-        if (scoreGroupMeta == null) {
-            log.error("Failed to decode score group meta for deptId: {}, code: {}", deptId, groupCode);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.DEPT_SCORE_GROUP_NOT_FOUND))
-                .build();
-        }
-
-        // 查找评分项
-        List<ScoreItemMetaPB> updatedItems = new ArrayList<>();
-        boolean optionFound = false;
-        for (ScoreItemMetaPB item : scoreGroupMeta.getItemList()) {
-            ScoreItemMetaPB newItem = item;
-            if (item.getCode().equals(itemCode)) {
-                // 查找评分选项
-                List<ScoreOptionPB> updatedOptions = new ArrayList<>();
-                for (ScoreOptionPB option : item.getOptionList()) {
-                    if (option.getCode().equals(optionCode)) {
-                        updatedOptions.add(option.toBuilder().setName(name).build());
-                        optionFound = true;
-                    } else {
-                        updatedOptions.add(option);
-                    }
-                }
-                newItem = item.toBuilder().clearOption().addAllOption(updatedOptions).build();
-            }
-            updatedItems.add(newItem);
-        }
-        if (!optionFound) {
-            log.error("Score option not found for deptId: {}, groupCode: {}, itemCode: {}, optionCode: {}",
-                deptId, groupCode, itemCode, optionCode);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.SCORE_OPTION_NOT_FOUND))
-                .build();
-        }
-        scoreGroupMeta = scoreGroupMeta.toBuilder().clearItem().addAllItem(updatedItems).build();
-
-        // 保存评分元数据
-        scoreGroupMeta = scoreGroupMeta.toBuilder().clearItem().addAllItem(updatedItems).build();
-        saveOrUpdateDeptScoreGroup(deptScoreGroup, deptId, groupCode, scoreGroupMeta, accountId, nowUtc);
-
-        return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .build();
-    }
-
-    @Transactional
-    public GenericResp addScoreGroupMeasureMeta(String addScoreGroupMeasureMetaReqJson) {
-        final AddScoreGroupMeasureMetaReq req;
-
-        try {
-            req = ProtoUtils.parseJsonToProto(addScoreGroupMeasureMetaReqJson, AddScoreGroupMeasureMetaReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
-            log.error("Account ID is empty.");
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-        final String accountId = accountWithAutoId.getFirst();
-        LocalDateTime nowUtc = TimeUtils.getNowUtc();
-
-        // 提取关键参数
-        String deptId = req.getDeptId();
-        String groupCode = req.getScoreGroupCode();
-        ScoreGroupMeasureMetaPB measurePb = req.getMeasure();
-
-        // 查找元数据
-        DeptScoreGroup deptScoreGroup = deptScoreGroupRepo
-            .findByDeptIdAndScoreGroupCodeAndIsDeletedFalse(deptId, groupCode)
-            .orElse(null);
-        ScoreGroupMetaPB scoreGroupMeta = null;
-        if (deptScoreGroup == null || StrUtils.isBlank(deptScoreGroup.getScoreGroupMeta())) {
-            scoreGroupMeta = scoreConfig.getScoreGroupMeta(groupCode);
-        } else {
-            scoreGroupMeta = ProtoUtils.decodeScoreGroupMetaPB(deptScoreGroup.getScoreGroupMeta());
-        }
-        if (scoreGroupMeta == null) {
-            log.error("Failed to decode score group meta for deptId: {}, code: {}", deptId, groupCode);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.DEPT_SCORE_GROUP_NOT_FOUND))
-                .build();
-        }
-
-        // 检查措施是否存在
-        int id = 1;
-        for (ScoreGroupMeasureMetaPB existingMeasure : scoreGroupMeta.getMeasureList()) {
-            if (existingMeasure.getName().equals(measurePb.getName())) {
-                log.error("Measure already exists for deptId: {}, groupCode: {}, measure: {}",
-                    deptId, groupCode, measurePb.getName());
-                return GenericResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.SCORE_GROUP_MEASURE_ALREADY_EXISTS))
-                    .build();
-            }
-            if (existingMeasure.getId() >= id) {
-                id = existingMeasure.getId() + 1;  // 确保新措施的ID唯一
-            }
-        }
-
-        // 新增措施并保存
-        scoreGroupMeta = scoreGroupMeta.toBuilder()
-            .addMeasure(measurePb.toBuilder().setId(id).build())
-            .build();
-        saveOrUpdateDeptScoreGroup(deptScoreGroup, deptId, groupCode, scoreGroupMeta, accountId, nowUtc);
-
-
-        return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .build();
-    }
-
-    @Transactional
-    public GenericResp updateScoreGroupMeasureMeta(String updateScoreGroupMeasureMetaReqJson) {
-        final UpdateScoreGroupMeasureMetaReq req;
-
-        try {
-            req = ProtoUtils.parseJsonToProto(updateScoreGroupMeasureMetaReqJson, UpdateScoreGroupMeasureMetaReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
-            log.error("Account ID is empty.");
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-        final String accountId = accountWithAutoId.getFirst();
-        LocalDateTime nowUtc = TimeUtils.getNowUtc();
-
-        // 提取关键参数
-        String deptId = req.getDeptId();
-        String groupCode = req.getScoreGroupCode();
-        ScoreGroupMeasureMetaPB measurePb = req.getMeasure();
-
-        // 查找元数据
-        DeptScoreGroup deptScoreGroup = deptScoreGroupRepo
-            .findByDeptIdAndScoreGroupCodeAndIsDeletedFalse(deptId, groupCode)
-            .orElse(null);
-        ScoreGroupMetaPB scoreGroupMeta = null;
-        if (deptScoreGroup == null || StrUtils.isBlank(deptScoreGroup.getScoreGroupMeta())) {
-            scoreGroupMeta = scoreConfig.getScoreGroupMeta(groupCode);
-        } else {
-            scoreGroupMeta = ProtoUtils.decodeScoreGroupMetaPB(deptScoreGroup.getScoreGroupMeta());
-        }
-        if (scoreGroupMeta == null) {
-            log.error("Failed to decode score group meta for deptId: {}, code: {}", deptId, groupCode);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.DEPT_SCORE_GROUP_NOT_FOUND))
-                .build();
-        }
-
-        // 检查措施是否存在
-        List<ScoreGroupMeasureMetaPB> updatedMeasures = new ArrayList<>();
-        boolean found = false;
-        for (ScoreGroupMeasureMetaPB existingMeasure : scoreGroupMeta.getMeasureList()) {
-            boolean toUpdate = existingMeasure.getId() == measurePb.getId();
-            updatedMeasures.add(toUpdate ? measurePb : existingMeasure);
-            if (toUpdate) {
-                found = true;
-            }
-        }
-        if (!found) {
-            log.error("Measure not found for deptId: {}, groupCode: {}, measure: {}",
-                deptId, groupCode, measurePb.getName());
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.SCORE_GROUP_MEASURE_NOT_FOUND))
-                .build();
-        }
-
-        // 新增措施并保存
-        scoreGroupMeta = scoreGroupMeta.toBuilder()
-            .clearMeasure().addAllMeasure(updatedMeasures).build();
-        saveOrUpdateDeptScoreGroup(deptScoreGroup, deptId, groupCode, scoreGroupMeta, accountId, nowUtc);
-
-        return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .build();
-    }
-
-    @Transactional
-    public GenericResp deleteScoreGroupMeasureMeta(String deleteScoreGroupMeasureMetaReqJson) {
-        final DeleteScoreGroupMeasureMetaReq req;
-
-        try {
-            req = ProtoUtils.parseJsonToProto(deleteScoreGroupMeasureMetaReqJson, DeleteScoreGroupMeasureMetaReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
-            log.error("Account ID is empty.");
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-        final String accountId = accountWithAutoId.getFirst();
-        LocalDateTime nowUtc = TimeUtils.getNowUtc();
-
-        // 提取关键参数
-        String deptId = req.getDeptId();
-        String groupCode = req.getScoreGroupCode();
-        String measureName = req.getMeasureName();
-
-        // 查找元数据
-        DeptScoreGroup deptScoreGroup = deptScoreGroupRepo
-            .findByDeptIdAndScoreGroupCodeAndIsDeletedFalse(deptId, groupCode)
-            .orElse(null);
-        ScoreGroupMetaPB scoreGroupMeta = null;
-        if (deptScoreGroup == null || StrUtils.isBlank(deptScoreGroup.getScoreGroupMeta())) {
-            scoreGroupMeta = scoreConfig.getScoreGroupMeta(groupCode);
-        } else {
-            scoreGroupMeta = ProtoUtils.decodeScoreGroupMetaPB(deptScoreGroup.getScoreGroupMeta());
-        }
-        if (scoreGroupMeta == null) {
-            log.error("Failed to decode score group meta for deptId: {}, code: {}", deptId, groupCode);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.DEPT_SCORE_GROUP_NOT_FOUND))
-                .build();
-        }
-
-        // 检查措施是否存在
-        List<ScoreGroupMeasureMetaPB> updatedMeasures = new ArrayList<>();
-        boolean found = false;
-        for (ScoreGroupMeasureMetaPB existingMeasure : scoreGroupMeta.getMeasureList()) {
-            if (existingMeasure.getName().equals(measureName)) {
-                found = true;
-            } else {
-                updatedMeasures.add(existingMeasure);
-            }
-        }
-        if (!found) {
-            log.error("Measure not found for deptId: {}, groupCode: {}, measure: {}",
-                deptId, groupCode, measureName);
-            return GenericResp.newBuilder().setRt(protoService.getReturnCode(StatusCode.OK)).build();
-        }
-
-        // 新增措施并保存
-        scoreGroupMeta = scoreGroupMeta.toBuilder()
-            .clearMeasure().addAllMeasure(updatedMeasures).build();
-        saveOrUpdateDeptScoreGroup(deptScoreGroup, deptId, groupCode, scoreGroupMeta, accountId, nowUtc);
-
-        return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .build();
-    }
-
-    @Transactional
     public Pair<ValueMetaPB, List<TimedGenericValuePB>> fetchScoreGroup(
         Long pid, String scoreGroupCode, LocalDateTime queryStartUtc, LocalDateTime queryEndUtc
     ) {
@@ -1455,7 +696,8 @@ public class ScoreService {
         queryEndUtc = queryEndUtc.isAfter(nowUtc) ? nowUtc : queryEndUtc;
 
         // Fetch score item metadata
-        ScoreGroupMetaPB scoreGroupMetaPb = scoreConfig.getScoreGroupMeta(scoreGroupCode);
+        ScoreGroupMetaPB scoreGroupMetaPb = scoreMetaService
+            .getConfiguredScoreGroupMeta(scoreGroupCode);
         if (scoreGroupMetaPb == null) {
             log.error("No score item meta found for code: {}: {}", scoreGroupCode);
             return null;
@@ -1484,38 +726,6 @@ public class ScoreService {
         return new Pair<>(valueMeta, origValues);
     }
 
-    private Integer saveOrUpdateDeptScoreGroup(
-        DeptScoreGroup deptScoreGroup, String deptId, String code,
-        ScoreGroupMetaPB scoreGroupMeta, String accountId, LocalDateTime nowUtc
-    ) {
-        String scoreGroupMetaStr = ProtoUtils.encodeScoreGroupMetaPB(scoreGroupMeta);
-        if (deptScoreGroup == null) {
-            // 查找displayOrder
-            Integer displayOrder = 1;
-            List<DeptScoreGroup> existingGroups = deptScoreGroupRepo.findByDeptIdAndIsDeletedFalse(deptId);
-            for (DeptScoreGroup group : existingGroups) {
-                if (group.getDisplayOrder() >= displayOrder) {
-                    displayOrder = group.getDisplayOrder() + 1;
-                }
-            }
-
-            // 设置displayOrder等
-            deptScoreGroup = DeptScoreGroup.builder()
-                .deptId(deptId)
-                .scoreGroupCode(code)
-                .scoreGroupMeta(scoreGroupMetaStr)
-                .displayOrder(displayOrder)
-                .isDeleted(false)
-                .build();
-        } else {
-            deptScoreGroup.setScoreGroupMeta(scoreGroupMetaStr);
-        }
-        deptScoreGroup.setModifiedBy(accountId);
-        deptScoreGroup.setModifiedAt(nowUtc);
-        deptScoreGroup = deptScoreGroupRepo.save(deptScoreGroup);
-        return deptScoreGroup.getId();
-    }
-
     private final String ZONE_ID;
     private final Integer SCORE_ITEM_TYPE_SINGLE_SELECTION;
     private final Integer SCORE_ITEM_TYPE_MULTI_SELECTION;
@@ -1527,18 +737,16 @@ public class ScoreService {
     private final Integer SCORE_GROUP_PRINTER_DEFAULT;
     private final Map<String, String> scoreCodeParamCodeMap;
     private final Map<String, MonitoringParamModalOptionsPB> paramCodeModalMap;
-    private final List<ScoreGroupMetaPB> allScoreGroupMeta;
 
     private final ConfigProtoService protoService;
     private final MonitoringConfig monitoringConfig;
     private final ScorePB scorePb;
-    private final ScoreConfig scoreConfig;
+    private final ScoreMetaService scoreMetaService;
     private final ScoreCalculator scoreCalculator;
     private final UserService userService;
     private final PatientService patientService;
     private final MonitoringRecordUtils monitoringRecordUtils;
     private final PatientNursingReportInvalidationService pnrUtils;
-    private final DeptScoreGroupRepository deptScoreGroupRepo;
     private final PatientScoreRepository patientScoreRepo;
     private final MonitoringParamRepository monitoringParamRepo;
     private final PatientMonitoringRecordRepository pmrRepo;

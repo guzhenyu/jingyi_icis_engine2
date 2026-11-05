@@ -31,6 +31,17 @@ public final class LockKeys {
         return "system_settings:" + functionId;
     }
 
+    // 协调科室评分组的新增、删除及显示顺序调整。
+    public static String deptScoreGroup(String deptId) {
+        StrUtils.requireNonBlank(deptId, "deptId");
+        return "dept_score_groups:" + deptId;
+    }
+
+    public static String deptScoreGroup(String deptId, String scoreGroupCode) {
+        StrUtils.requireNonBlank(scoreGroupCode, "scoreGroupCode");
+        return deptScoreGroup(deptId) + ":" + scoreGroupCode;
+    }
+
     /**
      * 护理记录
      */

@@ -30,7 +30,6 @@ import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.medications.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
-import com.jingyicare.jingyi_icis_engine.service.scores.*;
 import com.jingyicare.jingyi_icis_engine.service.users.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -42,7 +41,6 @@ public class SettingService {
         @Autowired UserService userService,
         @Autowired MedicationConfig medConfig,
         @Autowired MonitoringConfig monitoringConfig,
-        @Autowired ScoreConfig scoreConfig,  // nursing score
         @Autowired DeptSystemSettingsRepository deptSettingsRepo,
         @Autowired SystemSettingsRepository systemSettingsRepo,
         @Autowired DragableFormTemplateRepository formTemplateRepo,
@@ -54,7 +52,6 @@ public class SettingService {
         this.userService = userService;
         this.medConfig = medConfig;
         this.monitoringConfig = monitoringConfig;
-        this.scoreConfig = scoreConfig;
         this.deptSettingsRepo = deptSettingsRepo;
         this.systemSettingsRepo = systemSettingsRepo;
         this.formTemplateRepo = formTemplateRepo;
@@ -190,7 +187,7 @@ public class SettingService {
         MedOrderGroupSettingsPB medSettingsPb = medConfig.getMedOrderGroupSettings(deptId);
         DeptMonitoringSettingsPB monitoringSettingsPb = monitoringConfig.getDeptMonitoringSettings(deptId);
         NursingRecordSettingsPB nursingRecordSettingsPb = getNursingRecordSettings(deptId);
-        ScoreSettingsPB scoreSettingsPb = scoreConfig.getDeptScoreSettings(deptId);
+        ScoreSettingsPB scoreSettingsPb = getDeptScoreSettings(deptId);
         AppGeneralSettingsPB generalSettingsPb = loadGeneralSettings(deptId);
 
         return AppSettingsPB.newBuilder()
@@ -201,8 +198,7 @@ public class SettingService {
                 monitoringSettingsPb == null ? 0 : monitoringSettingsPb.getTailCustomTimePointGraceMinutes())
             .setNursingRecordOverwriteCreatedBy(
                 nursingRecordSettingsPb.getEnableUpdatingCreatedBy())
-            .setScoreAllowEditRecordedBy(
-                scoreSettingsPb != null && scoreSettingsPb.getAllowEditRecordedBy())
+            .setScoreAllowEditRecordedBy(scoreSettingsPb.getAllowEditRecordedBy())
             .setJfkUseNativePrint(generalSettingsPb.getJfkUseNativePrint())
             .setPrintAgentIpPort(generalSettingsPb.getPrintAgentIpPort())
             .setCheckFutureTime(generalSettingsPb.getCheckFutureTime())
@@ -314,17 +310,9 @@ public class SettingService {
 
         // 设置评分记录信息
         if (settingTypes.contains(AppSettingTypeEnum.AST_SCORE_ALLOW_EDIT_RECORDED_BY)) {
-            boolean allowEditRecordedBy = appSettingsPb.getScoreAllowEditRecordedBy();
-            ScoreSettingsPB scoreSettingsPb = scoreConfig.getDeptScoreSettings(deptId);
-            if (scoreSettingsPb == null) {
-                log.error("ScoreSettings not found for deptId {}", deptId);
-                scoreSettingsPb = ScoreSettingsPB.newBuilder().setDeptId(deptId)
-                    .setAllowEditRecordedBy(allowEditRecordedBy).build();
-            } else {
-                scoreSettingsPb = scoreSettingsPb.toBuilder()
-                    .setAllowEditRecordedBy(allowEditRecordedBy).build();
-            }
-            scoreConfig.setDeptScoreSettings(deptId, scoreSettingsPb, accountId);
+            ScoreSettingsPB scoreSettingsPb = getDeptScoreSettings(deptId).toBuilder()
+                .setAllowEditRecordedBy(appSettingsPb.getScoreAllowEditRecordedBy()).build();
+            saveDeptScoreSettings(deptId, scoreSettingsPb, accountId);
         }
 
         // 通用设置与CA开关共用同一个PB，使用读改写避免互相覆盖。
@@ -385,6 +373,43 @@ public class SettingService {
             deptId, SystemSettingFunctionId.GET_DEPT_NURSING_RECORD_SETTINGS.getNumber());
         DeptSystemSettings entity = deptSettingsRepo.findById(settingsId).orElse(null);
         String settingsStr = ProtoUtils.encodeNursingRecordSettings(settingsPb);
+        LocalDateTime nowUtc = TimeUtils.getNowUtc();
+        if (entity == null) {
+            entity = new DeptSystemSettings(settingsId, settingsStr, nowUtc, modifiedBy);
+        } else {
+            entity.setSettingsPb(settingsStr);
+            entity.setModifiedAt(nowUtc);
+            entity.setModifiedBy(modifiedBy);
+        }
+        deptSettingsRepo.save(entity);
+    }
+
+    public ScoreSettingsPB getDeptScoreSettings(String deptId) {
+        DeptSystemSettingsId settingsId = new DeptSystemSettingsId(
+            deptId, SystemSettingFunctionId.GET_DEPT_NURSING_SCORE_SETTINGS_VALUE);
+        DeptSystemSettings entity = deptSettingsRepo.findById(settingsId).orElse(null);
+        ScoreSettingsPB settingsPb = entity == null
+            ? null : ProtoUtils.decodeScoreSettings(entity.getSettingsPb());
+        return settingsPb == null ? ScoreSettingsPB.getDefaultInstance() : settingsPb;
+    }
+
+    public void setDeptScoreSettings(String deptId, ScoreSettingsPB settingsPb, String modifiedBy) {
+        String resourceKey = LockKeys.deptSystemSettings(
+            deptId, SystemSettingFunctionId.GET_DEPT_NURSING_SCORE_SETTINGS_VALUE);
+        lockExecutor.execute(List.of(resourceKey), () -> {
+            saveDeptScoreSettings(deptId, settingsPb, modifiedBy);
+            return null;
+        });
+    }
+
+    // 独立写入和批量设置更新共用此方法，调用方已持有评分设置锁及事务。
+    private void saveDeptScoreSettings(
+        String deptId, ScoreSettingsPB settingsPb, String modifiedBy
+    ) {
+        DeptSystemSettingsId settingsId = new DeptSystemSettingsId(
+            deptId, SystemSettingFunctionId.GET_DEPT_NURSING_SCORE_SETTINGS_VALUE);
+        DeptSystemSettings entity = deptSettingsRepo.findById(settingsId).orElse(null);
+        String settingsStr = ProtoUtils.encodeScoreSettings(settingsPb);
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
         if (entity == null) {
             entity = new DeptSystemSettings(settingsId, settingsStr, nowUtc, modifiedBy);
@@ -491,7 +516,6 @@ public class SettingService {
     private final UserService userService;
     private final MedicationConfig medConfig;
     private final MonitoringConfig monitoringConfig;
-    private final ScoreConfig scoreConfig;
     private final DeptSystemSettingsRepository deptSettingsRepo;
     private final SystemSettingsRepository systemSettingsRepo;
     private final DragableFormTemplateRepository formTemplateRepo;

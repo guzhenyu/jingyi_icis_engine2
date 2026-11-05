@@ -35,7 +35,6 @@ import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.medications.MedicationConfig;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
-import com.jingyicare.jingyi_icis_engine.service.scores.ScoreConfig;
 import com.jingyicare.jingyi_icis_engine.service.users.UserService;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
@@ -61,7 +60,6 @@ class SettingServiceTests {
             userService,
             mock(MedicationConfig.class),
             mock(MonitoringConfig.class),
-            mock(ScoreConfig.class),
             deptSettingsRepo,
             mock(SystemSettingsRepository.class),
             mock(DragableFormTemplateRepository.class),
