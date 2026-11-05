@@ -29,7 +29,6 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class NursingRecordServiceTests extends TestsBase {
     public NursingRecordServiceTests(
         @Autowired ConfigProtoService protoService,
-        @Autowired NursingRecordConfig recordConfig,
         @Autowired NursingRecordService recordService,
         @Autowired NursingOrderTemplateService templateService,
         @Autowired NursingRecordTemplateGroupRepository templateGroupRepo,
@@ -46,7 +45,6 @@ public class NursingRecordServiceTests extends TestsBase {
 
         this.protoService = protoService;
         this.configPb = protoService.getConfig().getNursingRecord();
-        this.recordConfig = recordConfig;
         this.recordService = recordService;
         this.templateService = templateService;
         this.templateGroupRepo = templateGroupRepo;
@@ -334,7 +332,7 @@ public class NursingRecordServiceTests extends TestsBase {
         dept3.setDeptName("dept-3");
         deptRepo.save(dept3);
 
-        recordConfig.initialize();
+        templateService.initDeptTemplateGroups();
     }
 
     private final String ZONE_ID;
@@ -345,7 +343,6 @@ public class NursingRecordServiceTests extends TestsBase {
 
     private final ConfigProtoService protoService;
     private final NursingRecordConfigPB configPb;
-    private final NursingRecordConfig recordConfig;
     private final NursingRecordService recordService;
     private final NursingOrderTemplateService templateService;
     private final NursingRecordTemplateGroupRepository templateGroupRepo;

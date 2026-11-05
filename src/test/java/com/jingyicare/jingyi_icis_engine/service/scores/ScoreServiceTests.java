@@ -29,7 +29,6 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class ScoreServiceTests extends TestsBase {
     public ScoreServiceTests(
         @Autowired ConfigProtoService protoService,
-        @Autowired ScoreConfig scoreConfig,
         @Autowired ScoreService scoreService,
         @Autowired ScoreMetaService scoreMetaService,
         @Autowired PatientScoreRepository patientScoreRepo,
@@ -41,7 +40,6 @@ public class ScoreServiceTests extends TestsBase {
         this.deptId = "10014";
         this.deptId2 = "10015";
         this.protoService = protoService;
-        this.scoreConfig = scoreConfig;
         this.scoreService = scoreService;
         this.scoreMetaService = scoreMetaService;
         this.patientScoreRepo = patientScoreRepo;
@@ -433,7 +431,8 @@ public class ScoreServiceTests extends TestsBase {
         dept2.setDeptName("dept-2");
         rbacDepartmentRepo.save(dept2);
 
-        scoreConfig.initialize();
+        scoreMetaService.initDept(deptId);
+        scoreMetaService.initDept(deptId2);
     }
 
     private void initPatient() {
@@ -453,7 +452,6 @@ public class ScoreServiceTests extends TestsBase {
     private Long pid;
 
     private final ConfigProtoService protoService;
-    private final ScoreConfig scoreConfig;
     private final ScoreService scoreService;
     private final ScoreMetaService scoreMetaService;
     private final PatientScoreRepository patientScoreRepo;

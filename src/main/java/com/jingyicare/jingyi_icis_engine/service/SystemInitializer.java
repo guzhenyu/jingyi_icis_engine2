@@ -1,5 +1,8 @@
 package com.jingyicare.jingyi_icis_engine.service;
 
+import java.util.List;
+import java.util.Set;
+
 import javax.annotation.PostConstruct;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -10,12 +13,15 @@ import lombok.extern.slf4j.Slf4j;
 
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
+import com.jingyicare.jingyi_icis_engine.entity.users.RbacDepartment;
+import com.jingyicare.jingyi_icis_engine.repository.scores.DeptScoreGroupRepository;
+import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
 import com.jingyicare.jingyi_icis_engine.service.doctors.DoctorConfig;
 import com.jingyicare.jingyi_icis_engine.service.lis.LisConfig;
 import com.jingyicare.jingyi_icis_engine.service.medications.MedicationConfig;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
-import com.jingyicare.jingyi_icis_engine.service.nursingrecords.NursingRecordConfig;
-import com.jingyicare.jingyi_icis_engine.service.scores.ScoreConfig;
+import com.jingyicare.jingyi_icis_engine.service.nursingrecords.NursingOrderTemplateService;
+import com.jingyicare.jingyi_icis_engine.service.scores.ScoreMetaService;
 import com.jingyicare.jingyi_icis_engine.service.shifts.ConfigShiftService;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientConfig;
 import com.jingyicare.jingyi_icis_engine.service.certs.CertificateService;
@@ -33,8 +39,10 @@ public class SystemInitializer {
         @Autowired PatientConfig patientConfig,
         @Autowired MedicationConfig medicationConfig,
         @Autowired MonitoringConfig monitoringConfig,
-        @Autowired ScoreConfig scoreConfig,
-        @Autowired NursingRecordConfig nursingRecordConfig,
+        @Autowired ScoreMetaService scoreMetaService,
+        @Autowired DeptScoreGroupRepository deptScoreGroupRepo,
+        @Autowired RbacDepartmentRepository departmentRepo,
+        @Autowired NursingOrderTemplateService nursingOrderTemplateService,
         @Autowired DoctorConfig doctorConfig,
         @Autowired LisConfig lisConfig,
         @Autowired CertificateService certificateService
@@ -46,8 +54,10 @@ public class SystemInitializer {
         this.patientConfig = patientConfig;
         this.medicationConfig = medicationConfig;
         this.monitoringConfig = monitoringConfig;
-        this.scoreConfig = scoreConfig;
-        this.nursingRecordConfig = nursingRecordConfig;
+        this.scoreMetaService = scoreMetaService;
+        this.deptScoreGroupRepo = deptScoreGroupRepo;
+        this.departmentRepo = departmentRepo;
+        this.nursingOrderTemplateService = nursingOrderTemplateService;
         this.doctorConfig = doctorConfig;
         this.lisConfig = lisConfig;
         this.certificateService = certificateService;
@@ -62,8 +72,8 @@ public class SystemInitializer {
         userConfig.initialize();
         patientConfig.initialize();
         medicationConfig.initialize();
-        scoreConfig.initialize();
-        nursingRecordConfig.initialize();
+        initializeDeptScoreGroups();
+        nursingOrderTemplateService.initDeptTemplateGroups();
         doctorConfig.initialize();
         lisConfig.initialize();
         log.info("Init system");
@@ -78,8 +88,6 @@ public class SystemInitializer {
         patientConfig.checkIntegrity();
         medicationConfig.checkIntegrity();
         monitoringConfig.checkIntegrity();
-        scoreConfig.checkIntegrity();
-        nursingRecordConfig.checkIntegrity();
         doctorConfig.checkIntegrity();
         log.info("Checking system consistency");
 
@@ -87,13 +95,30 @@ public class SystemInitializer {
         patientConfig.refresh();
         medicationConfig.refresh();
         monitoringConfig.refresh();
-        scoreConfig.refresh();
-        nursingRecordConfig.refresh();
         doctorConfig.refresh();
         log.info("Refreshed system");
 
         certificateService.validateStartupOrThrow();
         log.info("Certificate and ICIS department scope checked");
+    }
+
+    private void initializeDeptScoreGroups() {
+        List<String> departmentIds = departmentRepo.findAll()
+            .stream()
+            .map(RbacDepartment::getDeptId)
+            .toList();
+        Set<String> existingDeptIds = deptScoreGroupRepo.findAllDeptIds();
+
+        for (String deptId : departmentIds) {
+            if (existingDeptIds.contains(deptId)) {
+                log.info("Department score groups already exist for deptId: {}", deptId);
+                continue;
+            }
+
+            scoreMetaService.initDept(deptId);
+        }
+
+        log.info("Department score groups initialization completed.");
     }
 
     private ConfigurableApplicationContext context;
@@ -103,8 +128,10 @@ public class SystemInitializer {
     private PatientConfig patientConfig;
     private MedicationConfig medicationConfig;
     private MonitoringConfig monitoringConfig;
-    private ScoreConfig scoreConfig;
-    private NursingRecordConfig nursingRecordConfig;
+    private ScoreMetaService scoreMetaService;
+    private DeptScoreGroupRepository deptScoreGroupRepo;
+    private RbacDepartmentRepository departmentRepo;
+    private NursingOrderTemplateService nursingOrderTemplateService;
     private DoctorConfig doctorConfig;
     private LisConfig lisConfig;
     private CertificateService certificateService;

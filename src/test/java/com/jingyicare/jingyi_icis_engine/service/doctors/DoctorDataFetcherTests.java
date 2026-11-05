@@ -38,7 +38,6 @@ public class DoctorDataFetcherTests extends TestsBase {
         @Autowired ConfigProtoService protoService,
         @Autowired MonitoringService monitoringService,
         @Autowired PatientMonitoringService patientMonitoringService,
-        @Autowired ScoreConfig scoreConfig,
         @Autowired ScoreService scoreService,
         @Autowired ScoreMetaService scoreMetaService,
         @Autowired TubeService tubeService,
@@ -56,7 +55,6 @@ public class DoctorDataFetcherTests extends TestsBase {
         this.protoService = protoService;
         this.monitoringService = monitoringService;
         this.patientMonitoringService = patientMonitoringService;
-        this.scoreConfig = scoreConfig;
         this.scoreService = scoreService;
         this.scoreMetaService = scoreMetaService;
         this.tubeService = tubeService;
@@ -434,7 +432,6 @@ public class DoctorDataFetcherTests extends TestsBase {
     private final ConfigProtoService protoService;
     private final MonitoringService monitoringService;
     private final PatientMonitoringService patientMonitoringService;
-    private final ScoreConfig scoreConfig;
     private final ScoreService scoreService;
     private final ScoreMetaService scoreMetaService;
     private final TubeService tubeService;
