@@ -338,9 +338,14 @@ class MonitoringMetaServiceTests extends TestsBase {
     void concurrentDeletesPreserveExpectedHistory(boolean department) throws Exception {
         MonitoringParam original = seedParam();
         DeptMonitoringParam deptParam = department ? seedDeptParam(original) : null;
+        String contentionKey = department
+            ? LockKeys.deptMonitoringParams(DEPT_ID, FIRST_CODE) : LockKeys.monitoringParam();
+        List<String> expectedKeys = department
+            ? List.of(LockKeys.monitoringParam(), contentionKey)
+            : List.of(LockKeys.monitoringParam());
         Supplier<Integer> delete = () -> service.deleteMonitoringParam(deleteRequest(department))
             .getRt().getCode();
-        assertThat(runContending(delete, delete))
+        assertThat(runContending(List.of(contentionKey), delete, delete))
             .containsExactly(StatusCode.OK_VALUE, StatusCode.OK_VALUE);
 
         assertThat(historyCount()).isEqualTo(department ? 0 : 1);
@@ -357,7 +362,7 @@ class MonitoringMetaServiceTests extends TestsBase {
             assertThat(history.getTypePb()).isEqualTo(original.getTypePb());
             assertThat(history.getName()).isEqualTo(original.getName());
         }
-        verify(serviceExecutor, times(2)).execute(eq(List.of(LockKeys.monitoringParam())), any());
+        verify(serviceExecutor, times(2)).execute(eq(expectedKeys), any());
     }
 
     @Test
@@ -547,21 +552,26 @@ class MonitoringMetaServiceTests extends TestsBase {
     }
 
     private <T> List<T> runContending(Supplier<T> first, Supplier<T> second) throws Exception {
+        return runContending(List.of(LockKeys.monitoringParam()), first, second);
+    }
+
+    private <T> List<T> runContending(
+        List<String> heldKeys, Supplier<T> first, Supplier<T> second
+    ) throws Exception {
         CountDownLatch locked = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
         ExecutorService pool = Executors.newFixedThreadPool(3);
         try {
-            Future<?> holder = pool.submit(() -> executor.execute(
-                List.of(LockKeys.monitoringParam()), () -> {
-                    locked.countDown();
-                    try {
-                        assertTrue(release.await(30, TimeUnit.SECONDS), "等待释放业务锁超时");
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        throw new IllegalStateException(e);
-                    }
-                    return null;
-                }));
+            Future<?> holder = pool.submit(() -> executor.execute(heldKeys, () -> {
+                locked.countDown();
+                try {
+                    assertTrue(release.await(30, TimeUnit.SECONDS), "等待释放业务锁超时");
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new IllegalStateException(e);
+                }
+                return null;
+            }));
             assertTrue(locked.await(10, TimeUnit.SECONDS), "未取得观察参数业务锁");
             Future<T> firstResult = pool.submit(first::get);
             Future<T> secondResult = pool.submit(second::get);
@@ -619,8 +629,11 @@ class MonitoringMetaServiceTests extends TestsBase {
     private List<String> monitoringLockKeys() {
         return jdbcTemplate.queryForList("""
             SELECT resource_key FROM app_transaction_locks
-            WHERE resource_key = ? OR resource_key LIKE ? ORDER BY resource_key
-            """, String.class, LockKeys.monitoringParam(), LockKeys.monitoringParam() + ":%");
+            WHERE resource_key = ? OR resource_key LIKE ? OR resource_key IN (?, ?)
+            ORDER BY resource_key
+            """, String.class, LockKeys.monitoringParam(), LockKeys.monitoringParam() + ":%",
+            LockKeys.deptMonitoringParams(DEPT_ID, FIRST_CODE),
+            LockKeys.deptMonitoringParams(DEPT_ID, SECOND_CODE));
     }
 
     private void cleanParams() {
@@ -632,7 +645,10 @@ class MonitoringMetaServiceTests extends TestsBase {
             FIRST_CODE, SECOND_CODE);
         jdbcTemplate.update("""
             DELETE FROM app_transaction_locks WHERE resource_key = ? OR resource_key LIKE ?
-            """, LockKeys.monitoringParam(), LockKeys.monitoringParam() + ":%");
+              OR resource_key IN (?, ?)
+            """, LockKeys.monitoringParam(), LockKeys.monitoringParam() + ":%",
+            LockKeys.deptMonitoringParams(DEPT_ID, FIRST_CODE),
+            LockKeys.deptMonitoringParams(DEPT_ID, SECOND_CODE));
     }
 
     private static final String ACCOUNT = "monitoring-meta-tests-user";

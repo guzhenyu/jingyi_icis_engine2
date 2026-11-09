@@ -210,7 +210,11 @@ public class MonitoringMetaService {
         final String accountId = accountWithAutoId.getFirst();
 
         try {
-            return lockExecutor.execute(List.of(LockKeys.monitoringParam()), () -> {
+            List<String> lockKeys = departmentId.isEmpty()
+                ? List.of(LockKeys.monitoringParam())
+                : List.of(LockKeys.monitoringParam(),
+                    LockKeys.deptMonitoringParams(departmentId, code));
+            return lockExecutor.execute(lockKeys, () -> {
                 if (!departmentId.isEmpty()) {
                     Optional<DeptMonitoringParam> optionalDeptParam =
                         deptMonitoringParamRepository.findByIdDeptIdAndIdCode(departmentId, code);

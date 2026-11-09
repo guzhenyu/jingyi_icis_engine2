@@ -32,6 +32,25 @@ class LockKeysTests {
     }
 
     @Test
+    void shouldScopeDeptMonitoringParamKeysToDepartmentAndCode() {
+        assertThat(LockKeys.deptMonitoringParams("icu", "hr"))
+            .isEqualTo("dept_monitoring_params:icu:hr")
+            .isNotEqualTo(LockKeys.deptMonitoringParams("other-icu", "hr"))
+            .isNotEqualTo(LockKeys.deptMonitoringParams("icu", "rr"))
+            .isNotEqualTo(LockKeys.monitoringParam());
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "\t\n"})
+    void shouldRejectMissingDeptMonitoringParamKeyParts(String invalid) {
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> LockKeys.deptMonitoringParams(invalid, "hr"));
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> LockKeys.deptMonitoringParams("icu", invalid));
+    }
+
+    @Test
     void shouldScopeScoreKeysToDepartmentAndCode() {
         assertThat(LockKeys.deptScoreGroup("icu"))
             .isEqualTo("dept_score_groups:icu");

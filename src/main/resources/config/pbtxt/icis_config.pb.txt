@@ -1496,7 +1496,7 @@ monitoring {
         }
     }
 
-   monitoring_param {
+    monitoring_param {
         code: "hr"
         name: "心率"
         value_meta {

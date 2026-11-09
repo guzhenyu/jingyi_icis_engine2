@@ -36,6 +36,12 @@ public final class LockKeys {
         return "monitoring_params";
     }
 
+    public static String deptMonitoringParams(String deptId, String paramCode) {
+        StrUtils.requireNonBlank(deptId, "deptId");
+        StrUtils.requireNonBlank(paramCode, "paramCode");
+        return "dept_monitoring_params:" + deptId + ":" + paramCode;
+    }
+
     public static String bgaParam(String deptId) {
         StrUtils.requireNonBlank(deptId, "deptId");
         return "bga_params:" + deptId;
