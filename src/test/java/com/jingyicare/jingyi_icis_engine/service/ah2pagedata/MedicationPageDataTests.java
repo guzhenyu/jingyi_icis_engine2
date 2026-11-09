@@ -35,7 +35,7 @@ import com.jingyicare.jingyi_icis_engine.repository.reports.PatientNursingReport
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.medications.MedicationConfig;
 import com.jingyicare.jingyi_icis_engine.service.medications.MedicationService;
-import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringMetaService;
 import com.jingyicare.jingyi_icis_engine.testutils.MedicationTestUtils;
 import com.jingyicare.jingyi_icis_engine.testutils.PatientTestUtils;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
@@ -54,7 +54,7 @@ public class MedicationPageDataTests extends TestsBase {
         @Autowired ConfigProtoService protoService,
         @Autowired MedicationConfig medConfig,
         @Autowired MedicationService medService,
-        @Autowired MonitoringConfig monitoringConfig,
+        @Autowired MonitoringMetaService monitoringMetaService,
         @Autowired MedicationRepository medRepo,
         @Autowired MedicationOrderGroupRepository medOrdGroupRepo,
         @Autowired MedicationExecutionRecordRepository medExeRecRepo,
@@ -91,7 +91,6 @@ public class MedicationPageDataTests extends TestsBase {
 
         this.medConfig = medConfig;
         this.medService = medService;
-        this.monitoringConfig = monitoringConfig;
         this.medRepo = medRepo;
         this.medOrdGroupRepo = medOrdGroupRepo;
         this.medExeRecRepo = medExeRecRepo;
@@ -107,7 +106,7 @@ public class MedicationPageDataTests extends TestsBase {
         this.medTestUtils = new MedicationTestUtils(protoService.getConfig().getMedication(), freqRepo);
         this.patientTestUtils = new PatientTestUtils();
 
-        monitoringConfig.initialize();
+        monitoringMetaService.initMonitoringParams();
         medTestUtils.initFreqRepo();
         initMedOrderGroupSettings();
         initRoutes();
@@ -406,7 +405,6 @@ public class MedicationPageDataTests extends TestsBase {
 
     private final MedicationConfig medConfig;
     private final MedicationService medService;
-    private final MonitoringConfig monitoringConfig;
     private final MedicationRepository medRepo;
     private final MedicationOrderGroupRepository medOrdGroupRepo;
     private final MedicationExecutionRecordRepository medExeRecRepo;

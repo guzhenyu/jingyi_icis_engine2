@@ -35,6 +35,7 @@ public class PatientTubeServiceTests extends TestsBase {
         @Autowired TubeSetting tubeSetting,
         @Autowired TubeService tubeService,
         @Autowired MonitoringConfig monitoringConfig,
+        @Autowired MonitoringMetaService monitoringMetaService,
         @Autowired MonitoringService monitoringService,
         @Autowired TubeTypeRepository tubeTypeRepo,
         @Autowired TubeTypeAttributeRepository tubeTypeAttrRepo,
@@ -73,6 +74,7 @@ public class PatientTubeServiceTests extends TestsBase {
         this.tubeSetting = tubeSetting;
         this.tubeService = tubeService;
         this.monitoringConfig = monitoringConfig;
+        this.monitoringMetaService = monitoringMetaService;
         this.monitoringService = monitoringService;
         this.tubeTypeRepo = tubeTypeRepo;
         this.tubeTypeAttrRepo = tubeTypeAttrRepo;
@@ -790,7 +792,7 @@ public class PatientTubeServiceTests extends TestsBase {
         dept1.setDeptId(deptId);
         dept1.setDeptName("dept-1");
         rbacDepartmentRepo.save(dept1);
-        monitoringConfig.initialize();
+        monitoringMetaService.initMonitoringParams();
     }
 
     private static final Lock lock = new ReentrantLock();
@@ -832,6 +834,7 @@ public class PatientTubeServiceTests extends TestsBase {
     private final TubeSetting tubeSetting;
     private final TubeService tubeService;
     private final MonitoringConfig monitoringConfig;
+    private final MonitoringMetaService monitoringMetaService;
     private final MonitoringService monitoringService;
     private final TubeTypeRepository tubeTypeRepo;
     private final TubeTypeAttributeRepository tubeTypeAttrRepo;

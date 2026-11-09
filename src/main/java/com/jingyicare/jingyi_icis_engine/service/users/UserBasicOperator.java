@@ -27,7 +27,9 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.*;
 import com.jingyicare.jingyi_icis_engine.entity.users.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
 import com.jingyicare.jingyi_icis_engine.service.*;
-import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.BgaMetaService;
+import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
+import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Service
@@ -49,7 +51,8 @@ public class UserBasicOperator {
         @Autowired RbacDepartmentAccountRoleRepository deptAccountRoleRepo,
         @Autowired RbacDepartmentAccountPermissionRepository deptAccountPermRepo,
         @Autowired Encoder encoder,
-        @Autowired MonitoringConfig monitoringConfig
+        @Autowired BgaMetaService bgaMetaService,
+        @Autowired LockExecutor lockExecutor
     ) {
         this.ADMIN_ACCOUNT_ID = protoService.getConfig().getUser().getAdminAccountId();
         this.permRepo = permRepo;
@@ -67,7 +70,8 @@ public class UserBasicOperator {
         this.deptAccountPermRepo = deptAccountPermRepo;
 
         this.encoder = encoder.get();
-        this.monitoringConfig = monitoringConfig;
+        this.bgaMetaService = bgaMetaService;
+        this.lockExecutor = lockExecutor;
     }
 
     @Transactional
@@ -476,7 +480,6 @@ public class UserBasicOperator {
             .toList();
     }
 
-    @Transactional
     public StatusCode addDepartment(DepartmentPB deptPb) {
         return addDepartment(
             deptPb.getId(), deptPb.getName(), deptPb.getAbbreviation(),
@@ -485,8 +488,19 @@ public class UserBasicOperator {
         );
     }
 
-    @Transactional
     public StatusCode addDepartment(
+        String deptId, String deptName, String abbreviation,
+        String wardCode, String wardName, String hospitalName,
+        String modifiedBy
+    ) {
+        StatusCode statusCode = lockExecutor.execute(
+            List.of(LockKeys.department(deptId)), () -> addDepartmentInTransaction(
+                deptId, deptName, abbreviation, wardCode, wardName, hospitalName, modifiedBy));
+        if (statusCode == StatusCode.OK) bgaMetaService.initBgaParams(deptId);
+        return statusCode;
+    }
+
+    private StatusCode addDepartmentInTransaction(
         String deptId, String deptName, String abbreviation,
         String wardCode, String wardName, String hospitalName,
         String modifiedBy
@@ -518,9 +532,6 @@ public class UserBasicOperator {
 
         // 处理部门表
         addOrUpdateRbacDept(deptId, deptName);
-
-        // 初始化部门
-        monitoringConfig.getBgaParamList(deptId);
 
         return StatusCode.OK;
     }
@@ -1223,5 +1234,6 @@ public class UserBasicOperator {
     private RbacDepartmentAccountPermissionRepository deptAccountPermRepo;
 
     private BCryptPasswordEncoder encoder;
-    private MonitoringConfig monitoringConfig;
+    private final BgaMetaService bgaMetaService;
+    private final LockExecutor lockExecutor;
 }

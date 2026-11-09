@@ -31,6 +31,16 @@ public final class LockKeys {
         return "system_settings:" + functionId;
     }
 
+    // 协调观察参数的初始化、增删改及显示顺序分配。
+    public static String monitoringParam() {
+        return "monitoring_params";
+    }
+
+    public static String bgaParam(String deptId) {
+        StrUtils.requireNonBlank(deptId, "deptId");
+        return "bga_params:" + deptId;
+    }
+
     // 协调科室评分组的新增、删除及显示顺序调整。
     public static String deptScoreGroup(String deptId) {
         StrUtils.requireNonBlank(deptId, "deptId");

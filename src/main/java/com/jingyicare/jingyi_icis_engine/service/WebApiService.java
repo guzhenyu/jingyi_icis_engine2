@@ -58,6 +58,7 @@ public class WebApiService {
         @Autowired TubeService tubeService,
         @Autowired PatientTubeService patientTubeService,
         @Autowired MonitoringService monitoringService,
+        @Autowired MonitoringMetaService monitoringMetaService,
         @Autowired MedicationService medicationService,
         @Autowired PatientMonitoringService patientMonitoringService,
         @Autowired BgaService bgaService,
@@ -97,6 +98,7 @@ public class WebApiService {
         this.tubeService = tubeService;
         this.patientTubeService = patientTubeService;
         this.monitoringService = monitoringService;
+        this.monitoringMetaService = monitoringMetaService;
         this.medicationService = medicationService;
         this.patientMonitoringService = patientMonitoringService;
         this.bgaService = bgaService;
@@ -546,19 +548,19 @@ public class WebApiService {
     }
 
     public GenericResp addMonitoringParam(String addMonitoringParamReqJson) {
-        GenericResp resp = monitoringService.addMonitoringParam(addMonitoringParamReqJson);
+        GenericResp resp = monitoringMetaService.addMonitoringParam(addMonitoringParamReqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
 
     public GenericResp updateMonitoringParam(String addMonitoringParamReqJson) {
-        GenericResp resp = monitoringService.updateMonitoringParam(addMonitoringParamReqJson);
+        GenericResp resp = monitoringMetaService.updateMonitoringParam(addMonitoringParamReqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
 
     public GenericResp deleteMonitoringParam(String deleteMonitoringParamReqJson) {
-        GenericResp resp = monitoringService.deleteMonitoringParam(deleteMonitoringParamReqJson);
+        GenericResp resp = monitoringMetaService.deleteMonitoringParam(deleteMonitoringParamReqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
@@ -2177,6 +2179,7 @@ public class WebApiService {
     private TubeService tubeService;
     private PatientTubeService patientTubeService;
     private MonitoringService monitoringService;
+    private final MonitoringMetaService monitoringMetaService;
     private MedicationService medicationService;
     private PatientMonitoringService patientMonitoringService;
     private BgaService bgaService;

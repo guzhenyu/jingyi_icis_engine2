@@ -13,6 +13,25 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class LockKeysTests {
     @Test
+    void shouldScopeBgaParamKeysToDepartment() {
+        assertThat(LockKeys.bgaParam("icu")).isEqualTo("bga_params:icu")
+            .isNotEqualTo(LockKeys.bgaParam("other-icu"))
+            .isNotEqualTo(LockKeys.department("icu"));
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "\t\n"})
+    void shouldRejectMissingBgaDepartment(String invalid) {
+        assertThatIllegalArgumentException().isThrownBy(() -> LockKeys.bgaParam(invalid));
+    }
+
+    @Test
+    void shouldUseSharedMonitoringParamListKey() {
+        assertThat(LockKeys.monitoringParam()).isEqualTo("monitoring_params");
+    }
+
+    @Test
     void shouldScopeScoreKeysToDepartmentAndCode() {
         assertThat(LockKeys.deptScoreGroup("icu"))
             .isEqualTo("dept_score_groups:icu");

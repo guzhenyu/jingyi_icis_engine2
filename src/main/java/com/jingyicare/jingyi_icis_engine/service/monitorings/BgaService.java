@@ -77,7 +77,6 @@ public class BgaService {
         this.rawBgaRecordDetailRepository = rawBgaRecordDetailRepo;
     }
 
-    @Transactional
     public GetBgaParamsResp getBgaParams(String getBgaParamsReqJson) {
         final GetBgaParamsReq req;
         try {
@@ -93,7 +92,9 @@ public class BgaService {
 
         final String deptId = req.getDeptId();
         List<BgaParamPB> bgaParamPbs = new ArrayList<>();
-        for (BgaParam bgaParam : monitoringConfig.getBgaParamList(deptId)) {
+        for (BgaParam bgaParam : bgaParamRepository
+            .findByDeptIdAndIsDeletedFalseOrderByDisplayOrder(deptId)
+        ) {
             MonitoringParamPB monitoringParamPb = monitoringConfig.getMonitoringParam(
                 deptId, bgaParam.getMonitoringParamCode()
             );
@@ -1355,7 +1356,10 @@ public class BgaService {
 
     private Map<String, List<String>> getLisResultCodeToMonitoringParamCodes(String deptId) {
         Map<String, List<String>> resultCodeMap = new LinkedHashMap<>();
-        for (BgaParam bgaParam : monitoringConfig.getBgaParamList(deptId)) {
+        // 同步只读取已有 LIS 映射，默认参数补齐由血气元数据入口负责。
+        for (BgaParam bgaParam : bgaParamRepository
+            .findByDeptIdAndIsDeletedFalseOrderByDisplayOrder(deptId)
+        ) {
             String lisResultCode = normalizeNullableString(bgaParam.getLisResultCode());
             if (StrUtils.isBlank(lisResultCode)) continue;
             resultCodeMap.computeIfAbsent(lisResultCode, key -> new ArrayList<>())

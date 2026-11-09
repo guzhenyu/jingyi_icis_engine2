@@ -6,7 +6,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -50,7 +49,7 @@ import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 public class BgaServiceTests extends TestsBase {
     public BgaServiceTests(
         @Autowired ConfigProtoService protoService,
-        @Autowired MonitoringConfig monitoringConfig,
+        @Autowired MonitoringMetaService monitoringMetaService,
         @Autowired BgaService bgaService,
         @Autowired BgaParamRepository bgaParamRepository,
         @Autowired BgaCategoryMappingRepository bgaCategoryMappingRepository,
@@ -66,7 +65,7 @@ public class BgaServiceTests extends TestsBase {
     ) {
         this.accountId = "admin";
         this.protoService = protoService;
-        this.monitoringConfig = monitoringConfig;
+        this.monitoringMetaService = monitoringMetaService;
         this.bgaService = bgaService;
         this.bgaParamRepository = bgaParamRepository;
         this.bgaCategoryMappingRepository = bgaCategoryMappingRepository;
@@ -82,21 +81,22 @@ public class BgaServiceTests extends TestsBase {
     }
 
     @Test
-    public void testGetBgaParamsInitializesDefaults() {
+    public void testGetBgaParamsOnlyReadsExistingParams() {
         setCurrentUser();
-        Assumptions.assumeFalse(protoService.getConfig().getBga().getBgaParamCodeList().isEmpty());
         String deptId = initDepartment("get-params");
 
-        GetBgaParamsResp resp = bgaService.getBgaParams(ProtoUtils.protoToJson(
-            GetBgaParamsReq.newBuilder().setDeptId(deptId).build()
-        ));
-
+        String request = ProtoUtils.protoToJson(
+            GetBgaParamsReq.newBuilder().setDeptId(deptId).build());
+        GetBgaParamsResp resp = bgaService.getBgaParams(request);
         assertThat(resp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        assertThat(resp.getParamList()).isEmpty();
+        assertThat(bgaParamRepository.findByDeptIdAndIsDeletedFalseOrderByDisplayOrder(deptId))
+            .isEmpty();
 
-        List<String> expectedParamCodes = protoService.getConfig().getBga().getBgaParamCodeList();
-        assertThat(resp.getParamList()).hasSize(expectedParamCodes.size());
+        String code = createBgaParam(deptId);
+        resp = bgaService.getBgaParams(request);
         assertThat(resp.getParamList()).extracting(BgaParamPB::getParamCode)
-            .containsExactlyElementsOf(expectedParamCodes);
+            .containsExactly(code);
         assertThat(resp.getParamList()).allSatisfy(param -> {
             assertThat(param.getEnabled()).isFalse();
             assertThat(param.getLisResultCode()).isEmpty();
@@ -163,13 +163,11 @@ public class BgaServiceTests extends TestsBase {
     }
 
     @Test
-    public void testGetBgaParamsRestoresSoftDeletedDefaultParam() {
+    public void testGetBgaParamsDoesNotRestoreOrRecreateDeletedParam() {
         setCurrentUser();
-        Assumptions.assumeFalse(protoService.getConfig().getBga().getBgaParamCodeList().isEmpty());
         String deptId = initDepartment("restore-param");
 
-        monitoringConfig.getBgaParamList(deptId);
-        String targetParamCode = protoService.getConfig().getBga().getBgaParamCodeList().get(0);
+        String targetParamCode = createBgaParam(deptId);
 
         BgaParam deletedParam = bgaParamRepository.findByDeptIdAndMonitoringParamCodeAndIsDeletedFalse(
             deptId, targetParamCode
@@ -184,15 +182,13 @@ public class BgaServiceTests extends TestsBase {
         ));
 
         assertThat(restoredResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
-        assertThat(restoredResp.getParamList()).extracting(BgaParamPB::getParamCode).contains(targetParamCode);
-
-        BgaParam restoredParam = bgaParamRepository.findByDeptIdAndMonitoringParamCodeAndIsDeletedFalse(
-            deptId, targetParamCode
-        ).orElseThrow();
-        assertThat(restoredParam.getIsDeleted()).isFalse();
-        assertThat(restoredParam.getDeletedAt()).isNull();
-        assertThat(restoredParam.getEnabled()).isTrue();
-        assertThat(restoredParam.getLisResultCode()).isEqualTo("restore_me");
+        assertThat(restoredResp.getParamList()).isEmpty();
+        assertThat(bgaParamRepository.findByDeptIdAndMonitoringParamCodeAndIsDeletedFalse(
+            deptId, targetParamCode)).isEmpty();
+        BgaParam unchanged = bgaParamRepository.findById(deletedParam.getId()).orElseThrow();
+        assertThat(unchanged.getIsDeleted()).isTrue();
+        assertThat(unchanged.getEnabled()).isTrue();
+        assertThat(unchanged.getLisResultCode()).isEqualTo("restore_me");
     }
 
     @Test
@@ -502,7 +498,7 @@ public class BgaServiceTests extends TestsBase {
         dept.setDeptId(deptId);
         dept.setDeptName("dept-" + scenario);
         deptRepository.save(dept);
-        monitoringConfig.initialize();
+        monitoringMetaService.initMonitoringParams();
         return deptId;
     }
 
@@ -630,7 +626,7 @@ public class BgaServiceTests extends TestsBase {
     private final String accountId;
 
     private final ConfigProtoService protoService;
-    private final MonitoringConfig monitoringConfig;
+    private final MonitoringMetaService monitoringMetaService;
     private final BgaService bgaService;
     private final BgaParamRepository bgaParamRepository;
     private final BgaCategoryMappingRepository bgaCategoryMappingRepository;

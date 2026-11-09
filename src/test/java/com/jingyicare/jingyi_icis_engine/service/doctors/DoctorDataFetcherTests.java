@@ -36,7 +36,7 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class DoctorDataFetcherTests extends TestsBase {
     public DoctorDataFetcherTests(
         @Autowired ConfigProtoService protoService,
-        @Autowired MonitoringService monitoringService,
+        @Autowired MonitoringMetaService monitoringMetaService,
         @Autowired PatientMonitoringService patientMonitoringService,
         @Autowired ScoreService scoreService,
         @Autowired ScoreMetaService scoreMetaService,
@@ -53,7 +53,7 @@ public class DoctorDataFetcherTests extends TestsBase {
         this.accountId = "admin";
 
         this.protoService = protoService;
-        this.monitoringService = monitoringService;
+        this.monitoringMetaService = monitoringMetaService;
         this.patientMonitoringService = patientMonitoringService;
         this.scoreService = scoreService;
         this.scoreMetaService = scoreMetaService;
@@ -91,7 +91,7 @@ public class DoctorDataFetcherTests extends TestsBase {
             )
             .build();
         String addParamReqJson = ProtoUtils.protoToJson(addParamReq);
-        GenericResp addParamResp = monitoringService.addMonitoringParam(addParamReqJson);
+        GenericResp addParamResp = monitoringMetaService.addMonitoringParam(addParamReqJson);
         assertThat(addParamResp.getRt().getCode()).isEqualTo(0);
 
         // 构造测试数据
@@ -430,7 +430,7 @@ public class DoctorDataFetcherTests extends TestsBase {
     private final String accountId;
 
     private final ConfigProtoService protoService;
-    private final MonitoringService monitoringService;
+    private final MonitoringMetaService monitoringMetaService;
     private final PatientMonitoringService patientMonitoringService;
     private final ScoreService scoreService;
     private final ScoreMetaService scoreMetaService;

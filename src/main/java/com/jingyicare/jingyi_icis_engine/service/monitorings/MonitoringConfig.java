@@ -26,10 +26,8 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
 
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.entity.settings.*;
-import com.jingyicare.jingyi_icis_engine.entity.users.RbacDepartment;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.repository.settings.*;
-import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
 import com.jingyicare.jingyi_icis_engine.utils.LogUtils;
@@ -68,8 +66,6 @@ public class MonitoringConfig {
         @Autowired DeptMonitoringGroupParamRepository deptMonitoringGroupParamRepository,
         @Autowired PatientMonitoringGroupRepository patientMonitoringGroupRepository,
         @Autowired PatientMonitoringGroupParamRepository patientMonitoringGroupParamRepository,
-        @Autowired RbacDepartmentRepository departmentRepository,
-        @Autowired BgaParamRepository bgaParamRepository,
         @Autowired DeptSystemSettingsRepository deptSettingRepository,
         @Autowired EntityManager entityManager,
         @Value("${monitoring.enable_drainage:true}") boolean enableDrainage,
@@ -85,7 +81,6 @@ public class MonitoringConfig {
         this.BALANCE_NET_ID = monitoringPb.getEnums().getBalanceNet().getId();
         this.GROUP_TYPE_BALANCE_ID = monitoringPb.getEnums().getGroupTypeBalance().getId();
         this.GROUP_TYPE_MONITORING_ID = monitoringPb.getEnums().getGroupTypeMonitoring().getId();
-        this.BALANCE_GROUP_PARAM_TYPES = new HashSet<>(monitoringPb.getBalanceParamTypeList());
         this.OUT_GROUP_NAME = monitoringPb.getBalanceOutGroupName();
         this.DRAINAGE_TUBE_PREFIX = "tube_" + StrUtils.toPinyinInitials(protoService.getConfig().getTube().getDrainageTubeType()) + "_";
         this.tubeParamList = protoService.getConfig().getTube().getTubeSetting().getParamList();
@@ -103,8 +98,6 @@ public class MonitoringConfig {
         this.deptMonitoringGroupParamRepository = deptMonitoringGroupParamRepository;
         this.patientMonitoringGroupRepository = patientMonitoringGroupRepository;
         this.patientMonitoringGroupParamRepository = patientMonitoringGroupParamRepository;
-        this.departmentRepository = departmentRepository;
-        this.bgaParamRepository = bgaParamRepository;
         this.deptSettingRepository = deptSettingRepository;
         this.entityManager = entityManager;
         this.enableDrainage = enableDrainage;
@@ -183,57 +176,7 @@ public class MonitoringConfig {
         return paramModalMap.get(paramCode);
     }
 
-    ////// 系统初始化工具函数: initialize, checkIntegrity, refresh
-    @Transactional
-    public void initialize() {
-        initializeMonitoringParams();
-    }
-
-    @Transactional
-    private void initializeMonitoringParams() {
-        // 检查系统配置参数
-        List<MonitoringParamPB> monitoringParamPbs = monitoringPb.getMonitoringParamList();
-
-        // 如果数据库中缺少参数，则插入
-        List<MonitoringParam> monitoringParams = monitoringParamRepository.findAll();
-        Set<String> existingCodes = new HashSet<>();
-        Integer nextDisplayOrder = 1;
-        for (MonitoringParam param : monitoringParams) {
-            existingCodes.add(param.getCode());
-            if (param.getDisplayOrder() >= nextDisplayOrder) {
-                nextDisplayOrder = param.getDisplayOrder() + 1;
-            }
-        }
-
-        for (MonitoringParamPB paramPB : monitoringParamPbs) {
-            // 如果参数已存在，则跳过
-            if (existingCodes.contains(paramPB.getCode())) continue;
-
-            // 如果参数不存在，则插入
-            try {
-                insertMonitoringParam(paramPB, nextDisplayOrder++);
-            } catch (Exception e) {
-                log.error("Failed to process MonitoringParamPB with code: {}", paramPB.getCode(), e);
-            }
-        }
-    }
-
-    private void insertMonitoringParam(MonitoringParamPB paramPB, int displayOrder) {
-        String encodedValueMeta = ProtoUtils.encodeValueMeta(paramPB.getValueMeta());
-
-        MonitoringParam param = MonitoringParam.builder()
-            .code(paramPB.getCode())
-            .name(paramPB.getName())
-            .typePb(encodedValueMeta)
-            .balanceType(paramPB.getBalanceType())
-            .uiModalCode(paramPB.getUiModalCode())
-            .displayOrder(displayOrder)
-            .build();
-
-        monitoringParamRepository.save(param);
-        log.info("Inserted MonitoringParam: {}", paramPB.getCode());
-    }
-
+    ////// 系统初始化工具函数: checkIntegrity, refresh
     @Transactional
     public void checkIntegrity() {
         checkBgaParamIntegrity();
@@ -259,96 +202,7 @@ public class MonitoringConfig {
 
     ////// 外部工具函数
     public StatusCode isValidParamPb(MonitoringParamPB paramPb) {
-        final String code = paramPb.getCode();
-        final int balanceType = paramPb.getBalanceType();
-        if (balanceType == BALANCE_IN_ID || balanceType == BALANCE_OUT_ID) {
-            ValueMetaPB valueMeta = paramPb.getValueMeta();
-            TypeEnumPB valueType = valueMeta.getValueType();
-
-            // 平衡量参数不能是多选
-            if (valueMeta.getIsMultipleSelection()) {
-                log.error("Balance group's MonitoringParamPB with code: {} is multiple_selection.", code);
-                return StatusCode.MONITORING_PARAM_MULTI_SELECTION_NOT_ALLOWED;
-            }
-
-            // 出入量参数的合法类型
-            if (!BALANCE_GROUP_PARAM_TYPES.contains(valueType)) {
-                log.error("Balance group's param code {} type is not valid.", code);
-                return StatusCode.MONITORING_PARAM_BALANCE_TYPE_VALUE_TYPE_NOT_MATCH;
-            }
-        }
-        return StatusCode.OK;
-    }
-
-    @Transactional
-    public List<BgaParam> getBgaParamList(String deptId) {
-        List<BgaParam> params = bgaParamRepository.findByDeptIdAndIsDeletedFalseOrderByDisplayOrder(deptId);
-        Set<String> configuredCodes = new LinkedHashSet<>(protoService.getConfig().getBga().getBgaParamCodeList());
-        Set<String> existingConfiguredCodes = params.stream()
-            .map(BgaParam::getMonitoringParamCode)
-            .filter(configuredCodes::contains)
-            .collect(Collectors.toSet());
-        if (existingConfiguredCodes.containsAll(configuredCodes)) return params;
-
-        departmentRepository.findByDeptIdForUpdate(deptId);
-        List<BgaParam> existingParams = bgaParamRepository.findByDeptIdOrderByDisplayOrder(deptId);
-        Map<String, BgaParam> activeParams = existingParams.stream()
-            .filter(param -> !Boolean.TRUE.equals(param.getIsDeleted()))
-            .collect(Collectors.toMap(
-                BgaParam::getMonitoringParamCode,
-                param -> param,
-                this::selectPreferredBgaParam
-            ));
-        Map<String, BgaParam> deletedParams = existingParams.stream()
-            .filter(param -> Boolean.TRUE.equals(param.getIsDeleted()))
-            .collect(Collectors.toMap(
-                BgaParam::getMonitoringParamCode,
-                param -> param,
-                this::selectPreferredBgaParam
-            ));
-
-        int nextDisplayOrder = activeParams.values().stream()
-            .map(BgaParam::getDisplayOrder)
-            .filter(Objects::nonNull)
-            .max(Integer::compareTo)
-            .orElse(0);
-        LocalDateTime nowUtc = TimeUtils.getNowUtc();
-        List<BgaParam> paramsToSave = new ArrayList<>();
-        for (String bgaParamCode : configuredCodes) {
-            if (activeParams.containsKey(bgaParamCode)) continue;
-
-            BgaParam param = deletedParams.get(bgaParamCode);
-            if (param == null) {
-                param = BgaParam.builder()
-                    .deptId(deptId)
-                    .monitoringParamCode(bgaParamCode)
-                    .enabled(false)
-                    .isDeleted(false)
-                    .build();
-            } else {
-                param.setIsDeleted(false);
-                param.setDeletedBy(null);
-                param.setDeletedByAccountName(null);
-                param.setDeletedAt(null);
-                if (param.getEnabled() == null) param.setEnabled(false);
-            }
-
-            param.setDisplayOrder(++nextDisplayOrder);
-            param.setModifiedBy("system");
-            param.setModifiedAt(nowUtc);
-            paramsToSave.add(param);
-        }
-        if (!paramsToSave.isEmpty()) bgaParamRepository.saveAll(paramsToSave);
-        return bgaParamRepository.findByDeptIdAndIsDeletedFalseOrderByDisplayOrder(deptId);
-    }
-
-    private BgaParam selectPreferredBgaParam(BgaParam left, BgaParam right) {
-        if (Boolean.TRUE.equals(left.getIsDeleted()) != Boolean.TRUE.equals(right.getIsDeleted())) {
-            return Boolean.TRUE.equals(left.getIsDeleted()) ? right : left;
-        }
-        if (left.getModifiedAt() == null) return right;
-        if (right.getModifiedAt() == null) return left;
-        return right.getModifiedAt().isAfter(left.getModifiedAt()) ? right : left;
+        return MonitoringPbUtils.isValidParamPb(paramPb, monitoringPb);
     }
 
     @Transactional
@@ -964,7 +818,6 @@ public class MonitoringConfig {
     private final Integer BALANCE_NET_ID;
     private final Integer GROUP_TYPE_BALANCE_ID;
     private final Integer GROUP_TYPE_MONITORING_ID;
-    private final Set<TypeEnumPB> BALANCE_GROUP_PARAM_TYPES;
     private final String OUT_GROUP_NAME;
     private final String DRAINAGE_TUBE_PREFIX;
     private final List<MonitoringParamPB> tubeParamList;
@@ -983,8 +836,6 @@ public class MonitoringConfig {
     private final DeptMonitoringGroupParamRepository deptMonitoringGroupParamRepository;
     private final PatientMonitoringGroupRepository patientMonitoringGroupRepository;
     private final PatientMonitoringGroupParamRepository patientMonitoringGroupParamRepository;
-    private final RbacDepartmentRepository departmentRepository;
-    private final BgaParamRepository bgaParamRepository;
     private final DeptSystemSettingsRepository deptSettingRepository;
     private final EntityManager entityManager;
 }

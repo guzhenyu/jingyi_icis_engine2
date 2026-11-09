@@ -41,6 +41,7 @@ public class PatientMonitoringServiceTests extends TestsBase {
         @Autowired ConfigProtoService protoService,
         @Autowired MonitoringConfig monitoringConfig,
         @Autowired MonitoringService monitoringService,
+        @Autowired MonitoringMetaService monitoringMetaService,
         @Autowired PatientMonitoringService patientMonitoringService,
         @Autowired MedicationConfig medConfig,
         @Autowired MedicationService medService,
@@ -97,6 +98,7 @@ public class PatientMonitoringServiceTests extends TestsBase {
         this.protoService = protoService;
         this.monitoringConfig = monitoringConfig;
         this.monitoringService = monitoringService;
+        this.monitoringMetaService = monitoringMetaService;
         this.patientMonitoringService = patientMonitoringService;
         this.medConfig = medConfig;
         this.medService = medService;
@@ -454,7 +456,7 @@ public class PatientMonitoringServiceTests extends TestsBase {
             )
             .build();
         String addParamReqJson = ProtoUtils.protoToJson(addParamReq);
-        GenericResp addParamResp = monitoringService.addMonitoringParam(addParamReqJson);
+        GenericResp addParamResp = monitoringMetaService.addMonitoringParam(addParamReqJson);
         assertThat(addParamResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
         // A: 新增分组
@@ -665,6 +667,7 @@ public class PatientMonitoringServiceTests extends TestsBase {
     private final ConfigProtoService protoService;
     private final MonitoringConfig monitoringConfig;
     private final MonitoringService monitoringService;
+    private final MonitoringMetaService monitoringMetaService;
     private final PatientMonitoringService patientMonitoringService;
 
     private final MedicationConfig medConfig;

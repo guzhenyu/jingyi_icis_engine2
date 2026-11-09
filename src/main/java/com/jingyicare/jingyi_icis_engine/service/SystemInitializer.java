@@ -19,7 +19,9 @@ import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentReposito
 import com.jingyicare.jingyi_icis_engine.service.doctors.DoctorConfig;
 import com.jingyicare.jingyi_icis_engine.service.lis.LisConfig;
 import com.jingyicare.jingyi_icis_engine.service.medications.MedicationConfig;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.BgaMetaService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringMetaService;
 import com.jingyicare.jingyi_icis_engine.service.nursingrecords.NursingOrderTemplateService;
 import com.jingyicare.jingyi_icis_engine.service.scores.ScoreMetaService;
 import com.jingyicare.jingyi_icis_engine.service.shifts.ConfigShiftService;
@@ -38,7 +40,9 @@ public class SystemInitializer {
         @Autowired UserConfig userConfig,
         @Autowired PatientConfig patientConfig,
         @Autowired MedicationConfig medicationConfig,
+        @Autowired BgaMetaService bgaMetaService,
         @Autowired MonitoringConfig monitoringConfig,
+        @Autowired MonitoringMetaService monitoringMetaService,
         @Autowired ScoreMetaService scoreMetaService,
         @Autowired DeptScoreGroupRepository deptScoreGroupRepo,
         @Autowired RbacDepartmentRepository departmentRepo,
@@ -53,7 +57,9 @@ public class SystemInitializer {
         this.userConfig = userConfig;
         this.patientConfig = patientConfig;
         this.medicationConfig = medicationConfig;
+        this.bgaMetaService = bgaMetaService;
         this.monitoringConfig = monitoringConfig;
+        this.monitoringMetaService = monitoringMetaService;
         this.scoreMetaService = scoreMetaService;
         this.deptScoreGroupRepo = deptScoreGroupRepo;
         this.departmentRepo = departmentRepo;
@@ -68,14 +74,25 @@ public class SystemInitializer {
         certificateService.validatePreInitializationOrThrow();
         log.info("Deployment certificate and ICIS department scope inputs checked");
 
-        monitoringConfig.initialize();
+        monitoringMetaService.initMonitoringParams();
         userConfig.initialize();
         patientConfig.initialize();
         medicationConfig.initialize();
-        initializeDeptScoreGroups();
         nursingOrderTemplateService.initDeptTemplateGroups();
         doctorConfig.initialize();
         lisConfig.initialize();
+
+        // 初始化部门数据
+        List<String> deptIds = departmentRepo.findAll().stream()
+            .map(RbacDepartment::getDeptId).toList();
+        Set<String> scoreGroupDeptIds = deptScoreGroupRepo.findAllDeptIds();
+        for (String deptId : deptIds) {
+            if (!scoreGroupDeptIds.contains(deptId)) {
+                scoreMetaService.initDept(deptId);
+            }
+            bgaMetaService.initBgaParams(deptId);
+        }
+
         log.info("Init system");
 
         if (StatusCode.LAST_CODE.getNumber() != config.getText().getStatusCodeMsgCount()) {
@@ -102,32 +119,15 @@ public class SystemInitializer {
         log.info("Certificate and ICIS department scope checked");
     }
 
-    private void initializeDeptScoreGroups() {
-        List<String> departmentIds = departmentRepo.findAll()
-            .stream()
-            .map(RbacDepartment::getDeptId)
-            .toList();
-        Set<String> existingDeptIds = deptScoreGroupRepo.findAllDeptIds();
-
-        for (String deptId : departmentIds) {
-            if (existingDeptIds.contains(deptId)) {
-                log.info("Department score groups already exist for deptId: {}", deptId);
-                continue;
-            }
-
-            scoreMetaService.initDept(deptId);
-        }
-
-        log.info("Department score groups initialization completed.");
-    }
-
     private ConfigurableApplicationContext context;
     private Config config;
     private ConfigShiftService shiftConfig;
     private UserConfig userConfig;
     private PatientConfig patientConfig;
     private MedicationConfig medicationConfig;
+    private BgaMetaService bgaMetaService;
     private MonitoringConfig monitoringConfig;
+    private final MonitoringMetaService monitoringMetaService;
     private ScoreMetaService scoreMetaService;
     private DeptScoreGroupRepository deptScoreGroupRepo;
     private RbacDepartmentRepository departmentRepo;
