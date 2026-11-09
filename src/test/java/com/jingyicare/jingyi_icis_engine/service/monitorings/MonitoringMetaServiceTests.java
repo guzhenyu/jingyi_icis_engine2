@@ -109,7 +109,7 @@ class MonitoringMetaServiceTests extends TestsBase {
     void initializationReadsOnceAndBatchSavesOnlyNewOrReorderedParams() {
         monitoringMetaService.initMonitoringParams();
         int originalCount = Math.toIntExact(repository.count());
-        MonitoringParam existing = MonitoringPbUtils.toMonitoringParamEntity(
+        MonitoringParam existing = MonitoringMapper.toMonitoringParamEntity(
             param(FIRST_CODE).toBuilder().setName("已存在参数").build(), originalCount + 1);
         repository.saveAndFlush(existing);
         MonitoringParamRepository batchRepository =
@@ -141,13 +141,13 @@ class MonitoringMetaServiceTests extends TestsBase {
 
     @Test
     void initializationCompactsOrdersWithoutChangingRelativeOrderOrMetadata() {
-        MonitoringParam first = MonitoringPbUtils.toMonitoringParamEntity(
+        MonitoringParam first = MonitoringMapper.toMonitoringParamEntity(
             param(FIRST_CODE).toBuilder().setName("已修改的名称")
                 .setNameEn("Custom parameter").setCategory(3)
                 .setUiModalCode("custom-modal").build(),
             1000);
         MonitoringParam second =
-            MonitoringPbUtils.toMonitoringParamEntity(param(SECOND_CODE), 1000);
+            MonitoringMapper.toMonitoringParamEntity(param(SECOND_CODE), 1000);
         repository.saveAllAndFlush(List.of(first, second));
         List<String> originalCodes = orderedParamCodes();
         service = configuredService(List.of(param(SECOND_CODE), param(FIRST_CODE)), historyRepo);
@@ -517,7 +517,7 @@ class MonitoringMetaServiceTests extends TestsBase {
     }
 
     private MonitoringParam seedParam() {
-        return repository.saveAndFlush(MonitoringPbUtils.toMonitoringParamEntity(
+        return repository.saveAndFlush(MonitoringMapper.toMonitoringParamEntity(
             param(FIRST_CODE), maxDisplayOrder() + 1));
     }
 

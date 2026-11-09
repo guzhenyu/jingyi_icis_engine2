@@ -306,7 +306,7 @@ public class DoctorDataFetcher {
             .findByPidAndScoreGroupCodeAndEffectiveTimeBetweenAndIsDeletedFalse(pid, code, queryStartUtc, queryEndUtc)
             .stream().sorted(Comparator.comparing(PatientScore::getEffectiveTime)).toList()
         ) {
-            ScoreGroupPB scoreGroupPb = PatientScoreMapper.toProto(record, ZONE_ID);
+            ScoreGroupPB scoreGroupPb = ScoreMapper.toProto(record, ZONE_ID);
             if (scoreGroupPb == null) continue;
             GenericValuePB scoreGenericValue = scoreGroupPb.getGroupScore();
 

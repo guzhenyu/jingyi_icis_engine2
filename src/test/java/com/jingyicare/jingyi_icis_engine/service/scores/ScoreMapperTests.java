@@ -14,7 +14,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingScore.ScoreItem
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.GenericValuePB;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
-class PatientScoreMapperTests {
+class ScoreMapperTests {
     @Test
     void shouldStripOnlyRecordMetadataBeforePersistingScorePayload() {
         ScoreGroupPB original = embeddedMetadata();
@@ -22,12 +22,13 @@ class PatientScoreMapperTests {
             ProtoUtils.encodeScoreGroupPB(original));
 
         assertThat(stored).isEqualTo(original.toBuilder()
-            .clearId().clearRecordedBy().clearRecordedByAccountName()
+            .clearId().clearPid().clearRecordedBy().clearRecordedByAccountName()
             .clearRecordedAtIso8601().clearNote().build());
         assertThat(stored.getItemList()).isEqualTo(original.getItemList());
         assertThat(stored.getMeasureList()).isEqualTo(original.getMeasureList());
         assertThat(stored.getGroupScoreText()).isEqualTo("15");
         assertThat(original.getId()).isEqualTo(999L);
+        assertThat(original.getPid()).isEqualTo(9999L);
         assertThat(original.getNote()).isEqualTo("payload-note");
     }
 
@@ -39,9 +40,10 @@ class PatientScoreMapperTests {
         record.setModifiedByAccountName(" 原始姓名 ");
         record.setNote(" 原始备注\n");
 
-        ScoreGroupPB mapped = PatientScoreMapper.toProto(record, "Asia/Shanghai");
+        ScoreGroupPB mapped = ScoreMapper.toProto(record, "Asia/Shanghai");
 
         assertThat(mapped.getId()).isEqualTo(42L);
+        assertThat(mapped.getPid()).isEqualTo(1234L);
         assertThat(mapped.getRecordedBy()).isEqualTo(" 123 ");
         assertThat(mapped.getRecordedByAccountName()).isEqualTo(" 原始姓名 ");
         assertThat(mapped.getRecordedAtIso8601()).isEqualTo("2026-11-03T09:02+08:00");
@@ -54,16 +56,18 @@ class PatientScoreMapperTests {
     @Test
     void shouldClearNullColumnsWithoutFallingBackFromNameToAccount() {
         PatientScore record = record(embeddedMetadata());
+        record.setPid(null);
         record.setModifiedBy("123");
         assertThat(record.getModifiedByAccountName()).isEqualTo("123");
 
-        ScoreGroupPB mapped = PatientScoreMapper.toProto(record, "UTC");
+        ScoreGroupPB mapped = ScoreMapper.toProto(record, "UTC");
+        assertThat(mapped.getPid()).isZero();
         assertThat(mapped.getRecordedBy()).isEqualTo("123");
         assertThat(mapped.getRecordedByAccountName()).isEmpty();
         assertThat(mapped.getNote()).isEmpty();
 
         record.setModifiedBy(null);
-        assertThat(PatientScoreMapper.toProto(record, "UTC").getRecordedBy()).isEmpty();
+        assertThat(ScoreMapper.toProto(record, "UTC").getRecordedBy()).isEmpty();
     }
 
     @Test
@@ -71,33 +75,33 @@ class PatientScoreMapperTests {
         PatientScore record = record(embeddedMetadata().toBuilder()
             .setGroupScoreText(" 旧版15 ").build());
         record.setScoreStr(" \t ");
-        assertThat(PatientScoreMapper.toProto(record, "UTC").getGroupScoreText())
+        assertThat(ScoreMapper.toProto(record, "UTC").getGroupScoreText())
             .isEqualTo(" 旧版15 ");
         record.setScoreStr(null);
-        assertThat(PatientScoreMapper.toProto(record, "UTC").getGroupScoreText())
+        assertThat(ScoreMapper.toProto(record, "UTC").getGroupScoreText())
             .isEqualTo(" 旧版15 ");
 
         record.setScore(rawEncode(embeddedMetadata().toBuilder()
             .setGroupScoreText(" \n ").build()));
-        assertThat(PatientScoreMapper.toProto(record, "UTC").getGroupScoreText()).isEmpty();
+        assertThat(ScoreMapper.toProto(record, "UTC").getGroupScoreText()).isEmpty();
 
         record.setScoreStr("15分");
-        assertThat(PatientScoreMapper.toProto(record, "UTC").getGroupScoreText()).isEqualTo("15分");
+        assertThat(ScoreMapper.toProto(record, "UTC").getGroupScoreText()).isEqualTo("15分");
     }
 
     @Test
     void shouldUseProvidedZoneAndMinuteFormatAndHandleMissingTime() {
         PatientScore record = record(embeddedMetadata());
-        assertThat(PatientScoreMapper.toProto(record, "UTC").getRecordedAtIso8601())
+        assertThat(ScoreMapper.toProto(record, "UTC").getRecordedAtIso8601())
             .isEqualTo("2026-11-03T01:02Z");
-        assertThat(PatientScoreMapper.toProto(record, "Asia/Shanghai").getRecordedAtIso8601())
+        assertThat(ScoreMapper.toProto(record, "Asia/Shanghai").getRecordedAtIso8601())
             .isEqualTo("2026-11-03T09:02+08:00");
 
         record.setEffectiveTime(LocalDateTime.of(2026, 11, 3, 23, 59, 59, 999999000));
-        assertThat(PatientScoreMapper.toProto(record, "Asia/Shanghai").getRecordedAtIso8601())
+        assertThat(ScoreMapper.toProto(record, "Asia/Shanghai").getRecordedAtIso8601())
             .isEqualTo("2026-11-04T07:59+08:00");
         record.setEffectiveTime(null);
-        assertThat(PatientScoreMapper.toProto(record, "Asia/Shanghai").getRecordedAtIso8601())
+        assertThat(ScoreMapper.toProto(record, "Asia/Shanghai").getRecordedAtIso8601())
             .isEmpty();
     }
 
@@ -116,7 +120,7 @@ class PatientScoreMapperTests {
             .setGroupScore(GenericValuePB.newBuilder().setInt32Val(15))
             .setGroupScoreText("15")
             .addMeasure(ScoreGroupMeasurePB.newBuilder().setName("护理措施").setApply(true))
-            .setId(999L).setRecordedBy("payload-account")
+            .setId(999L).setPid(9999L).setRecordedBy("payload-account")
             .setRecordedByAccountName("payload-name")
             .setRecordedAtIso8601("2000-01-01T00:00:00Z").setNote("payload-note")
             .build();

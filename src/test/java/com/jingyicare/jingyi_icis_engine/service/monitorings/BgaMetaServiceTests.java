@@ -61,7 +61,7 @@ class BgaMetaServiceTests extends TestsBase {
             """);
         departmentRepository.saveAndFlush(new RbacDepartment(DEPT_ID, "血气元数据测试"));
         for (String code : List.of(FIRST_CODE, SECOND_CODE)) {
-            monitoringParamRepository.saveAndFlush(MonitoringPbUtils.toMonitoringParamEntity(
+            monitoringParamRepository.saveAndFlush(MonitoringMapper.toMonitoringParamEntity(
                 MonitoringParamPB.newBuilder().setCode(code).setName(code)
                     .setValueMeta(ValueMetaPB.newBuilder().setValueType(TypeEnumPB.FLOAT)).build(),
                 10000));

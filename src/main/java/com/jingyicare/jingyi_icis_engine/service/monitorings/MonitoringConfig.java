@@ -202,7 +202,7 @@ public class MonitoringConfig {
 
     ////// 外部工具函数
     public StatusCode isValidParamPb(MonitoringParamPB paramPb) {
-        return MonitoringPbUtils.isValidParamPb(paramPb, monitoringPb);
+        return MonitoringMapper.isValidParamPb(paramPb, monitoringPb);
     }
 
     @Transactional

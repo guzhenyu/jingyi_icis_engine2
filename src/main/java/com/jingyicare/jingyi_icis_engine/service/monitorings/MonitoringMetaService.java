@@ -69,7 +69,7 @@ public class MonitoringMetaService {
             for (MonitoringParamPB paramPb : monitoringPb.getMonitoringParamList()) {
                 if (!existingCodes.add(paramPb.getCode())) continue;
                 paramsToSave.add(
-                    MonitoringPbUtils.toMonitoringParamEntity(paramPb, nextDisplayOrder++));
+                    MonitoringMapper.toMonitoringParamEntity(paramPb, nextDisplayOrder++));
             }
             if (!paramsToSave.isEmpty()) {
                 monitoringParamRepository.saveAll(paramsToSave);
@@ -101,7 +101,7 @@ public class MonitoringMetaService {
             log.warn("Invalid or missing MonitoringParamPB in request. User: {}", accountId);
             return response(StatusCode.MONITORING_PARAM_CODE_EMPTY);
         }
-        StatusCode statusCode = MonitoringPbUtils.isValidParamPb(paramPb, monitoringPb);
+        StatusCode statusCode = MonitoringMapper.isValidParamPb(paramPb, monitoringPb);
         if (statusCode != StatusCode.OK) {
             log.warn("Invalid MonitoringParamPB {} in request. User: {}", paramPb, accountId);
             return response(statusCode);
@@ -117,9 +117,9 @@ public class MonitoringMetaService {
                     return response(StatusCode.MONITORING_PARAM_CODE_EXIST);
                 }
                 MonitoringParam param = monitoringParamRepository.save(
-                    MonitoringPbUtils.toMonitoringParamEntity(paramPb, nextDisplayOrder()));
+                    MonitoringMapper.toMonitoringParamEntity(paramPb, nextDisplayOrder()));
                 monitoringParamHistoryRepository.save(
-                    MonitoringPbUtils.toMonitoringParamHistoryEntity(param, accountId));
+                    MonitoringMapper.toMonitoringParamHistoryEntity(param, accountId));
                 log.info("Successfully added MonitoringParam with code: {} by user: {}",
                     code, accountId);
                 return response(StatusCode.OK);
@@ -155,7 +155,7 @@ public class MonitoringMetaService {
             log.warn("Invalid or missing MonitoringParamPB in request. User: {}", accountId);
             return response(StatusCode.MONITORING_PARAM_CODE_EMPTY);
         }
-        StatusCode statusCode = MonitoringPbUtils.isValidParamPb(paramPb, monitoringPb);
+        StatusCode statusCode = MonitoringMapper.isValidParamPb(paramPb, monitoringPb);
         if (statusCode != StatusCode.OK) {
             log.warn("Invalid MonitoringParamPB {} in request. User: {}", paramPb, accountId);
             return response(statusCode);
@@ -170,11 +170,11 @@ public class MonitoringMetaService {
                     return response(StatusCode.MONITORING_PARAM_CODE_NOT_EXIST);
                 }
                 monitoringParamHistoryRepository.save(
-                    MonitoringPbUtils.toMonitoringParamHistoryEntity(param, accountId));
-                MonitoringPbUtils.toMonitoringParamEntity(paramPb, param, -1);
+                    MonitoringMapper.toMonitoringParamHistoryEntity(param, accountId));
+                MonitoringMapper.toMonitoringParamEntity(paramPb, param, -1);
                 monitoringParamRepository.save(param);
                 monitoringParamHistoryRepository.save(
-                    MonitoringPbUtils.toMonitoringParamHistoryEntity(param, accountId, false));
+                    MonitoringMapper.toMonitoringParamHistoryEntity(param, accountId, false));
                 log.info("Successfully updated MonitoringParam with code: {} by user: {}",
                     code, accountId);
                 return response(StatusCode.OK);
@@ -225,7 +225,7 @@ public class MonitoringMetaService {
                     }
                     DeptMonitoringParam deptParam = optionalDeptParam.get();
                     // monitoringParamHistoryRepository.save(
-                    //     MonitoringPbUtils.toMonitoringParamHistoryEntity(
+                    //     MonitoringMapper.toMonitoringParamHistoryEntity(
                     //         deptParam, accountId, true));
                     deptMonitoringParamRepository.delete(deptParam);
                     log.info("Deleted DeptMonitoringParam with code: {} for dept: {}. User: {}",
@@ -248,7 +248,7 @@ public class MonitoringMetaService {
                 }
                 MonitoringParam param = optionalParam.get();
                 monitoringParamHistoryRepository.save(
-                    MonitoringPbUtils.toMonitoringParamHistoryEntity(param, accountId));
+                    MonitoringMapper.toMonitoringParamHistoryEntity(param, accountId));
                 monitoringParamRepository.delete(param);
                 log.info("Deleted MonitoringParam with code: {}. User: {}", code, accountId);
                 return response(StatusCode.OK);

@@ -13,8 +13,8 @@ import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
 @Slf4j
-public final class MonitoringPbUtils {
-    private MonitoringPbUtils() {}
+public final class MonitoringMapper {
+    private MonitoringMapper() {}
 
     public static MonitoringParam toMonitoringParamEntity(
         MonitoringParamPB paramPb, int displayOrder

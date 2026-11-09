@@ -8,8 +8,8 @@ import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
-public final class PatientScoreMapper {
-    private PatientScoreMapper() {}
+public final class ScoreMapper {
+    private ScoreMapper() {}
 
     public static ScoreGroupPB toProto(PatientScore record, String zoneId) {
         ScoreGroupPB storedPb = ProtoUtils.decodeScoreGroupPB(record.getScore());
@@ -22,6 +22,7 @@ public final class PatientScoreMapper {
         return storedPb.toBuilder()
             .setGroupScoreText(scoreText)
             .setId(record.getId() == null ? 0 : record.getId())
+            .setPid(record.getPid() == null ? 0 : record.getPid())
             .setRecordedBy(Objects.toString(record.getModifiedBy(), ""))
             .setRecordedByAccountName(Objects.toString(record.getRawModifiedByAccountName(), ""))
             .setRecordedAtIso8601(TimeUtils.toIso8601String(record.getEffectiveTime(), zoneId))

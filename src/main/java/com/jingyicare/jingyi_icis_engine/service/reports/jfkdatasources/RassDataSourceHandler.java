@@ -16,7 +16,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingScore.ScoreGroupMetaPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingScore.ScoreGroupPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
-import com.jingyicare.jingyi_icis_engine.service.scores.PatientScoreMapper;
+import com.jingyicare.jingyi_icis_engine.service.scores.ScoreMapper;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
@@ -69,7 +69,7 @@ public class RassDataSourceHandler extends AbstractJfkDataSourceHandler {
             .toList();
 
         for (PatientScore record : patientScores) {
-            ScoreGroupPB scoreGroupPb = PatientScoreMapper.toProto(record, support.getZoneId());
+            ScoreGroupPB scoreGroupPb = ScoreMapper.toProto(record, support.getZoneId());
             if (scoreGroupPb == null) continue;
             scoreDateTimeList.add(JfkValPB.newBuilder()
                 .setStrVal(TimeUtils.toIso8601String(record.getEffectiveTime(), support.getZoneId()))

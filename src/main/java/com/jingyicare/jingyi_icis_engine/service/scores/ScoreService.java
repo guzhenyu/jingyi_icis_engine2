@@ -110,7 +110,7 @@ public class ScoreService {
 
         List<ScoreGroupPB> scoreRecords = patientScores.stream()
             .sorted(Comparator.comparing(PatientScore::getEffectiveTime).reversed())
-            .map(record -> PatientScoreMapper.toProto(record, ZONE_ID))
+            .map(record -> ScoreMapper.toProto(record, ZONE_ID))
             .filter(Objects::nonNull)
             .toList();
 
@@ -185,7 +185,7 @@ public class ScoreService {
             .setFound(patientScore != null)
             .setScoreGroupMeta(scoreGroupMeta);
         if (patientScore != null) {
-            ScoreGroupPB recordPb = PatientScoreMapper.toProto(patientScore, ZONE_ID);
+            ScoreGroupPB recordPb = ScoreMapper.toProto(patientScore, ZONE_ID);
             if (recordPb != null) respBuilder.setRecord(recordPb);
         }
 
@@ -712,7 +712,7 @@ public class ScoreService {
             .sorted(Comparator.comparing(PatientScore::getEffectiveTime))
             .toList()
         ) {
-            ScoreGroupPB scoreGroupPb = PatientScoreMapper.toProto(record, ZONE_ID);
+            ScoreGroupPB scoreGroupPb = ScoreMapper.toProto(record, ZONE_ID);
             if (scoreGroupPb == null) continue;
             GenericValuePB scoreGenericValue = scoreGroupPb.getGroupScore();
 

@@ -1256,7 +1256,7 @@ public class MonitoringService {
 
     private void saveDeptParamToHistory(DeptMonitoringParam deptParam, String reason, String accountId, Boolean isDeleted) {
         monitoringParamHistoryRepository.save(
-            MonitoringPbUtils.toMonitoringParamHistoryEntity(deptParam, accountId, isDeleted));
+            MonitoringMapper.toMonitoringParamHistoryEntity(deptParam, accountId, isDeleted));
         log.info("Saved DeptMonitoringParam to history for code: {}, reason: {}, user: {}", deptParam.getId().getCode(), reason, accountId);
     }
 

@@ -137,6 +137,7 @@ public class ProtoUtils {
         // 记录元数据由 patient_scores 的独立列维护，不保存在 score 序列化内容中。
         ScoreGroupPB storedPb = pb.toBuilder()
             .clearId()
+            .clearPid()
             .clearRecordedBy()
             .clearRecordedByAccountName()
             .clearRecordedAtIso8601()
