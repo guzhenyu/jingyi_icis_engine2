@@ -27,7 +27,7 @@ import com.jingyicare.jingyi_icis_engine.service.ca.CaAccessPolicy;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
-import com.jingyicare.jingyi_icis_engine.service.users.*;
+import com.jingyicare.jingyi_icis_engine.service.users.UserService;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Service
@@ -41,7 +41,6 @@ public class ReportService {
         @Autowired PatientService patientService,
         @Autowired List<MonitoringReportGenerator> monitoringReportGenerators,
         @Autowired JfkDataService jfkDataService,
-        @Autowired UserBasicOperator userBasicOperator,
         @Autowired CaAccessPolicy caAccessPolicy,
         @Autowired DragableFormTemplateRepository dragableTemplateRepo,
         @Autowired DragableFormRepository dragableFormRepo,
@@ -74,7 +73,6 @@ public class ReportService {
         this.monitoringReportGenerators = Collections.unmodifiableMap(generatorMap);
         this.jfkDataService = jfkDataService;
 
-        this.userBasicOperator = userBasicOperator;
         this.caAccessPolicy = caAccessPolicy;
 
         this.dragableTemplateRepo = dragableTemplateRepo;
@@ -280,7 +278,7 @@ public class ReportService {
                 .build();
         }
 
-        List<IcisAccountPB> deptAccounts = userBasicOperator.getAllAccounts(deptId, "", "", ZONE_ID).stream()
+        List<IcisAccountPB> deptAccounts = userService.getDeptAccounts(deptId).stream()
             .filter(account -> account.getId() > 0)
             .filter(account -> account.getIsDisabled() == 0)
             .filter(account -> !account.getAccountName().isBlank())
@@ -814,7 +812,6 @@ public class ReportService {
     private final Map<String, MonitoringReportGenerator> monitoringReportGenerators;
     private final JfkDataService jfkDataService;
 
-    private final UserBasicOperator userBasicOperator;
     private final CaAccessPolicy caAccessPolicy;
 
     private final DragableFormTemplateRepository dragableTemplateRepo;

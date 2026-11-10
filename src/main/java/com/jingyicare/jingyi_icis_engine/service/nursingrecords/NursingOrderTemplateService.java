@@ -15,7 +15,6 @@ import lombok.extern.slf4j.Slf4j;
 
 import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.NursingRecordTemplate;
 import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.NursingRecordTemplateGroup;
-import com.jingyicare.jingyi_icis_engine.entity.users.Account;
 import com.jingyicare.jingyi_icis_engine.entity.users.RbacDepartment;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingRecord.*;
@@ -25,7 +24,6 @@ import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentReposito
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
-import com.jingyicare.jingyi_icis_engine.service.users.UserBasicOperator;
 import com.jingyicare.jingyi_icis_engine.service.users.UserService;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
@@ -40,7 +38,6 @@ public class NursingOrderTemplateService {
 
     public NursingOrderTemplateService(
         @Autowired ConfigProtoService protoService,
-        @Autowired UserBasicOperator userBasicOp,
         @Autowired UserService userService,
         @Autowired NursingRecordTemplateGroupRepository templateGroupRepo,
         @Autowired NursingRecordTemplateRepository templateRepo,
@@ -48,7 +45,6 @@ public class NursingOrderTemplateService {
         @Autowired LockExecutor lockExecutor
     ) {
         this.protoService = protoService;
-        this.userBasicOp = userBasicOp;
         this.userService = userService;
         this.templateGroupRepo = templateGroupRepo;
         this.templateRepo = templateRepo;
@@ -96,8 +92,7 @@ public class NursingOrderTemplateService {
         // 获取用户信息
         String ctxAccountId = req.getAccountId();
         if (!StrUtils.isBlank(ctxAccountId)) {
-            Account account = userBasicOp.getAccount(ctxAccountId);
-            String accountId = account != null ? account.getId().toString() : ctxAccountId;
+            String accountId = userService.getAccountAutoId(ctxAccountId);
             respBuilder.addAllAccountTemplate(getTemplates(ENTITY_TYPE_ACCOUNT, accountId));
         }
 
@@ -556,7 +551,6 @@ public class NursingOrderTemplateService {
     }
 
     private final ConfigProtoService protoService;
-    private final UserBasicOperator userBasicOp;
     private final UserService userService;
     private final NursingRecordTemplateGroupRepository templateGroupRepo;
     private final NursingRecordTemplateRepository templateRepo;

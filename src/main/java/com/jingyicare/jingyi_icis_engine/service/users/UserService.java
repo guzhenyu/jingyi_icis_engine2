@@ -72,6 +72,11 @@ public class UserService {
         return new Pair<>(account.getId().toString(), account.getName());
     }
 
+    public String getAccountAutoId(String accountId) {
+        Account account = userBasicOp.getAccount(accountId);
+        return account == null ? accountId : account.getId().toString();
+    }
+
     public String getNameByAutoId(String accountAutoId) {
         if (StrUtils.isBlank(accountAutoId)) return "";
         
@@ -366,6 +371,10 @@ public class UserService {
             .setRt(protoService.getReturnCode(userBasicOp.deleteDepartment(
                 req.getDeptId(), accountAutoId
             ))).build();
+    }
+
+    public List<IcisAccountPB> getDeptAccounts(String deptId) {
+        return userBasicOp.getAllAccounts(deptId, "", "", ZONE_ID);
     }
 
     public GetAllAccountsResp getAllAccounts(String getAllAccountsReqJson) {

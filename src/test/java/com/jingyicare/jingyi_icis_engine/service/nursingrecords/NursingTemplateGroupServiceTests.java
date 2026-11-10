@@ -33,7 +33,6 @@ import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentReposito
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
-import com.jingyicare.jingyi_icis_engine.service.users.UserBasicOperator;
 import com.jingyicare.jingyi_icis_engine.service.users.UserService;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
@@ -236,7 +235,7 @@ class NursingTemplateGroupServiceTests extends TestsBase {
     }
 
     private NursingOrderTemplateService newService(LockExecutor executor) {
-        return new NursingOrderTemplateService(protoService, userBasicOp, userService,
+        return new NursingOrderTemplateService(protoService, userService,
             templateGroupRepo, templateRepo, deptRepo, executor);
     }
 
@@ -311,9 +310,6 @@ class NursingTemplateGroupServiceTests extends TestsBase {
 
     @Autowired
     private ConfigProtoService protoService;
-
-    @Autowired
-    private UserBasicOperator userBasicOp;
 
     @Autowired
     private NursingRecordTemplateGroupRepository templateGroupRepo;
