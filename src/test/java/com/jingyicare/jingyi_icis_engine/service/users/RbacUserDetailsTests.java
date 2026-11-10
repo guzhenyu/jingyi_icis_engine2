@@ -10,6 +10,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
+import com.jingyicare.jingyi_icis_engine.service.users.auth.RbacUserDetails;
+
 class RbacUserDetailsTest {
 
     @Test

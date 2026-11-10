@@ -45,7 +45,7 @@ import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
-import com.jingyicare.jingyi_icis_engine.service.users.Encoder;
+import com.jingyicare.jingyi_icis_engine.service.users.auth.Encoder;
 import com.jingyicare.jingyi_icis_engine.service.users.UserBasicOperator;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;

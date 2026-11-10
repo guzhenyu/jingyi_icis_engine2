@@ -8,6 +8,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import com.jingyicare.jingyi_icis_engine.entity.users.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
+import com.jingyicare.jingyi_icis_engine.service.users.auth.RbacUserDetailsService;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 
 public class RbacUserDetailsServiceTests extends TestsBase {

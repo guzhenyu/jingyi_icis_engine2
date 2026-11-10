@@ -1,4 +1,4 @@
-package com.jingyicare.jingyi_icis_engine.service.users;
+package com.jingyicare.jingyi_icis_engine.service.users.auth;
 
 import jakarta.transaction.Transactional;
 

@@ -30,6 +30,7 @@ import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.BgaMetaService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
+import com.jingyicare.jingyi_icis_engine.service.users.auth.Encoder;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Service

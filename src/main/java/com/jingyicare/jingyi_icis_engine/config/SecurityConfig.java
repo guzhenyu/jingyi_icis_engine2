@@ -18,8 +18,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 
-import com.jingyicare.jingyi_icis_engine.service.users.Encoder;
-import com.jingyicare.jingyi_icis_engine.service.users.RbacUserDetailsService;
+import com.jingyicare.jingyi_icis_engine.service.users.auth.Encoder;
+import com.jingyicare.jingyi_icis_engine.service.users.auth.RbacUserDetailsService;
 
 
 @Configuration

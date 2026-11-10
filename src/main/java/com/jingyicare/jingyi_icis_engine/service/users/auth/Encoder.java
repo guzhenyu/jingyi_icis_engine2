@@ -1,4 +1,4 @@
-package com.jingyicare.jingyi_icis_engine.service.users;
+package com.jingyicare.jingyi_icis_engine.service.users.auth;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
