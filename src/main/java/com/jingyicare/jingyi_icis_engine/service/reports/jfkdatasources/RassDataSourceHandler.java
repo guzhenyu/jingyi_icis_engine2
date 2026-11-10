@@ -69,7 +69,7 @@ public class RassDataSourceHandler extends AbstractJfkDataSourceHandler {
             .toList();
 
         for (PatientScore record : patientScores) {
-            ScoreGroupPB scoreGroupPb = ScoreMapper.toProto(record, support.getZoneId());
+            ScoreGroupPB scoreGroupPb = ScoreMapper.toScoreGroupPB(record, support.getZoneId());
             if (scoreGroupPb == null) continue;
             scoreDateTimeList.add(JfkValPB.newBuilder()
                 .setStrVal(TimeUtils.toIso8601String(record.getEffectiveTime(), support.getZoneId()))

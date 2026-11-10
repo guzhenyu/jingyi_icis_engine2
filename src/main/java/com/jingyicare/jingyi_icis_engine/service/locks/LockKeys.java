@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
+import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
 public final class LockKeys {
     private static final String NURSING_RECORD_TEMPLATE_GROUPS = "nursing_record_template_groups";
@@ -31,7 +32,9 @@ public final class LockKeys {
         return "system_settings:" + functionId;
     }
 
-    // 协调观察参数的初始化、增删改及显示顺序分配。
+    /**
+     * 观察项，血气
+     */
     public static String monitoringParam() {
         return "monitoring_params";
     }
@@ -47,7 +50,16 @@ public final class LockKeys {
         return "bga_params:" + deptId;
     }
 
-    // 协调科室评分组的新增、删除及显示顺序调整。
+    public static String patientMonitoringRecord(
+        long pid, String code, LocalDateTime effectiveTimeUtc
+    ) {
+        StrUtils.requireNonBlank(code, "monitoringParamCode");
+        return patientTimedResource("patient_monitoring_record", pid, code, effectiveTimeUtc);
+    }
+
+    /**
+     * 护理评分
+     */
     public static String deptScoreGroup(String deptId) {
         StrUtils.requireNonBlank(deptId, "deptId");
         return "dept_score_groups:" + deptId;
@@ -56,6 +68,11 @@ public final class LockKeys {
     public static String deptScoreGroup(String deptId, String scoreGroupCode) {
         StrUtils.requireNonBlank(scoreGroupCode, "scoreGroupCode");
         return deptScoreGroup(deptId) + ":" + scoreGroupCode;
+    }
+
+    public static String patientScore(long pid, String code, LocalDateTime effectiveTimeUtc) {
+        StrUtils.requireNonBlank(code, "scoreGroupCode");
+        return patientTimedResource("patient_score", pid, code, effectiveTimeUtc);
     }
 
     /**
@@ -110,5 +127,15 @@ public final class LockKeys {
             throw new IllegalArgumentException("statisticsDate must not be null");
         }
         return "patient_snapshot:" + pid + ":" + statisticsDate;
+    }
+
+    private static String patientTimedResource(
+        String resource, long pid, String code, LocalDateTime effectiveTimeUtc
+    ) {
+        if (pid <= 0 || effectiveTimeUtc == null) {
+            throw new IllegalArgumentException("Patient and effective time are required");
+        }
+        return resource + ":" + pid + ":" + code + ":"
+            + TimeUtils.roundToMicros(effectiveTimeUtc);
     }
 }

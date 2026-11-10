@@ -104,6 +104,36 @@ class LockKeysTests {
         assertThat(key).isNotEqualTo(LockKeys.nursingRecord(42L, date.atStartOfDay()));
     }
 
+    @Test
+    void shouldScopePatientScoreAndMonitoringKeysAndUseDatabasePrecision() {
+        LocalDateTime time = LocalDateTime.parse("2026-11-03T12:00:30.123456100");
+        LocalDateTime databaseTime = time.withNano(123456000);
+        assertThat(LockKeys.patientScore(42L, "gcs", time))
+            .isEqualTo("patient_score:42:gcs:" + databaseTime)
+            .isNotEqualTo(LockKeys.patientScore(43L, "gcs", time))
+            .isNotEqualTo(LockKeys.patientScore(42L, "rass", time))
+            .isNotEqualTo(LockKeys.patientMonitoringRecord(42L, "gcs", time));
+        assertThat(LockKeys.patientMonitoringRecord(42L, "gcs", time))
+            .isEqualTo("patient_monitoring_record:42:gcs:" + databaseTime);
+    }
+
+    @Test
+    void shouldRejectInvalidPatientTimedResources() {
+        LocalDateTime time = LocalDateTime.of(2026, 11, 3, 12, 0);
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> LockKeys.patientScore(0L, "gcs", time));
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> LockKeys.patientScore(42L, " ", time));
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> LockKeys.patientScore(42L, "gcs", null));
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> LockKeys.patientMonitoringRecord(-1L, "gcs", time));
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> LockKeys.patientMonitoringRecord(42L, null, time));
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> LockKeys.patientMonitoringRecord(42L, "gcs", null));
+    }
+
     @ParameterizedTest
     @ValueSource(longs = {0L, -1L})
     void shouldRejectNonPositivePatientIds(long pid) {

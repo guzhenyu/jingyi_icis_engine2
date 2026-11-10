@@ -10,7 +10,7 @@ import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
 /** 模块只负责自身 PB 字段；锁、事务和整行持久化由 SnapshotService 负责。 */
 public interface SnapshotModule {
-    enum Kind { NURSING_RECORD }
+    enum Kind { NURSING_RECORD, SCORE_GROUP }
 
     /** refresh 动作的上下文 */
     record Context(

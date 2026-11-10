@@ -32,4 +32,10 @@ public final class PatientConsts {
     private static EnumValue value(int id, String name) {
         return EnumValue.newBuilder().setId(id).setName(name).build();
     }
+
+    public static final Integer ADMISSION_STATUS_PRE_ADMISSION = 0;  // 待入科
+    public static final Integer ADMISSION_STATUS_ADMITTED = 1;  // 已入科
+    public static final Integer ADMISSION_STATUS_PRE_DISCHARGE = 2;  // 出科前
+    public static final Integer ADMISSION_STATUS_DISCHARGED = 3;  // 已出科
+
 }

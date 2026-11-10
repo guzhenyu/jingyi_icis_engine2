@@ -156,8 +156,8 @@ class SnapshotServiceTests extends TestsBase {
             .setGroupScoreText("15分").build();
         String modifiedAt = iso(NOW.plusSeconds(1));
         PatientSnapshotPB payload = initial.toBuilder().addScoreGroups(score)
-            .setScoreGroupLmaIso8601("评分最后修改时间")
-            .setScoreGroupSaIso8601("评分快照时间")
+            .setScoreGroupLmaIso8601(iso(NOW.minusSeconds(2)))
+            .setScoreGroupSaIso8601(iso(NOW.minusSeconds(1)))
             .setNursingRecordLmaIso8601(modifiedAt)
             .setUnknownFields(unknownFields).build();
         savePayload(DAY, payload, NOW.plusSeconds(1));
@@ -170,8 +170,8 @@ class SnapshotServiceTests extends TestsBase {
         assertThat(refreshed.getNursingRecordSaIso8601()).isEqualTo(iso(NOW.plusSeconds(2)));
         assertThat(refreshed.getNursingRecordLmaIso8601()).isEqualTo(modifiedAt);
         assertThat(refreshed.getScoreGroupsList()).containsExactly(score);
-        assertThat(refreshed.getScoreGroupLmaIso8601()).isEqualTo("评分最后修改时间");
-        assertThat(refreshed.getScoreGroupSaIso8601()).isEqualTo("评分快照时间");
+        assertThat(refreshed.getScoreGroupLmaIso8601()).isEqualTo(iso(NOW.minusSeconds(2)));
+        assertThat(refreshed.getScoreGroupSaIso8601()).isEqualTo(iso(NOW.minusSeconds(1)));
         assertThat(refreshed.getUnknownFields()).isEqualTo(unknownFields);
         assertThat(stored(DAY).getLastModifiedAt()).isEqualTo(NOW.plusSeconds(1));
     }
@@ -248,7 +248,7 @@ class SnapshotServiceTests extends TestsBase {
         if (condition.equals("wrong-pid") || condition.equals("wrong-date")) {
             assertThat(refreshed.getScoreGroupsList()).isEmpty();
             assertThat(refreshed.getScoreGroupLmaIso8601()).isEmpty();
-            assertThat(refreshed.getScoreGroupSaIso8601()).isEmpty();
+            assertThat(refreshed.getScoreGroupSaIso8601()).isEqualTo(iso(NOW.plusSeconds(1)));
             assertThat(refreshed.getUnknownFields())
                 .isEqualTo(UnknownFieldSet.getDefaultInstance());
         }

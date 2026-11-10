@@ -303,6 +303,8 @@
     status_code_msg: "归档配置无效，请重新保存"
     status_code_msg: "请选择病室报告单模板"
     status_code_msg: "病室报告单模板内容无效或没有页面"
+    status_code_msg: "患者或评分类型与原评分记录不一致"
+    status_code_msg: "评分总分与评分明细不一致"
     units {
         unit: {
             id: 1

@@ -244,6 +244,8 @@ public class ScoreCalculator {
                     groupScore.getStrVal(), submittedScore);
                 return StatusCode.SCORE_GROUP_DELIRIUM_GROUP_SCORE_NOT_MATCH;
             }
+        } else if (!scoreGroup.getGroupScore().equals(groupScore)) {
+            return StatusCode.SCORE_GROUP_SCORE_NOT_MATCH;
         }
         return StatusCode.OK;
     }

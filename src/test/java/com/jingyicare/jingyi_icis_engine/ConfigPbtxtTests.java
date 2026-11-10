@@ -71,6 +71,10 @@ class ConfigPbtxtTests {
 
         assertThat(builder.getStatusCodeMsgList()).contains("ok", "患者不存在");
         assertThat(builder.getStatusCodeMsgCount()).isEqualTo(StatusCode.LAST_CODE_VALUE);
+        assertThat(builder.getStatusCodeMsg(StatusCode.PATIENT_SCORE_ID_NOT_MATCH_VALUE))
+            .isEqualTo("患者或评分类型与原评分记录不一致");
+        assertThat(builder.getStatusCodeMsg(StatusCode.SCORE_GROUP_SCORE_NOT_MATCH_VALUE))
+            .isEqualTo("评分总分与评分明细不一致");
         assertThat(builder.getWebApiMessage().getYesStr()).isNotBlank();
         assertThat(builder.getEnumText().getBloodRhNegativeStrList()).containsExactly("RH阴性");
         assertThat(builder.getEnumText().getBloodRhPositiveStrList()).containsExactly("RH阳性");

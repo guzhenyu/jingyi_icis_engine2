@@ -324,8 +324,8 @@ public class ScoreServiceTests extends TestsBase {
 
         // 添加患者评分
         AddPatientScoreReq addPatientScoreReq = AddPatientScoreReq.newBuilder()
-            .setPid(pid)
             .setRecord(ScoreGroupPB.newBuilder()
+                .setPid(pid)
                 .setCode(scoreGroupCode)
                 .addItem(ScoreItemPB.newBuilder()
                     .setCode("test_group1_item1")
@@ -344,7 +344,6 @@ public class ScoreServiceTests extends TestsBase {
                 )
                 .setGroupScore(GenericValuePB.newBuilder().setInt32Val(3).build())
                 .setGroupScoreText("3分")
-                .setRecordedBy(accountId)
                 .setRecordedAtIso8601(TimeUtils.toIso8601String(effectiveTime, ZONE_ID))
                 .setNote("111")
             )
@@ -370,6 +369,7 @@ public class ScoreServiceTests extends TestsBase {
         // 更新患者评分
         UpdatePatientScoreReq updatePatientScoreReq = UpdatePatientScoreReq.newBuilder()
             .setRecord(ScoreGroupPB.newBuilder()
+                .setPid(pid)
                 .setId(getPatientScoresResp.getRecord(0).getId())
                 .setCode(scoreGroupCode)
                 .addItem(ScoreItemPB.newBuilder()
@@ -389,7 +389,7 @@ public class ScoreServiceTests extends TestsBase {
                 )
                 .setGroupScore(GenericValuePB.newBuilder().setInt32Val(6).build())
                 .setGroupScoreText("6分")
-                .setRecordedBy(accountId)
+                .setRecordedAtIso8601(TimeUtils.toIso8601String(effectiveTime, ZONE_ID))
                 .setNote("222")
             )
             .build();

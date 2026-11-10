@@ -100,7 +100,7 @@ public class CpotDataSourceHandler extends AbstractJfkDataSourceHandler {
             .toList();
 
         for (PatientScore record : patientScores) {
-            ScoreGroupPB scoreGroupPb = ScoreMapper.toProto(record, support.getZoneId());
+            ScoreGroupPB scoreGroupPb = ScoreMapper.toScoreGroupPB(record, support.getZoneId());
             if (scoreGroupPb == null) continue;
 
             scoreDateTimeList.add(JfkValPB.newBuilder()

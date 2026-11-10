@@ -237,8 +237,8 @@ public class DoctorDataFetcherTests extends TestsBase {
         // 评分记录
         LocalDateTime effectiveTime = TimeUtils.getLocalTime(2025, 3, 9, 1, 0);
         AddPatientScoreReq addPatientScoreReq = AddPatientScoreReq.newBuilder()
-            .setPid(patient.getId())
             .setRecord(ScoreGroupPB.newBuilder()
+                .setPid(patient.getId())
                 .setCode(scoreGroupCode)
                 .addItem(ScoreItemPB.newBuilder()
                     .setCode("test_group4_item1")
@@ -263,8 +263,8 @@ public class DoctorDataFetcherTests extends TestsBase {
 
         effectiveTime = TimeUtils.getLocalTime(2025, 3, 9, 2, 0);
         addPatientScoreReq = AddPatientScoreReq.newBuilder()
-            .setPid(patient.getId())
             .setRecord(ScoreGroupPB.newBuilder()
+                .setPid(patient.getId())
                 .setCode(scoreGroupCode)
                 .addItem(ScoreItemPB.newBuilder()
                     .setCode("test_group4_item1")

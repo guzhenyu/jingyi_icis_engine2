@@ -40,7 +40,7 @@ class ScoreMapperTests {
         record.setModifiedByAccountName(" 原始姓名 ");
         record.setNote(" 原始备注\n");
 
-        ScoreGroupPB mapped = ScoreMapper.toProto(record, "Asia/Shanghai");
+        ScoreGroupPB mapped = ScoreMapper.toScoreGroupPB(record, "Asia/Shanghai");
 
         assertThat(mapped.getId()).isEqualTo(42L);
         assertThat(mapped.getPid()).isEqualTo(1234L);
@@ -60,14 +60,14 @@ class ScoreMapperTests {
         record.setModifiedBy("123");
         assertThat(record.getModifiedByAccountName()).isEqualTo("123");
 
-        ScoreGroupPB mapped = ScoreMapper.toProto(record, "UTC");
+        ScoreGroupPB mapped = ScoreMapper.toScoreGroupPB(record, "UTC");
         assertThat(mapped.getPid()).isZero();
         assertThat(mapped.getRecordedBy()).isEqualTo("123");
         assertThat(mapped.getRecordedByAccountName()).isEmpty();
         assertThat(mapped.getNote()).isEmpty();
 
         record.setModifiedBy(null);
-        assertThat(ScoreMapper.toProto(record, "UTC").getRecordedBy()).isEmpty();
+        assertThat(ScoreMapper.toScoreGroupPB(record, "UTC").getRecordedBy()).isEmpty();
     }
 
     @Test
@@ -75,33 +75,33 @@ class ScoreMapperTests {
         PatientScore record = record(embeddedMetadata().toBuilder()
             .setGroupScoreText(" 旧版15 ").build());
         record.setScoreStr(" \t ");
-        assertThat(ScoreMapper.toProto(record, "UTC").getGroupScoreText())
+        assertThat(ScoreMapper.toScoreGroupPB(record, "UTC").getGroupScoreText())
             .isEqualTo(" 旧版15 ");
         record.setScoreStr(null);
-        assertThat(ScoreMapper.toProto(record, "UTC").getGroupScoreText())
+        assertThat(ScoreMapper.toScoreGroupPB(record, "UTC").getGroupScoreText())
             .isEqualTo(" 旧版15 ");
 
         record.setScore(rawEncode(embeddedMetadata().toBuilder()
             .setGroupScoreText(" \n ").build()));
-        assertThat(ScoreMapper.toProto(record, "UTC").getGroupScoreText()).isEmpty();
+        assertThat(ScoreMapper.toScoreGroupPB(record, "UTC").getGroupScoreText()).isEmpty();
 
         record.setScoreStr("15分");
-        assertThat(ScoreMapper.toProto(record, "UTC").getGroupScoreText()).isEqualTo("15分");
+        assertThat(ScoreMapper.toScoreGroupPB(record, "UTC").getGroupScoreText()).isEqualTo("15分");
     }
 
     @Test
     void shouldUseProvidedZoneAndMinuteFormatAndHandleMissingTime() {
         PatientScore record = record(embeddedMetadata());
-        assertThat(ScoreMapper.toProto(record, "UTC").getRecordedAtIso8601())
+        assertThat(ScoreMapper.toScoreGroupPB(record, "UTC").getRecordedAtIso8601())
             .isEqualTo("2026-11-03T01:02Z");
-        assertThat(ScoreMapper.toProto(record, "Asia/Shanghai").getRecordedAtIso8601())
+        assertThat(ScoreMapper.toScoreGroupPB(record, "Asia/Shanghai").getRecordedAtIso8601())
             .isEqualTo("2026-11-03T09:02+08:00");
 
         record.setEffectiveTime(LocalDateTime.of(2026, 11, 3, 23, 59, 59, 999999000));
-        assertThat(ScoreMapper.toProto(record, "Asia/Shanghai").getRecordedAtIso8601())
+        assertThat(ScoreMapper.toScoreGroupPB(record, "Asia/Shanghai").getRecordedAtIso8601())
             .isEqualTo("2026-11-04T07:59+08:00");
         record.setEffectiveTime(null);
-        assertThat(ScoreMapper.toProto(record, "Asia/Shanghai").getRecordedAtIso8601())
+        assertThat(ScoreMapper.toScoreGroupPB(record, "Asia/Shanghai").getRecordedAtIso8601())
             .isEmpty();
     }
 

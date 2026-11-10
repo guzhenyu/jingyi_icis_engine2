@@ -19,6 +19,13 @@ public class TimeUtils {
         return LocalDateTime.now(ZoneOffset.UTC);
     }
 
+    // PostgreSQL TIMESTAMP 按微秒存储；查询参数、锁键与持久化时间必须使用同一精度。
+    public static LocalDateTime roundToMicros(LocalDateTime time) {
+        if (time == null) return null;
+        LocalDateTime rounded = time.plusNanos(500);
+        return rounded.withNano((rounded.getNano() / 1000) * 1000);
+    }
+
     public static LocalDateTime getLocalTime(int year, int month, int dayOfMonth) {
         return LocalDateTime.of(year, month, dayOfMonth, 0, 0);
     }
