@@ -27,7 +27,6 @@ import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.settings.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
-import com.jingyicare.jingyi_icis_engine.service.users.UserConfig;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Service
