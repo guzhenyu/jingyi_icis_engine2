@@ -10,10 +10,10 @@ message MenuItem {
     string name = 2;
     string display_name = 3;
     bool disabled = 4;
-    int32 group_id = 5;  // 父级菜单组ID
+    int32 group_id = 5;  // 父级菜单组ID，<= 0 表示未分配
 
     int32 type = 6;  // 0: 普通菜单; 1: 独立表单菜单； 2： 聚合表单菜单
-    // type == 0 时， function_id 从10000开始
+    // type 为 1 或 2 时，function_id 从 10000 开始
     // type == 1 时有效
     shared.IntStrKvPB separated_form_template = 7;  // 拖拽表单模板ID, dragable_form_templates.id/name
     // type == 2 时有效
@@ -35,8 +35,10 @@ message Menu {
 
 message MenuConfigPB {
     string dept_id = 1;
+
+    // 菜单组（含子组）仅保存分组结构，不包含 items；菜单项统一存于 menu_item，通过 group_id 关联。
     repeated MenuGroup menu_group = 2;
-    repeated MenuItem menu_item = 3;  // unassigned_menu_item可以通过menu_item.group_id < 0来判断
+    repeated MenuItem menu_item = 3;  // 内置菜单项的 group_id <= 0 表示未分配
 
     // 下面这一项不存库
     repeated shared.IntStrKvPB unassigned_form_template = 4;

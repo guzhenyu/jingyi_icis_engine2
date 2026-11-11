@@ -23,6 +23,7 @@ import com.jingyicare.jingyi_icis_engine.entity.users.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.certs.*;
+import com.jingyicare.jingyi_icis_engine.service.users.menu.MenuService;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Service

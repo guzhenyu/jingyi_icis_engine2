@@ -39,6 +39,7 @@ import com.jingyicare.jingyi_icis_engine.service.skincares.*;
 import com.jingyicare.jingyi_icis_engine.service.therapies.*;
 import com.jingyicare.jingyi_icis_engine.service.tubes.*;
 import com.jingyicare.jingyi_icis_engine.service.users.*;
+import com.jingyicare.jingyi_icis_engine.service.users.menu.MenuService;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Service

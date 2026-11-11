@@ -69,6 +69,11 @@ public class UserQuery {
         return new Pair<>(account.getId().toString(), account.getName());
     }
 
+    public String getAccountAutoId() {
+        Pair<String, String> account = getAccountWithAutoId();
+        return account == null ? "" : account.getFirst();
+    }
+
     public String getAccountAutoId(String accountId) {
         Account account = getAccount(accountId);
         return account == null ? accountId : account.getId().toString();

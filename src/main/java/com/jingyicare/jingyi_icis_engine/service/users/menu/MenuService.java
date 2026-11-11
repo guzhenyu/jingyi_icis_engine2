@@ -1,11 +1,9 @@
-package com.jingyicare.jingyi_icis_engine.service.users;
+package com.jingyicare.jingyi_icis_engine.service.users.menu;
 
 import java.util.*;
 import java.util.stream.*;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,33 +17,27 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 
 import com.jingyicare.jingyi_icis_engine.entity.reports.*;
-import com.jingyicare.jingyi_icis_engine.entity.users.*;
-import com.jingyicare.jingyi_icis_engine.repository.users.*;
-import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkTemplateReader;
 import com.jingyicare.jingyi_icis_engine.service.settings.SettingsStore;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Service
 @Slf4j
 public class MenuService {
     public MenuService(
-        @Autowired ConfigProtoService protoService,
+        @Autowired ProtoConfig protoConfig,
+        @Autowired MenuMeta menuMeta,
         @Autowired SettingsStore settingsStore,
         @Autowired JfkTemplateReader jfkTemplateReader,
-        @Autowired AccountRepository accountRepo
+        @Autowired UserQuery userQuery
     ) {
-        this.ZONE_ID = protoService.getConfig().getZoneId();
-        this.ADMIN_ACCOUNT_ID = protoService.getConfig().getUser().getAdminAccountId();
-        this.TEMPLATE_MENU_ITEM_START_ID = 10000;
-
-        this.fullMenu = protoService.getConfig().getUser().getMenu();
-        this.defaultMenuConfig = getDefaultMenuConfig();
-
-        this.protoService = protoService;
+        this.menuMeta = menuMeta;
+        this.statusCodeMsgList = protoConfig.getConfig().getText().getStatusCodeMsgList();
         this.settingsStore = settingsStore;
         this.jfkTemplateReader = jfkTemplateReader;
-        this.accountRepo = accountRepo;
+        this.userQuery = userQuery;
     }
 
     @Transactional
@@ -58,20 +50,21 @@ public class MenuService {
         } catch (Exception e) {
             log.error("Failed to parse GetDeptMenuConfigReq: ", e);
             return GetDeptMenuConfigResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
-        MenuConfigPB config = getNormalizedMenuConfig(req.getDeptId());
+        MenuConfigPB config = loadAndNormalizeMenuConfig(req.getDeptId());
         List<MenuGroup> menuGroups = getMenuGroups(config);
         List<MenuItem> unassignedMenuItems = new ArrayList<>();
         for (MenuItem item : config.getMenuItemList()) {
-            if (item.getType() == 0 && item.getGroupId() < 0) { // 仅添加未分配的菜单项
+            if (item.getType() == MENU_ITEM_TYPE_BUILTIN && item.getGroupId() <= 0) {
                 unassignedMenuItems.add(item);
             }
         }
         return GetDeptMenuConfigResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .addAllMenuGroup(menuGroups)
             .addAllUnassignedMenuItem(unassignedMenuItems)
             .addAllUnassignedFormTemplate(config.getUnassignedFormTemplateList())
@@ -88,14 +81,15 @@ public class MenuService {
         } catch (Exception e) {
             log.error("Failed to parse GetMenuItemReq: ", e);
             return GetMenuItemResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
         String deptId = req.getDeptId();
         int functionId = req.getFunctionId();
 
-        MenuConfigPB menuConfigPb = getNormalizedMenuConfig(deptId);
+        MenuConfigPB menuConfigPb = loadAndNormalizeMenuConfig(deptId);
         MenuItem foundItem = null;
         for (MenuItem item : menuConfigPb.getMenuItemList()) {
             if (item.getFunctionId() == functionId) {
@@ -106,7 +100,8 @@ public class MenuService {
         if (foundItem == null) {
             log.error("Menu item with function_id: {} not found in deptId: {}", functionId, deptId);
             return GetMenuItemResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.MENU_ITEM_NOT_FOUND))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.MENU_ITEM_NOT_FOUND))
                 .build();
         }
 
@@ -124,7 +119,8 @@ public class MenuService {
             if (templateList.isEmpty()) {
                 log.error("No separated form template found for function_id: {} in deptId: {}", functionId, deptId);
                 return GetMenuItemResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.FORM_TEMPLATE_NOT_FOUND))
+                    .setRt(ReturnCodeUtils.getReturnCode(
+                        statusCodeMsgList, StatusCode.FORM_TEMPLATE_NOT_FOUND))
                     .build();
             }
         } else if (foundItem.getType() == 2) {
@@ -134,7 +130,7 @@ public class MenuService {
                 .collect(Collectors.toList());
             if (templateIds.isEmpty()) {
                 return GetMenuItemResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.OK))
+                    .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
                     .setMenuItem(foundItem)
                     .build();
             }
@@ -148,13 +144,14 @@ public class MenuService {
             if (templateList.isEmpty()) {
                 log.error("No aggregated form templates found for function_id: {} in deptId: {}", functionId, deptId);
                 return GetMenuItemResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.FORM_TEMPLATE_NOT_FOUND))
+                    .setRt(ReturnCodeUtils.getReturnCode(
+                        statusCodeMsgList, StatusCode.FORM_TEMPLATE_NOT_FOUND))
                     .build();
             }
         }
 
         return GetMenuItemResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .setMenuItem(foundItem)
             .addAllTemplate(templateList)
             .build();
@@ -170,22 +167,21 @@ public class MenuService {
         } catch (Exception e) {
             log.error("Failed to parse AddMenuItemReq: ", e);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
         final String deptId = req.getDeptId();
-        MenuConfigPB menuConfigPb = getNormalizedMenuConfig(deptId);
+        MenuConfigPB menuConfigPb = loadAndNormalizeMenuConfig(deptId);
         // 检查group_id是否存在
-        Set<Integer> leafGroupIds = new HashSet<>();
-        for (MenuGroup group : menuConfigPb.getMenuGroupList()) {
-            leafGroupIds.addAll(getLeafGroupIds(group));
-        }
+        Set<Integer> leafGroupIds = MenuMeta.getLeafGroupIds(menuConfigPb);
         final Integer groupId = req.getMenuItem().getGroupId();
         if (!leafGroupIds.contains(groupId)) {
             log.error("Invalid group_id: {} for deptId: {}", groupId, deptId);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.INVALID_MENU_GROUP_ID))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.INVALID_MENU_GROUP_ID))
                 .build();
         }
 
@@ -200,7 +196,8 @@ public class MenuService {
         if (existingNames.contains(newName)) {
             log.error("Menu item name already exists: {} in group_id: {}", newName, groupId);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.MENU_ITEM_NAME_EXISTS))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.MENU_ITEM_NAME_EXISTS))
                 .build();
         }
 
@@ -233,7 +230,8 @@ public class MenuService {
             if (!foundItem) {
                 log.error("Menu item with function_id: {} not found in deptId: {}", functionId, deptId);
                 return GenericResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.MENU_ITEM_NOT_FOUND))
+                    .setRt(ReturnCodeUtils.getReturnCode(
+                        statusCodeMsgList, StatusCode.MENU_ITEM_NOT_FOUND))
                     .build();
             }
             // 添加新的菜单项
@@ -246,13 +244,15 @@ public class MenuService {
             if (!formTempIds.contains(newItem.getSeparatedFormTemplate().getKey())) {
                 log.error("Invalid separated_form_template key: {} for deptId: {}", newItem.getSeparatedFormTemplate().getKey(), req.getDeptId());
                 return GenericResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.INVALID_FORM_TEMPLATE_ID))
+                    .setRt(ReturnCodeUtils.getReturnCode(
+                        statusCodeMsgList, StatusCode.INVALID_FORM_TEMPLATE_ID))
                     .build();
             }
             if (newItem.getAggregatedFormTemplateCount() > 0) {
                 log.error("Aggregated form templates are not allowed for single form items in deptId: {}", deptId);
                 return GenericResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.INVALID_MENU_ITEM_TYPE))
+                    .setRt(ReturnCodeUtils.getReturnCode(
+                        statusCodeMsgList, StatusCode.INVALID_MENU_ITEM_TYPE))
                     .build();
             }
             // 添加新的单个表单菜单项
@@ -266,14 +266,16 @@ public class MenuService {
             if (newItem.getSeparatedFormTemplate().getKey() > 0) {
                 log.error("Separated form template is not allowed for aggregated form items in deptId: {}", deptId);
                 return GenericResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.INVALID_MENU_ITEM_TYPE))
+                    .setRt(ReturnCodeUtils.getReturnCode(
+                        statusCodeMsgList, StatusCode.INVALID_MENU_ITEM_TYPE))
                     .build();
             }
             for (IntStrKvPB formTemplate : newItem.getAggregatedFormTemplateList()) {
                 if (!formTempIds.contains(formTemplate.getKey())) {
                     log.error("Invalid aggregated form template key: {} for deptId: {}", formTemplate.getKey(), deptId);
                     return GenericResp.newBuilder()
-                        .setRt(protoService.getReturnCode(StatusCode.INVALID_FORM_TEMPLATE_ID))
+                        .setRt(ReturnCodeUtils.getReturnCode(
+                            statusCodeMsgList, StatusCode.INVALID_FORM_TEMPLATE_ID))
                         .build();
                 }
                 formTempIds.remove(formTemplate.getKey()); // 从未分配的表单中移除已使用的模板
@@ -290,10 +292,10 @@ public class MenuService {
         menuConfigPb = menuConfigPb.toBuilder()
             .clearUnassignedFormTemplate()
             .build();
-        toDb(deptId, menuConfigPb);
+        settingsStore.saveMenuConfigPB(deptId, menuConfigPb, userQuery.getAccountAutoId());
     
         return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .build();
     }
 
@@ -307,7 +309,8 @@ public class MenuService {
         } catch (Exception e) {
             log.error("Failed to parse UpdateMenuItemNameReq: ", e);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
@@ -328,7 +331,8 @@ public class MenuService {
         } catch (Exception e) {
             log.error("Failed to parse UpdateMenuItemWithOneFormReq: ", e);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
@@ -340,7 +344,7 @@ public class MenuService {
     }
 
     private GenericResp updateMenuItem(String deptId, Integer functionId, String name, Integer separatedFormTemplateId) {
-        MenuConfigPB menuConfigPb = getNormalizedMenuConfig(deptId);
+        MenuConfigPB menuConfigPb = loadAndNormalizeMenuConfig(deptId);
         // 找到对应的group_id
         Integer groupId = null;
         for (MenuItem item : menuConfigPb.getMenuItemList()) {
@@ -352,13 +356,15 @@ public class MenuService {
         if (groupId == null) {
             log.error("Menu item with function_id: {} not found in deptId: {}", functionId, deptId);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.MENU_ITEM_NOT_FOUND))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.MENU_ITEM_NOT_FOUND))
                 .build();
         }
-        if (groupId < 0) {
+        if (groupId <= 0) {
             log.error("Menu item with function_id: {} is not assigned to a valid group_id in deptId: {}", functionId, deptId);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.CANNOT_RENAME_UNASSIGNED_MENU_ITEM))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.CANNOT_RENAME_UNASSIGNED_MENU_ITEM))
                 .build();
         }
 
@@ -377,7 +383,8 @@ public class MenuService {
                     if (formTemplate == null) {
                         log.error("Form template with id: {} not found for deptId: {}", separatedFormTemplateId, deptId);
                         return GenericResp.newBuilder()
-                            .setRt(protoService.getReturnCode(StatusCode.FORM_TEMPLATE_NOT_FOUND))
+                            .setRt(ReturnCodeUtils.getReturnCode(
+                                statusCodeMsgList, StatusCode.FORM_TEMPLATE_NOT_FOUND))
                             .build();
                     }
                     builder.setSeparatedFormTemplate(formTemplate);
@@ -387,7 +394,8 @@ public class MenuService {
                 if (item.getGroupId() == groupId && name != null && item.getName().equals(name)) {
                     log.error("Menu item name already exists: {} in group_id: {}", name, groupId);
                     return GenericResp.newBuilder()
-                        .setRt(protoService.getReturnCode(StatusCode.MENU_ITEM_NAME_EXISTS))
+                        .setRt(ReturnCodeUtils.getReturnCode(
+                            statusCodeMsgList, StatusCode.MENU_ITEM_NAME_EXISTS))
                         .build();
                 }
                 updatedItems.add(item); // 保留其他未变更的菜单项
@@ -398,10 +406,10 @@ public class MenuService {
             .addAllMenuItem(updatedItems)
             .clearUnassignedFormTemplate()
             .build();
-        toDb(deptId, menuConfigPb);
+        settingsStore.saveMenuConfigPB(deptId, menuConfigPb, userQuery.getAccountAutoId());
 
         return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .build();
     }
 
@@ -415,14 +423,15 @@ public class MenuService {
         } catch (Exception e) {
             log.error("Failed to parse DeleteMenuItemReq: ", e);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
         final String deptId = req.getDeptId();
         final Integer functionId = req.getFunctionId();
 
-        MenuConfigPB menuConfigPb = getNormalizedMenuConfig(deptId);
+        MenuConfigPB menuConfigPb = loadAndNormalizeMenuConfig(deptId);
         List<MenuItem> updatedItems = new ArrayList<>();
         for (MenuItem item : menuConfigPb.getMenuItemList()) {
             if (item.getFunctionId() == functionId) {
@@ -439,10 +448,10 @@ public class MenuService {
             .addAllMenuItem(updatedItems)
             .clearUnassignedFormTemplate()
             .build();
-        toDb(deptId, menuConfigPb);
+        settingsStore.saveMenuConfigPB(deptId, menuConfigPb, userQuery.getAccountAutoId());
 
         return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .build();
     }
 
@@ -456,13 +465,14 @@ public class MenuService {
         } catch (Exception e) {
             log.error("Failed to parse ReorderMenuItemsReq: ", e);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
         // 验证请求参数
         final String deptId = req.getDeptId();
-        MenuConfigPB menuConfigPb = getNormalizedMenuConfig(deptId);
+        MenuConfigPB menuConfigPb = loadAndNormalizeMenuConfig(deptId);
         Map<Integer, MenuItem> itemMap = menuConfigPb.getMenuItemList().stream()
             .collect(Collectors.toMap(MenuItem::getFunctionId, item -> item));
         Map<Integer, MenuItem> reorderedItemMap = new HashMap<>();
@@ -488,10 +498,10 @@ public class MenuService {
             .addAllMenuItem(updatedItems)
             .clearUnassignedFormTemplate()
             .build();
-        toDb(deptId, menuConfigPb);
+        settingsStore.saveMenuConfigPB(deptId, menuConfigPb, userQuery.getAccountAutoId());
 
         return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .build();
     }
 
@@ -505,7 +515,8 @@ public class MenuService {
         } catch (Exception e) {
             log.error("Failed to parse AddMenuItemFormTemplateReq: ", e);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
@@ -522,19 +533,21 @@ public class MenuService {
             if (template == null) {
                 log.error("Form template with id: {} not found for deptId: {}", templateId, deptId);
                 return GenericResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.FORM_TEMPLATE_NOT_FOUND))
+                    .setRt(ReturnCodeUtils.getReturnCode(
+                        statusCodeMsgList, StatusCode.FORM_TEMPLATE_NOT_FOUND))
                     .build();
             }
             if (template.getDeptId() == null || !template.getDeptId().equals(deptId)) {
                 log.error("Form template with id: {} does not belong to deptId: {}", templateId, deptId);
                 return GenericResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.FORM_TEMPLATE_NOT_BELONG_TO_DEPT))
+                    .setRt(ReturnCodeUtils.getReturnCode(
+                        statusCodeMsgList, StatusCode.FORM_TEMPLATE_NOT_BELONG_TO_DEPT))
                     .build();
             }
         }
 
         // 获取配置
-        MenuConfigPB menuConfigPb = getNormalizedMenuConfig(deptId);
+        MenuConfigPB menuConfigPb = loadAndNormalizeMenuConfig(deptId);
         Set<Integer> allUnassignedTemplateIds = menuConfigPb.getUnassignedFormTemplateList().stream()
             .map(IntStrKvPB::getKey)
             .collect(Collectors.toSet());
@@ -543,7 +556,8 @@ public class MenuService {
             if (!allUnassignedTemplateIds.contains(templateId)) {
                 log.error("Form template with id: {} is not available for assignment in deptId: {}", templateId, deptId);
                 return GenericResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.FORM_TEMPLATE_NOT_AVAILABLE_FOR_ASSIGNMENT))
+                    .setRt(ReturnCodeUtils.getReturnCode(
+                        statusCodeMsgList, StatusCode.FORM_TEMPLATE_NOT_AVAILABLE_FOR_ASSIGNMENT))
                     .build();
             }
         }
@@ -556,7 +570,8 @@ public class MenuService {
                 if (item.getType() != 2) {
                     log.error("Menu item with function_id: {} is not a form group in deptId: {}", functionId, deptId);
                     return GenericResp.newBuilder()
-                        .setRt(protoService.getReturnCode(StatusCode.NOT_AN_AGGREGATED_FORM_MENU_ITEM))
+                        .setRt(ReturnCodeUtils.getReturnCode(
+                            statusCodeMsgList, StatusCode.NOT_AN_AGGREGATED_FORM_MENU_ITEM))
                         .build();
                 }
                 List<IntStrKvPB> templatesToAdd = new ArrayList<>();
@@ -579,7 +594,8 @@ public class MenuService {
         if (!functionFound) {
             log.error("Menu item with function_id: {} not found in deptId: {}", functionId, deptId);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.MENU_ITEM_NOT_FOUND))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.MENU_ITEM_NOT_FOUND))
                 .build();
         }
         menuConfigPb = menuConfigPb.toBuilder()
@@ -587,10 +603,10 @@ public class MenuService {
             .addAllMenuItem(updatedItems)
             .clearUnassignedFormTemplate()
             .build();
-        toDb(deptId, menuConfigPb);
+        settingsStore.saveMenuConfigPB(deptId, menuConfigPb, userQuery.getAccountAutoId());
 
         return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .build();
     }
 
@@ -604,7 +620,8 @@ public class MenuService {
         } catch (Exception e) {
             log.error("Failed to parse DeleteMenuItemFormTemplateReq: ", e);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
@@ -616,18 +633,20 @@ public class MenuService {
         if (template == null) {
             log.error("Form template with id: {} not found for deptId: {}", templateId, deptId);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.FORM_TEMPLATE_NOT_FOUND))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.FORM_TEMPLATE_NOT_FOUND))
                 .build();
         }
         if (template.getDeptId() == null || !template.getDeptId().equals(deptId)) {
             log.error("Form template with id: {} does not belong to deptId: {}", templateId, deptId);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.FORM_TEMPLATE_NOT_BELONG_TO_DEPT))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.FORM_TEMPLATE_NOT_BELONG_TO_DEPT))
                 .build();
         }
 
         // 获取配置
-        MenuConfigPB menuConfigPb = getNormalizedMenuConfig(deptId);
+        MenuConfigPB menuConfigPb = loadAndNormalizeMenuConfig(deptId);
         boolean templateFound = false;
         List<MenuItem> updatedItems = new ArrayList<>();
         for (MenuItem item : menuConfigPb.getMenuItemList()) {
@@ -663,11 +682,11 @@ public class MenuService {
                 .addAllMenuItem(updatedItems)
                 .clearUnassignedFormTemplate()
                 .build();
-            toDb(deptId, menuConfigPb);
+            settingsStore.saveMenuConfigPB(deptId, menuConfigPb, userQuery.getAccountAutoId());
         }
 
         return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .build();
     }
 
@@ -681,7 +700,8 @@ public class MenuService {
         } catch (Exception e) {
             log.error("Failed to parse ReorderMenuItemFormTemplatesReq: ", e);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
@@ -689,7 +709,7 @@ public class MenuService {
         final Integer functionId = req.getFunctionId();
         final List<Integer> reorderedTemplateIds = req.getFormTemplateIdList();
         // 获取配置
-        MenuConfigPB menuConfigPb = getNormalizedMenuConfig(deptId);
+        MenuConfigPB menuConfigPb = loadAndNormalizeMenuConfig(deptId);
         boolean functionFound = false;
         List<MenuItem> updatedItems = new ArrayList<>();
         for (MenuItem item : menuConfigPb.getMenuItemList()) {
@@ -698,7 +718,8 @@ public class MenuService {
                 if (item.getType() != 2) {
                     log.error("Menu item with function_id: {} is not a form group in deptId: {}", functionId, deptId);
                     return GenericResp.newBuilder()
-                        .setRt(protoService.getReturnCode(StatusCode.NOT_AN_AGGREGATED_FORM_MENU_ITEM))
+                        .setRt(ReturnCodeUtils.getReturnCode(
+                            statusCodeMsgList, StatusCode.NOT_AN_AGGREGATED_FORM_MENU_ITEM))
                         .build();
                 }
 
@@ -714,14 +735,16 @@ public class MenuService {
                     } else {
                         log.error("Form template with id: {} not found in menu item with function_id: {}", templateId, functionId);
                         return GenericResp.newBuilder()
-                            .setRt(protoService.getReturnCode(StatusCode.FORM_TEMPLATE_NOT_FOUND_IN_MENU_ITEM))
+                            .setRt(ReturnCodeUtils.getReturnCode(
+                                statusCodeMsgList, StatusCode.FORM_TEMPLATE_NOT_FOUND_IN_MENU_ITEM))
                             .build();
                     }
                 }
                 if (!templateMap.isEmpty()) {
                     log.error("Some form templates not included in the reorder list for function_id: {}", functionId);
                     return GenericResp.newBuilder()
-                        .setRt(protoService.getReturnCode(StatusCode.FORM_TEMPLATE_NOT_IN_REORDER_LIST))
+                        .setRt(ReturnCodeUtils.getReturnCode(
+                            statusCodeMsgList, StatusCode.FORM_TEMPLATE_NOT_IN_REORDER_LIST))
                         .build();
                 }
                 // 更新菜单项
@@ -737,7 +760,8 @@ public class MenuService {
         if (!functionFound) {
             log.error("Menu item with function_id: {} not found in deptId: {}", functionId, deptId);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.MENU_ITEM_NOT_FOUND))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.MENU_ITEM_NOT_FOUND))
                 .build();
         }
 
@@ -747,241 +771,129 @@ public class MenuService {
             .addAllMenuItem(updatedItems)
             .clearUnassignedFormTemplate()
             .build();
-        toDb(deptId, menuConfigPb);
+        settingsStore.saveMenuConfigPB(deptId, menuConfigPb, userQuery.getAccountAutoId());
 
         return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .build();
-    }
-
-    private MenuConfigPB getDefaultMenuConfig() {
-        MenuConfigPB.Builder configBuilder = MenuConfigPB.newBuilder();
-
-        // Process MenuGroups recursively
-        for (MenuGroup group : fullMenu.getGroupList()) {
-            MenuGroup.Builder groupBuilder = processMenuGroup(group);
-            configBuilder.addMenuGroup(groupBuilder);
-        }
-        
-        // Process MenuItems recursively
-        for (MenuGroup group : fullMenu.getGroupList()) {
-            processMenuItems(group, configBuilder);
-        }
-        
-        return configBuilder.build();
-    }
-
-    // Helper method to process MenuGroup recursively
-    private MenuGroup.Builder processMenuGroup(MenuGroup group) {
-        MenuGroup.Builder groupBuilder = MenuGroup.newBuilder(group);
-        
-        // Clear items for leaf groups
-        if (group.getIsLeafGroup()) {
-            groupBuilder.clearItems();
-        }
-        
-        // Recursively process subgroups
-        groupBuilder.clearSubGroup(); // Clear existing subgroups to rebuild
-        for (MenuGroup subGroup : group.getSubGroupList()) {
-            MenuGroup.Builder subGroupBuilder = processMenuGroup(subGroup); // Recursive call
-            groupBuilder.addSubGroup(subGroupBuilder);
-        }
-        
-        return groupBuilder;
-    }
-
-    // Helper method to process MenuItems recursively
-    private void processMenuItems(MenuGroup group, MenuConfigPB.Builder configBuilder) {
-        // Process items in current group
-        for (MenuItem item : group.getItemsList()) {
-            MenuItem.Builder itemBuilder = MenuItem.newBuilder(item);
-            // Set group_id to the current group's ID
-            itemBuilder.setGroupId(group.getGroupId());
-            // Set type to 0 for all items
-            itemBuilder.setType(0);
-            configBuilder.addMenuItem(itemBuilder);
-        }
-        
-        // Recursively process subgroups
-        for (MenuGroup subGroup : group.getSubGroupList()) {
-            processMenuItems(subGroup, configBuilder); // Recursive call
-        }
-    }
-
-    private MenuConfigPB fromDb(String deptId) {
-        try {
-            return settingsStore.getMenuConfigPB(deptId);
-        } catch (SettingsStore.DecodeException e) {
-            // 保留原行为：损坏菜单按未配置处理，由上层重新生成默认菜单。
-            return null;
-        }
-    }
-
-    private void toDb(String deptId, MenuConfigPB config) {
-        settingsStore.saveMenuConfigPB(deptId, config, getContextAccountId());
     }
 
     @Transactional
-    public MenuConfigPB getNormalizedMenuConfig(String deptId) {
-        // 获取所有部门表单配置
-        List<IntStrKvPB> formTemplates = getDeptFormTemplates(deptId);
-        Set<Integer> formTemplateIds = formTemplates.stream()
-            .map(IntStrKvPB::getKey)
-            .collect(Collectors.toSet());
-        Map<Integer, IntStrKvPB> formTemplateMap = formTemplates.stream()
-            .collect(Collectors.toMap(IntStrKvPB::getKey, template -> template));
+    public MenuConfigPB loadAndNormalizeMenuConfig(String deptId) {
+        MenuConfigPB defaultMenuConfig = menuMeta.getConfig();
+        Set<Integer> buildInItemIds = menuMeta.getBuildInItemIds();
 
-        // 如果部门尚未配置，返回默认配置
-        MenuConfigPB config = fromDb(deptId);
+        // 获取当前科室的有效表单模板，保留查询结果的顺序。
+        List<IntStrKvPB> tempIdNameList = getDeptFormTemplates(deptId);
+        Map<Integer, String> tempIdNameMap = tempIdNameList.stream()
+            .collect(Collectors.toMap(IntStrKvPB::getKey, IntStrKvPB::getVal));
+
+        MenuConfigPB config = null;
+        try {
+            config = settingsStore.getMenuConfigPB(deptId);
+        } catch (SettingsStore.DecodeException e) {
+            // 损坏菜单按未配置处理，重新生成默认菜单。
+        }
         if (config == null) {
-            config = defaultMenuConfig.toBuilder()
-                .setDeptId(deptId)
-                .build();
-            toDb(deptId, config);
-            config = config.toBuilder()
-                .addAllUnassignedFormTemplate(formTemplates)
-                .build();
-            return config; // 如果没有配置，直接返回默认配置
+            config = defaultMenuConfig.toBuilder().setDeptId(deptId).build();
+            settingsStore.saveMenuConfigPB(deptId, config, userQuery.getAccountAutoId());
+            return config.toBuilder().addAllUnassignedFormTemplate(tempIdNameList).build();
         }
 
-        //                                     |----------------------> itemIdToAdd ------------------------------------------------|
-        //                                     |                  |                                                                 |
-        // defaultMenuConfig.menu_item --(allItemIds)--|          |                    |--------------------------------------------|--> config.menu_item
-        //                                             |          |                    |                                            |
-        // config.menu_item -----------------------------> existingItemIds + itemIdToRemove + existingTemplateIds + formTemplateMenuItemToUpdate
-        //                             |                                                               |
-        // db--> formTemplates + formTemplateIds                                                       |
-        //             |                                                                               |
-        //             |-------------------------------------------------------------------------------|--> unassignedFormTemplates
-        Map<Integer, MenuItem> allItemIds = defaultMenuConfig.getMenuItemList().stream()
-            .collect(Collectors.toMap(MenuItem::getFunctionId, item -> item));
-
-        Set<Integer> existingItemIds = new HashSet<>();
-        Set<Integer> itemIdToRemove = new HashSet<>();
-        Set<Integer> existingTemplateIds = new HashSet<>();
-        Map<Integer, MenuItem> formTemplateMenuItemToUpdate = new HashMap<>();
+        // 按原顺序校验三类菜单项，剔除非法项并同步模板名称。
+        Set<Integer> groupIds = MenuMeta.getGroupIds(config);
+        Set<Integer> existingBuiltinItemIds = new HashSet<>();
+        List<MenuItem> normalizedItems = new ArrayList<>();
         for (MenuItem item : config.getMenuItemList()) {
-            Integer functionId = item.getFunctionId();
-
-            Integer itemType = item.getType();
-            if (itemType <= 0) {
-                existingItemIds.add(functionId); // 已存在的菜单项
-                if (allItemIds.containsKey(functionId)) continue; // 已存在的菜单项
-                itemIdToRemove.add(functionId); // 需要删除的菜单项
-            } else if (itemType == 1) { // 单个表单
-                if (item.getGroupId() < 0) {
-                    itemIdToRemove.add(functionId); // 未分配的菜单项，标记为删除
-                    continue; // 跳过未分配的菜单项
-                }
-                IntStrKvPB formTemplate = item.getSeparatedFormTemplate();
-                existingTemplateIds.add(formTemplate.getKey());
-                IntStrKvPB formTemplateFromDb = formTemplateMap.get(formTemplate.getKey());
-                if (formTemplateFromDb != null && Objects.equals(formTemplateFromDb, formTemplate)) {
-                    // 如果表单模板在数据库中存在且未分配，继续
-                    continue;
-                }
-                final Integer formTemplateId = formTemplateFromDb != null ? formTemplateFromDb.getKey() : -1;
-                final String formTemplateName = formTemplateFromDb != null ? formTemplateFromDb.getVal() : "";
-                formTemplateMenuItemToUpdate.put(functionId, item.toBuilder()
-                    .setSeparatedFormTemplate(IntStrKvPB.newBuilder()
-                        .setKey(formTemplateId)
-                        .setVal(formTemplateName)
-                        .build()
-                    )
-                    .build()
-                );
-            } else { // 表单组
-                if (item.getGroupId() < 0) {
-                    itemIdToRemove.add(functionId); // 未分配的菜单项，标记为删除
-                    continue; // 跳过未分配的菜单项
-                }
-                List<IntStrKvPB> aggFormTemplates = item.getAggregatedFormTemplateList();
-                List<IntStrKvPB> newFormTemplates = new ArrayList<>();
-                boolean allExist = true;
-                for (IntStrKvPB formTemplate : aggFormTemplates) {
-                    existingTemplateIds.add(formTemplate.getKey());
-                    IntStrKvPB formTemplateFromDb = formTemplateMap.get(formTemplate.getKey());
-                    if (formTemplateFromDb == null) {
-                        allExist = false; // 有表单不存在
-                        continue; // 跳过不存在的表单
-                    }
-                    if (!Objects.equals(formTemplateFromDb.getVal(), formTemplate.getVal())) {
-                        allExist = false; // 有表单名称不匹配
-                    }
-                    newFormTemplates.add(formTemplateFromDb); // 保留存在的表单
-                }
-                if (allExist) continue; // 所有表单都存在，无需处理
-
-                // 有表单不存在，更新为无效表单组
-                formTemplateMenuItemToUpdate.put(functionId, item.toBuilder()
-                    .clearAggregatedFormTemplate()
-                    .addAllAggregatedFormTemplate(newFormTemplates)
-                    .build()
-                );
+            MenuItem normalizedItem = normalizeMenuItem(
+                item, buildInItemIds, groupIds, tempIdNameMap);
+            if (normalizedItem == null) continue;
+            normalizedItems.add(normalizedItem);
+            if (normalizedItem.getType() == MENU_ITEM_TYPE_BUILTIN) {
+                existingBuiltinItemIds.add(normalizedItem.getFunctionId());
             }
         }
 
-        List<Integer> itemIdToAdd = new ArrayList<>();
+        // 保留自动补齐行为；默认分组已不存在时，将补齐的内置项设为未分配。
         for (MenuItem item : defaultMenuConfig.getMenuItemList()) {
-            Integer functionId = item.getFunctionId();
-            if (!existingItemIds.contains(functionId)) {
-                itemIdToAdd.add(functionId); // 需要添加的菜单项
+            if (existingBuiltinItemIds.contains(item.getFunctionId())) continue;
+            if (item.getGroupId() > 0 && !groupIds.contains(item.getGroupId())) {
+                item = item.toBuilder().setGroupId(-1).build();
             }
+            normalizedItems.add(item);
         }
 
-        List<IntStrKvPB> unassignedFormTemplates = new ArrayList<>();
-        for (IntStrKvPB formTemplate : formTemplates) {
-            Integer formTemplateId = formTemplate.getKey();
-            if (!existingTemplateIds.contains(formTemplateId)) {
-                IntStrKvPB existingTemplate = formTemplateMap.get(formTemplateId);
-                if (existingTemplate != null) {
-                    // 如果表单模板在数据库中存在且未分配，添加到未分配列表
-                    unassignedFormTemplates.add(existingTemplate);
-                }
-            }
-        }
-
-        // 如有修正，在数据库中更新部门配置
-        List<MenuItem> updatedItems = new ArrayList<>();
-        for (MenuItem item : config.getMenuItemList()) {
-            Integer functionId = item.getFunctionId();
-
-            MenuItem itemToUpdate = formTemplateMenuItemToUpdate.get(functionId);
-            if (itemToUpdate != null) {
-                if ((itemToUpdate.getType() == 1 && itemToUpdate.getSeparatedFormTemplate().getKey() < 0) ||
-                    (itemToUpdate.getType() == 2 && itemToUpdate.getAggregatedFormTemplateCount() == 0)
-                ) {
-                    // 如果是无效表单或表单组，直接跳过
-                    continue;
-                } else {
-                    // 如果是有效表单或表单组，添加到更新列表
-                    updatedItems.add(itemToUpdate);
-                    continue;
-                }
-            }
-
-            // 如果是默认菜单中的项，保留
-            if (!itemIdToRemove.contains(functionId)) updatedItems.add(item);
-        }
-        for (Integer itemId : itemIdToAdd) {
-            MenuItem defaultItem = allItemIds.get(itemId);
-            if (defaultItem != null) {
-                updatedItems.add(defaultItem);
-            }
-        }
-        if (itemIdToRemove.size() > 0 || itemIdToAdd.size() > 0 || formTemplateMenuItemToUpdate.size() > 0) {
-            log.info("Updating menu config for deptId: {}, removed: {}, added: {}, updated templates: {}",
-                deptId, itemIdToRemove, itemIdToAdd, formTemplateMenuItemToUpdate.keySet());
+        // 仅菜单项发生变化时保存；未分配模板列表只用于返回。
+        if (!normalizedItems.equals(config.getMenuItemList())) {
             config = config.toBuilder()
                 .clearMenuItem()
-                .addAllMenuItem(updatedItems)
+                .addAllMenuItem(normalizedItems)
+                .clearUnassignedFormTemplate()
                 .build();
-            toDb(deptId, config); // 更新数据库中的配置
+            settingsStore.saveMenuConfigPB(deptId, config, userQuery.getAccountAutoId());
         }
 
+        // 只统计最终保留菜单项引用的模板，失效菜单项不占用模板。
+        Set<Integer> assignedTemplateIds = new HashSet<>();
+        for (MenuItem item : normalizedItems) {
+            if (item.getType() == MENU_ITEM_TYPE_SEPARATED_FORM) {
+                assignedTemplateIds.add(item.getSeparatedFormTemplate().getKey());
+            } else if (item.getType() == MENU_ITEM_TYPE_AGGREGATED_FORMS) {
+                for (IntStrKvPB template : item.getAggregatedFormTemplateList()) {
+                    assignedTemplateIds.add(template.getKey());
+                }
+            }
+        }
+        List<IntStrKvPB> unassignedFormTemplates = tempIdNameList.stream()
+            .filter(template -> !assignedTemplateIds.contains(template.getKey()))
+            .collect(Collectors.toList());
         return config.toBuilder()
+            .clearUnassignedFormTemplate()
             .addAllUnassignedFormTemplate(unassignedFormTemplates)
             .build();
+    }
+
+    // 返回修正后的菜单项；返回 null 表示该菜单项非法，需要剔除。
+    private MenuItem normalizeMenuItem(
+        MenuItem item, Set<Integer> buildInItemIds, Set<Integer> groupIds,
+        Map<Integer, String> tempIdNameMap
+    ) {
+        // 内置菜单项允许未分配，已分配时必须指向现有菜单组。
+        if (item.getType() == MENU_ITEM_TYPE_BUILTIN) {
+            boolean validGroup = item.getGroupId() <= 0 || groupIds.contains(item.getGroupId());
+            return buildInItemIds.contains(item.getFunctionId()) && validGroup ? item : null;
+        }
+
+        // 表单菜单项必须使用表单功能 ID，且必须分配到现有菜单组。
+        if (item.getFunctionId() < TEMPLATE_MENU_ITEM_START_ID
+            || item.getGroupId() <= 0 || !groupIds.contains(item.getGroupId())) {
+            return null;
+        }
+        if (item.getType() == MENU_ITEM_TYPE_SEPARATED_FORM) {
+            IntStrKvPB template = item.getSeparatedFormTemplate();
+            String name = tempIdNameMap.get(template.getKey());
+            if (name == null) return null;
+            if (name.equals(template.getVal())) return item;
+            return item.toBuilder()
+                .setSeparatedFormTemplate(template.toBuilder().setVal(name))
+                .build();
+        }
+        if (item.getType() == MENU_ITEM_TYPE_AGGREGATED_FORMS) {
+            List<IntStrKvPB> templates = new ArrayList<>();
+            for (IntStrKvPB template : item.getAggregatedFormTemplateList()) {
+                String name = tempIdNameMap.get(template.getKey());
+                if (name == null) continue;
+                templates.add(name.equals(template.getVal())
+                    ? template : template.toBuilder().setVal(name).build());
+            }
+            if (templates.isEmpty()) return null;
+            if (templates.equals(item.getAggregatedFormTemplateList())) return item;
+            return item.toBuilder()
+                .clearAggregatedFormTemplate()
+                .addAllAggregatedFormTemplate(templates)
+                .build();
+        }
+        return null;
     }
 
     private List<IntStrKvPB> getDeptFormTemplates(String deptId) {
@@ -1000,7 +912,7 @@ public class MenuService {
         Map<Integer, List<MenuItem>> itemsByGroupId = new HashMap<>();
         for (MenuItem item : config.getMenuItemList()) {
             int groupId = item.getGroupId();
-            if (groupId < 0) continue; // Skip items without a valid group_id
+            if (groupId <= 0) continue; // 未分配的菜单项不加入分组。
             itemsByGroupId.computeIfAbsent(groupId, k -> new ArrayList<>()).add(item);
         }
 
@@ -1013,40 +925,8 @@ public class MenuService {
     }
 
     public List<MenuGroup> getMenuGroups(String deptId) {
-        MenuConfigPB config = getNormalizedMenuConfig(deptId);
+        MenuConfigPB config = loadAndNormalizeMenuConfig(deptId);
         return getMenuGroups(config);
-    }
-
-    private GetDeptMenuConfigResp toDeptMenuConfigResp(MenuConfigPB config) {
-        // Create a builder for the response
-        GetDeptMenuConfigResp.Builder respBuilder = GetDeptMenuConfigResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK));
-
-        // Create a map to quickly look up MenuItems by group_id
-        Map<Integer, List<MenuItem>> itemsByGroupId = new HashMap<>();
-        for (MenuItem item : config.getMenuItemList()) {
-            int groupId = item.getGroupId();
-            if (groupId < 0) continue; // Skip items without a valid group_id
-            itemsByGroupId.computeIfAbsent(groupId, k -> new ArrayList<>()).add(item);
-        }
-
-        // Process MenuGroups recursively to rebuild the hierarchy
-        for (MenuGroup group : config.getMenuGroupList()) {
-            MenuGroup.Builder groupBuilder = rebuildMenuGroup(group, itemsByGroupId);
-            respBuilder.addMenuGroup(groupBuilder);
-        }
-
-        // 新增unassigned_menu_item
-        for (MenuItem item : config.getMenuItemList()) {
-            if (item.getType() == 0 && item.getGroupId() < 0) { // 仅添加未分配的菜单项
-                respBuilder.addUnassignedMenuItem(item);
-            }
-        }
-
-        // 新增unassigned_form_template
-        respBuilder.addAllUnassignedFormTemplate(config.getUnassignedFormTemplateList());
-
-        return respBuilder.build();
     }
 
     // Helper method to rebuild MenuGroup recursively
@@ -1070,40 +950,14 @@ public class MenuService {
         return groupBuilder;
     }
 
-    private String getContextAccountId() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || auth.getPrincipal().equals("anonymousUser"))
-            return "";
-        final String accountId = auth.getName();
-        Account account = accountRepo.findByAccountIdAndIsDeletedFalse(accountId).orElse(null);
-        if (account == null) {
-            log.error("Account not found for account_id: {}", accountId);
-            return "";
-        }
-        return account.getId().toString();
-    }
+    private static final int MENU_ITEM_TYPE_BUILTIN = 0;
+    private static final int MENU_ITEM_TYPE_SEPARATED_FORM = 1;
+    private static final int MENU_ITEM_TYPE_AGGREGATED_FORMS = 2;
+    private static final int TEMPLATE_MENU_ITEM_START_ID = 10000;
 
-    private Set<Integer> getLeafGroupIds(MenuGroup group) {
-        Set<Integer> leafGroupIds = new HashSet<>();
-        if (group.getIsLeafGroup()) {
-            leafGroupIds.add(group.getGroupId());
-        } else {
-            for (MenuGroup subGroup : group.getSubGroupList()) {
-                leafGroupIds.addAll(getLeafGroupIds(subGroup));
-            }
-        }
-        return leafGroupIds;
-    }
-
-    private final String ZONE_ID;
-    private final String ADMIN_ACCOUNT_ID;
-    private final Integer TEMPLATE_MENU_ITEM_START_ID;
-
-    private final Menu fullMenu;
-    private final MenuConfigPB defaultMenuConfig;
-
-    private ConfigProtoService protoService;
+    private final MenuMeta menuMeta;
+    private final List<String> statusCodeMsgList;
     private SettingsStore settingsStore;
     private JfkTemplateReader jfkTemplateReader;
-    private AccountRepository accountRepo;
+    private UserQuery userQuery;
 }

@@ -23,10 +23,13 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.AppGeneralSet
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.AppSettingsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.DeptArchiveSettings;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.MenuConfigPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.MenuItem;
+import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.IntStrKvPB;
 import com.jingyicare.jingyi_icis_engine.repository.settings.SystemSettingsRepository;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
-import com.jingyicare.jingyi_icis_engine.service.users.MenuService;
+import com.jingyicare.jingyi_icis_engine.service.users.menu.MenuMeta;
+import com.jingyicare.jingyi_icis_engine.service.users.menu.MenuService;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 
 class SettingsStoreTests extends TestsBase {
@@ -145,12 +148,68 @@ class SettingsStoreTests extends TestsBase {
         assertThat(actual.getPrintAgentIpPort()).isEqualTo("127.0.0.1:9123");
         assertThat(actual.getEnableCa()).isFalse();
 
-        MenuConfigPB menu = menuService.getNormalizedMenuConfig(DEPT);
+        MenuConfigPB menu = menuService.loadAndNormalizeMenuConfig(DEPT);
         assertThat(menu.getDeptId()).isEqualTo(DEPT);
         assertThat(store.getMenuConfigPB(DEPT)).isNotNull();
         assertThat(jdbcTemplate.queryForObject("""
             SELECT modified_by FROM dept_system_settings WHERE dept_id = ? AND function_id = ?
             """, String.class, DEPT, SettingsStore.GET_DEPT_MENU_SETTINGS)).isEmpty();
+    }
+
+    @Test
+    void menuNormalizationPersistsRepairsAndOnlyAssignsActiveDepartmentTemplates() {
+        int firstId = insertTemplate(DEPT, "模板一", false);
+        int secondId = insertTemplate(DEPT, "模板二", false);
+        int freeId = insertTemplate(DEPT, "未分配模板", false);
+        int deletedId = insertTemplate(DEPT, "已删除模板", true);
+        int foreignId = insertTemplate(OTHER_DEPT, "其他科室模板", false);
+        MenuConfigPB defaults = menuMeta.getConfig();
+        int groupId = defaults.getMenuItem(0).getGroupId();
+        MenuItem separated = MenuItem.newBuilder().setFunctionId(10000).setType(1)
+            .setGroupId(groupId).setSeparatedFormTemplate(template(firstId, "旧模板名")).build();
+        MenuItem aggregated = MenuItem.newBuilder().setFunctionId(10001).setType(2)
+            .setGroupId(groupId)
+            .addAggregatedFormTemplate(template(secondId, "模板二"))
+            .addAggregatedFormTemplate(template(deletedId, "已删除模板"))
+            .addAggregatedFormTemplate(template(foreignId, "其他科室模板"))
+            .build();
+        MenuItem invalidFunction = MenuItem.newBuilder().setFunctionId(9999).setType(1)
+            .setGroupId(groupId).setSeparatedFormTemplate(template(freeId, "未分配模板")).build();
+        store.saveMenuConfigPB(DEPT, defaults.toBuilder().setDeptId(DEPT)
+            .addMenuItem(separated).addMenuItem(aggregated).addMenuItem(invalidFunction)
+            .addUnassignedFormTemplate(template(firstId, "过期未分配项")).build(), "previous-user");
+
+        MenuConfigPB actual = menuService.loadAndNormalizeMenuConfig(DEPT);
+
+        assertThat(actual.getMenuItemCount()).isEqualTo(defaults.getMenuItemCount() + 2);
+        assertThat(actual.getMenuItem(defaults.getMenuItemCount()).getSeparatedFormTemplate())
+            .isEqualTo(template(firstId, "模板一"));
+        assertThat(actual.getMenuItem(defaults.getMenuItemCount() + 1)
+            .getAggregatedFormTemplateList()).containsExactly(template(secondId, "模板二"));
+        assertThat(actual.getUnassignedFormTemplateList())
+            .containsExactly(template(freeId, "未分配模板"));
+        MenuConfigPB saved = store.getMenuConfigPB(DEPT);
+        assertThat(saved.getMenuItemList()).isEqualTo(actual.getMenuItemList());
+        assertThat(saved.getUnassignedFormTemplateList()).isEmpty();
+        assertThat(jdbcTemplate.queryForObject("""
+            SELECT modified_by FROM dept_system_settings WHERE dept_id = ? AND function_id = ?
+            """, String.class, DEPT, SettingsStore.GET_DEPT_MENU_SETTINGS)).isEmpty();
+
+        // 再次读取合法配置不应写库，也不应刷新审计字段。
+        LocalDateTime marker = LocalDateTime.of(2001, 1, 1, 0, 0);
+        jdbcTemplate.update("""
+            UPDATE dept_system_settings SET modified_at = ?, modified_by = ?
+            WHERE dept_id = ? AND function_id = ?
+            """, marker, "unchanged-marker", DEPT, SettingsStore.GET_DEPT_MENU_SETTINGS);
+        assertThat(menuService.loadAndNormalizeMenuConfig(DEPT)).isEqualTo(actual);
+        assertThat(jdbcTemplate.queryForObject("""
+            SELECT modified_at FROM dept_system_settings WHERE dept_id = ? AND function_id = ?
+            """, LocalDateTime.class, DEPT, SettingsStore.GET_DEPT_MENU_SETTINGS))
+            .isEqualTo(marker);
+        assertThat(jdbcTemplate.queryForObject("""
+            SELECT modified_by FROM dept_system_settings WHERE dept_id = ? AND function_id = ?
+            """, String.class, DEPT, SettingsStore.GET_DEPT_MENU_SETTINGS))
+            .isEqualTo("unchanged-marker");
     }
 
     @Test
@@ -187,6 +246,17 @@ class SettingsStoreTests extends TestsBase {
         }
     }
 
+    private int insertTemplate(String deptId, String name, boolean deleted) {
+        return jdbcTemplate.queryForObject("""
+            INSERT INTO dragable_form_templates(dept_id, name, template_pb, is_deleted)
+            VALUES (?, ?, '', ?) RETURNING id
+            """, Integer.class, deptId, name, deleted);
+    }
+
+    private IntStrKvPB template(int id, String name) {
+        return IntStrKvPB.newBuilder().setKey(id).setVal(name).build();
+    }
+
     private void insertBrokenSettings() {
         for (int functionId : FUNCTION_IDS) {
             jdbcTemplate.update("""
@@ -209,6 +279,8 @@ class SettingsStoreTests extends TestsBase {
     private void clearDepartment() {
         jdbcTemplate.update("DELETE FROM dept_system_settings WHERE dept_id IN (?, ?)",
             DEPT, OTHER_DEPT);
+        jdbcTemplate.update("DELETE FROM dragable_form_templates WHERE dept_id IN (?, ?)",
+            DEPT, OTHER_DEPT);
         jdbcTemplate.update("DELETE FROM app_transaction_locks WHERE resource_key LIKE ?",
             "dept_system_settings:" + DEPT + ":%");
     }
@@ -228,6 +300,7 @@ class SettingsStoreTests extends TestsBase {
     @Autowired private SettingsStore store;
     @Autowired private SettingService settingService;
     @Autowired private MenuService menuService;
+    @Autowired private MenuMeta menuMeta;
     @Autowired private LockExecutor lockExecutor;
     @Autowired private SystemSettingsRepository systemSettingsRepo;
     @Autowired private JdbcTemplate jdbcTemplate;
