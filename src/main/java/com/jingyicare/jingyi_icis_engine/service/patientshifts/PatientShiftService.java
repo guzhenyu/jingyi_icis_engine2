@@ -27,7 +27,7 @@ import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.patientshifts.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Service
@@ -35,14 +35,14 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class PatientShiftService {
     public PatientShiftService(
         @Autowired ConfigProtoService protoService,
-        @Autowired UserService userService,
+        @Autowired UserQuery userQuery,
         @Autowired PatientService patientService,
         @Autowired PatientShiftRecordRepository psrRepo
     ) {
         this.ZONE_ID = protoService.getConfig().getZoneId();
 
         this.protoService = protoService;
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.patientService = patientService;
         this.psrRepo = psrRepo;
     }
@@ -147,7 +147,7 @@ public class PatientShiftService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return AddPatientShiftRecordResp.newBuilder()
@@ -221,7 +221,7 @@ public class PatientShiftService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -292,7 +292,7 @@ public class PatientShiftService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -325,7 +325,7 @@ public class PatientShiftService {
 
     private final String ZONE_ID;
     private final ConfigProtoService protoService;
-    private final UserService userService;
+    private final UserQuery userQuery;
     private final PatientService patientService;
     private final PatientShiftRecordRepository psrRepo;
 }

@@ -28,7 +28,7 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class ExtUrlService {
     public ExtUrlService(
         @Autowired ConfigProtoService protoService,
-        @Autowired UserService userService,
+        @Autowired UserQuery userQuery,
         @Autowired ExtUrlConfigRepository urlConfigRepo
     ) {
         this.statusCodeMsgList = protoService.getConfig().getText().getStatusCodeMsgList();
@@ -40,7 +40,7 @@ public class ExtUrlService {
         }
 
         this.protoService = protoService;
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.urlConfigRepo = urlConfigRepo;
     }
 
@@ -90,7 +90,7 @@ public class ExtUrlService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
@@ -162,7 +162,7 @@ public class ExtUrlService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
@@ -360,6 +360,6 @@ public class ExtUrlService {
     private final Map<Integer, String> paramValueIdNameMap;
 
     private final ConfigProtoService protoService;
-    private final UserService userService;
+    private final UserQuery userQuery;
     private final ExtUrlConfigRepository urlConfigRepo;
 }

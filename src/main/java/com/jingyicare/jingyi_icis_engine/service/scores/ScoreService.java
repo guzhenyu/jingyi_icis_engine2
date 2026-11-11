@@ -26,7 +26,7 @@ import com.jingyicare.jingyi_icis_engine.repository.scores.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.*;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.snapshots.SnapshotModule;
@@ -40,7 +40,7 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class ScoreService {
     public ScoreService(
         ConfigProtoService protoService, ScoreMetaService scoreMetaService,
-        ScoreCalculator scoreCalculator, UserService userService, PatientService patientService,
+        ScoreCalculator scoreCalculator, UserQuery userQuery, PatientService patientService,
         PatientNursingReportInvalidationService pnrUtils, PatientScoreRepository patientScoreRepo,
         MonitoringParamRepository monitoringParamRepo, PatientMonitoringRecordRepository pmrRepo,
         ScoreReader scoreReader, SnapshotService snapshotService, LockExecutor lockExecutor,
@@ -50,7 +50,7 @@ public class ScoreService {
         this.ZONE_ID = protoService.getZoneId();
         this.scoreMetaService = scoreMetaService;
         this.scoreCalculator = scoreCalculator;
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.patientService = patientService;
         this.pnrUtils = pnrUtils;
         this.patientScoreRepo = patientScoreRepo;
@@ -382,7 +382,7 @@ public class ScoreService {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED)).build();
         }
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return ReturnCodeUtils.genericResponse(
                 protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND));
@@ -465,7 +465,7 @@ public class ScoreService {
 
     private Pair<StatusCode, Supplier<ScoreLockPlan>> getScoreLockPlanSupplier(ScoreGroupPB sgPb) {
         // 检查当前用户的账号信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("Account ID is empty.");
             return new Pair<>(StatusCode.ACCOUNT_NOT_FOUND, null);
@@ -735,7 +735,7 @@ public class ScoreService {
     private final ConfigProtoService protoService;
     private final ScoreMetaService scoreMetaService;
     private final ScoreCalculator scoreCalculator;
-    private final UserService userService;
+    private final UserQuery userQuery;
     private final PatientService patientService;
     private final PatientNursingReportInvalidationService pnrUtils;
     private final PatientScoreRepository patientScoreRepo;

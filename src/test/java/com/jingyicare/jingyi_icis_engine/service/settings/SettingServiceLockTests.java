@@ -45,12 +45,11 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
 import com.jingyicare.jingyi_icis_engine.repository.reports.DragableFormTemplateRepository;
 import com.jingyicare.jingyi_icis_engine.repository.settings.DeptSystemSettingsRepository;
 import com.jingyicare.jingyi_icis_engine.repository.settings.SystemSettingsRepository;
-import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
-import com.jingyicare.jingyi_icis_engine.service.medications.MedicationConfig;
-import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.reports.JfkTemplateReader;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
@@ -272,13 +271,11 @@ class SettingServiceLockTests extends TestsBase {
 
     @Test
     void failedLaterSettingRollsBackEarlierSettingAndNewLocks() {
-        MonitoringConfig failingConfig = mock(MonitoringConfig.class);
-        when(failingConfig.getDeptMonitoringSettings(DEPT_ID))
-            .thenReturn(DeptMonitoringSettingsPB.getDefaultInstance());
-        doThrow(new IllegalStateException("保存观察项设置失败")).when(failingConfig)
-            .setDeptMonitoringSettings(eq(DEPT_ID), any(), eq(ACCOUNT));
-        var failingService = new SettingService(protoService, users, medConfig, failingConfig,
-            deptSettingsRepo, systemSettingsRepo, templates, executor);
+        SettingsStore failingStore = mock(SettingsStore.class, delegatesTo(settingsStore));
+        doThrow(new IllegalStateException("保存观察项设置失败")).when(failingStore)
+            .saveDeptMonitoringSettingsPB(eq(DEPT_ID), any(), eq(ACCOUNT));
+        SettingService failingService = new SettingService(protoConfig, users, failingStore,
+            new JfkTemplateReader(templates), executor);
         var request = UpdateAppSettingsReq.newBuilder().setDeptId(DEPT_ID)
             .addChangedType(AppSettingTypeEnum.AST_ENABLE_MEDICATION_SPEED)
             .addChangedType(AppSettingTypeEnum.AST_HEAD_CUSTOM_TIME_GRACE_MINUTES)
@@ -305,9 +302,9 @@ class SettingServiceLockTests extends TestsBase {
             }
             return deptSettingsRepo.save(entity);
         }).when(failingRepository).save(any(DeptSystemSettings.class));
-        var failingService = new SettingService(protoService, users, medConfig,
-            mock(MonitoringConfig.class), failingRepository, systemSettingsRepo, templates,
-            executor);
+        SettingService failingService = new SettingService(protoConfig, users,
+            new SettingsStore(failingRepository, systemSettingsRepo),
+            new JfkTemplateReader(templates), executor);
         var request = UpdateAppSettingsReq.newBuilder().setDeptId(DEPT_ID)
             .addChangedType(AppSettingTypeEnum.AST_NURSING_RECORD_OVERWRITE_CREATED_BY)
             .addChangedType(AppSettingTypeEnum.AST_SCORE_ALLOW_EDIT_RECORDED_BY)
@@ -425,9 +422,9 @@ class SettingServiceLockTests extends TestsBase {
     @Autowired private SettingService service;
     @Autowired private LockExecutor executor;
     @Autowired private JdbcTemplate jdbcTemplate;
-    @Autowired private ConfigProtoService protoService;
-    @Autowired private UserService users;
-    @Autowired private MedicationConfig medConfig;
+    @Autowired private ProtoConfig protoConfig;
+    @Autowired private UserQuery users;
+    @Autowired private SettingsStore settingsStore;
     @Autowired private DeptSystemSettingsRepository deptSettingsRepo;
     @Autowired private SystemSettingsRepository systemSettingsRepo;
     @Autowired private DragableFormTemplateRepository templates;

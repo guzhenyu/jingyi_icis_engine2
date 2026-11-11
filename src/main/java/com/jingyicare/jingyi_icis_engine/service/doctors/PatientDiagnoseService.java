@@ -30,7 +30,7 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class PatientDiagnoseService {
     public PatientDiagnoseService(
         @Autowired ConfigProtoService protoService,
-        @Autowired UserService userService,
+        @Autowired UserQuery userQuery,
         @Autowired PatientService patientService,
         @Autowired DoctorDataFetcher doctorDataFetcher,
         @Autowired PatientRecordRepository patientRecordRepo,
@@ -40,7 +40,7 @@ public class PatientDiagnoseService {
         this.ZONE_ID = protoService.getConfig().getZoneId();
 
         this.protoService = protoService;
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.patientService = patientService;
         this.doctorDataFetcher = doctorDataFetcher;
 
@@ -139,7 +139,7 @@ public class PatientDiagnoseService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return ConfirmDiseaseResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -263,7 +263,7 @@ public class PatientDiagnoseService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -545,7 +545,7 @@ public class PatientDiagnoseService {
     private final String ZONE_ID;
 
     private final ConfigProtoService protoService;
-    private final UserService userService;
+    private final UserQuery userQuery;
     private final PatientService patientService;
     private final DoctorDataFetcher doctorDataFetcher;
 

@@ -50,7 +50,7 @@ public class PatientService {
         @Autowired PatientSyncService patientSyncService,
         @Autowired PatientReadmissionService patientReadmissionService,
         @Autowired PatientDeviceService patientDeviceService,
-        @Autowired UserService userService,
+        @Autowired UserQuery userQuery,
         @Autowired CertificateService certService,
         @Autowired MonitoringConfig monitoringConfig,
         @Autowired PatientRecordRepository repository,
@@ -123,7 +123,7 @@ public class PatientService {
         this.patientSyncService = patientSyncService;
         this.patientReadmissionService = patientReadmissionService;
         this.patientDeviceService = patientDeviceService;
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.certService = certService;
         this.monitoringConfig = monitoringConfig;
         this.patientRecordRepository = repository;
@@ -396,7 +396,7 @@ public class PatientService {
                 .build();
         }
 
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -467,7 +467,7 @@ public class PatientService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             log.error("Account not found");
             return GenericResp.newBuilder()
@@ -598,7 +598,7 @@ public class PatientService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             log.error("Account not found");
             return GenericResp.newBuilder()
@@ -714,7 +714,7 @@ public class PatientService {
             TimeUtils.toIso8601String(patient.getHisAdmissionTime(), ZONE_ID);
         String primaryCareDoctorId = patient.getPrimaryCareDoctorId();
         String primaryCareDoctor = primaryCareDoctorId == null ?
-            "" : userService.getNameByAccountId(primaryCareDoctorId);
+            "" : userQuery.getNameByAccountId(primaryCareDoctorId);
         if (primaryCareDoctor == null) primaryCareDoctor = "";
         String allergies = patient.getAllergies();
         Integer admissionStatus = patient.getAdmissionStatus();
@@ -928,7 +928,7 @@ public class PatientService {
                 .build();
         }
 
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -1090,7 +1090,7 @@ public class PatientService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return AddDiagnosisHistoryResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -1150,7 +1150,7 @@ public class PatientService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -1246,7 +1246,7 @@ public class PatientService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -1734,7 +1734,7 @@ public class PatientService {
 
             case "primary_care_doctor_id":
                 if (patientRec.getPrimaryCareDoctorId() == null) return "";
-                return userService.getNameByAccountId(patientRec.getPrimaryCareDoctorId());
+                return userQuery.getNameByAccountId(patientRec.getPrimaryCareDoctorId());
 
             case "admitting_doctor_id":
                 if (patientRec.getAdmittingDoctorId() == null) return "";
@@ -1742,7 +1742,7 @@ public class PatientService {
 
             case "responsible_nurse_id":
                 if (patientRec.getResponsibleNurseId() == null) return "";
-                return userService.getNameByAutoId(patientRec.getResponsibleNurseId());
+                return userQuery.getNameByAutoId(patientRec.getResponsibleNurseId());
 
             case "from_dept_name":
                 if (patientRec.getFromDeptName() == null) return "";
@@ -1934,19 +1934,19 @@ public class PatientService {
         builder.setIsolationPrecaution(patient.getIsolationPrecaution());
         builder.setChiefComplaint(patient.getChiefComplaint());
 
-        // Doctor and nurse names resolved via userService
+        // Doctor and nurse names resolved via userQuery
         builder.setAttendingDoctorId(patient.getAttendingDoctorId());
         builder.setAttendingDoctorName(patient.getAttendingDoctorId() != null 
-            ? userService.getNameByAutoId(patient.getAttendingDoctorId()) : "");
+            ? userQuery.getNameByAutoId(patient.getAttendingDoctorId()) : "");
         builder.setPrimaryCareDoctorId(patient.getPrimaryCareDoctorId());
         builder.setPrimaryCareDoctorName(patient.getPrimaryCareDoctorId() != null 
-            ? userService.getNameByAccountId(patient.getPrimaryCareDoctorId()) : "");
+            ? userQuery.getNameByAccountId(patient.getPrimaryCareDoctorId()) : "");
         builder.setAdmittingDoctorId(patient.getAdmittingDoctorId());
         builder.setAdmittingDoctorName(patient.getAdmittingDoctorId() != null 
-            ? userService.getNameByAutoId(patient.getAdmittingDoctorId()) : "");
+            ? userQuery.getNameByAutoId(patient.getAdmittingDoctorId()) : "");
         builder.setResponsibleNurseId(patient.getResponsibleNurseId());
         builder.setResponsibleNurseName(patient.getResponsibleNurseId() != null 
-            ? userService.getNameByAutoId(patient.getResponsibleNurseId()) : "");
+            ? userQuery.getNameByAutoId(patient.getResponsibleNurseId()) : "");
 
         builder.setDiagnosis(patient.getDiagnosis());
 
@@ -2190,7 +2190,7 @@ public class PatientService {
     private ConfigProtoService protoService;
     private List<String> statusCodeMsgs;
     private ConfigShiftUtils shiftUtils;
-    private UserService userService;
+    private UserQuery userQuery;
     private CertificateService certService;
     private MonitoringConfig monitoringConfig;
 

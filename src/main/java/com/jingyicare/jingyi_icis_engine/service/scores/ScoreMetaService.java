@@ -27,7 +27,7 @@ import com.jingyicare.jingyi_icis_engine.repository.scores.DeptScoreGroupReposit
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
@@ -38,13 +38,13 @@ import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 public class ScoreMetaService {
     public ScoreMetaService(
         ConfigProtoService protoService,
-        UserService userService,
+        UserQuery userQuery,
         DeptScoreGroupRepository deptScoreGroupRepo,
         LockExecutor lockExecutor,
         JdbcTemplate jdbcTemplate
     ) {
         this.protoService = protoService;
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.deptScoreGroupRepo = deptScoreGroupRepo;
         this.lockExecutor = lockExecutor;
         this.jdbcTemplate = jdbcTemplate;
@@ -137,7 +137,7 @@ public class ScoreMetaService {
         if (hasBlankGroupKey(req.getDeptId(), req.getScoreGroupCode())) {
             return addGroupResponse(StatusCode.INVALID_PARAM_VALUE);
         }
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) return addGroupResponse(StatusCode.ACCOUNT_NOT_FOUND);
 
         return lockExecutor.execute(
@@ -170,7 +170,7 @@ public class ScoreMetaService {
         ) {
             return addGroupsResponse(StatusCode.INVALID_PARAM_VALUE);
         }
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) return addGroupsResponse(StatusCode.ACCOUNT_NOT_FOUND);
         List<String> codes = req.getGroupList().stream()
             .map(DeptScoreGroupPB::getScoreGroupCode).toList();
@@ -211,7 +211,7 @@ public class ScoreMetaService {
             log.error("评分元数据请求解析失败", e);
             return response(StatusCode.PARSE_JSON_FAILED);
         }
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) return response(StatusCode.ACCOUNT_NOT_FOUND);
         Optional<DeptScoreGroupKey> initial = DeptScoreGroupJdbc.findKeyById(
             jdbcTemplate, req.getId());
@@ -246,7 +246,7 @@ public class ScoreMetaService {
             return response(StatusCode.PARSE_JSON_FAILED);
         }
         if (StrUtils.isBlank(req.getDeptId())) return response(StatusCode.INVALID_PARAM_VALUE);
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) return response(StatusCode.ACCOUNT_NOT_FOUND);
         List<Integer> ids = req.getGroupOrderList().stream().map(ScoreGroupOrder::getId).toList();
         if (new HashSet<>(ids).size() != ids.size()) {
@@ -445,7 +445,7 @@ public class ScoreMetaService {
         String deptId, String code, Function<ScoreGroupMetaPB, ScoreGroupMetaUpdate> update
     ) {
         if (hasBlankGroupKey(deptId, code)) return response(StatusCode.INVALID_PARAM_VALUE);
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) return response(StatusCode.ACCOUNT_NOT_FOUND);
         // 修改接口也允许首次创建科室配置，因此同时锁住科室排序和目标评分组。
         return lockExecutor.execute(deptScoreGroupLockKeys(deptId, List.of(code)), () -> {
@@ -518,7 +518,7 @@ public class ScoreMetaService {
     private record ScoreGroupMetaUpdate(StatusCode status, ScoreGroupMetaPB meta) {}
 
     private final ConfigProtoService protoService;
-    private final UserService userService;
+    private final UserQuery userQuery;
     private final DeptScoreGroupRepository deptScoreGroupRepo;
     private final LockExecutor lockExecutor;
     private final JdbcTemplate jdbcTemplate;

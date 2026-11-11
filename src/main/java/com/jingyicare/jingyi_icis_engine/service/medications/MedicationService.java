@@ -31,7 +31,7 @@ import com.jingyicare.jingyi_icis_engine.repository.settings.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -42,7 +42,7 @@ public class MedicationService {
         @Autowired ConfigProtoService protoService,
         @Autowired ConfigShiftUtils shiftUtils,
         @Autowired MedicationConfig medConfig,
-        @Autowired UserService userService,
+        @Autowired UserQuery userQuery,
         @Autowired PatientService patientService,
         @Autowired OrderGroupGenerator ordGroupGenerator,
         @Autowired OrderExecutor ordExecutor,
@@ -74,7 +74,7 @@ public class MedicationService {
         this.ORDER_GROUP_COMPLETED_TXT = protoService.getConfig().getMedication().getOrderGroupCompletedTxt();
 
         this.medConfig = medConfig;
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.patientService = patientService;
         this.ordGroupGenerator = ordGroupGenerator;
         this.ordExecutor = ordExecutor;
@@ -106,7 +106,7 @@ public class MedicationService {
         }
 
         // 获取当前用户
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GetOrderGroupsResp.newBuilder()
@@ -186,7 +186,7 @@ public class MedicationService {
         }
 
         // 获取当前用户
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GetOrderGroupResp.newBuilder()
@@ -256,7 +256,7 @@ public class MedicationService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return NewOrderGroupResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -469,7 +469,7 @@ public class MedicationService {
         }
 
         // 获取当前用户
-        final Pair<String, String> account = userService.getAccountWithAutoId();
+        final Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             log.error("accountId is empty.");
             return SaveOrderExeActionResp.newBuilder()
@@ -661,7 +661,7 @@ public class MedicationService {
         }
 
         // 获取当前用户
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return DelOrderExeActionResp.newBuilder()
@@ -855,7 +855,7 @@ public class MedicationService {
         }
 
         if (updated) {
-            final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+            final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
             if (accountWithAutoId == null) {
                 log.error("accountId is empty.");
                 return GenericResp.newBuilder()
@@ -911,7 +911,7 @@ public class MedicationService {
         }
 
         // 获取当前用户
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -1083,7 +1083,7 @@ public class MedicationService {
         }
 
         // 查找当前用户
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -1160,7 +1160,7 @@ public class MedicationService {
         }
 
         // 查找当前用户
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -1226,7 +1226,7 @@ public class MedicationService {
                 .build();
         }
 
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -1294,7 +1294,7 @@ public class MedicationService {
                 .build();
         }
 
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return AddRouteResp.newBuilder()
@@ -1354,7 +1354,7 @@ public class MedicationService {
                 .build();
         }
 
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -1420,7 +1420,7 @@ public class MedicationService {
                 .build();
         }
 
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -1519,7 +1519,7 @@ public class MedicationService {
                 .build();
         }
 
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return AddFreqResp.newBuilder()
@@ -1569,7 +1569,7 @@ public class MedicationService {
                 .build();
         }
 
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -1625,7 +1625,7 @@ public class MedicationService {
                 .build();
         }
 
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -2117,7 +2117,7 @@ public class MedicationService {
     private ConfigProtoService protoService;
     private ConfigShiftUtils shiftUtils;
     private MedicationConfig medConfig;
-    private UserService userService;
+    private UserQuery userQuery;
     private PatientService patientService;
     private OrderGroupGenerator ordGroupGenerator;
     private OrderExecutor ordExecutor;

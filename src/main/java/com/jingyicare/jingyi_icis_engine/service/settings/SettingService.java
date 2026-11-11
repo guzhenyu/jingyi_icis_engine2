@@ -1,8 +1,8 @@
 package com.jingyicare.jingyi_icis_engine.service.settings;
 
-import java.time.*;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.function.Supplier;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -20,16 +20,12 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingScore.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 
-import com.jingyicare.jingyi_icis_engine.entity.settings.*;
 import com.jingyicare.jingyi_icis_engine.entity.reports.DragableFormTemplate;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkTemplatePB;
-import com.jingyicare.jingyi_icis_engine.repository.reports.DragableFormTemplateRepository;
-import com.jingyicare.jingyi_icis_engine.repository.settings.*;
-import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
-import com.jingyicare.jingyi_icis_engine.service.medications.*;
-import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
+import com.jingyicare.jingyi_icis_engine.service.reports.JfkTemplateReader;
 import com.jingyicare.jingyi_icis_engine.service.users.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -37,24 +33,18 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 @Slf4j
 public class SettingService {
     public SettingService(
-        @Autowired ConfigProtoService protoService,
-        @Autowired UserService userService,
-        @Autowired MedicationConfig medConfig,
-        @Autowired MonitoringConfig monitoringConfig,
-        @Autowired DeptSystemSettingsRepository deptSettingsRepo,
-        @Autowired SystemSettingsRepository systemSettingsRepo,
-        @Autowired DragableFormTemplateRepository formTemplateRepo,
+        @Autowired ProtoConfig protoConfig,
+        @Autowired UserQuery userQuery,
+        @Autowired SettingsStore settingsStore,
+        @Autowired JfkTemplateReader jfkTemplateReader,
         @Autowired LockExecutor lockExecutor
     ) {
-        this.statusCodeMsgList = protoService.getConfig().getText().getStatusCodeMsgList();
-
-        this.protoService = protoService;
-        this.userService = userService;
-        this.medConfig = medConfig;
-        this.monitoringConfig = monitoringConfig;
-        this.deptSettingsRepo = deptSettingsRepo;
-        this.systemSettingsRepo = systemSettingsRepo;
-        this.formTemplateRepo = formTemplateRepo;
+        this.statusCodeMsgList = protoConfig.getConfig().getText().getStatusCodeMsgList();
+        this.defaultMedOrderGroupSettings = protoConfig.getConfig()
+            .getMedication().getOrderGroupSettings();
+        this.userQuery = userQuery;
+        this.settingsStore = settingsStore;
+        this.jfkTemplateReader = jfkTemplateReader;
         this.lockExecutor = lockExecutor;
     }
 
@@ -72,16 +62,20 @@ public class SettingService {
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.DEPT_IS_EMPTY)).build();
         }
 
-        DeptSystemSettingsId id = new DeptSystemSettingsId(
-            req.getDeptId(), SystemSettingFunctionId.GET_ARCHIVE_CONFIG_VALUE);
-        DeptSystemSettings entity = deptSettingsRepo.findById(id).orElse(null);
-        if (entity == null) {
+        final DeptArchiveSettings settings;
+        try {
+            settings = settingsStore.getArchiveSettings(req.getDeptId());
+        } catch (SettingsStore.DecodeException e) {
+            return GetArchiveConfigResp.newBuilder()
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ARCHIVE_CONFIG_INVALID)).build();
+        }
+        if (settings == null) {
             return GetArchiveConfigResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
                 .setSettings(DeptArchiveSettings.newBuilder().setDeptId(req.getDeptId())).build();
         }
-        DeptArchiveSettings settings = ProtoUtils.decodeDeptArchiveSettings(entity.getSettingsPb());
-        if (settings == null || !req.getDeptId().equals(settings.getDeptId())) {
+        if (!req.getDeptId().equals(settings.getDeptId())) {
             return GetArchiveConfigResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ARCHIVE_CONFIG_INVALID)).build();
         }
@@ -96,7 +90,7 @@ public class SettingService {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.PARSE_JSON_FAILED)).build();
         }
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND)).build();
@@ -111,7 +105,7 @@ public class SettingService {
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.DEPT_IS_EMPTY)).build();
         }
         String resourceKey = LockKeys.deptSystemSettings(
-            settings.getDeptId(), SystemSettingFunctionId.GET_ARCHIVE_CONFIG_VALUE);
+            settings.getDeptId(), SettingsStore.GET_ARCHIVE_CONFIG);
         return lockExecutor.execute(List.of(resourceKey),
             () -> saveArchiveConfig(settings, account.getFirst()));
     }
@@ -122,14 +116,7 @@ public class SettingService {
             return GenericResp.newBuilder().setRt(resolved.getRt()).build();
         }
 
-        DeptSystemSettingsId id = new DeptSystemSettingsId(
-            settings.getDeptId(), SystemSettingFunctionId.GET_ARCHIVE_CONFIG_VALUE);
-        DeptSystemSettings entity = deptSettingsRepo.findById(id).orElse(null);
-        if (entity == null) entity = DeptSystemSettings.builder().id(id).build();
-        entity.setSettingsPb(ProtoUtils.encodeDeptArchiveSettings(settings));
-        entity.setModifiedAt(TimeUtils.getNowUtc());
-        entity.setModifiedBy(accountId);
-        deptSettingsRepo.save(entity);
+        settingsStore.saveArchiveSettings(settings.getDeptId(), settings, accountId);
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK)).build();
     }
@@ -141,8 +128,8 @@ public class SettingService {
             return response.setRt(ReturnCodeUtils.getReturnCode(
                 statusCodeMsgList, StatusCode.WARD_REPORT_TEMPLATE_REQUIRED)).build();
         }
-        DragableFormTemplate entity = formTemplateRepo
-            .findByIdAndIsDeletedFalse(settings.getWardReportTemplateId()).orElse(null);
+        DragableFormTemplate entity = jfkTemplateReader.getById(
+            settings.getWardReportTemplateId());
         if (entity == null) {
             return response.setRt(ReturnCodeUtils.getReturnCode(
                 statusCodeMsgList, StatusCode.FORM_TEMPLATE_NOT_FOUND)).build();
@@ -184,8 +171,8 @@ public class SettingService {
 
     @Transactional(readOnly = true)
     public AppSettingsPB getAppSettingsForService(String deptId) {
-        MedOrderGroupSettingsPB medSettingsPb = medConfig.getMedOrderGroupSettings(deptId);
-        DeptMonitoringSettingsPB monitoringSettingsPb = monitoringConfig.getDeptMonitoringSettings(deptId);
+        MedOrderGroupSettingsPB medSettingsPb = loadMedOrderGroupSettings(deptId);
+        DeptMonitoringSettingsPB monitoringSettingsPb = loadDeptMonitoringSettings(deptId);
         NursingRecordSettingsPB nursingRecordSettingsPb = getNursingRecordSettings(deptId);
         ScoreSettingsPB scoreSettingsPb = getDeptScoreSettings(deptId);
         AppGeneralSettingsPB generalSettingsPb = loadGeneralSettings(deptId);
@@ -220,7 +207,7 @@ public class SettingService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
@@ -234,14 +221,14 @@ public class SettingService {
         AppSettingsPB appSettingsPb = req.getSettings();
         Set<Integer> functionIds = settingTypes.stream().map(type -> switch (type) {
             case AST_ENABLE_MEDICATION_SPEED ->
-                SystemSettingFunctionId.GET_MEDICAL_ORDER_SETTINGS_VALUE;
+                SettingsStore.GET_MEDICAL_ORDER_SETTINGS;
             case AST_HEAD_CUSTOM_TIME_GRACE_MINUTES, AST_TAIL_CUSTOM_TIME_GRACE_MINUTES ->
-                SystemSettingFunctionId.GET_DEPT_MONITORING_SETTINGS_VALUE;
+                SettingsStore.GET_DEPT_MONITORING_SETTINGS;
             case AST_NURSING_RECORD_OVERWRITE_CREATED_BY ->
-                SystemSettingFunctionId.GET_DEPT_NURSING_RECORD_SETTINGS_VALUE;
+                SettingsStore.GET_DEPT_NURSING_RECORD_SETTINGS;
             case AST_SCORE_ALLOW_EDIT_RECORDED_BY ->
-                SystemSettingFunctionId.GET_DEPT_NURSING_SCORE_SETTINGS_VALUE;
-            case AST_GENERAL, AST_ENABLE_CA -> SystemSettingFunctionId.GET_DEPT_APP_SETTINGS_VALUE;
+                SettingsStore.GET_DEPT_NURSING_SCORE_SETTINGS;
+            case AST_GENERAL, AST_ENABLE_CA -> SettingsStore.GET_DEPT_APP_SETTINGS;
             default -> 0;
         }).filter(functionId -> functionId > 0).collect(Collectors.toSet());
         if (functionIds.isEmpty()) {
@@ -265,7 +252,7 @@ public class SettingService {
     ) {
         // 设置医嘱信息
         if (settingTypes.contains(AppSettingTypeEnum.AST_ENABLE_MEDICATION_SPEED)) {
-            MedOrderGroupSettingsPB medSettingsPb = medConfig.getMedOrderGroupSettings(deptId);
+            MedOrderGroupSettingsPB medSettingsPb = loadMedOrderGroupSettings(deptId);
             if (medSettingsPb == null) {
                 log.error("MedOrderGroupSettings not found for deptId {}", deptId);
                 medSettingsPb = MedOrderGroupSettingsPB.newBuilder()
@@ -274,15 +261,14 @@ public class SettingService {
                 medSettingsPb = medSettingsPb.toBuilder()
                     .setEnableMedicationSpeed(appSettingsPb.getEnableMedicationSpeed()).build();
             }
-            medConfig.setMedOrderGroupSettings(deptId, medSettingsPb, accountId);
+            settingsStore.saveMedOrderGroupSettingsPB(deptId, medSettingsPb, accountId);
         }
 
         // 设置观察项信息
         if (settingTypes.contains(AppSettingTypeEnum.AST_HEAD_CUSTOM_TIME_GRACE_MINUTES)
             || settingTypes.contains(AppSettingTypeEnum.AST_TAIL_CUSTOM_TIME_GRACE_MINUTES)
         ) {
-            DeptMonitoringSettingsPB monitoringSettingsPb = monitoringConfig
-                .getDeptMonitoringSettings(deptId);
+            DeptMonitoringSettingsPB monitoringSettingsPb = loadDeptMonitoringSettings(deptId);
             if (monitoringSettingsPb == null) {
                 monitoringSettingsPb = DeptMonitoringSettingsPB.newBuilder().build();
             }
@@ -296,7 +282,7 @@ public class SettingService {
                 monitoringSettingsPbBuilder.setTailCustomTimePointGraceMinutes(
                     appSettingsPb.getTailCustomTimeGraceMinutes());
             }
-            monitoringConfig.setDeptMonitoringSettings(
+            settingsStore.saveDeptMonitoringSettingsPB(
                 deptId, monitoringSettingsPbBuilder.build(), accountId);
         }
 
@@ -331,20 +317,7 @@ public class SettingService {
             }
             AppGeneralSettingsPB generalSettingsPb = generalSettingsBuilder.build();
 
-            DeptSystemSettingsId settingsId = new DeptSystemSettingsId(
-                deptId, SystemSettingFunctionId.GET_DEPT_APP_SETTINGS.getNumber());
-            DeptSystemSettings entity = deptSettingsRepo.findById(settingsId).orElse(null);
-            String settingsStr = ProtoUtils.encodeAppGeneralSettings(generalSettingsPb);
-
-            LocalDateTime nowUtc = TimeUtils.getNowUtc();
-            if (entity == null) {
-                entity = new DeptSystemSettings(settingsId, settingsStr, nowUtc, accountId);
-            } else {
-                entity.setSettingsPb(settingsStr);
-                entity.setModifiedAt(nowUtc);
-                entity.setModifiedBy(accountId);
-            }
-            deptSettingsRepo.save(entity);
+            settingsStore.saveAppGeneralSettingsPB(deptId, generalSettingsPb, accountId);
         }
 
         return GenericResp.newBuilder()
@@ -353,49 +326,24 @@ public class SettingService {
     }
 
     public NursingRecordSettingsPB getNursingRecordSettings(String deptId) {
-        DeptSystemSettingsId settingsId = new DeptSystemSettingsId(
-            deptId, SystemSettingFunctionId.GET_DEPT_NURSING_RECORD_SETTINGS.getNumber());
-        DeptSystemSettings entity = deptSettingsRepo.findById(settingsId).orElse(null);
-
-        NursingRecordSettingsPB settingsPb = null;
-        if (entity != null) {
-            settingsPb = ProtoUtils.decodeNursingRecordSettings(entity.getSettingsPb());
-        }
-        if (settingsPb == null) settingsPb = NursingRecordSettingsPB.newBuilder().build();
-
-        return settingsPb;
+        return loadSettingsOrDefault(() -> settingsStore.getNursingRecordSettingsPB(deptId),
+            NursingRecordSettingsPB.newBuilder().build());
     }
 
     public void setNursingRecordSettings(
         String deptId, NursingRecordSettingsPB settingsPb, String modifiedBy
     ) {
-        DeptSystemSettingsId settingsId = new DeptSystemSettingsId(
-            deptId, SystemSettingFunctionId.GET_DEPT_NURSING_RECORD_SETTINGS.getNumber());
-        DeptSystemSettings entity = deptSettingsRepo.findById(settingsId).orElse(null);
-        String settingsStr = ProtoUtils.encodeNursingRecordSettings(settingsPb);
-        LocalDateTime nowUtc = TimeUtils.getNowUtc();
-        if (entity == null) {
-            entity = new DeptSystemSettings(settingsId, settingsStr, nowUtc, modifiedBy);
-        } else {
-            entity.setSettingsPb(settingsStr);
-            entity.setModifiedAt(nowUtc);
-            entity.setModifiedBy(modifiedBy);
-        }
-        deptSettingsRepo.save(entity);
+        settingsStore.saveNursingRecordSettingsPB(deptId, settingsPb, modifiedBy);
     }
 
     public ScoreSettingsPB getDeptScoreSettings(String deptId) {
-        DeptSystemSettingsId settingsId = new DeptSystemSettingsId(
-            deptId, SystemSettingFunctionId.GET_DEPT_NURSING_SCORE_SETTINGS_VALUE);
-        DeptSystemSettings entity = deptSettingsRepo.findById(settingsId).orElse(null);
-        ScoreSettingsPB settingsPb = entity == null
-            ? null : ProtoUtils.decodeScoreSettings(entity.getSettingsPb());
-        return settingsPb == null ? ScoreSettingsPB.getDefaultInstance() : settingsPb;
+        return loadSettingsOrDefault(() -> settingsStore.getScoreSettingsPB(deptId),
+            ScoreSettingsPB.getDefaultInstance());
     }
 
     public void setDeptScoreSettings(String deptId, ScoreSettingsPB settingsPb, String modifiedBy) {
         String resourceKey = LockKeys.deptSystemSettings(
-            deptId, SystemSettingFunctionId.GET_DEPT_NURSING_SCORE_SETTINGS_VALUE);
+            deptId, SettingsStore.GET_DEPT_NURSING_SCORE_SETTINGS);
         lockExecutor.execute(List.of(resourceKey), () -> {
             saveDeptScoreSettings(deptId, settingsPb, modifiedBy);
             return null;
@@ -406,35 +354,37 @@ public class SettingService {
     private void saveDeptScoreSettings(
         String deptId, ScoreSettingsPB settingsPb, String modifiedBy
     ) {
-        DeptSystemSettingsId settingsId = new DeptSystemSettingsId(
-            deptId, SystemSettingFunctionId.GET_DEPT_NURSING_SCORE_SETTINGS_VALUE);
-        DeptSystemSettings entity = deptSettingsRepo.findById(settingsId).orElse(null);
-        String settingsStr = ProtoUtils.encodeScoreSettings(settingsPb);
-        LocalDateTime nowUtc = TimeUtils.getNowUtc();
-        if (entity == null) {
-            entity = new DeptSystemSettings(settingsId, settingsStr, nowUtc, modifiedBy);
-        } else {
-            entity.setSettingsPb(settingsStr);
-            entity.setModifiedAt(nowUtc);
-            entity.setModifiedBy(modifiedBy);
-        }
-        deptSettingsRepo.save(entity);
+        settingsStore.saveScoreSettingsPB(deptId, settingsPb, modifiedBy);
     }
 
     private AppGeneralSettingsPB loadGeneralSettings(String deptId) {
-        DeptSystemSettingsId settingsId = new DeptSystemSettingsId(
-            deptId, SystemSettingFunctionId.GET_DEPT_APP_SETTINGS.getNumber());
-        DeptSystemSettings settingsEntity = deptSettingsRepo.findById(settingsId).orElse(null);
-        AppGeneralSettingsPB settings = settingsEntity == null
-            ? null
-            : ProtoUtils.decodeAppGeneralSettings(settingsEntity.getSettingsPb());
-        if (settings != null) return settings;
-        return AppGeneralSettingsPB.newBuilder()
-            .setJfkUseNativePrint(false)
-            .setPrintAgentIpPort("127.0.0.1:9123")
-            .setCheckFutureTime(false)
-            .setEnableCa(false)
-            .build();
+        return loadSettingsOrDefault(() -> settingsStore.getAppGeneralSettingsPB(deptId),
+            AppGeneralSettingsPB.newBuilder()
+                .setJfkUseNativePrint(false)
+                .setPrintAgentIpPort("127.0.0.1:9123")
+                .setCheckFutureTime(false)
+                .setEnableCa(false)
+                .build());
+    }
+
+    private MedOrderGroupSettingsPB loadMedOrderGroupSettings(String deptId) {
+        return loadSettingsOrDefault(() -> settingsStore.getMedOrderGroupSettingsPB(deptId),
+            defaultMedOrderGroupSettings);
+    }
+
+    private DeptMonitoringSettingsPB loadDeptMonitoringSettings(String deptId) {
+        return loadSettingsOrDefault(() -> settingsStore.getDeptMonitoringSettingsPB(deptId),
+            DeptMonitoringSettingsPB.newBuilder().build());
+    }
+
+    private <T> T loadSettingsOrDefault(Supplier<T> reader, T fallback) {
+        try {
+            T settings = reader.get();
+            return settings == null ? fallback : settings;
+        } catch (SettingsStore.DecodeException e) {
+            // 原有读取允许在解码失败时回退默认设置，数据库异常仍向上传播。
+            return fallback;
+        }
     }
 
     @Transactional(readOnly = true)
@@ -449,13 +399,11 @@ public class SettingService {
                 .build();
         }
 
-        SystemSettings settingsEntity = systemSettingsRepo
-            .findById(SystemSettingFunctionId.GET_APP_LOGO.getNumber())
-            .orElse(null);
+        String logoB64 = settingsStore.getLogoB64();
 
         return GetLogoResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
-            .setCustomLogoB64(settingsEntity == null ? "" : settingsEntity.getSettingsPb())
+            .setCustomLogoB64(logoB64 == null ? "" : logoB64)
             .build();
     }
 
@@ -472,39 +420,21 @@ public class SettingService {
                 .build();
         }
 
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
         final String accountId = account.getFirst();
-        final Integer functionId = SystemSettingFunctionId.GET_APP_LOGO.getNumber();
+        final Integer functionId = SettingsStore.GET_APP_LOGO;
         final String customLogoB64 = req.getCustomLogoB64().trim();
         return lockExecutor.execute(List.of(LockKeys.systemSettings(functionId)),
-            () -> saveLogo(functionId, customLogoB64, accountId));
+            () -> saveLogo(customLogoB64, accountId));
     }
 
-    private GenericResp saveLogo(int functionId, String customLogoB64, String accountId) {
-        final LocalDateTime nowUtc = TimeUtils.getNowUtc();
-
-        SystemSettings entity = systemSettingsRepo.findById(functionId).orElse(null);
-        if (entity == null) {
-            entity = SystemSettings.builder()
-                .functionId(functionId)
-                .functionName(SystemSettingFunctionId.GET_APP_LOGO.name())
-                .settingsPb(customLogoB64)
-                .modifiedAt(nowUtc)
-                .modifiedBy(accountId)
-                .build();
-        } else {
-            entity.setFunctionName(SystemSettingFunctionId.GET_APP_LOGO.name());
-            entity.setSettingsPb(customLogoB64);
-            entity.setModifiedAt(nowUtc);
-            entity.setModifiedBy(accountId);
-        }
-        systemSettingsRepo.save(entity);
-
+    private GenericResp saveLogo(String customLogoB64, String accountId) {
+        settingsStore.saveLogoB64(customLogoB64, accountId);
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .build();
@@ -512,12 +442,9 @@ public class SettingService {
 
     private final List<String> statusCodeMsgList;
 
-    private final ConfigProtoService protoService;
-    private final UserService userService;
-    private final MedicationConfig medConfig;
-    private final MonitoringConfig monitoringConfig;
-    private final DeptSystemSettingsRepository deptSettingsRepo;
-    private final SystemSettingsRepository systemSettingsRepo;
-    private final DragableFormTemplateRepository formTemplateRepo;
+    private final UserQuery userQuery;
+    private final SettingsStore settingsStore;
+    private final MedOrderGroupSettingsPB defaultMedOrderGroupSettings;
+    private final JfkTemplateReader jfkTemplateReader;
     private final LockExecutor lockExecutor;
 }

@@ -34,7 +34,7 @@ import com.jingyicare.jingyi_icis_engine.repository.therapies.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientConfig;
 import com.jingyicare.jingyi_icis_engine.service.settings.IcuQcConfigService;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Service
@@ -53,7 +53,7 @@ public class SepsisAndSepticShockBundleService {
     public SepsisAndSepticShockBundleService(
         ConfigProtoService protoService,
         IcuQcConfigService icuQcConfigService,
-        UserService userService,
+        UserQuery userQuery,
         PatientConfig patientConfig,
         PatientRecordRepository patientRecordRepo,
         DiagnosisHistoryRepository diagnosisHistoryRepo,
@@ -67,7 +67,7 @@ public class SepsisAndSepticShockBundleService {
     ) {
         this.protoService = protoService;
         this.icuQcConfigService = icuQcConfigService;
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.patientConfig = patientConfig;
         this.patientRecordRepo = patientRecordRepo;
         this.diagnosisHistoryRepo = diagnosisHistoryRepo;
@@ -363,7 +363,7 @@ public class SepsisAndSepticShockBundleService {
                 .build();
         }
 
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return SaveSepticShockCaseResp.newBuilder()
                 .setRt(returnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -1180,7 +1180,7 @@ public class SepsisAndSepticShockBundleService {
 
     private final ConfigProtoService protoService;
     private final IcuQcConfigService icuQcConfigService;
-    private final UserService userService;
+    private final UserQuery userQuery;
     private final PatientConfig patientConfig;
     private final PatientRecordRepository patientRecordRepo;
     private final DiagnosisHistoryRepository diagnosisHistoryRepo;

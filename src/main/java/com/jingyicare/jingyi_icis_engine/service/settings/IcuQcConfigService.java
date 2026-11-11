@@ -23,7 +23,7 @@ import com.jingyicare.jingyi_icis_engine.repository.settings.SystemSettingsRepos
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.ReturnCodeUtils;
@@ -50,12 +50,12 @@ public class IcuQcConfigService {
         @Value("${jingyi.textresources.charset}") String charsetName,
         ConfigProtoService protoService,
         SystemSettingsRepository systemSettingsRepo,
-        UserService userService,
+        UserQuery userQuery,
         LockExecutor lockExecutor
     ) {
         this.statusCodeMsgList = protoService.getConfig().getText().getStatusCodeMsgList();
         this.systemSettingsRepo = systemSettingsRepo;
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.lockExecutor = lockExecutor;
 
         this.defaultIcuQcConfigPb = normalizeConfig(
@@ -109,7 +109,7 @@ public class IcuQcConfigService {
                 .build();
         }
 
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(
@@ -409,7 +409,7 @@ public class IcuQcConfigService {
 
     private final List<String> statusCodeMsgList;
     private final SystemSettingsRepository systemSettingsRepo;
-    private final UserService userService;
+    private final UserQuery userQuery;
     private final LockExecutor lockExecutor;
     private final IcuQcConfigPB defaultIcuQcConfigPb;
 }

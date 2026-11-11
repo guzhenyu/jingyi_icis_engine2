@@ -39,7 +39,7 @@ public class OverviewService {
     public OverviewService(
         @Autowired ConfigurableApplicationContext context,
         @Autowired ConfigProtoService protoService,
-        @Autowired UserService userService,
+        @Autowired UserQuery userQuery,
         @Autowired MonitoringConfig monitoringConfig,
         @Autowired PatientService patientService,
         @Autowired LisService lisService,
@@ -80,7 +80,7 @@ public class OverviewService {
 
         this.statusCodeMsgList = protoService.getConfig().getText().getStatusCodeMsgList();
         this.protoService = protoService;
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.monitoringConfig = monitoringConfig;
         this.patientService = patientService;
         this.lisService = lisService;
@@ -108,7 +108,7 @@ public class OverviewService {
         }
 
         // Get user information
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GetOverviewTemplatesResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
@@ -270,7 +270,7 @@ public class OverviewService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return AddOverviewTemplateResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
@@ -337,7 +337,7 @@ public class OverviewService {
         }
 
         // 获取账号信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
@@ -395,7 +395,7 @@ public class OverviewService {
         }
 
         // 获取账号信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
@@ -441,7 +441,7 @@ public class OverviewService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return AddOverviewGroupResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
@@ -510,7 +510,7 @@ public class OverviewService {
                 .build();
         }
 
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
@@ -569,7 +569,7 @@ public class OverviewService {
         }
 
         // 获取账号信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
@@ -720,7 +720,7 @@ public class OverviewService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return AddOverviewParamResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
@@ -818,7 +818,7 @@ public class OverviewService {
                 .build();
         }
 
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
@@ -886,7 +886,7 @@ public class OverviewService {
         }
 
                 // 获取账号信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
@@ -1149,7 +1149,7 @@ public class OverviewService {
     private final List<String> statusCodeMsgList;
 
     private final ConfigProtoService protoService;
-    private final UserService userService;
+    private final UserQuery userQuery;
     private final MonitoringConfig monitoringConfig;
     private final PatientService patientService;
     private final LisService lisService;

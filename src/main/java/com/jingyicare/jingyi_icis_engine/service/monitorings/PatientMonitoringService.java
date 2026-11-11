@@ -29,7 +29,7 @@ import com.jingyicare.jingyi_icis_engine.service.reports.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.PatientNursingReportInvalidationService;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
 import com.jingyicare.jingyi_icis_engine.service.tubes.*;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Service
@@ -38,7 +38,7 @@ public class PatientMonitoringService {
     public PatientMonitoringService(
         @Autowired ConfigProtoService protoService,
         @Autowired ConfigShiftUtils shiftUtils,
-        @Autowired UserService userService,
+        @Autowired UserQuery userQuery,
         @Autowired PatientService patientService,
         @Autowired PatientTubeImpl patientTubeImpl,
         @Autowired MedMonitoringService medMonitoringService,
@@ -58,7 +58,7 @@ public class PatientMonitoringService {
         this.protoService = protoService;
         this.monitoringPb = protoService.getConfig().getMonitoring();
         this.shiftUtils = shiftUtils;
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.patientService = patientService;
         this.patientTubeImpl = patientTubeImpl;
         this.medMonitoringService = medMonitoringService;
@@ -110,7 +110,7 @@ public class PatientMonitoringService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("Account ID is empty.");
             return GetPatientMonitoringRecordsResp.newBuilder()
@@ -324,7 +324,7 @@ public class PatientMonitoringService {
                     .build();
         }
 
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("Account ID is empty.");
             return AddPatientMonitoringRecordResp.newBuilder()
@@ -453,7 +453,7 @@ public class PatientMonitoringService {
                     .build();
         }
 
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("Account ID is empty.");
             return GenericResp.newBuilder()
@@ -551,7 +551,7 @@ public class PatientMonitoringService {
         }
 
         // Get the current account ID
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("Account ID is empty.");
             return GenericResp.newBuilder()
@@ -591,7 +591,7 @@ public class PatientMonitoringService {
         }
 
         // Get accountId
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("AccountId is empty.");
             return AddPatientMonitoringTimePointsResp.newBuilder()
@@ -697,7 +697,7 @@ public class PatientMonitoringService {
         }
 
         // Get accountId
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("AccountId is empty.");
             return GenericResp.newBuilder()
@@ -932,7 +932,7 @@ public class PatientMonitoringService {
     private final ConfigProtoService protoService;
     private final MonitoringPB monitoringPb;
     private final ConfigShiftUtils shiftUtils;
-    private final UserService userService;
+    private final UserQuery userQuery;
     private final PatientService patientService;
     private final PatientTubeImpl patientTubeImpl;
     private final MedMonitoringService medMonitoringService;

@@ -19,7 +19,7 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.ValueMetaPB;
 import com.jingyicare.jingyi_icis_engine.repository.skincares.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 import lombok.extern.slf4j.Slf4j;
@@ -29,7 +29,7 @@ import lombok.extern.slf4j.Slf4j;
 public class SkincareService {
     public SkincareService(
         @Autowired ConfigProtoService protoService,
-        @Autowired UserService userService,
+        @Autowired UserQuery userQuery,
         @Autowired PatientService patientService,
         @Autowired SkincareTypeRepository skincareTypeRepo,
         @Autowired SkincareTypeAttributeRepository skincareTypeAttrRepo,
@@ -44,7 +44,7 @@ public class SkincareService {
             .collect(Collectors.toSet());
 
         this.protoService = protoService;
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.patientService = patientService;
         this.skincareTypeRepo = skincareTypeRepo;
         this.skincareTypeAttrRepo = skincareTypeAttrRepo;
@@ -1765,7 +1765,7 @@ public class SkincareService {
     }
 
     private String getCurrentAccountId() {
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) return null;
         return account.getFirst();
     }
@@ -1850,7 +1850,7 @@ public class SkincareService {
     private final Set<Integer> validCategoryIds;
 
     private final ConfigProtoService protoService;
-    private final UserService userService;
+    private final UserQuery userQuery;
     private final PatientService patientService;
     private final SkincareTypeRepository skincareTypeRepo;
     private final SkincareTypeAttributeRepository skincareTypeAttrRepo;

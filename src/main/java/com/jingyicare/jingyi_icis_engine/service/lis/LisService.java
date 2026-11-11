@@ -32,7 +32,7 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class LisService {
     public LisService(
         @Autowired ConfigProtoService protoService,
-        @Autowired UserService userService,
+        @Autowired UserQuery userQuery,
         @Autowired PatientService patientService,
         @Autowired ExternalLisParamRepository externalLisParamRepo,
         @Autowired PatientLisItemRepository patientLisItemRepo,
@@ -43,7 +43,7 @@ public class LisService {
         this.statusCodeMsgList = protoService.getConfig().getText().getStatusCodeMsgList();
         this.protoService = protoService;
         this.patientService = patientService;
-        this.userService = userService;
+        this.userQuery = userQuery;
 
         this.externalLisParamRepo = externalLisParamRepo;
         this.patientLisItemRepo = patientLisItemRepo;
@@ -470,7 +470,7 @@ public class LisService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
@@ -730,7 +730,7 @@ public class LisService {
     private final List<String> statusCodeMsgList;
     private final ConfigProtoService protoService;
     private final PatientService patientService;
-    private final UserService userService;
+    private final UserQuery userQuery;
 
     private final ExternalLisParamRepository externalLisParamRepo;
     private final PatientLisItemRepository patientLisItemRepo;

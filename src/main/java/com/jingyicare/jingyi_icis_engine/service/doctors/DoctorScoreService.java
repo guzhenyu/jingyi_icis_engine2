@@ -32,7 +32,7 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class DoctorScoreService {
     public DoctorScoreService(
         @Autowired ConfigProtoService protoService,
-        @Autowired UserService userService,
+        @Autowired UserQuery userQuery,
         @Autowired PatientService patientService,
         @Autowired ApacheIIScorer apacheIIScorer,
         @Autowired SofaScorer sofaScorer,
@@ -43,7 +43,7 @@ public class DoctorScoreService {
         @Autowired VTEPaduaScoreRepository vtePaduaRepo
     ) {
         this.protoService = protoService;
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.patientService = patientService;
         this.apacheIIScorer = apacheIIScorer;
         this.sofaScorer = sofaScorer;
@@ -118,7 +118,7 @@ public class DoctorScoreService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -187,7 +187,7 @@ public class DoctorScoreService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -237,7 +237,7 @@ public class DoctorScoreService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -600,7 +600,7 @@ public class DoctorScoreService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -960,7 +960,7 @@ public class DoctorScoreService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -1232,7 +1232,7 @@ public class DoctorScoreService {
                 .build();
         }
 
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -1458,7 +1458,7 @@ public class DoctorScoreService {
                 .build();
         }
 
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -1492,7 +1492,7 @@ public class DoctorScoreService {
         final String deptId = patientRecord.getDeptId();
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return new Pair<ReturnCode, ApacheIIScore>(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND), null);
         }
@@ -1549,7 +1549,7 @@ public class DoctorScoreService {
         final String deptId = patientRecord.getDeptId();
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return new Pair<ReturnCode, SofaScore>(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND), null);
         }
@@ -1606,7 +1606,7 @@ public class DoctorScoreService {
         final String deptId = patientRecord.getDeptId();
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return new Pair<>(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND), null);
         }
@@ -1663,7 +1663,7 @@ public class DoctorScoreService {
         final String deptId = patientRecord.getDeptId();
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return new Pair<>(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND), null);
         }
@@ -1708,7 +1708,7 @@ public class DoctorScoreService {
     }
 
     private final ConfigProtoService protoService;
-    private final UserService userService;
+    private final UserQuery userQuery;
     private final PatientService patientService;
     private final ApacheIIScorer apacheIIScorer;
     private final SofaScorer sofaScorer;

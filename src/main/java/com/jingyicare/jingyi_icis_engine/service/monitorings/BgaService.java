@@ -37,7 +37,7 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class BgaService {
     public BgaService(
         @Autowired ConfigProtoService protoService,
-        @Autowired UserService userService,
+        @Autowired UserQuery userQuery,
         @Autowired PatientService patientService,
         @Autowired PatientDeviceService patientDeviceService,
         @Autowired MonitoringConfig monitoringConfig,
@@ -60,7 +60,7 @@ public class BgaService {
         this.bgaCategoryMap = bgaCategories.stream().collect(Collectors.toMap(
             EnumValue::getId, EnumValue::getName, (left, right) -> left, LinkedHashMap::new
         ));
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.patientService = patientService;
         this.patientDeviceService = patientDeviceService;
         this.monitoringConfig = monitoringConfig;
@@ -134,7 +134,7 @@ public class BgaService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.ACCOUNT_NOT_FOUND))
@@ -208,7 +208,7 @@ public class BgaService {
                 .build();
         }
 
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.ACCOUNT_NOT_FOUND))
@@ -264,7 +264,7 @@ public class BgaService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.ACCOUNT_NOT_FOUND))
@@ -324,7 +324,7 @@ public class BgaService {
         final boolean forceSync = req.getForceSync();
 
         // 获取用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GetPatientBgaRecordsResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.ACCOUNT_NOT_FOUND))
@@ -430,7 +430,7 @@ public class BgaService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return AddPatientBgaRecordResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.ACCOUNT_NOT_FOUND))
@@ -545,7 +545,7 @@ public class BgaService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.ACCOUNT_NOT_FOUND))
@@ -614,7 +614,7 @@ public class BgaService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.ACCOUNT_NOT_FOUND))
@@ -684,7 +684,7 @@ public class BgaService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.ACCOUNT_NOT_FOUND))
@@ -1528,7 +1528,7 @@ public class BgaService {
     private final ConfigProtoService protoService;
     private final List<Integer> bgaCategoryIds;
     private final Map<Integer, String> bgaCategoryMap;
-    private final UserService userService;
+    private final UserQuery userQuery;
     private final PatientService patientService;
     private final PatientDeviceService patientDeviceService;
     private final MonitoringConfig monitoringConfig;

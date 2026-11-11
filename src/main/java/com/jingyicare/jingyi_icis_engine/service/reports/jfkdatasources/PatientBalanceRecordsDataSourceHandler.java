@@ -36,7 +36,7 @@ import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.PdfFontSet;
 import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
 import com.jingyicare.jingyi_icis_engine.service.tubes.PatientTubeImpl;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
@@ -51,7 +51,7 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
         PatientMonitoringService patientMonitoringService,
         BalanceCalculator balanceCalculator,
         PatientTubeImpl patientTubeImpl,
-        UserService userService,
+        UserQuery userQuery,
         ConfigProtoService configProtoService,
         ReportProperties reportProperties,
         ResourceLoader resourceLoader
@@ -61,7 +61,7 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
         this.patientMonitoringService = patientMonitoringService;
         this.balanceCalculator = balanceCalculator;
         this.patientTubeImpl = patientTubeImpl;
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.reportProperties = reportProperties;
         this.resourceLoader = resourceLoader;
 
@@ -110,7 +110,7 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
             );
         }
 
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null || StrUtils.isBlank(account.getFirst())) {
             return error(StatusCode.ACCOUNT_NOT_FOUND, "pid: " + pid);
         }
@@ -438,7 +438,7 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
     private final PatientMonitoringService patientMonitoringService;
     private final BalanceCalculator balanceCalculator;
     private final PatientTubeImpl patientTubeImpl;
-    private final UserService userService;
+    private final UserQuery userQuery;
     private final ReportProperties reportProperties;
     private final ResourceLoader resourceLoader;
     private final String summaryCode;

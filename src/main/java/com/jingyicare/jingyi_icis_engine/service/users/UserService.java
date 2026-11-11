@@ -10,8 +10,6 @@ import java.util.Set;
 import java.util.Comparator;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import lombok.*;
@@ -33,6 +31,7 @@ public class UserService {
     public UserService(
         @Autowired ConfigProtoService protoService,
         @Autowired UserBasicOperator userBasicOp,
+        @Autowired UserQuery userQuery,
         @Autowired MenuService menuService,
         @Autowired CertificateService certificateService
     ) {
@@ -48,74 +47,13 @@ public class UserService {
 
         this.protoService = protoService;
         this.userBasicOp = userBasicOp;
+        this.userQuery = userQuery;
         this.menuService = menuService;
         this.certificateService = certificateService;
     }
 
-    public String getCtxAccountId() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || auth.getPrincipal().equals("anonymousUser"))
-            return "";
-        return auth.getName();
-    }
-
-    public Pair<String/*accountAutoId*/, String/*accountName*/> getAccountWithAutoId() {
-        String accountId = getCtxAccountId();
-        if (StrUtils.isBlank(accountId)) return null;
-
-        RbacAccount rbacAccount = userBasicOp.getRbacAccount(accountId);
-        if (rbacAccount == null) return null;
-        Pair<String, String> fallbackAcctPair = new Pair<>(accountId, rbacAccount.getAccountName());
-
-        Account account = userBasicOp.getAccount(accountId);
-        if (account == null) return fallbackAcctPair;
-        return new Pair<>(account.getId().toString(), account.getName());
-    }
-
-    public String getAccountAutoId(String accountId) {
-        Account account = userBasicOp.getAccount(accountId);
-        return account == null ? accountId : account.getId().toString();
-    }
-
-    public String getNameByAutoId(String accountAutoId) {
-        if (StrUtils.isBlank(accountAutoId)) return "";
-        
-        // 尝试从Account表中获取
-        Account account = userBasicOp.getAccountByAutoId(accountAutoId);
-        if (account != null) {
-            return account.getName();
-        }
-        
-        // 如果Account表中没有，则尝试从RbacAccount表中获取
-        account = userBasicOp.getAccount(accountAutoId);
-        if (account != null) {
-            return account.getName();
-        }
-        return "";
-    }
-
-    public String getNameByAccountId(String accountId) {
-        if (StrUtils.isBlank(accountId)) return "";
-
-        Account account = userBasicOp.getAccount(accountId);
-        if (account != null) {
-            return account.getName();
-        }
-
-        return "";
-    }
-
-    public Pair<String/*primary_role_name*/, Boolean/*has_permission*/> hasPermission(String deptId,Integer permissionId) {
-        String accountId = getCtxAccountId();
-        if (StrUtils.isBlank(accountId)) return null;
-
-        Boolean hasPermission = accountId.equals(ADMIN_ACCOUNT_ID) ||
-            userBasicOp.getPermissionIds(accountId, deptId).contains(permissionId);
-        return new Pair<>(userBasicOp.getPrimaryRoleName(accountId, deptId), hasPermission);
-    }
-
     public GetUsernameResp getUsername() {
-        RbacAccount account = userBasicOp.getRbacAccount(getCtxAccountId());
+        RbacAccount account = userBasicOp.getRbacAccount(userQuery.getCtxAccountId());
         final String accountName = account == null ? "" : account.getAccountName();
         return GetUsernameResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -125,7 +63,7 @@ public class UserService {
 
     public GetUserInfoResp getUserInfo() {
         // 获取相关用户
-        RbacAccount account = userBasicOp.getRbacAccount(getCtxAccountId());
+        RbacAccount account = userBasicOp.getRbacAccount(userQuery.getCtxAccountId());
         if (account == null) {
             return GetUserInfoResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -233,7 +171,7 @@ public class UserService {
         }
 
         // 获取当前用户
-        final String accountId = getCtxAccountId();
+        final String accountId = userQuery.getCtxAccountId();
         if (accountId.isEmpty()) {
             return AddDeptResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.NOT_LOGGED_IN))
@@ -295,7 +233,7 @@ public class UserService {
         }
 
         // 获取当前用户
-        final String accountId = getCtxAccountId();
+        final String accountId = userQuery.getCtxAccountId();
         if (accountId.isEmpty()) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.NOT_LOGGED_IN))
@@ -345,7 +283,7 @@ public class UserService {
         }
 
         // 获取当前用户
-        final String accountId = getCtxAccountId();
+        final String accountId = userQuery.getCtxAccountId();
         if (accountId.isEmpty()) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.NOT_LOGGED_IN))
@@ -371,10 +309,6 @@ public class UserService {
             .setRt(protoService.getReturnCode(userBasicOp.deleteDepartment(
                 req.getDeptId(), accountAutoId
             ))).build();
-    }
-
-    public List<IcisAccountPB> getDeptAccounts(String deptId) {
-        return userBasicOp.getAllAccounts(deptId, "", "", ZONE_ID);
     }
 
     public GetAllAccountsResp getAllAccounts(String getAllAccountsReqJson) {
@@ -407,7 +341,7 @@ public class UserService {
                 .build();
         }
 
-        final String accountId = getCtxAccountId();
+        final String accountId = userQuery.getCtxAccountId();
         if (accountId.isEmpty()) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.NOT_LOGGED_IN))
@@ -419,7 +353,8 @@ public class UserService {
         String accountAutoId = account == null ? accountId : account.getId().toString();
 
         // 检查用户权限
-        Pair<String, Boolean> permPair = hasPermission(req.getOpDeptId(), Consts.PERM_ID_CONFIG_CHECKLIST);
+        Pair<String, Boolean> permPair = userQuery.hasPermission(
+            req.getOpDeptId(), Consts.PERM_ID_CONFIG_CHECKLIST);
         if (permPair == null || !permPair.getSecond()) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.PERMISSION_DENIED))
@@ -442,7 +377,7 @@ public class UserService {
                 .build();
         }
 
-        final String accountId = getCtxAccountId();
+        final String accountId = userQuery.getCtxAccountId();
         if (accountId.isEmpty()) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.NOT_LOGGED_IN))
@@ -455,7 +390,8 @@ public class UserService {
 
         // 检查用户权限
         if (!accountId.equals(req.getAccount().getAccountId())) {
-            Pair<String, Boolean> permPair = hasPermission(req.getOpDeptId(), Consts.PERM_ID_CONFIG_CHECKLIST);
+            Pair<String, Boolean> permPair = userQuery.hasPermission(
+                req.getOpDeptId(), Consts.PERM_ID_CONFIG_CHECKLIST);
             if (permPair == null || !permPair.getSecond()) {
                 return GenericResp.newBuilder()
                     .setRt(protoService.getReturnCode(StatusCode.PERMISSION_DENIED))
@@ -479,7 +415,7 @@ public class UserService {
                 .build();
         }
 
-        final String accountId = getCtxAccountId();
+        final String accountId = userQuery.getCtxAccountId();
         if (accountId.isEmpty()) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.NOT_LOGGED_IN))
@@ -491,7 +427,8 @@ public class UserService {
         String accountAutoId = account == null ? accountId : account.getId().toString();
 
         // 检查用户权限
-        Pair<String, Boolean> permPair = hasPermission(req.getOpDeptId(), Consts.PERM_ID_CONFIG_CHECKLIST);
+        Pair<String, Boolean> permPair = userQuery.hasPermission(
+            req.getOpDeptId(), Consts.PERM_ID_CONFIG_CHECKLIST);
         if (permPair == null || !permPair.getSecond()) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.PERMISSION_DENIED))
@@ -523,7 +460,7 @@ public class UserService {
         }
 
         // 获取当前用户
-        final String accountId = getCtxAccountId();
+        final String accountId = userQuery.getCtxAccountId();
         if (accountId.isEmpty()) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.NOT_LOGGED_IN))
@@ -549,7 +486,7 @@ public class UserService {
         }
 
         // 获取当前用户
-        final String accountId = getCtxAccountId();
+        final String accountId = userQuery.getCtxAccountId();
         if (accountId.isEmpty()) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.NOT_LOGGED_IN))
@@ -557,7 +494,8 @@ public class UserService {
         }
 
         // 检查用户权限
-        Pair<String, Boolean> permPair = hasPermission(req.getOpDeptId(), Consts.PERM_ID_CONFIG_CHECKLIST);
+        Pair<String, Boolean> permPair = userQuery.hasPermission(
+            req.getOpDeptId(), Consts.PERM_ID_CONFIG_CHECKLIST);
         if (permPair == null || !permPair.getSecond()) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.PERMISSION_DENIED))
@@ -616,7 +554,7 @@ public class UserService {
                 .build();
         }
 
-        final String accountId = getCtxAccountId();
+        final String accountId = userQuery.getCtxAccountId();
         if (accountId.isEmpty()) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.NOT_LOGGED_IN))
@@ -645,7 +583,7 @@ public class UserService {
                 .build();
         }
 
-        final String accountId = getCtxAccountId();
+        final String accountId = userQuery.getCtxAccountId();
         if (accountId.isEmpty()) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.NOT_LOGGED_IN))
@@ -674,7 +612,7 @@ public class UserService {
                 .build();
         }
 
-        final String accountId = getCtxAccountId();
+        final String accountId = userQuery.getCtxAccountId();
         if (accountId.isEmpty()) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.NOT_LOGGED_IN))
@@ -703,7 +641,7 @@ public class UserService {
                 .build();
         }
 
-        final String accountId = getCtxAccountId();
+        final String accountId = userQuery.getCtxAccountId();
         if (accountId.isEmpty()) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.NOT_LOGGED_IN))
@@ -729,6 +667,7 @@ public class UserService {
 
     private ConfigProtoService protoService;
     private UserBasicOperator userBasicOp;
+    private UserQuery userQuery;
     private MenuService menuService;
     private CertificateService certificateService;
 }

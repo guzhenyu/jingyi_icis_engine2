@@ -23,11 +23,10 @@ import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.entity.reports.*;
 import com.jingyicare.jingyi_icis_engine.repository.reports.*;
 import com.jingyicare.jingyi_icis_engine.service.*;
-import com.jingyicare.jingyi_icis_engine.service.ca.CaAccessPolicy;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Service
@@ -37,11 +36,10 @@ public class ReportService {
         @Autowired ReportProperties reportProperties,
         @Autowired ConfigProtoService protoService,
         @Autowired ConfigShiftUtils shiftUtils,
-        @Autowired UserService userService,
+        @Autowired UserQuery userQuery,
         @Autowired PatientService patientService,
         @Autowired List<MonitoringReportGenerator> monitoringReportGenerators,
         @Autowired JfkDataService jfkDataService,
-        @Autowired CaAccessPolicy caAccessPolicy,
         @Autowired DragableFormTemplateRepository dragableTemplateRepo,
         @Autowired DragableFormRepository dragableFormRepo,
         @Autowired WardReportRepository wardReportRepo
@@ -58,7 +56,7 @@ public class ReportService {
 
         this.protoService = protoService;
         this.shiftUtils = shiftUtils;
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.patientService = patientService;
 
         Map<String, MonitoringReportGenerator> generatorMap = new HashMap<>();
@@ -72,8 +70,6 @@ public class ReportService {
         }
         this.monitoringReportGenerators = Collections.unmodifiableMap(generatorMap);
         this.jfkDataService = jfkDataService;
-
-        this.caAccessPolicy = caAccessPolicy;
 
         this.dragableTemplateRepo = dragableTemplateRepo;
         this.dragableFormRepo = dragableFormRepo;
@@ -126,7 +122,7 @@ public class ReportService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return SaveFormTemplateResp.newBuilder()
@@ -193,7 +189,7 @@ public class ReportService {
                     .build();
         }
 
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -272,13 +268,13 @@ public class ReportService {
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.DEPT_IS_EMPTY))
                 .build();
         }
-        if (!caAccessPolicy.canCurrentUserAccessDept(deptId)) {
+        if (!userQuery.canCurrentUserAccessDept(deptId)) {
             return GetJfkSignatureAccountsResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.CA_ACCOUNT_NOT_IN_DEPT))
                 .build();
         }
 
-        List<IcisAccountPB> deptAccounts = userService.getDeptAccounts(deptId).stream()
+        List<IcisAccountPB> deptAccounts = userQuery.getDeptAccounts(deptId).stream()
             .filter(account -> account.getId() > 0)
             .filter(account -> account.getIsDisabled() == 0)
             .filter(account -> !account.getAccountName().isBlank())
@@ -355,7 +351,7 @@ public class ReportService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return SaveFormResp.newBuilder()
@@ -435,7 +431,7 @@ public class ReportService {
                 .build();
         }
 
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -476,7 +472,7 @@ public class ReportService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GetMonitoringReportResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.ACCOUNT_NOT_FOUND))
@@ -630,7 +626,7 @@ public class ReportService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("Account ID is empty while setting ward report.");
             return GenericResp.newBuilder()
@@ -806,13 +802,11 @@ public class ReportService {
 
     private final ConfigProtoService protoService;
     private final ConfigShiftUtils shiftUtils;
-    private final UserService userService;
+    private final UserQuery userQuery;
     private final PatientService patientService;
 
     private final Map<String, MonitoringReportGenerator> monitoringReportGenerators;
     private final JfkDataService jfkDataService;
-
-    private final CaAccessPolicy caAccessPolicy;
 
     private final DragableFormTemplateRepository dragableTemplateRepo;
     private final DragableFormRepository dragableFormRepo;

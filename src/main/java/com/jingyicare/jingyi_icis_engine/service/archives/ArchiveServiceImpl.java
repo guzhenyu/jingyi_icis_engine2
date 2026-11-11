@@ -17,7 +17,7 @@ import com.jingyicare.jingyi_icis_engine.entity.archives.PatientArchive;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisArchive.NursingReportCompactArchivePB;
 import com.jingyicare.jingyi_icis_engine.repository.archives.PatientArchiveRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.Consts;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
@@ -30,13 +30,13 @@ public class ArchiveServiceImpl implements ArchiveService {
     public ArchiveServiceImpl(
         ArchiveProperties archiveProperties,
         PatientArchiveRepository archiveRepo,
-        UserService userService,
+        UserQuery userQuery,
         ConfigProtoService protoService,
         TransactionTemplate transactionTemplate
     ) {
         this.archiveProperties = archiveProperties;
         this.archiveRepo = archiveRepo;
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.zoneId = protoService.getConfig().getZoneId();
         this.transactionTemplate = transactionTemplate;
     }
@@ -215,7 +215,7 @@ public class ArchiveServiceImpl implements ArchiveService {
     }
 
     private String currentAccountId() {
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null || StrUtils.isBlank(account.getFirst())) {
             throw new IllegalStateException("Current account not found");
         }
@@ -266,7 +266,7 @@ public class ArchiveServiceImpl implements ArchiveService {
 
     private final ArchiveProperties archiveProperties;
     private final PatientArchiveRepository archiveRepo;
-    private final UserService userService;
+    private final UserQuery userQuery;
     private final String zoneId;
     private final TransactionTemplate transactionTemplate;
 }

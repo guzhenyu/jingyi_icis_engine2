@@ -32,7 +32,7 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class ChecklistService {
     public ChecklistService(
         @Autowired ConfigProtoService protoService,
-        @Autowired UserService userService,
+        @Autowired UserQuery userQuery,
         @Autowired PatientService patientService,
         @Autowired DeptChecklistGroupRepository deptGroupRepo,
         @Autowired DeptChecklistItemRepository deptItemRepo,
@@ -45,7 +45,7 @@ public class ChecklistService {
         this.statusCodeMsgList = protoService.getConfig().getText().getStatusCodeMsgList();
 
         this.protoService = protoService;
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.patientService = patientService;
 
         this.deptGroupRepo = deptGroupRepo;
@@ -131,7 +131,7 @@ public class ChecklistService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return AddDeptChecklistGroupResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
@@ -150,7 +150,8 @@ public class ChecklistService {
         String groupName = req.getGroup().getGroupName();
 
         // 检查用户权限
-        Pair<String, Boolean> permPair = userService.hasPermission(deptId, Consts.PERM_ID_CONFIG_CHECKLIST);
+        Pair<String, Boolean> permPair = userQuery.hasPermission(
+            deptId, Consts.PERM_ID_CONFIG_CHECKLIST);
         if (permPair == null || !permPair.getSecond()) {
             String primaryRoleName = permPair == null ? Consts.VOID_ROLE : permPair.getFirst();
             return AddDeptChecklistGroupResp.newBuilder()
@@ -206,7 +207,7 @@ public class ChecklistService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
@@ -229,7 +230,8 @@ public class ChecklistService {
         String deptId = groupToDelete.getDeptId();
 
         // 检查用户权限
-        Pair<String, Boolean> permPair = userService.hasPermission(deptId, Consts.PERM_ID_CONFIG_CHECKLIST);
+        Pair<String, Boolean> permPair = userQuery.hasPermission(
+            deptId, Consts.PERM_ID_CONFIG_CHECKLIST);
         if (permPair == null || !permPair.getSecond()) {
             String primaryRoleName = permPair == null ? Consts.VOID_ROLE : permPair.getFirst();
             return GenericResp.newBuilder()
@@ -265,7 +267,7 @@ public class ChecklistService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
@@ -279,7 +281,8 @@ public class ChecklistService {
         List<Integer> groupIdList = req.getGroupIdList();
 
         // 检查用户权限
-        Pair<String, Boolean> permPair = userService.hasPermission(deptId, Consts.PERM_ID_CONFIG_CHECKLIST);
+        Pair<String, Boolean> permPair = userQuery.hasPermission(
+            deptId, Consts.PERM_ID_CONFIG_CHECKLIST);
         if (permPair == null || !permPair.getSecond()) {
             String primaryRoleName = permPair == null ? Consts.VOID_ROLE : permPair.getFirst();
             return GenericResp.newBuilder()
@@ -346,7 +349,7 @@ public class ChecklistService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return AddDeptChecklistItemResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
@@ -371,7 +374,8 @@ public class ChecklistService {
         String deptId = group.getDeptId();
 
         // 检查用户权限
-        Pair<String, Boolean> permPair = userService.hasPermission(deptId, Consts.PERM_ID_CONFIG_CHECKLIST);
+        Pair<String, Boolean> permPair = userQuery.hasPermission(
+            deptId, Consts.PERM_ID_CONFIG_CHECKLIST);
         if (permPair == null || !permPair.getSecond()) {
             String primaryRoleName = permPair == null ? Consts.VOID_ROLE : permPair.getFirst();
             return AddDeptChecklistItemResp.newBuilder()
@@ -428,7 +432,7 @@ public class ChecklistService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
@@ -460,7 +464,8 @@ public class ChecklistService {
         String deptId = group.getDeptId();
 
         // 检查用户权限
-        Pair<String, Boolean> permPair = userService.hasPermission(deptId, Consts.PERM_ID_CONFIG_CHECKLIST);
+        Pair<String, Boolean> permPair = userQuery.hasPermission(
+            deptId, Consts.PERM_ID_CONFIG_CHECKLIST);
         if (permPair == null || !permPair.getSecond()) {
             String primaryRoleName = permPair == null ? Consts.VOID_ROLE : permPair.getFirst();
             return GenericResp.newBuilder()
@@ -496,7 +501,7 @@ public class ChecklistService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
@@ -520,7 +525,8 @@ public class ChecklistService {
         String deptId = group.getDeptId();
 
         // 检查用户权限
-        Pair<String, Boolean> permPair = userService.hasPermission(deptId, Consts.PERM_ID_CONFIG_CHECKLIST);
+        Pair<String, Boolean> permPair = userQuery.hasPermission(
+            deptId, Consts.PERM_ID_CONFIG_CHECKLIST);
         if (permPair == null || !permPair.getSecond()) {
             String primaryRoleName = permPair == null ? Consts.VOID_ROLE : permPair.getFirst();
             return GenericResp.newBuilder()
@@ -666,7 +672,7 @@ public class ChecklistService {
         for (PatientChecklistRecord record : recordList) {
             Integer recordId = record.getId();
             PatientChecklistRecordPB.Builder recordPbBuilder = ChecklistUtils.toProto(record, ZONE_ID).toBuilder();
-            String createdByAccountName = userService.getNameByAutoId(record.getCreatedBy());
+            String createdByAccountName = userQuery.getNameByAutoId(record.getCreatedBy());
             if (createdByAccountName != null) recordPbBuilder.setCreatedByAccountName(createdByAccountName);
 
             List<PatientChecklistGroupPB> groupPbList = new ArrayList<>();
@@ -736,7 +742,7 @@ public class ChecklistService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return AddPatientChecklistRecordResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
@@ -843,7 +849,7 @@ public class ChecklistService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
@@ -891,7 +897,7 @@ public class ChecklistService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
@@ -946,7 +952,7 @@ public class ChecklistService {
     private final List<String> statusCodeMsgList;
 
     private final ConfigProtoService protoService;
-    private final UserService userService;
+    private final UserQuery userQuery;
     private final PatientService patientService;
 
     private final DeptChecklistGroupRepository deptGroupRepo;

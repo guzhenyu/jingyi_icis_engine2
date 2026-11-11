@@ -39,7 +39,7 @@ import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
@@ -213,7 +213,7 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandlerTests {
         private final PatientMonitoringRecordRepository monitoringRecordRepo = mock(PatientMonitoringRecordRepository.class);
         private final MonitoringConfig monitoringConfig = mock(MonitoringConfig.class);
         private final ConfigProtoService configProtoService = mock(ConfigProtoService.class);
-        private final UserService userService = mock(UserService.class);
+        private final UserQuery userQuery = mock(UserQuery.class);
         private final AccountRepository accountRepo = mock(AccountRepository.class);
 
         private TestContext() {
@@ -247,7 +247,7 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandlerTests {
                         .build())
                     .build())
                 .build());
-            when(userService.getAccountWithAutoId()).thenReturn(new Pair<>("account-1", "当前用户"));
+            when(userQuery.getAccountWithAutoId()).thenReturn(new Pair<>("account-1", "当前用户"));
         }
 
         private PatientNonHourlyMonitoringRecordsDataSourceHandler handler() {
@@ -258,7 +258,7 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandlerTests {
                 monitoringRecordRepo,
                 monitoringConfig,
                 configProtoService,
-                userService,
+                userQuery,
                 accountRepo,
                 properties,
                 new DefaultResourceLoader()

@@ -37,7 +37,7 @@ import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.PdfFontSet;
 import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
@@ -52,7 +52,7 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandler extends Abstract
         PatientMonitoringRecordRepository monitoringRecordRepo,
         MonitoringConfig monitoringConfig,
         ConfigProtoService configProtoService,
-        UserService userService,
+        UserQuery userQuery,
         AccountRepository accountRepo,
         ReportProperties reportProperties,
         ResourceLoader resourceLoader
@@ -61,7 +61,7 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandler extends Abstract
         this.monitoringRecordRepo = monitoringRecordRepo;
         this.monitoringConfig = monitoringConfig;
         this.configProtoService = configProtoService;
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.accountRepo = accountRepo;
         this.reportProperties = reportProperties;
         this.resourceLoader = resourceLoader;
@@ -120,7 +120,7 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandler extends Abstract
             return new Pair<>(returnCode(StatusCode.OK), outputBuilder.build());
         }
 
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null || StrUtils.isBlank(account.getFirst())) {
             return error(StatusCode.ACCOUNT_NOT_FOUND, "pid: " + pid);
         }
@@ -475,7 +475,7 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandler extends Abstract
     private final PatientMonitoringRecordRepository monitoringRecordRepo;
     private final MonitoringConfig monitoringConfig;
     private final ConfigProtoService configProtoService;
-    private final UserService userService;
+    private final UserQuery userQuery;
     private final AccountRepository accountRepo;
     private final ReportProperties reportProperties;
     private final ResourceLoader resourceLoader;

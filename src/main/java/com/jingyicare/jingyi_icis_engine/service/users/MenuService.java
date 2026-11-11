@@ -1,6 +1,5 @@
 package com.jingyicare.jingyi_icis_engine.service.users;
 
-import java.time.*;
 import java.util.*;
 import java.util.stream.*;
 
@@ -16,17 +15,15 @@ import lombok.extern.slf4j.Slf4j;
 
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 
 import com.jingyicare.jingyi_icis_engine.entity.reports.*;
-import com.jingyicare.jingyi_icis_engine.entity.settings.*;
 import com.jingyicare.jingyi_icis_engine.entity.users.*;
-import com.jingyicare.jingyi_icis_engine.repository.reports.*;
-import com.jingyicare.jingyi_icis_engine.repository.settings.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.reports.JfkTemplateReader;
+import com.jingyicare.jingyi_icis_engine.service.settings.SettingsStore;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Service
@@ -34,21 +31,20 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class MenuService {
     public MenuService(
         @Autowired ConfigProtoService protoService,
-        @Autowired DeptSystemSettingsRepository deptSettingsRepo,
-        @Autowired DragableFormTemplateRepository dragableFormTemplateRepo,
+        @Autowired SettingsStore settingsStore,
+        @Autowired JfkTemplateReader jfkTemplateReader,
         @Autowired AccountRepository accountRepo
     ) {
         this.ZONE_ID = protoService.getConfig().getZoneId();
         this.ADMIN_ACCOUNT_ID = protoService.getConfig().getUser().getAdminAccountId();
-        this.GET_DEPT_MENU_SETTINGS = SystemSettingFunctionId.GET_DEPT_MENU_SETTINGS.ordinal();
         this.TEMPLATE_MENU_ITEM_START_ID = 10000;
 
         this.fullMenu = protoService.getConfig().getUser().getMenu();
         this.defaultMenuConfig = getDefaultMenuConfig();
 
         this.protoService = protoService;
-        this.deptSettingsRepo = deptSettingsRepo;
-        this.dragableFormTemplateRepo = dragableFormTemplateRepo;
+        this.settingsStore = settingsStore;
+        this.jfkTemplateReader = jfkTemplateReader;
         this.accountRepo = accountRepo;
     }
 
@@ -119,8 +115,7 @@ public class MenuService {
             // 单表单
             int templateId = foundItem.getSeparatedFormTemplate().getKey();
             if (templateId > 0) {
-                DragableFormTemplate template = dragableFormTemplateRepo
-                    .findByIdAndIsDeletedFalse(templateId).orElse(null);
+                DragableFormTemplate template = jfkTemplateReader.getById(templateId);
                 if (template != null) {
                     JfkTemplatePB templatePb = ProtoUtils.decodeJfkTemplate(template.getTemplatePb());
                     templateList.add(templatePb);
@@ -145,8 +140,7 @@ public class MenuService {
             }
 
             // 获取所有表单模板
-            List<DragableFormTemplate> templates = dragableFormTemplateRepo
-                .findByIdInAndIsDeletedFalse(templateIds);
+            List<DragableFormTemplate> templates = jfkTemplateReader.getByIds(templateIds);
             for (DragableFormTemplate template : templates) {
                 JfkTemplatePB templatePb = ProtoUtils.decodeJfkTemplate(template.getTemplatePb());
                 templateList.add(templatePb);
@@ -520,8 +514,8 @@ public class MenuService {
         List<Integer> templateIds = req.getFormTemplateIdList();
 
         // 验证模板信息
-        Map<Integer, DragableFormTemplate> templateMap = dragableFormTemplateRepo
-            .findByIdInAndIsDeletedFalse(templateIds).stream()
+        Map<Integer, DragableFormTemplate> templateMap = jfkTemplateReader.getByIds(templateIds)
+            .stream()
             .collect(Collectors.toMap(DragableFormTemplate::getId, template -> template));
         for (Integer templateId : templateIds) {
             DragableFormTemplate template = templateMap.get(templateId);
@@ -618,7 +612,7 @@ public class MenuService {
         final Integer templateId = req.getFormTemplateId();
 
         // 验证模板信息
-        DragableFormTemplate template = dragableFormTemplateRepo.findByIdAndIsDeletedFalse(templateId).orElse(null);
+        DragableFormTemplate template = jfkTemplateReader.getById(templateId);
         if (template == null) {
             log.error("Form template with id: {} not found for deptId: {}", templateId, deptId);
             return GenericResp.newBuilder()
@@ -815,39 +809,16 @@ public class MenuService {
     }
 
     private MenuConfigPB fromDb(String deptId) {
-        DeptSystemSettingsId id = DeptSystemSettingsId.builder()
-            .deptId(deptId)
-            .functionId(GET_DEPT_MENU_SETTINGS)
-            .build();
-        DeptSystemSettings settings = deptSettingsRepo.findById(id).orElse(null);
-        if (settings == null) return null;
-
-        return ProtoUtils.decodeMenuConfig(settings.getSettingsPb());
+        try {
+            return settingsStore.getMenuConfigPB(deptId);
+        } catch (SettingsStore.DecodeException e) {
+            // 保留原行为：损坏菜单按未配置处理，由上层重新生成默认菜单。
+            return null;
+        }
     }
 
     private void toDb(String deptId, MenuConfigPB config) {
-        DeptSystemSettingsId id = DeptSystemSettingsId.builder()
-            .deptId(deptId)
-            .functionId(GET_DEPT_MENU_SETTINGS)
-            .build();
-        DeptSystemSettings settings = deptSettingsRepo.findById(id).orElse(null);
-
-        LocalDateTime now = TimeUtils.getNowUtc();
-        String accountId = getContextAccountId();
-        if (settings == null) {
-            settings = DeptSystemSettings.builder()
-                .id(id)
-                .settingsPb(ProtoUtils.encodeMenuConfig(config))
-                .modifiedAt(now)
-                .modifiedBy(accountId)
-                .build();
-        } else {
-            settings.setSettingsPb(ProtoUtils.encodeMenuConfig(config));
-            settings.setModifiedAt(now);
-            settings.setModifiedBy(accountId);
-        }
-        
-        deptSettingsRepo.save(settings);
+        settingsStore.saveMenuConfigPB(deptId, config, getContextAccountId());
     }
 
     @Transactional
@@ -1015,7 +986,7 @@ public class MenuService {
 
     private List<IntStrKvPB> getDeptFormTemplates(String deptId) {
         List<IntStrKvPB> kvList = new ArrayList<>();
-        List<DragableFormTemplate> templates = dragableFormTemplateRepo.findByDeptIdAndIsDeletedFalse(deptId);
+        List<DragableFormTemplate> templates = jfkTemplateReader.getByDeptId(deptId);
         for (DragableFormTemplate template : templates) {
             kvList.add(IntStrKvPB.newBuilder()
                 .setKey(template.getId())
@@ -1126,14 +1097,13 @@ public class MenuService {
 
     private final String ZONE_ID;
     private final String ADMIN_ACCOUNT_ID;
-    private final Integer GET_DEPT_MENU_SETTINGS;
     private final Integer TEMPLATE_MENU_ITEM_START_ID;
 
     private final Menu fullMenu;
     private final MenuConfigPB defaultMenuConfig;
 
     private ConfigProtoService protoService;
-    private DeptSystemSettingsRepository deptSettingsRepo;
-    private DragableFormTemplateRepository dragableFormTemplateRepo;
+    private SettingsStore settingsStore;
+    private JfkTemplateReader jfkTemplateReader;
     private AccountRepository accountRepo;
 }

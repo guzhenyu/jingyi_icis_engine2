@@ -21,7 +21,7 @@ import com.jingyicare.jingyi_icis_engine.repository.monitorings.MonitoringParamR
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
@@ -30,14 +30,14 @@ import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 public class MonitoringMetaService {
     public MonitoringMetaService(
         ConfigProtoService protoService,
-        UserService userService,
+        UserQuery userQuery,
         MonitoringParamRepository monitoringParamRepository,
         DeptMonitoringParamRepository deptMonitoringParamRepository,
         MonitoringParamHistoryRepository monitoringParamHistoryRepository,
         LockExecutor lockExecutor
     ) {
         this.protoService = protoService;
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.monitoringParamRepository = monitoringParamRepository;
         this.deptMonitoringParamRepository = deptMonitoringParamRepository;
         this.monitoringParamHistoryRepository = monitoringParamHistoryRepository;
@@ -88,7 +88,7 @@ public class MonitoringMetaService {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
             return response(StatusCode.PARSE_JSON_FAILED);
         }
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return response(StatusCode.ACCOUNT_NOT_FOUND);
@@ -142,7 +142,7 @@ public class MonitoringMetaService {
             return response(StatusCode.PARSE_JSON_FAILED);
         }
 
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return response(StatusCode.ACCOUNT_NOT_FOUND);
@@ -202,7 +202,7 @@ public class MonitoringMetaService {
             log.warn("Invalid request: code is empty.");
             return response(StatusCode.MONITORING_PARAM_CODE_EMPTY);
         }
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return response(StatusCode.ACCOUNT_NOT_FOUND);
@@ -271,7 +271,7 @@ public class MonitoringMetaService {
     }
 
     private final ConfigProtoService protoService;
-    private final UserService userService;
+    private final UserQuery userQuery;
     private final MonitoringParamRepository monitoringParamRepository;
     private final DeptMonitoringParamRepository deptMonitoringParamRepository;
     private final MonitoringParamHistoryRepository monitoringParamHistoryRepository;

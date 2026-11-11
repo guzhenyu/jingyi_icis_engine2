@@ -54,7 +54,7 @@ import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.service.tubes.PatientTubeImpl;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
@@ -261,14 +261,14 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
     @Test
     public void handlePreservesAccountAndSourceErrors() {
         TestContext ctx = new TestContext();
-        when(ctx.userService.getAccountWithAutoId()).thenReturn(null);
+        when(ctx.userQuery.getAccountWithAutoId()).thenReturn(null);
         var accountError = ctx.handler().handle(input(List.of("intravenous_intake")));
         assertThat(accountError.getFirst().getCode()).isEqualTo(StatusCode.ACCOUNT_NOT_FOUND
             .ordinal());
         assertThat(accountError.getSecond()).isNull();
         verifyNoInteractions(ctx.patientMonitoringService);
 
-        when(ctx.userService.getAccountWithAutoId()).thenReturn(new Pair<>("42", "护士"));
+        when(ctx.userQuery.getAccountWithAutoId()).thenReturn(new Pair<>("42", "护士"));
         ctx.withParams();
         ctx.withBalanceRecords(List.of()).statusCode = StatusCode.INVALID_TIME_FORMAT;
         var sourceError = ctx.handler().handle(input(List.of("intravenous_intake")));
@@ -385,13 +385,13 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
         private final PatientMonitoringService patientMonitoringService = mock(PatientMonitoringService.class);
         private final BalanceCalculator balanceCalculator = mock(BalanceCalculator.class);
         private final PatientTubeImpl patientTubeImpl = mock(PatientTubeImpl.class);
-        private final UserService userService = mock(UserService.class);
+        private final UserQuery userQuery = mock(UserQuery.class);
         private final ConfigProtoService configProtoService = mock(ConfigProtoService.class);
 
         private TestContext() {
             ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
                 new StatisticsDayWindowResolver(balanceStatsShiftRepo));
-            when(userService.getAccountWithAutoId()).thenReturn(new Pair<>("42", "护士"));
+            when(userQuery.getAccountWithAutoId()).thenReturn(new Pair<>("42", "护士"));
             when(configProtoService.getConfig()).thenReturn(Config.newBuilder()
                 .setMonitoring(MonitoringPB.newBuilder()
                     .setParamCodeSummary("all")
@@ -410,7 +410,7 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
                 patientMonitoringService,
                 balanceCalculator,
                 patientTubeImpl,
-                userService,
+                userQuery,
                 configProtoService,
                 new ReportProperties(),
                 new DefaultResourceLoader()

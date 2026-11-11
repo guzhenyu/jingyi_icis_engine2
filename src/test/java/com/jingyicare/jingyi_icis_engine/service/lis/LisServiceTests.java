@@ -23,7 +23,7 @@ import com.jingyicare.jingyi_icis_engine.repository.lis.PatientLisItemRepository
 import com.jingyicare.jingyi_icis_engine.repository.lis.PatientLisResultRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 
 class LisServiceTests {
     @BeforeEach
@@ -35,7 +35,7 @@ class LisServiceTests {
         patientLisResultRepo = mock(PatientLisResultRepository.class);
         service = new LisService(
             protoService,
-            mock(UserService.class),
+            mock(UserQuery.class),
             mock(PatientService.class),
             externalLisParamRepo,
             patientLisItemRepo,

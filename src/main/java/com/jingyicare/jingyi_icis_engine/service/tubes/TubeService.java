@@ -16,7 +16,7 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 
 import com.jingyicare.jingyi_icis_engine.entity.tubes.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Service
@@ -24,12 +24,12 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class TubeService {
     public TubeService(
         @Autowired ConfigProtoService protoService,
-        @Autowired UserService userService,
+        @Autowired UserQuery userQuery,
         @Autowired TubeSetting setting
     ) {
         this.DRAINAGE_TUBE_TYPE = protoService.getConfig().getTube().getDrainageTubeType();
         this.protoService = protoService;
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.setting = setting;
     }
 
@@ -82,7 +82,7 @@ public class TubeService {
         }
 
         // 获取当前用户，新增管道类型
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return AddTubeTypeResp.newBuilder()
@@ -138,7 +138,7 @@ public class TubeService {
         }
 
         // 获取当前用户，更新管道类型
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -166,7 +166,7 @@ public class TubeService {
         }
 
         // 获取当前用户，更新管道类型
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -202,7 +202,7 @@ public class TubeService {
         }
 
         // 删除管道类型
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -236,7 +236,7 @@ public class TubeService {
         }
 
         // 获取当前用户
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return AddTubeTypeAttrResp.newBuilder()
@@ -329,7 +329,7 @@ public class TubeService {
         }
 
         // 获取当前用户, 更新属性
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -354,7 +354,7 @@ public class TubeService {
         }
 
         // 删除 TubeTypeAttribute
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -388,7 +388,7 @@ public class TubeService {
         }
 
         // 获取当前用户
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return AddTubeTypeStatusResp.newBuilder()
@@ -480,7 +480,7 @@ public class TubeService {
         }
 
         // 获取当前用户, 更新状态
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -506,7 +506,7 @@ public class TubeService {
         }
 
         // 删除 TubeTypeStatus
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -531,7 +531,7 @@ public class TubeService {
         }
 
         // 调整管道类型顺序
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -545,6 +545,6 @@ public class TubeService {
 
     private final String DRAINAGE_TUBE_TYPE;  // 引流管
     private final ConfigProtoService protoService;
-    private final UserService userService;
+    private final UserQuery userQuery;
     private final TubeSetting setting;
 }

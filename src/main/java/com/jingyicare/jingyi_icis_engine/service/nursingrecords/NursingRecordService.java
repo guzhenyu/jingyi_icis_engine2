@@ -62,7 +62,7 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class NursingRecordService {
     public NursingRecordService(
         @Autowired ConfigProtoService protoService,
-        @Autowired UserService userService,
+        @Autowired UserQuery userQuery,
         @Autowired PatientService patientService,
         @Autowired MedReportUtils medReportUtils,
         @Autowired MonitoringConfig monitoringConfig,
@@ -94,7 +94,7 @@ public class NursingRecordService {
 
         this.protoService = protoService;
         this.configPb = protoService.getConfig().getNursingRecord();
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.patientService = patientService;
         this.medReportUtils = medReportUtils;
         this.monitoringConfig = monitoringConfig;
@@ -159,7 +159,7 @@ public class NursingRecordService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             log.error("accountId is empty.");
             return AddNursingRecordResp.newBuilder()
@@ -231,7 +231,7 @@ public class NursingRecordService {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
             return nursingRecordResponse(StatusCode.PARSE_JSON_FAILED);
         }
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) return nursingRecordResponse(StatusCode.ACCOUNT_NOT_FOUND);
 
         NursingRecordPB recordPb = req.getRecord();
@@ -328,7 +328,7 @@ public class NursingRecordService {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
             return nursingRecordResponse(StatusCode.PARSE_JSON_FAILED);
         }
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) return nursingRecordResponse(StatusCode.ACCOUNT_NOT_FOUND);
 
         return withNursingRecordLocks(List.of(req.getId()), null, (records, snapshotPlan) -> {
@@ -363,7 +363,7 @@ public class NursingRecordService {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
             return nursingRecordResponse(StatusCode.PARSE_JSON_FAILED);
         }
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) return nursingRecordResponse(StatusCode.ACCOUNT_NOT_FOUND);
 
         LocalDateTime reviewTime = formatTime(
@@ -446,7 +446,7 @@ public class NursingRecordService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GetNursingRecordShortcutsResp.newBuilder()
@@ -572,7 +572,7 @@ public class NursingRecordService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GetNursingRecordShortcuts2Resp.newBuilder()
@@ -987,7 +987,7 @@ public class NursingRecordService {
 
     private final ConfigProtoService protoService;
     private final NursingRecordConfigPB configPb;
-    private final UserService userService;
+    private final UserQuery userQuery;
     private final PatientService patientService;
     private final MedReportUtils medReportUtils;
     private final MonitoringConfig monitoringConfig;

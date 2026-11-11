@@ -16,7 +16,8 @@ import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.ca.CaSignImageValidator.ValidatedSignImage;
 import com.jingyicare.jingyi_icis_engine.service.ca.client.CigCaClient;
 import com.jingyicare.jingyi_icis_engine.service.settings.SettingService;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
+import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.ReturnCodeUtils;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
@@ -30,27 +31,25 @@ import lombok.extern.slf4j.Slf4j;
 public class CaService {
     public CaService(
         ConfigProtoService protoService,
-        UserService userService,
+        UserQuery userQuery,
         AccountRepository accountRepo,
         RbacDepartmentRepository deptRepo,
-        CaAccessPolicy accessPolicy,
         SettingService settingService,
         CigCaClient cigCaClient,
         CaSignImageValidator imageValidator
     ) {
         this.statusCodeMsgs = protoService.getConfig().getText().getStatusCodeMsgList();
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.accountRepo = accountRepo;
         this.deptRepo = deptRepo;
-        this.accessPolicy = accessPolicy;
         this.settingService = settingService;
         this.cigCaClient = cigCaClient;
         this.imageValidator = imageValidator;
     }
 
     public GetRealtimeCaSignImageResp getSignImage(String requestJson) {
-        String callerAccountId = userService.getCtxAccountId();
-        if (StrUtils.isBlank(callerAccountId)) return error(StatusCode.ACCOUNT_NOT_FOUND);
+        Pair<String, String> callerAccount = userQuery.getAccountWithAutoId();
+        if (callerAccount == null) return error(StatusCode.ACCOUNT_NOT_FOUND);
 
         final GetRealtimeCaSignImageReq request;
         try {
@@ -61,17 +60,20 @@ public class CaService {
         }
         String deptId = request.getDeptId();
         long accountId = request.getAccountId();
-        log.info("[CA_SIGN_TRACE][ICIS_ENGINE] stage=request_received callerAccountId={} deptId={} accountId={}",
-            callerAccountId, deptId, accountId);
+        log.info("[CA_SIGN_TRACE][ICIS_ENGINE] stage=request_received "
+            + "callerAccountAutoId={} callerAccountName={} deptId={} accountId={}",
+            callerAccount.getFirst(), callerAccount.getSecond(), deptId, accountId);
         if (StrUtils.isBlank(deptId) || accountId <= 0) return error(StatusCode.PARSE_JSON_FAILED);
         if (deptRepo.findByDeptId(deptId).isEmpty()) return error(StatusCode.DEPARTMENT_NOT_FOUND);
-        if (!accessPolicy.canCurrentUserAccessDept(deptId)) return error(StatusCode.CA_ACCOUNT_NOT_IN_DEPT);
+        if (!userQuery.canCurrentUserAccessDept(deptId)) {
+            return error(StatusCode.CA_ACCOUNT_NOT_IN_DEPT);
+        }
 
         Account account = accountRepo.findByIdAndIsDeletedFalse(accountId).orElse(null);
         if (account == null || (account.getIsDisabled() != null && account.getIsDisabled() != 0)) {
             return error(StatusCode.ACCOUNT_NOT_FOUND);
         }
-        if (!accessPolicy.accountBelongsToDept(account.getAccountId(), deptId)) {
+        if (!userQuery.accountBelongsToDept(account.getAccountId(), deptId)) {
             return error(StatusCode.CA_ACCOUNT_NOT_IN_DEPT);
         }
 
@@ -128,10 +130,9 @@ public class CaService {
     }
 
     private final List<String> statusCodeMsgs;
-    private final UserService userService;
+    private final UserQuery userQuery;
     private final AccountRepository accountRepo;
     private final RbacDepartmentRepository deptRepo;
-    private final CaAccessPolicy accessPolicy;
     private final SettingService settingService;
     private final CigCaClient cigCaClient;
     private final CaSignImageValidator imageValidator;

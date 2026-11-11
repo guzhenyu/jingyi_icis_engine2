@@ -21,7 +21,7 @@ import com.jingyicare.jingyi_icis_engine.entity.settings.*;
 import com.jingyicare.jingyi_icis_engine.entity.shifts.*;
 import com.jingyicare.jingyi_icis_engine.repository.settings.*;
 import com.jingyicare.jingyi_icis_engine.repository.shifts.*;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -31,7 +31,7 @@ public class ConfigShiftService {
     public ConfigShiftService(
         @Autowired ConfigurableApplicationContext context,
         @Autowired ConfigProtoService protoService,
-        @Autowired UserService userService,
+        @Autowired UserQuery userQuery,
         @Autowired ConfigShiftUtils configShiftUtils,
         @Autowired DeptSystemSettingsRepository deptSystemSettingsRepo,
         @Autowired BalanceStatsShiftRepository balanceStatsShiftRepo
@@ -41,7 +41,7 @@ public class ConfigShiftService {
 
         this.context = context;
         this.protoService = protoService;
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.configShiftUtils = configShiftUtils;
 
         this.defaultShiftSettings = protoService.getConfig().getShift().getDefaultSetting();
@@ -109,7 +109,7 @@ public class ConfigShiftService {
         }
 
         // 获取当前用户
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -229,7 +229,7 @@ public class ConfigShiftService {
         }
 
         // 获取当前用户
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return AddDeptBalanceStatsShiftResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -299,7 +299,7 @@ public class ConfigShiftService {
         }
 
         // 获取当前用户
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -376,7 +376,7 @@ public class ConfigShiftService {
         }
 
         // 获取当前用户
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -412,7 +412,7 @@ public class ConfigShiftService {
 
     private final ConfigurableApplicationContext context;
     private final ConfigProtoService protoService;
-    private final UserService userService;
+    private final UserQuery userQuery;
     private final ConfigShiftUtils configShiftUtils;
 
     private final ShiftSettingsPB defaultShiftSettings;

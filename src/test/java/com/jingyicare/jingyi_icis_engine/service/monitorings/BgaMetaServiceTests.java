@@ -45,6 +45,7 @@ import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.service.users.auth.Encoder;
 import com.jingyicare.jingyi_icis_engine.service.users.UserBasicOperator;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
@@ -225,14 +226,14 @@ class BgaMetaServiceTests extends TestsBase {
 
     private UserBasicOperator departmentOperator(DepartmentRepository infoRepository) {
         return new UserBasicOperator(
-            protoService, mock(RbacPermissionRepository.class), mock(RbacRoleRepository.class),
-            mock(RbacRolePermissionRepository.class), mock(RbacRoleRoleRepository.class),
+            mock(RbacPermissionRepository.class), mock(RbacRoleRepository.class),
+            mock(RbacRolePermissionRepository.class),
             mock(RbacAccountRepository.class), mock(AccountRepository.class),
             mock(RbacAccountRoleRepository.class), departmentRepository, infoRepository,
             mock(RbacDepartmentAccountRepository.class), mock(DepartmentAccountRepository.class),
             mock(RbacDepartmentAccountRoleRepository.class),
             mock(RbacDepartmentAccountPermissionRepository.class),
-            encoder, service, trackedExecutor);
+            encoder, service, trackedExecutor, mock(UserQuery.class));
     }
 
     private BgaMetaService configuredService(List<String> codes) {

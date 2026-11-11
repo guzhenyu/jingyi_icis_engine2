@@ -24,7 +24,7 @@ import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentReposito
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
@@ -38,14 +38,14 @@ public class NursingOrderTemplateService {
 
     public NursingOrderTemplateService(
         @Autowired ConfigProtoService protoService,
-        @Autowired UserService userService,
+        @Autowired UserQuery userQuery,
         @Autowired NursingRecordTemplateGroupRepository templateGroupRepo,
         @Autowired NursingRecordTemplateRepository templateRepo,
         @Autowired RbacDepartmentRepository deptRepo,
         @Autowired LockExecutor lockExecutor
     ) {
         this.protoService = protoService;
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.templateGroupRepo = templateGroupRepo;
         this.templateRepo = templateRepo;
         this.deptRepo = deptRepo;
@@ -92,7 +92,7 @@ public class NursingOrderTemplateService {
         // 获取用户信息
         String ctxAccountId = req.getAccountId();
         if (!StrUtils.isBlank(ctxAccountId)) {
-            String accountId = userService.getAccountAutoId(ctxAccountId);
+            String accountId = userQuery.getAccountAutoId(ctxAccountId);
             respBuilder.addAllAccountTemplate(getTemplates(ENTITY_TYPE_ACCOUNT, accountId));
         }
 
@@ -142,7 +142,7 @@ public class NursingOrderTemplateService {
                 .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED)).build();
         }
 
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return AddNursingRecordTemplateGroupResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND)).build();
@@ -186,7 +186,7 @@ public class NursingOrderTemplateService {
             return genericResponse(StatusCode.PARSE_JSON_FAILED);
         }
 
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) return genericResponse(StatusCode.ACCOUNT_NOT_FOUND);
         if (req.getGroupCount() == 0) return genericResponse(StatusCode.OK);
 
@@ -220,7 +220,7 @@ public class NursingOrderTemplateService {
             return genericResponse(StatusCode.PARSE_JSON_FAILED);
         }
 
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) return genericResponse(StatusCode.ACCOUNT_NOT_FOUND);
         NursingRecordTemplateGroup group = templateGroupRepo
             .findByIdAndIsDeletedFalse(req.getId()).orElse(null);
@@ -241,7 +241,7 @@ public class NursingOrderTemplateService {
             return templateResponse(StatusCode.PARSE_JSON_FAILED);
         }
 
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) return templateResponse(StatusCode.ACCOUNT_NOT_FOUND);
         if (StrUtils.isBlank(req.getTemplate().getName())) {
             return templateResponse(StatusCode.INVALID_PARAM_VALUE);
@@ -265,7 +265,7 @@ public class NursingOrderTemplateService {
             return genericResponse(StatusCode.PARSE_JSON_FAILED);
         }
 
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) return genericResponse(StatusCode.ACCOUNT_NOT_FOUND);
         NursingRecordTemplate template = templateRepo
             .findByIdAndIsDeletedFalse(req.getTemplate().getId()).orElse(null);
@@ -294,7 +294,7 @@ public class NursingOrderTemplateService {
             return genericResponse(StatusCode.PARSE_JSON_FAILED);
         }
 
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) return genericResponse(StatusCode.ACCOUNT_NOT_FOUND);
         NursingRecordTemplate template = templateRepo
             .findByIdAndIsDeletedFalse(req.getId()).orElse(null);
@@ -551,7 +551,7 @@ public class NursingOrderTemplateService {
     }
 
     private final ConfigProtoService protoService;
-    private final UserService userService;
+    private final UserQuery userQuery;
     private final NursingRecordTemplateGroupRepository templateGroupRepo;
     private final NursingRecordTemplateRepository templateRepo;
     private final RbacDepartmentRepository deptRepo;

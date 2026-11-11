@@ -38,7 +38,7 @@ import com.jingyicare.jingyi_icis_engine.repository.settings.SystemSettingsRepos
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
@@ -313,7 +313,7 @@ class IcuQcConfigServiceTests extends TestsBase {
     @Autowired private JdbcTemplate jdbcTemplate;
     @Autowired private ConfigProtoService protoService;
     @Autowired private SystemSettingsRepository settingsRepo;
-    @Autowired private UserService users;
+    @Autowired private UserQuery users;
     @Value("${jingyi.textresources.icis_qc_config}") private Resource configResource;
     @Value("${jingyi.textresources.charset}") private String charsetName;
 }

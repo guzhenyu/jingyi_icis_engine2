@@ -204,9 +204,9 @@ class ConfigProtoServicePatientTests {
     private ConfigProtoService loadConfig(String path, String externalPath, Resource commonText) {
         IntakeTypeRepository intakeTypes = mock(IntakeTypeRepository.class);
         when(intakeTypes.findAll()).thenReturn(List.of());
-        return new ConfigProtoService(null, externalPath, new ClassPathResource(path),
-            commonText, null, null, null, null, null,
-            StandardCharsets.UTF_8.name(), null, intakeTypes);
+        ProtoConfig config = new ProtoConfig(null, externalPath, new ClassPathResource(path),
+            commonText, null, null, null, null, null, StandardCharsets.UTF_8.name());
+        return new ConfigProtoService(config.getConfig(), null, intakeTypes);
     }
 
     private Patient withoutBloodEnums(Patient patient) {

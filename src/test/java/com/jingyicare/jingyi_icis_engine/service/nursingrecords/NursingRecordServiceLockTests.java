@@ -66,7 +66,7 @@ import com.jingyicare.jingyi_icis_engine.service.shifts.ConfigShiftUtils;
 import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.service.snapshots.SnapshotService;
 import com.jingyicare.jingyi_icis_engine.service.tubes.PatientTubeImpl;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
@@ -90,7 +90,7 @@ class NursingRecordServiceLockTests extends TestsBase {
     }
 
     private NursingRecordService createService(JdbcTemplate readerJdbc) {
-        UserService users = mock(UserService.class);
+        UserQuery users = mock(UserQuery.class);
         when(users.getAccountWithAutoId()).thenReturn(new Pair<>(ACCOUNT, ACCOUNT_NAME));
         PatientService patients = mock(PatientService.class);
         PatientRecord patient = new PatientRecord();

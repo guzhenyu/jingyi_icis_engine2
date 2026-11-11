@@ -27,7 +27,8 @@ import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.ca.CaSignImageValidator.ValidatedSignImage;
 import com.jingyicare.jingyi_icis_engine.service.ca.client.CigCaClient;
 import com.jingyicare.jingyi_icis_engine.service.settings.SettingService;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
+import com.jingyicare.jingyi_icis_engine.utils.Pair;
 
 class CaServiceTests {
     @BeforeEach
@@ -38,19 +39,17 @@ class CaServiceTests {
                 Collections.nCopies(StatusCode.LAST_CODE_VALUE, "message")
             ))
             .build());
-        userService = mock(UserService.class);
+        userQuery = mock(UserQuery.class);
         accountRepo = mock(AccountRepository.class);
         deptRepo = mock(RbacDepartmentRepository.class);
-        accessPolicy = mock(CaAccessPolicy.class);
         settingService = mock(SettingService.class);
         cigCaClient = mock(CigCaClient.class);
         validator = mock(CaSignImageValidator.class);
         service = new CaService(
             protoService,
-            userService,
+            userQuery,
             accountRepo,
             deptRepo,
-            accessPolicy,
             settingService,
             cigCaClient,
             validator
@@ -60,11 +59,11 @@ class CaServiceTests {
         account.setId(7L);
         account.setAccountId("doctor-7");
         account.setIsDisabled(0);
-        when(userService.getCtxAccountId()).thenReturn("caller");
+        when(userQuery.getAccountWithAutoId()).thenReturn(new Pair<>("1", "调用人"));
         when(deptRepo.findByDeptId("ICU")).thenReturn(Optional.of(mock(RbacDepartment.class)));
-        when(accessPolicy.canCurrentUserAccessDept("ICU")).thenReturn(true);
+        when(userQuery.canCurrentUserAccessDept("ICU")).thenReturn(true);
         when(accountRepo.findByIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(account));
-        when(accessPolicy.accountBelongsToDept("doctor-7", "ICU")).thenReturn(true);
+        when(userQuery.accountBelongsToDept("doctor-7", "ICU")).thenReturn(true);
         when(settingService.getAppSettingsForService("ICU")).thenReturn(
             AppSettingsPB.newBuilder().setEnableCa(true).build()
         );
@@ -87,12 +86,12 @@ class CaServiceTests {
 
     @Test
     void rejectsCallerOrTargetOutsideDepartmentBeforeCallingCig() {
-        when(accessPolicy.canCurrentUserAccessDept("ICU")).thenReturn(false);
+        when(userQuery.canCurrentUserAccessDept("ICU")).thenReturn(false);
         var callerResponse = service.getSignImage("{\"deptId\":\"ICU\",\"accountId\":\"7\"}");
         assertEquals(StatusCode.CA_ACCOUNT_NOT_IN_DEPT_VALUE, callerResponse.getRt().getCode());
 
-        when(accessPolicy.canCurrentUserAccessDept("ICU")).thenReturn(true);
-        when(accessPolicy.accountBelongsToDept("doctor-7", "ICU")).thenReturn(false);
+        when(userQuery.canCurrentUserAccessDept("ICU")).thenReturn(true);
+        when(userQuery.accountBelongsToDept("doctor-7", "ICU")).thenReturn(false);
         var targetResponse = service.getSignImage("{\"deptId\":\"ICU\",\"accountId\":\"7\"}");
         assertEquals(StatusCode.CA_ACCOUNT_NOT_IN_DEPT_VALUE, targetResponse.getRt().getCode());
         verify(cigCaClient, never()).getSignImage(anyLong());
@@ -126,10 +125,9 @@ class CaServiceTests {
         assertEquals(7, response.getAccountId());
     }
 
-    private UserService userService;
+    private UserQuery userQuery;
     private AccountRepository accountRepo;
     private RbacDepartmentRepository deptRepo;
-    private CaAccessPolicy accessPolicy;
     private SettingService settingService;
     private CigCaClient cigCaClient;
     private CaSignImageValidator validator;

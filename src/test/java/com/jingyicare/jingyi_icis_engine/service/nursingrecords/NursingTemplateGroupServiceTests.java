@@ -33,7 +33,7 @@ import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentReposito
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
@@ -44,8 +44,8 @@ class NursingTemplateGroupServiceTests extends TestsBase {
         cleanUp();
         jdbcTemplate.update(
             "INSERT INTO rbac_departments(dept_id, dept_name) VALUES (?, ?)", DEPT_ID, DEPT_ID);
-        userService = mock(UserService.class);
-        when(userService.getAccountWithAutoId()).thenReturn(new Pair<>(ACCOUNT_ID, "测试用户"));
+        userQuery = mock(UserQuery.class);
+        when(userQuery.getAccountWithAutoId()).thenReturn(new Pair<>(ACCOUNT_ID, "测试用户"));
         service = newService(lockExecutor);
     }
 
@@ -215,7 +215,7 @@ class NursingTemplateGroupServiceTests extends TestsBase {
             .getRt().getCode())
             .isEqualTo(StatusCode.INVALID_PARAM_VALUE.getNumber());
 
-        when(userService.getAccountWithAutoId()).thenReturn(null);
+        when(userQuery.getAccountWithAutoId()).thenReturn(null);
         assertThat(service.addNursingRecordTemplateGroup(addRequest(DEPT_ID, "name"))
             .getRt().getCode()).isEqualTo(StatusCode.ACCOUNT_NOT_FOUND.getNumber());
         assertThat(service.updateNursingRecordTemplateGroups(updateRequest()).getRt().getCode())
@@ -235,7 +235,7 @@ class NursingTemplateGroupServiceTests extends TestsBase {
     }
 
     private NursingOrderTemplateService newService(LockExecutor executor) {
-        return new NursingOrderTemplateService(protoService, userService,
+        return new NursingOrderTemplateService(protoService, userQuery,
             templateGroupRepo, templateRepo, deptRepo, executor);
     }
 
@@ -305,7 +305,7 @@ class NursingTemplateGroupServiceTests extends TestsBase {
     private static final String DEPT_ID = "nursing-template-group-tests-dept";
     private static final String ACCOUNT_ID = "nursing-template-group-tests-account";
 
-    private UserService userService;
+    private UserQuery userQuery;
     private NursingOrderTemplateService service;
 
     @Autowired

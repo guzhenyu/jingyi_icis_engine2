@@ -27,7 +27,7 @@ import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.PatientNursingReportInvalidationService;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -38,7 +38,7 @@ public class PatientTubeService {
         @Autowired ConfigProtoService protoService,
         @Autowired ConfigShiftUtils shiftUtils,
         @Autowired PatientService patientService,
-        @Autowired UserService userService,
+        @Autowired UserQuery userQuery,
         @Autowired TubeSetting setting,
         @Autowired PatientTubeImpl patientTubeImpl,
         @Autowired PatientNursingReportInvalidationService pnrUtils
@@ -53,7 +53,7 @@ public class PatientTubeService {
         this.protoService = protoService;
         this.shiftUtils = shiftUtils;
         this.patientService = patientService;
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.setting = setting;
         this.patientTubeImpl = patientTubeImpl;
         this.pnrUtils = pnrUtils;
@@ -157,7 +157,7 @@ public class PatientTubeService {
         }
 
         // 获取当前用户
-        final Pair<String, String> account = userService.getAccountWithAutoId();
+        final Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             log.error("accountId is empty.");
             return NewPatientTubeResp.newBuilder()
@@ -247,7 +247,7 @@ public class PatientTubeService {
         }
 
         // 获取当前用户
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -275,7 +275,7 @@ public class PatientTubeService {
         }
 
         // 获取当前用户
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -303,7 +303,7 @@ public class PatientTubeService {
         }
 
         // 获取当前用户
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -331,7 +331,7 @@ public class PatientTubeService {
         }
 
         // 获取当前用户
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return NewPatientTubeResp.newBuilder()
@@ -387,7 +387,7 @@ public class PatientTubeService {
         }
 
         // 获取当前用户
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -429,7 +429,7 @@ public class PatientTubeService {
         String updatedBy = req.getInsertedBy();
         String updatedByAccountName = null;
         if (!StrUtils.isBlank(updatedBy)) {
-            updatedByAccountName = userService.getNameByAutoId(updatedBy);
+            updatedByAccountName = userQuery.getNameByAutoId(updatedBy);
         }
         patientTubeImpl.updatePatientTubeRecord(
             record, updatedBy, updatedByAccountName, req.getInsertedAtIso8601(),
@@ -455,7 +455,7 @@ public class PatientTubeService {
         }
 
         // 获取当前用户
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GetPatientTubeStatusResp.newBuilder()
@@ -520,7 +520,7 @@ public class PatientTubeService {
         }
 
         // 获取当前用户
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -587,7 +587,7 @@ public class PatientTubeService {
         }
 
         // 获取当前用户
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -660,7 +660,7 @@ public class PatientTubeService {
     private final ConfigProtoService protoService;  // 配置协议服务
     private final ConfigShiftUtils shiftUtils;  // 班次工具类
     private final PatientService patientService;    // 病人服务
-    private final UserService userService;  // 用户服务
+    private final UserQuery userQuery;  // 用户服务
     private final TubeSetting setting;       // 管道设置
     private final PatientTubeImpl patientTubeImpl;  // 病人管道实现类
     private final PatientNursingReportInvalidationService pnrUtils;  // 病人护理报告工具类

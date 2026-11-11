@@ -55,7 +55,7 @@ import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.WebApiService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
@@ -64,8 +64,8 @@ class MonitoringMetaServiceTests extends TestsBase {
     @BeforeEach
     void prepare() {
         cleanParams();
-        userService = mock(UserService.class);
-        when(userService.getAccountWithAutoId()).thenReturn(new Pair<>(ACCOUNT, ACCOUNT));
+        userQuery = mock(UserQuery.class);
+        when(userQuery.getAccountWithAutoId()).thenReturn(new Pair<>(ACCOUNT, ACCOUNT));
         serviceExecutor = spy(executor);
         service = configuredService(List.of(param(FIRST_CODE), param(SECOND_CODE)), historyRepo);
     }
@@ -432,7 +432,7 @@ class MonitoringMetaServiceTests extends TestsBase {
                 throw new IllegalStateException("模拟全局参数删除失败");
             }).when(trackedParams).delete(any(MonitoringParam.class));
         }
-        service = new MonitoringMetaService(protoService, userService, trackedParams,
+        service = new MonitoringMetaService(protoService, userQuery, trackedParams,
             trackedDeptParams, historyRepo, serviceExecutor);
 
         assertThat(service.deleteMonitoringParam(deleteRequest(department)).getRt().getCode())
@@ -512,7 +512,7 @@ class MonitoringMetaServiceTests extends TestsBase {
                 .clearMonitoringParam().addAllMonitoringParam(params)).build())
             .when(configured).getConfig();
         return new MonitoringMetaService(
-            configured, userService, paramRepository, deptRepository, historyRepository,
+            configured, userQuery, paramRepository, deptRepository, historyRepository,
             serviceExecutor);
     }
 
@@ -658,7 +658,7 @@ class MonitoringMetaServiceTests extends TestsBase {
     private static final Set<String> TEST_CODES = Set.of(FIRST_CODE, SECOND_CODE);
 
     private MonitoringMetaService service;
-    private UserService userService;
+    private UserQuery userQuery;
     private LockExecutor serviceExecutor;
     @Autowired private WebApiService webApiService;
     @Autowired private MonitoringMetaService monitoringMetaService;

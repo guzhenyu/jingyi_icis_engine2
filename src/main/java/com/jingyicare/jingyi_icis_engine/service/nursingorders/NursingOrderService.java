@@ -36,7 +36,7 @@ import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.service.medications.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Service
@@ -46,7 +46,7 @@ public class NursingOrderService {
 
     public NursingOrderService(
         @Autowired ConfigProtoService protoService,
-        @Autowired UserService userService,
+        @Autowired UserQuery userQuery,
         @Autowired ConfigShiftUtils shiftUtils,
         @Autowired PatientService patientService,
         @Autowired MedicationConfig medConfig,
@@ -62,7 +62,7 @@ public class NursingOrderService {
         this.ZONE_ID = protoService.getConfig().getZoneId();
 
         this.protoService = protoService;
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.shiftUtils = shiftUtils;
         this.patientService = patientService;
         this.medConfig = medConfig;
@@ -109,7 +109,7 @@ public class NursingOrderService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return AddNursingOrderTemplateGroupResp.newBuilder()
@@ -166,7 +166,7 @@ public class NursingOrderService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -211,7 +211,7 @@ public class NursingOrderService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -267,7 +267,7 @@ public class NursingOrderService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return AddNursingOrderTemplateResp.newBuilder()
@@ -350,7 +350,7 @@ public class NursingOrderService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -418,7 +418,7 @@ public class NursingOrderService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -493,7 +493,7 @@ public class NursingOrderService {
                 .build();
         }
 
-        Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return AddNursingOrderNoteResp.newBuilder()
@@ -554,7 +554,7 @@ public class NursingOrderService {
                 .build();
         }
 
-        Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -620,7 +620,7 @@ public class NursingOrderService {
                 .build();
         }
 
-        Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -670,7 +670,7 @@ public class NursingOrderService {
                 .build();
         }
 
-        Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -731,7 +731,7 @@ public class NursingOrderService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GetNursingOrderDetailsResp.newBuilder()
@@ -835,7 +835,7 @@ public class NursingOrderService {
         }
 
         // 获取用户信息，用于同步HIS护嘱的modified_by
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GetNursingOrdersResp.newBuilder()
@@ -939,7 +939,7 @@ public class NursingOrderService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return AddNursingOrdersResp.newBuilder()
@@ -1059,7 +1059,7 @@ public class NursingOrderService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -1126,7 +1126,7 @@ public class NursingOrderService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -1182,7 +1182,7 @@ public class NursingOrderService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -1235,7 +1235,7 @@ public class NursingOrderService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -1506,7 +1506,7 @@ public class NursingOrderService {
     private String getAccountDisplayName(String accountRef, boolean hisSynced) {
         if (StrUtils.isBlank(accountRef)) return "";
         if (hisSynced) return accountRef;
-        String accountName = userService.getNameByAutoId(accountRef);
+        String accountName = userQuery.getNameByAutoId(accountRef);
         return StrUtils.isBlank(accountName) ? accountRef : accountName;
     }
 
@@ -1536,7 +1536,7 @@ public class NursingOrderService {
     private final String ZONE_ID;
 
     private final ConfigProtoService protoService;
-    private final UserService userService;
+    private final UserQuery userQuery;
     private final ConfigShiftUtils shiftUtils;
     private final PatientService patientService;
     private final MedicationConfig medConfig;

@@ -32,7 +32,7 @@ import com.jingyicare.jingyi_icis_engine.repository.scores.DeptScoreGroupReposit
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
@@ -110,7 +110,7 @@ class ScoreMetaServiceTests extends TestsBase {
                 .clearDefaultScoreGroupCode().addDefaultScoreGroupCode(FIRST_CODE)
                 .addDefaultScoreGroupCode("missing-default-code")).build());
         ScoreMetaService invalidService = new ScoreMetaService(invalidConfig,
-            mock(UserService.class), repository, executor, jdbcTemplate);
+            mock(UserQuery.class), repository, executor, jdbcTemplate);
 
         assertThatIllegalStateException().isThrownBy(() -> invalidService.initDept(DEPT_ID));
 

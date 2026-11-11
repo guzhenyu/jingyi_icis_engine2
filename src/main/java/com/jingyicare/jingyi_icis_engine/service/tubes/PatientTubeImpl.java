@@ -18,14 +18,14 @@ import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 
 import com.jingyicare.jingyi_icis_engine.entity.tubes.*;
 import com.jingyicare.jingyi_icis_engine.repository.tubes.*;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Component
 @Slf4j
 public class PatientTubeImpl {
     public PatientTubeImpl(
-        @Autowired UserService userService,
+        @Autowired UserQuery userQuery,
         @Autowired TubeSetting tubeSetting,
         @Autowired TubeTypeRepository tubeTypeRepo,
         @Autowired TubeTypeAttributeRepository tubeTypeAttrRepo,
@@ -36,7 +36,7 @@ public class PatientTubeImpl {
     ) {
         this.DRAINAGE_TUBE_TYPE = tubeSetting.getDrainageTubeType();
 
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.tubeSetting = tubeSetting;
         this.tubeTypeRepo = tubeTypeRepo;
         this.tubeTypeAttrRepo = tubeTypeAttrRepo;
@@ -196,7 +196,7 @@ public class PatientTubeImpl {
         if (!StrUtils.isBlank(req.getRemovalReason())) record.setRemovalReason(req.getRemovalReason());
 
         String removedBy = StrUtils.isBlank(req.getRemovedBy()) ? accountId : req.getRemovedBy();
-        String removedByAccountName = userService.getNameByAutoId(removedBy);
+        String removedByAccountName = userQuery.getNameByAutoId(removedBy);
 
         record.setRemovedBy(removedBy);
         record.setRemovedByAccountName(removedByAccountName);
@@ -287,7 +287,7 @@ public class PatientTubeImpl {
         if (!StrUtils.isBlank(req.getRemovalReason())) oldRecord.setRemovalReason(req.getRemovalReason());
 
         String removedBy = StrUtils.isBlank(req.getRemovedBy()) ? accountId : req.getRemovedBy();
-        String removedByAccountName = userService.getNameByAutoId(removedBy);
+        String removedByAccountName = userQuery.getNameByAutoId(removedBy);
         oldRecord.setRemovedBy(removedBy);
         oldRecord.setRemovedByAccountName(removedByAccountName);
         oldRecord.setRemovedAt(removedAt);
@@ -598,7 +598,7 @@ public class PatientTubeImpl {
 
     private final String DRAINAGE_TUBE_TYPE;
 
-    private final UserService userService;  // 用户服务
+    private final UserQuery userQuery;  // 用户服务
     private final TubeSetting tubeSetting;  // 管道设置
     private final TubeTypeRepository tubeTypeRepo;  // 管道类型仓库
     private final TubeTypeAttributeRepository tubeTypeAttrRepo;  // 管道类型属性仓库

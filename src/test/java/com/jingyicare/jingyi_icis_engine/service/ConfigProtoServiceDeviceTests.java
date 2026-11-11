@@ -90,10 +90,10 @@ class ConfigProtoServiceDeviceTests {
     }
 
     private Config loadConfig(String path, String externalPath) {
-        ConfigProtoService service = new ConfigProtoService(
+        ProtoConfig service = new ProtoConfig(
             null, externalPath, new ClassPathResource(path), null, null,
             new ClassPathResource(COMMON_DEVICE_PATH), null, null, null,
-            StandardCharsets.UTF_8.name(), null, null
+            StandardCharsets.UTF_8.name()
         );
         return service.getConfig();
     }

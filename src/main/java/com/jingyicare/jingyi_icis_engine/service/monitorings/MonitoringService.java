@@ -39,7 +39,7 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class MonitoringService {
     public MonitoringService(
         @Autowired ConfigProtoService protoService,
-        @Autowired UserService userService,
+        @Autowired UserQuery userQuery,
         @Autowired PatientService patientService,
         @Autowired PatientTubeImpl patientTubeImpl,
         @Autowired MonitoringConfig monitoringConfig,
@@ -59,7 +59,7 @@ public class MonitoringService {
         this.BALANCE_OUT_ID = monitoringPb.getEnums().getBalanceOut().getId();
         this.GROUP_TYPE_BALANCE_ID = monitoringPb.getEnums().getGroupTypeBalance().getId();
 
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.patientService = patientService;
         this.patientTubeImpl = patientTubeImpl;
         this.monitoringConfig = monitoringConfig;
@@ -232,7 +232,7 @@ public class MonitoringService {
                 .build();
         }
 
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -314,7 +314,7 @@ public class MonitoringService {
                     .build();
         }
 
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("Account ID is empty while adding dept monitoring group.");
             return GetDeptMonitoringGroupsResp.newBuilder()
@@ -343,7 +343,7 @@ public class MonitoringService {
         }
 
         // 获取用户 ID
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("Account ID is empty while adding dept monitoring group.");
             return AddDeptMonitoringGroupResp.newBuilder()
@@ -432,7 +432,7 @@ public class MonitoringService {
         }
 
         // 获取用户 ID
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("Account ID is empty while updating monitoring group name.");
             return GenericResp.newBuilder()
@@ -492,7 +492,7 @@ public class MonitoringService {
         }
 
         // 获取用户 ID
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("Account ID is empty while deleting department monitoring group.");
             return GenericResp.newBuilder()
@@ -579,7 +579,7 @@ public class MonitoringService {
         }
 
         // 获取用户 ID
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("Account ID is empty while reordering department monitoring groups.");
             return GenericResp.newBuilder()
@@ -681,7 +681,7 @@ public class MonitoringService {
         }
 
         // 查找用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("AccountId is empty.");
             return AddDeptMonitoringGroupParamResp.newBuilder()
@@ -808,7 +808,7 @@ public class MonitoringService {
         }
 
         // 解析用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("AccountId is empty.");
             return GenericResp.newBuilder()
@@ -904,7 +904,7 @@ public class MonitoringService {
         }
 
         // Get the current account ID
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("Account ID is empty.");
             return GenericResp.newBuilder()
@@ -998,7 +998,7 @@ public class MonitoringService {
         }
 
         // 获取当前用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("Account ID is empty while adding dept monitoring group.");
             return GetPatientMonitoringGroupsResp.newBuilder()
@@ -1058,7 +1058,7 @@ public class MonitoringService {
         }
 
         // 获取当前用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("Account ID is empty.");
             return GenericResp.newBuilder()
@@ -1190,7 +1190,7 @@ public class MonitoringService {
         }
 
         // 获取当前用户信息
-        final Pair<String, String> accountWithAutoId = userService.getAccountWithAutoId();
+        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
         if (accountWithAutoId == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
@@ -1267,7 +1267,7 @@ public class MonitoringService {
 
     private final ConfigProtoService protoService;
     private final MonitoringPB monitoringPb;
-    private final UserService userService;
+    private final UserQuery userQuery;
     private final PatientService patientService;
     private final PatientTubeImpl patientTubeImpl;
 

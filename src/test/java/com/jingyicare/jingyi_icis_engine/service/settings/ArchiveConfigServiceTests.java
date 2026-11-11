@@ -28,24 +28,23 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
 import com.jingyicare.jingyi_icis_engine.repository.reports.DragableFormTemplateRepository;
 import com.jingyicare.jingyi_icis_engine.repository.settings.DeptSystemSettingsRepository;
 import com.jingyicare.jingyi_icis_engine.repository.settings.SystemSettingsRepository;
-import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
-import com.jingyicare.jingyi_icis_engine.service.medications.MedicationConfig;
-import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.reports.JfkTemplateReader;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
 class ArchiveConfigServiceTests {
     private final DeptSystemSettingsRepository settingsRepo = mock(DeptSystemSettingsRepository.class);
     private final DragableFormTemplateRepository templates = mock(DragableFormTemplateRepository.class);
-    private final UserService users = mock(UserService.class);
+    private final UserQuery users = mock(UserQuery.class);
     private final DeptSystemSettingsId settingsId = new DeptSystemSettingsId("ICU", 14);
     private SettingService service;
 
     @BeforeEach
     void setUp() {
-        ConfigProtoService config = mock(ConfigProtoService.class);
+        ProtoConfig config = mock(ProtoConfig.class);
         when(config.getConfig()).thenReturn(Config.newBuilder().setText(Text.newBuilder()
             .addAllStatusCodeMsg(Collections.nCopies(StatusCode.LAST_CODE_VALUE, "message"))).build());
         LockExecutor lockExecutor = mock(LockExecutor.class);
@@ -53,9 +52,9 @@ class ArchiveConfigServiceTests {
             Supplier<?> action = invocation.getArgument(1);
             return action.get();
         });
-        service = new SettingService(config, users, mock(MedicationConfig.class),
-            mock(MonitoringConfig.class), settingsRepo,
-            mock(SystemSettingsRepository.class), templates, lockExecutor);
+        service = new SettingService(config, users,
+            new SettingsStore(settingsRepo, mock(SystemSettingsRepository.class)),
+            new JfkTemplateReader(templates), lockExecutor);
         when(users.getAccountWithAutoId()).thenReturn(new Pair<>("admin", "1"));
     }
 

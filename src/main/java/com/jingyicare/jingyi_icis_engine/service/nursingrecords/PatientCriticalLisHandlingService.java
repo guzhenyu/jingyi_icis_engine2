@@ -35,7 +35,7 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class PatientCriticalLisHandlingService {
     public PatientCriticalLisHandlingService(
         @Autowired ConfigProtoService protoService,
-        @Autowired UserService userService,
+        @Autowired UserQuery userQuery,
         @Autowired PatientService patientService,
         @Autowired SettingService settingService,
         @Autowired NursingRecordUtils nursingRecordUtils,
@@ -50,7 +50,7 @@ public class PatientCriticalLisHandlingService {
         this.statusCodeMsgList = protoService.getConfig().getText().getStatusCodeMsgList();
 
         this.protoService = protoService;
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.patientService = patientService;
         this.settingService = settingService;
         this.nursingRecordUtils = nursingRecordUtils;
@@ -77,7 +77,7 @@ public class PatientCriticalLisHandlingService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GetPatientCriticalLisHandlingsResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
@@ -175,7 +175,7 @@ public class PatientCriticalLisHandlingService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return SavePatientCriticalLisHandlingResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
@@ -310,7 +310,7 @@ public class PatientCriticalLisHandlingService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
@@ -479,7 +479,7 @@ public class PatientCriticalLisHandlingService {
     private final List<String> statusCodeMsgList;
 
     private final ConfigProtoService protoService;
-    private final UserService userService;
+    private final UserQuery userQuery;
     private final PatientService patientService;
     private final SettingService settingService;
     private final NursingRecordUtils nursingRecordUtils;

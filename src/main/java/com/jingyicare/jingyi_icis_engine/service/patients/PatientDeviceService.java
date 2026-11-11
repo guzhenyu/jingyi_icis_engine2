@@ -21,7 +21,7 @@ import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.service.certs.*;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Service
@@ -49,7 +49,7 @@ public class PatientDeviceService {
     public PatientDeviceService(
         @Autowired ConfigProtoService protoService,
         @Autowired PatientConfig patientConfig,
-        @Autowired UserService userService,
+        @Autowired UserQuery userQuery,
         @Autowired CertificateService certificateService,
         @Autowired PatientRecordRepository patientRepo,
         @Autowired BedConfigRepository bedConfigRepo,
@@ -78,7 +78,7 @@ public class PatientDeviceService {
 
         this.protoService = protoService;
         this.patientConfig = patientConfig;
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.certificateService = certificateService;
         this.patientRepo = patientRepo;
         this.bedConfigRepo = bedConfigRepo;
@@ -157,7 +157,7 @@ public class PatientDeviceService {
         final String hisBedNumber = req.getBedConfig().getHisBedNumber();
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             log.error("Account not found");
             return AddBedConfigResp.newBuilder()
@@ -228,7 +228,7 @@ public class PatientDeviceService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             log.error("Account not found");
             return GenericResp.newBuilder()
@@ -301,7 +301,7 @@ public class PatientDeviceService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -379,7 +379,7 @@ public class PatientDeviceService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             log.error("Account not found");
             return GenericResp.newBuilder()
@@ -442,7 +442,7 @@ public class PatientDeviceService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -598,7 +598,7 @@ public class PatientDeviceService {
         }
 
         // 获取当前用户
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return AddDeviceInfoResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -661,7 +661,7 @@ public class PatientDeviceService {
                 .build();
         }
 
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -730,7 +730,7 @@ public class PatientDeviceService {
                 .build();
         }
 
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -784,7 +784,7 @@ public class PatientDeviceService {
         }
 
         // 获取当前用户
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return BindPatientDeviceResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -1273,7 +1273,7 @@ public class PatientDeviceService {
 
     private final ConfigProtoService protoService;
     private final PatientConfig patientConfig;
-    private final UserService userService;
+    private final UserQuery userQuery;
     private final CertificateService certificateService;
     private final PatientRecordRepository patientRepo;
     private final BedConfigRepository bedConfigRepo;

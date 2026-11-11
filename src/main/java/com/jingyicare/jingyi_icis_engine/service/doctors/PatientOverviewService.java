@@ -44,7 +44,7 @@ public class PatientOverviewService {
     public PatientOverviewService(
         @Autowired ConfigProtoService protoService,
         @Autowired ConfigShiftUtils shiftUtils,
-        @Autowired UserService userService,
+        @Autowired UserQuery userQuery,
         @Autowired PatientService patientService,
         @Autowired MonitoringConfig monConfig,
         @Autowired PatientMonitoringService patientMonitoringService,
@@ -68,7 +68,7 @@ public class PatientOverviewService {
 
         this.protoService = protoService;
         this.shiftUtils = shiftUtils;
-        this.userService = userService;
+        this.userQuery = userQuery;
         this.patientService = patientService;
         this.monConfig = monConfig;
         this.patientMonitoringService = patientMonitoringService;
@@ -225,7 +225,7 @@ public class PatientOverviewService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GetDailyBalanceResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -289,7 +289,7 @@ public class PatientOverviewService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userService.getAccountWithAutoId();
+        Pair<String, String> account = userQuery.getAccountWithAutoId();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -700,7 +700,7 @@ public class PatientOverviewService {
 
     private final ConfigProtoService protoService;
     private final ConfigShiftUtils shiftUtils;
-    private final UserService userService;
+    private final UserQuery userQuery;
     private final PatientService patientService;
     private final MonitoringConfig monConfig;
     private final PatientMonitoringService patientMonitoringService;

@@ -53,7 +53,7 @@ import com.jingyicare.jingyi_icis_engine.service.reports.common.*;
 import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
 import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.service.snapshots.SnapshotService;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -76,7 +76,7 @@ class ScoreMetadataServiceTests extends TestsBase {
             (pid, monitoring_param_code, effective_time)
             WHERE is_deleted = FALSE AND pid = 9620041
             """);
-        users = mock(UserService.class);
+        users = mock(UserQuery.class);
         when(users.getAccountWithAutoId()).thenReturn(new Pair<>("123", "当前用户"));
         calculator = mock(ScoreCalculator.class);
         when(calculator.validateScoreGroup(any(), any())).thenReturn(StatusCode.OK);
@@ -1154,7 +1154,7 @@ class ScoreMetadataServiceTests extends TestsBase {
     private static final String CODE = "gcs";
     private static final String PARAM = "score_test_gcs";
     private static final LocalDateTime TIME = LocalDateTime.parse("2026-11-03T01:02:00");
-    private UserService users;
+    private UserQuery users;
     private ScoreCalculator calculator;
     private PatientService checkedPatients;
     private PatientNursingReportInvalidationService invalidation;

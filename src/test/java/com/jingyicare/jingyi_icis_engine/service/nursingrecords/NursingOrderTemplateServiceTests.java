@@ -32,7 +32,7 @@ import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentReposito
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 
 class NursingOrderTemplateServiceTests extends TestsBase {
@@ -57,7 +57,7 @@ class NursingOrderTemplateServiceTests extends TestsBase {
                     .setName("empty-group")))
             .build());
         service = new NursingOrderTemplateService(
-            protoService, userService, templateGroupRepo, templateRepo, deptRepo,
+            protoService, userQuery, templateGroupRepo, templateRepo, deptRepo,
             lockExecutor);
     }
 
@@ -164,7 +164,7 @@ class NursingOrderTemplateServiceTests extends TestsBase {
             return templateRepo.save(invocation.getArgument(0));
         });
         service = new NursingOrderTemplateService(
-            protoService, userService, templateGroupRepo, failingRepo, deptRepo,
+            protoService, userQuery, templateGroupRepo, failingRepo, deptRepo,
             lockExecutor);
 
         assertThrows(IllegalStateException.class, service::initDeptTemplateGroups);
@@ -194,7 +194,7 @@ class NursingOrderTemplateServiceTests extends TestsBase {
             }
         };
         service = new NursingOrderTemplateService(
-            protoService, userService, templateGroupRepo, templateRepo, deptRepo,
+            protoService, userQuery, templateGroupRepo, templateRepo, deptRepo,
             concurrentExecutor);
         ExecutorService pool = Executors.newFixedThreadPool(2);
         try {
@@ -240,7 +240,7 @@ class NursingOrderTemplateServiceTests extends TestsBase {
     private NursingOrderTemplateService service;
 
     @Autowired
-    private UserService userService;
+    private UserQuery userQuery;
 
     @Autowired
     private NursingRecordTemplateGroupRepository templateGroupRepo;
