@@ -1,27 +1,25 @@
 package com.jingyicare.jingyi_icis_engine.service.users;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
-import java.util.Comparator;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.entity.users.*;
+import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
-
-import com.jingyicare.jingyi_icis_engine.entity.users.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
-import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 import com.jingyicare.jingyi_icis_engine.service.certs.*;
 import com.jingyicare.jingyi_icis_engine.service.users.menu.MenuService;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -30,44 +28,47 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 @Slf4j
 public class UserService {
     public UserService(
-        @Autowired ConfigProtoService protoService,
-        @Autowired UserBasicOperator userBasicOp,
+        @Autowired ProtoConfig protoConfig,
+        @Autowired UserCmdService userCmdService,
         @Autowired UserQuery userQuery,
         @Autowired MenuService menuService,
         @Autowired CertificateService certificateService
     ) {
-        this.ZONE_ID = protoService.getConfig().getZoneId();
-        this.ADMIN_ACCOUNT_ID = protoService.getConfig().getUser().getAdminAccountId();
-        this.ADMIN_ROLE_ID = protoService.getConfig().getUser().getAdminRoleId();
+        Config config = protoConfig.getConfig();
+        UserConfigPB userConfig = config.getUser();
+        this.ZONE_ID = config.getZoneId();
+        this.ADMIN_ACCOUNT_ID = userConfig.getAdminAccountId();
+        this.ADMIN_ROLE_ID = userConfig.getAdminRoleId();
+        this.statusCodeMsgList = config.getText().getStatusCodeMsgList();
 
         this.menuPermissions = new HashMap<>();
-        for (MenuPermissionPB menuPermPb : protoService.getConfig().getUser().getMenuPermissionList()) {
+        for (MenuPermissionPB menuPermPb : userConfig.getMenuPermissionList()) {
             this.menuPermissions.put(menuPermPb.getMenuGroupId(), menuPermPb.getPermissionId());
         }
-        this.fullMenu = protoService.getConfig().getUser().getMenu();
+        this.fullMenu = userConfig.getMenu();
 
-        this.protoService = protoService;
-        this.userBasicOp = userBasicOp;
+        this.userCmdService = userCmdService;
         this.userQuery = userQuery;
         this.menuService = menuService;
         this.certificateService = certificateService;
     }
 
     public GetUsernameResp getUsername() {
-        RbacAccount account = userBasicOp.getRbacAccount(userQuery.getCtxAccountId());
+        RbacAccount account = userQuery.getRbacAccount(userQuery.getCtxAccountId());
         final String accountName = account == null ? "" : account.getAccountName();
         return GetUsernameResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .setUsername(accountName)
             .build();
     }
 
     public GetUserInfoResp getUserInfo() {
         // 获取相关用户
-        RbacAccount account = userBasicOp.getRbacAccount(userQuery.getCtxAccountId());
+        RbacAccount account = userQuery.getRbacAccount(userQuery.getCtxAccountId());
         if (account == null) {
             return GetUserInfoResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
         final String accountId = account.getAccountId();
@@ -77,18 +78,18 @@ public class UserService {
         List<Department> departments;
         Map<String, Set<Integer>> deptPermIdsMap = new HashMap<>();
         if (accountId.equals(ADMIN_ACCOUNT_ID)) {
-            departments = userBasicOp.getAllDeptInfo();
+            departments = userQuery.getAllDeptInfo();
             for (Department department : departments) {
                 Set<Integer> adminRoleSet = new HashSet<>();
                 adminRoleSet.add(ADMIN_ROLE_ID);
                 deptPermIdsMap.put(department.getDeptId(), adminRoleSet);
             }
         } else {
-            departments = userBasicOp.getAllDeptInfoByAccountId(accountId)
+            departments = userQuery.getAllDeptInfoByAccountId(accountId)
                 .stream().sorted(Comparator.comparing(Department::getId)).toList();
             for (Department department : departments) {
                 final String deptId = department.getDeptId();
-                deptPermIdsMap.put(deptId, userBasicOp.getPermissionIds(accountId, deptId));
+                deptPermIdsMap.put(deptId, userQuery.getPermissionIds(accountId, deptId));
             }
         }
 
@@ -98,7 +99,8 @@ public class UserService {
             final String deptId = department.getDeptId();
             if (!certificateService.checkBedAvailable(deptId)) {
                 return GetUserInfoResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.BED_CONFIG_BED_NUMBER_LIMIT_EXCEEDED))
+                    .setRt(ReturnCodeUtils.getReturnCode(
+                        statusCodeMsgList, StatusCode.BED_CONFIG_BED_NUMBER_LIMIT_EXCEEDED))
                     .build();
             }
 
@@ -130,33 +132,34 @@ public class UserService {
             }
 
             // 查询并添加主要角色
-            deptInfoBuilder.setPrimaryRoleName(userBasicOp.getPrimaryRoleName(accountId, deptId));
+            deptInfoBuilder.setPrimaryRoleName(userQuery.getPrimaryRoleName(accountId, deptId));
             deptInfos.add(deptInfoBuilder.setMenu(menuBuilder.build()).build());
         }
 
         return GetUserInfoResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .setUser(StringIdEntityPB.newBuilder().setId(accountId).setName(accountName).build())
             .addAllDeptInfo(deptInfos)
             .build();
     }
 
     public GetAllDeptNamesResp getAllDeptNames(String getAllDeptNamesReqJson) {
-        List<StringIdEntityPB> deptEntityIds = userBasicOp.getAllDeptInfo()
+        List<StringIdEntityPB> deptEntityIds = userQuery.getAllDeptInfo()
             .stream()
             .sorted(Comparator.comparing(Department::getId))
-            .map(dept -> StringIdEntityPB.newBuilder().setId(dept.getDeptId()).setName(dept.getName()).build())
+            .map(dept -> StringIdEntityPB.newBuilder()
+                .setId(dept.getDeptId()).setName(dept.getName()).build())
             .toList();
         return GetAllDeptNamesResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .addAllDept(deptEntityIds)
             .build();
     }
 
     public GetAllDeptsResp getAllDepts(String getAllDeptsReqJson) {
         return GetAllDeptsResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .addAllDepartment(userBasicOp.getAllDepartments())
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
+            .addAllDepartment(userQuery.getAllDepartments())
             .build();
     }
 
@@ -167,7 +170,8 @@ public class UserService {
         } catch (Exception e) {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
             return AddDeptResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
@@ -175,49 +179,52 @@ public class UserService {
         final String accountId = userQuery.getCtxAccountId();
         if (accountId.isEmpty()) {
             return AddDeptResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.NOT_LOGGED_IN))
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.NOT_LOGGED_IN))
                 .build();
         }
         if (!accountId.equals(ADMIN_ACCOUNT_ID)) {
             return AddDeptResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ONLY_ADMIN_IS_AUTHORIZED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ONLY_ADMIN_IS_AUTHORIZED))
                 .build();
         }
         if (!certificateService.isDepartmentCreationAllowed()) {
             log.error("Production ICIS department scope cannot be expanded online");
             return AddDeptResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PERMISSION_DENIED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PERMISSION_DENIED))
                 .build();
         }
 
         // 获取accountAutoId
-        Account account = userBasicOp.getAccount(accountId);
+        Account account = userQuery.getAccount(accountId);
         String accountAutoId = account == null ? accountId : account.getId().toString();
 
         // 新增部门
         IcisDepartmentPB deptPb = req.getDepartment();
-        StatusCode statusCode = userBasicOp.addDepartment(
+        StatusCode statusCode = userCmdService.addDepartment(
             deptPb.getDeptId(), deptPb.getDeptName(), deptPb.getAbbreviation(),
             deptPb.getWardCode(), deptPb.getWardName(), deptPb.getHospitalName(),
             accountAutoId
         );
         if (statusCode != StatusCode.OK) {
             return AddDeptResp.newBuilder()
-                .setRt(protoService.getReturnCode(statusCode))
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, statusCode))
                 .build();
         }
 
         // 查找部门Id
-        Integer deptIntegerId = userBasicOp.getDepartmentId(deptPb.getDeptId());
+        Integer deptIntegerId = userQuery.getDepartmentId(deptPb.getDeptId());
         if (deptIntegerId == null) {
             log.error("Failed to find department ID for department id {}", deptPb.getDeptId());
             return AddDeptResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.DEPARTMENT_NOT_FOUND))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.DEPARTMENT_NOT_FOUND))
                 .build();
         }
 
         return AddDeptResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .setDeptId(deptIntegerId)
             .build();
     }
@@ -229,7 +236,8 @@ public class UserService {
         } catch (Exception e) {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
@@ -237,12 +245,13 @@ public class UserService {
         final String accountId = userQuery.getCtxAccountId();
         if (accountId.isEmpty()) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.NOT_LOGGED_IN))
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.NOT_LOGGED_IN))
                 .build();
         }
         if (!accountId.equals(ADMIN_ACCOUNT_ID)) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ONLY_ADMIN_IS_AUTHORIZED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ONLY_ADMIN_IS_AUTHORIZED))
                 .build();
         }
 
@@ -256,16 +265,17 @@ public class UserService {
             log.error("Production ICIS department identity cannot be changed online: {}",
                 deptPb.getDeptId());
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PERMISSION_DENIED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PERMISSION_DENIED))
                 .build();
         }
 
         // 获取accountAutoId
-        Account account = userBasicOp.getAccount(accountId);
+        Account account = userQuery.getAccount(accountId);
         String accountAutoId = account == null ? accountId : account.getId().toString();
 
         return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(userBasicOp.updateDepartment(
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, userCmdService.updateDepartment(
                 deptPb.getId(), deptPb.getDeptId(), deptPb.getDeptName(),
                 deptPb.getAbbreviation(), deptPb.getWardCode(), deptPb.getWardName(),
                 deptPb.getHospitalName(), accountAutoId
@@ -279,7 +289,8 @@ public class UserService {
         } catch (Exception e) {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
@@ -287,27 +298,30 @@ public class UserService {
         final String accountId = userQuery.getCtxAccountId();
         if (accountId.isEmpty()) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.NOT_LOGGED_IN))
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.NOT_LOGGED_IN))
                 .build();
         }
         if (!accountId.equals(ADMIN_ACCOUNT_ID)) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ONLY_ADMIN_IS_AUTHORIZED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ONLY_ADMIN_IS_AUTHORIZED))
                 .build();
         }
         if (!certificateService.isDepartmentDeletionAllowed()) {
-            log.error("Production ICIS department scope cannot be reduced online: {}", req.getDeptId());
+            log.error("Production ICIS department scope cannot be reduced online: {}",
+                req.getDeptId());
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PERMISSION_DENIED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PERMISSION_DENIED))
                 .build();
         }
 
         // 获取accountAutoId
-        Account account = userBasicOp.getAccount(accountId);
+        Account account = userQuery.getAccount(accountId);
         String accountAutoId = account == null ? accountId : account.getId().toString();
 
         return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(userBasicOp.deleteDepartment(
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, userCmdService.deleteDepartment(
                 req.getDeptId(), accountAutoId
             ))).build();
     }
@@ -315,17 +329,19 @@ public class UserService {
     public GetAllAccountsResp getAllAccounts(String getAllAccountsReqJson) {
         final GetAllAccountsReq req;
         try {
-            req = ProtoUtils.parseJsonToProto(getAllAccountsReqJson, GetAllAccountsReq.newBuilder());
+            req = ProtoUtils.parseJsonToProto(
+                getAllAccountsReqJson, GetAllAccountsReq.newBuilder());
         } catch (Exception e) {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
             return GetAllAccountsResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
         return GetAllAccountsResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .addAllAccount(userBasicOp.getAllAccounts(
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
+            .addAllAccount(userQuery.getAllAccounts(
                 req.getDeptId(), req.getAccountId(), req.getAccountName(), ZONE_ID
             ).stream().filter(account -> !account.getAccountId().equals(ADMIN_ACCOUNT_ID)).toList())
             .build();
@@ -338,19 +354,20 @@ public class UserService {
         } catch (Exception e) {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
         final String accountId = userQuery.getCtxAccountId();
         if (accountId.isEmpty()) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.NOT_LOGGED_IN))
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.NOT_LOGGED_IN))
                 .build();
         }
 
         // 获取accountAutoId
-        Account account = userBasicOp.getAccount(accountId);
+        Account account = userQuery.getAccount(accountId);
         String accountAutoId = account == null ? accountId : account.getId().toString();
 
         // 检查用户权限
@@ -358,12 +375,14 @@ public class UserService {
             req.getOpDeptId(), Consts.PERM_ID_CONFIG_CHECKLIST);
         if (permPair == null || !permPair.getSecond()) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PERMISSION_DENIED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PERMISSION_DENIED))
                 .build();
         }
 
         return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(userBasicOp.addAccount(req.getAccount(), accountAutoId)))
+            .setRt(ReturnCodeUtils.getReturnCode(
+                statusCodeMsgList, userCmdService.addAccount(req.getAccount(), accountAutoId)))
             .build();
     }
 
@@ -374,19 +393,20 @@ public class UserService {
         } catch (Exception e) {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
         final String accountId = userQuery.getCtxAccountId();
         if (accountId.isEmpty()) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.NOT_LOGGED_IN))
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.NOT_LOGGED_IN))
                 .build();
         }
 
         // 获取accountAutoId
-        Account account = userBasicOp.getAccount(accountId);
+        Account account = userQuery.getAccount(accountId);
         String accountAutoId = account == null ? accountId : account.getId().toString();
 
         // 检查用户权限
@@ -395,13 +415,15 @@ public class UserService {
                 req.getOpDeptId(), Consts.PERM_ID_CONFIG_CHECKLIST);
             if (permPair == null || !permPair.getSecond()) {
                 return GenericResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.PERMISSION_DENIED))
+                    .setRt(ReturnCodeUtils.getReturnCode(
+                        statusCodeMsgList, StatusCode.PERMISSION_DENIED))
                     .build();
             }
         }
 
         return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(userBasicOp.updateAccount(req.getAccount(), accountAutoId)))
+            .setRt(ReturnCodeUtils.getReturnCode(
+                statusCodeMsgList, userCmdService.updateAccount(req.getAccount(), accountAutoId)))
             .build();
     }
 
@@ -412,19 +434,20 @@ public class UserService {
         } catch (Exception e) {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
         final String accountId = userQuery.getCtxAccountId();
         if (accountId.isEmpty()) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.NOT_LOGGED_IN))
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.NOT_LOGGED_IN))
                 .build();
         }
 
         // 获取accountAutoId
-        Account account = userBasicOp.getAccount(accountId);
+        Account account = userQuery.getAccount(accountId);
         String accountAutoId = account == null ? accountId : account.getId().toString();
 
         // 检查用户权限
@@ -432,18 +455,20 @@ public class UserService {
             req.getOpDeptId(), Consts.PERM_ID_CONFIG_CHECKLIST);
         if (permPair == null || !permPair.getSecond()) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PERMISSION_DENIED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PERMISSION_DENIED))
                 .build();
         }
         if (accountId.equals(req.getAccountId())) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.CANNOT_DELETE_SELF_ACCOUNT))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.CANNOT_DELETE_SELF_ACCOUNT))
                 .build();
         }
 
         // deleteAccount(String accountId, String deptId, String modifiedBy)
         return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(userBasicOp.deleteAccount(
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, userCmdService.deleteAccount(
                 req.getAccountId(), req.getDeptId(), accountAutoId
             )))
             .build();
@@ -452,11 +477,13 @@ public class UserService {
     public GenericResp changePassword(String changePasswordReqJson) {
         final ChangePasswordReq req;
         try {
-            req = ProtoUtils.parseJsonToProto(changePasswordReqJson, ChangePasswordReq.newBuilder());
+            req = ProtoUtils.parseJsonToProto(
+                changePasswordReqJson, ChangePasswordReq.newBuilder());
         } catch (Exception e) {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
@@ -464,13 +491,13 @@ public class UserService {
         final String accountId = userQuery.getCtxAccountId();
         if (accountId.isEmpty()) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.NOT_LOGGED_IN))
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.NOT_LOGGED_IN))
                 .build();
         }
 
         return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(
-                userBasicOp.changePassword(accountId, req.getOldPassword(), req.getNewPassword())
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList,
+                userCmdService.changePassword(accountId, req.getOldPassword(), req.getNewPassword())
             ))
             .build();
     }
@@ -482,7 +509,8 @@ public class UserService {
         } catch (Exception e) {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
@@ -490,7 +518,7 @@ public class UserService {
         final String accountId = userQuery.getCtxAccountId();
         if (accountId.isEmpty()) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.NOT_LOGGED_IN))
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.NOT_LOGGED_IN))
                 .build();
         }
 
@@ -499,19 +527,22 @@ public class UserService {
             req.getOpDeptId(), Consts.PERM_ID_CONFIG_CHECKLIST);
         if (permPair == null || !permPair.getSecond()) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PERMISSION_DENIED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PERMISSION_DENIED))
                 .build();
         }
 
         return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(userBasicOp.resetPassword(req.getAccountId(), accountId, ADMIN_ROLE_ID)))
+            .setRt(ReturnCodeUtils.getReturnCode(
+                statusCodeMsgList, userCmdService.resetPassword(
+                    req.getAccountId(), accountId, ADMIN_ROLE_ID)))
             .build();
     }
 
     public GetRolesResp getRoles(String getRolesReqJson) {
         return GetRolesResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .addAllRole(userBasicOp.getPrimaryRoles()
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
+            .addAllRole(userQuery.getPrimaryRoles()
                 .stream()
                 .filter(role -> role.getId() !=  ADMIN_ROLE_ID)
                 .toList()
@@ -522,141 +553,156 @@ public class UserService {
     public GetPermissionsResp getPermissions(String getPermissionsReqJson) {
         final GetPermissionsReq req;
         try {
-            req = ProtoUtils.parseJsonToProto(getPermissionsReqJson, GetPermissionsReq.newBuilder());
+            req = ProtoUtils.parseJsonToProto(
+                getPermissionsReqJson, GetPermissionsReq.newBuilder());
         } catch (Exception e) {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
             return GetPermissionsResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
         final String deptId = req.getDeptId();
-        if (!userBasicOp.departmentExists(deptId)) {
+        if (!userQuery.departmentExists(deptId)) {
             log.error("Department {} not found", deptId);
             return GetPermissionsResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.DEPARTMENT_NOT_FOUND))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.DEPARTMENT_NOT_FOUND))
                 .build();
         }
 
         return GetPermissionsResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .addAllPermissionGroup(userBasicOp.getNonPrimaryRolePermissions(deptId))
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
+            .addAllPermissionGroup(userQuery.getNonPrimaryRolePermissions(deptId))
             .build();
     }
 
     public GenericResp addRolePermission(String addRolePermissionReqJson) {
         final AddRolePermissionReq req;
         try {
-            req = ProtoUtils.parseJsonToProto(addRolePermissionReqJson, AddRolePermissionReq.newBuilder());
+            req = ProtoUtils.parseJsonToProto(
+                addRolePermissionReqJson, AddRolePermissionReq.newBuilder());
         } catch (Exception e) {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
         final String accountId = userQuery.getCtxAccountId();
         if (accountId.isEmpty()) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.NOT_LOGGED_IN))
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.NOT_LOGGED_IN))
                 .build();
         }
 
         // 获取accountAutoId
-        Account account = userBasicOp.getAccount(accountId);
+        Account account = userQuery.getAccount(accountId);
         String accountAutoId = account == null ? accountId : account.getId().toString();
 
         return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(userBasicOp.addRolePermission(
-                req.getRoleId(), req.getPermissionId(), accountAutoId
-            )))
+            .setRt(ReturnCodeUtils.getReturnCode(
+                statusCodeMsgList, userCmdService.addRolePermission(
+                    req.getRoleId(), req.getPermissionId(), accountAutoId
+                )))
             .build();
     }
 
     public GenericResp revokeRolePermission(String revokeRolePermissionReqJson) {
         final AddRolePermissionReq req;
         try {
-            req = ProtoUtils.parseJsonToProto(revokeRolePermissionReqJson, AddRolePermissionReq.newBuilder());
+            req = ProtoUtils.parseJsonToProto(
+                revokeRolePermissionReqJson, AddRolePermissionReq.newBuilder());
         } catch (Exception e) {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
         final String accountId = userQuery.getCtxAccountId();
         if (accountId.isEmpty()) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.NOT_LOGGED_IN))
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.NOT_LOGGED_IN))
                 .build();
         }
 
         // 获取accountAutoId
-        Account account = userBasicOp.getAccount(accountId);
+        Account account = userQuery.getAccount(accountId);
         String accountAutoId = account == null ? accountId : account.getId().toString();
 
         return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(userBasicOp.revokeRolePermission(
-                req.getRoleId(), req.getPermissionId(), accountAutoId
-            )))
+            .setRt(ReturnCodeUtils.getReturnCode(
+                statusCodeMsgList, userCmdService.revokeRolePermission(
+                    req.getRoleId(), req.getPermissionId(), accountAutoId
+                )))
             .build();
     }
 
     public GenericResp addAccountPermission(String addAccountPermissionReqJson) {
         final AddAccountPermissionReq req;
         try {
-            req = ProtoUtils.parseJsonToProto(addAccountPermissionReqJson, AddAccountPermissionReq.newBuilder());
+            req = ProtoUtils.parseJsonToProto(
+                addAccountPermissionReqJson, AddAccountPermissionReq.newBuilder());
         } catch (Exception e) {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
         final String accountId = userQuery.getCtxAccountId();
         if (accountId.isEmpty()) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.NOT_LOGGED_IN))
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.NOT_LOGGED_IN))
                 .build();
         }
 
         // 获取accountAutoId
-        Account account = userBasicOp.getAccount(accountId);
+        Account account = userQuery.getAccount(accountId);
         String accountAutoId = account == null ? accountId : account.getId().toString();
 
         return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(userBasicOp.addAccountPermission(
-                req.getAccountId(), req.getDeptId(), req.getPermissionId(), accountAutoId
-            )))
+            .setRt(ReturnCodeUtils.getReturnCode(
+                statusCodeMsgList, userCmdService.addAccountPermission(
+                    req.getAccountId(), req.getDeptId(), req.getPermissionId(), accountAutoId
+                )))
             .build();
     }
 
     public GenericResp revokeAccountPermission(String revokeAccountPermissionReqJson) {
         final AddAccountPermissionReq req;
         try {
-            req = ProtoUtils.parseJsonToProto(revokeAccountPermissionReqJson, AddAccountPermissionReq.newBuilder());
+            req = ProtoUtils.parseJsonToProto(
+                revokeAccountPermissionReqJson, AddAccountPermissionReq.newBuilder());
         } catch (Exception e) {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
         final String accountId = userQuery.getCtxAccountId();
         if (accountId.isEmpty()) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.NOT_LOGGED_IN))
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.NOT_LOGGED_IN))
                 .build();
         }
 
         // 获取accountAutoId
-        Account account = userBasicOp.getAccount(accountId);
+        Account account = userQuery.getAccount(accountId);
         String accountAutoId = account == null ? accountId : account.getId().toString();
 
         return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(userBasicOp.revokeAccountPermission(
-                req.getAccountId(), req.getDeptId(), req.getPermissionId(), accountAutoId
-            )))
+            .setRt(ReturnCodeUtils.getReturnCode(
+                statusCodeMsgList, userCmdService.revokeAccountPermission(
+                    req.getAccountId(), req.getDeptId(), req.getPermissionId(), accountAutoId
+                )))
             .build();
     }
 
@@ -666,8 +712,8 @@ public class UserService {
     final Map<Integer, Integer> menuPermissions;
     final Menu fullMenu;
 
-    private ConfigProtoService protoService;
-    private UserBasicOperator userBasicOp;
+    private final List<String> statusCodeMsgList;
+    private UserCmdService userCmdService;
     private UserQuery userQuery;
     private MenuService menuService;
     private CertificateService certificateService;

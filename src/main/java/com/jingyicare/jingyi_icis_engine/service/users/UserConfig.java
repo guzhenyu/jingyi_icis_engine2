@@ -35,7 +35,7 @@ public class UserConfig {
     public UserConfig(
         ConfigurableApplicationContext context,
         @Autowired ConfigProtoService protoService,
-        @Autowired UserBasicOperator userBasicOp,
+        @Autowired UserCmdService userCmdService,
         @Autowired RbacPermissionRepository permRepo,
         @Autowired RbacRoleRepository roleRepo,
         @Autowired RbacRolePermissionRepository rolePermRepo,
@@ -54,7 +54,7 @@ public class UserConfig {
         this.configPb = protoService.getConfig().getUser();
         this.ADMIN_ROLE_ID = configPb.getAdminRoleId();
 
-        this.userBasicOp = userBasicOp;
+        this.userCmdService = userCmdService;
         this.permRepo = permRepo;
         this.roleRepo = roleRepo;
         this.rolePermRepo = rolePermRepo;
@@ -215,7 +215,7 @@ public class UserConfig {
         List<RbacAccount> accounts = accountRepo.findAll();
         if (accounts.size() <= 0) {
             for (AccountPB account : configPb.getAccountList()) {
-                userBasicOp.addAccount(account);
+                userCmdService.addAccount(account);
             }
         }
 
@@ -224,7 +224,7 @@ public class UserConfig {
                 String hospitalName = bootstrapProperties.getHospitalName().trim();
                 for (IcisBootstrapProperties.DepartmentEntry entry
                     : bootstrapProperties.getDepartments()) {
-                    StatusCode status = userBasicOp.addDepartment(
+                    StatusCode status = userCmdService.addDepartment(
                         entry.getDeptCode().trim(),
                         entry.getName().trim(),
                         entry.getName().trim(),
@@ -244,7 +244,7 @@ public class UserConfig {
                     bootstrapProperties.getDepartments().size());
             } else {
                 for (DepartmentPB dept : configPb.getDepartmentList()) {
-                    StatusCode status = userBasicOp.addDepartment(dept);
+                    StatusCode status = userCmdService.addDepartment(dept);
                     if (status != StatusCode.OK) {
                         throw new IllegalStateException(String.format(
                             "Failed to initialize bundled test department: code=%s, status=%s",
@@ -258,14 +258,14 @@ public class UserConfig {
         List<RbacDepartmentAccount> deptAccounts = deptAccountRepo.findAll();
         if (deptAccounts.size() <= 0) {
             for (DepartmentAccountPB deptAccount : configPb.getDepartmentAccountList()) {
-                userBasicOp.addDepartmentAccount(deptAccount);
+                userCmdService.addDepartmentAccount(deptAccount);
             }
         }
 
         List<RbacDepartmentAccountRole> deptAccountRoles = deptAccountRoleRepo.findAll();
         if (deptAccountRoles.size() <= 0) {
             for (DepartmentAccountRolePB deptAccountRole : configPb.getDepartmentAccountRoleList()) {
-                userBasicOp.addDepartmentAccountRole(deptAccountRole);
+                userCmdService.addDepartmentAccountRole(deptAccountRole);
             }
         }
     }
@@ -371,7 +371,7 @@ public class UserConfig {
     private ConfigurableApplicationContext context;
     private UserConfigPB configPb;
 
-    private UserBasicOperator userBasicOp;
+    private UserCmdService userCmdService;
 
     private RbacPermissionRepository permRepo;
     private RbacRoleRepository roleRepo;

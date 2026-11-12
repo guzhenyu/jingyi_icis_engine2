@@ -2,39 +2,33 @@ package com.jingyicare.jingyi_icis_engine.service.users;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashSet;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.interceptor.TransactionAspectSupport;
 
-import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.entity.users.*;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.*;
-import com.jingyicare.jingyi_icis_engine.entity.users.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
-import com.jingyicare.jingyi_icis_engine.service.*;
-import com.jingyicare.jingyi_icis_engine.service.monitorings.BgaMetaService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.BgaMetaService;
 import com.jingyicare.jingyi_icis_engine.service.users.auth.Encoder;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Service
 @Slf4j
-public class UserBasicOperator {
-    public UserBasicOperator(
+public class UserCmdService {
+    public UserCmdService(
         @Autowired RbacPermissionRepository permRepo,
         @Autowired RbacRoleRepository roleRepo,
         @Autowired RbacRolePermissionRepository rolePermRepo,
@@ -49,8 +43,7 @@ public class UserBasicOperator {
         @Autowired RbacDepartmentAccountPermissionRepository deptAccountPermRepo,
         @Autowired Encoder encoder,
         @Autowired BgaMetaService bgaMetaService,
-        @Autowired LockExecutor lockExecutor,
-        @Autowired UserQuery userQuery
+        @Autowired LockExecutor lockExecutor
     ) {
         this.permRepo = permRepo;
         this.roleRepo = roleRepo;
@@ -68,16 +61,9 @@ public class UserBasicOperator {
         this.encoder = encoder.get();
         this.bgaMetaService = bgaMetaService;
         this.lockExecutor = lockExecutor;
-        this.userQuery = userQuery;
     }
 
-    @Transactional
-    public List<IcisAccountPB> getAllAccounts(
-        String queryDeptId, String queryAccountId, String queryAccountName, String zoneId
-    ) {
-        return userQuery.getAllAccounts(queryDeptId, queryAccountId, queryAccountName, zoneId);
-    }
-
+    // 账号与密码：维护 accounts、rbac_accounts 及账号角色关系。
     @Transactional
     public StatusCode addAccount(AccountPB accountPb) {
         final String accountId = accountPb.getId();
@@ -132,7 +118,8 @@ public class UserBasicOperator {
         addAccountImpl(accountPb, modifiedBy);
 
         for (IcisAccountDepartmentPB acctDeptPb : accountPb.getDepartmentList()) {
-            statusCode = addDepartmentAccount(acctDeptPb.getDeptId(), accountId, acctDeptPb.getRoleId());
+            statusCode = addDepartmentAccount(
+                acctDeptPb.getDeptId(), accountId, acctDeptPb.getRoleId());
             if (statusCode != StatusCode.OK) {
                 TransactionAspectSupport.currentTransactionStatus().setRollbackOnly();
                 return statusCode;
@@ -148,7 +135,8 @@ public class UserBasicOperator {
     public StatusCode updateAccount(IcisAccountPB accountPb, String modifiedBy) {
         final String accountId = accountPb.getAccountId();
 
-        Account accountInfo = accountInfoRepo.findByAccountIdAndIsDeletedFalse(accountId).orElse(null);
+        Account accountInfo = accountInfoRepo
+            .findByAccountIdAndIsDeletedFalse(accountId).orElse(null);
         if (accountInfo == null) {
             log.error("Account not found: {}", accountId);
             return StatusCode.ACCOUNT_NOT_FOUND;
@@ -181,7 +169,8 @@ public class UserBasicOperator {
         // 统计修改的部门
         List<Map.Entry<RbacDepartmentAccount, Integer>> changedDeptAccounts = new ArrayList<>();
         for (IcisAccountDepartmentPB acctDeptPb : accountPb.getDepartmentList()) {
-            StatusCode statusCode = checkDepartmentAndRole(acctDeptPb.getDeptId(), acctDeptPb.getRoleId());
+            StatusCode statusCode = checkDepartmentAndRole(
+                acctDeptPb.getDeptId(), acctDeptPb.getRoleId());
             if (statusCode != StatusCode.OK) return statusCode;
             // 用于追踪被删除的部门
             deptIdsToUpdate.add(acctDeptPb.getDeptId());
@@ -239,7 +228,8 @@ public class UserBasicOperator {
 
     @Transactional
     public StatusCode deleteAccount(String accountId, String deptId, String modifiedBy) {
-        Account accountInfo = accountInfoRepo.findByAccountIdAndIsDeletedFalse(accountId).orElse(null);
+        Account accountInfo = accountInfoRepo
+            .findByAccountIdAndIsDeletedFalse(accountId).orElse(null);
         if (accountInfo == null) {
             log.error("Account not found: {}", accountId);
             return StatusCode.ACCOUNT_NOT_FOUND;
@@ -292,8 +282,9 @@ public class UserBasicOperator {
         boolean matchesEncodedInput = encoder.matches(oldPassword, oldPasswordHash);
         boolean matchesRawInput = false;
         if (!matchesEncodedInput) {
-            // Compatibility: some historical callers passed raw password, while current clients pass encoded password.
-            matchesRawInput = encoder.matches(RsaUtils.encodePassword(oldPassword), oldPasswordHash);
+            // 兼容历史调用传入原始密码；当前客户端传入加密后的密码。
+            matchesRawInput = encoder.matches(
+                RsaUtils.encodePassword(oldPassword), oldPasswordHash);
         }
 
         if (!matchesEncodedInput && !matchesRawInput) {
@@ -337,33 +328,57 @@ public class UserBasicOperator {
         return StatusCode.OK;
     }
 
-    public RbacAccount getRbacAccount(String accountId) {
-        return userQuery.getRbacAccount(accountId);
+    private StatusCode checkAddAccount(String accountId) {
+        RbacAccount account = accountRepo.findByAccountId(accountId).orElse(null);
+        if (account != null) {
+            log.error("RbacAccount already exists: {}", accountId);
+            return StatusCode.ACCOUNT_ALREADY_EXISTS;
+        }
+
+        Account accountInfo = accountInfoRepo
+            .findByAccountIdAndIsDeletedFalse(accountId).orElse(null);
+        if (accountInfo != null) {
+            log.error("Account already exists: {}", accountId);
+            return StatusCode.ACCOUNT_ALREADY_EXISTS;
+        }
+
+        return StatusCode.OK;
     }
 
-    public Account getAccount(String accountId) {
-        return userQuery.getAccount(accountId);
+    private void addAccountImpl(IcisAccountPB accountPb, String modifiedBy) {
+        RbacAccount account = new RbacAccount();
+        account.setAccountId(accountPb.getAccountId());
+        account.setAccountName(accountPb.getAccountName());
+        String newPasswdHash = StrUtils.isBlank(accountPb.getPassword()) ?
+            RsaUtils.encodePassword(accountPb.getAccountId(), encoder) :
+            encoder.encode(accountPb.getPassword()/*前端已经加密并做了base64编码*/);
+        account.setPasswordHash(newPasswdHash);
+        accountRepo.save(account);
+
+        Account accountInfo = new Account();
+        accountInfo.setAccountId(accountPb.getAccountId());
+        accountInfo.setName(accountPb.getAccountName());
+        accountInfo.setGender(accountPb.getGender());
+        final LocalDateTime dateOfBirth = StrUtils.isBlank(accountPb.getDateOfBirthIso8601()) ?
+            null : TimeUtils.fromIso8601String(accountPb.getDateOfBirthIso8601(), "UTC");
+        if (dateOfBirth != null) {
+            accountInfo.setDateOfBirth(dateOfBirth);
+        }
+        if (!StrUtils.isBlank(accountPb.getTitle())) accountInfo.setTitle(accountPb.getTitle());
+        if (!StrUtils.isBlank(accountPb.getEducationLevel()))
+            accountInfo.setEducationLevel(accountPb.getEducationLevel());
+        if (!StrUtils.isBlank(accountPb.getPhone())) accountInfo.setPhone(accountPb.getPhone());
+        if (!StrUtils.isBlank(accountPb.getIdCardNumber()))
+            accountInfo.setIdCardNumber(accountPb.getIdCardNumber());
+        if (!StrUtils.isBlank(accountPb.getSignPic()))
+            accountInfo.setSignPic(accountPb.getSignPic());
+        accountInfo.setIsDeleted(false);
+        accountInfo.setModifiedBy(modifiedBy);
+        accountInfo.setModifiedAt(TimeUtils.getNowUtc());
+        accountInfoRepo.save(accountInfo);
     }
 
-    public Account getAccountByAutoId(String accountAutoIdStr) {
-        return userQuery.getAccountByAutoId(accountAutoIdStr);
-    }
-
-    public List<IcisDepartmentPB> getAllDepartments() {
-        return deptInfoRepo.findByIsDeletedFalse().stream()
-            .map(deptInfo -> IcisDepartmentPB.newBuilder()
-                .setId(deptInfo.getId())
-                .setDeptId(deptInfo.getDeptId())
-                .setDeptName(deptInfo.getName())
-                .setAbbreviation(deptInfo.getAbbreviation())
-                .setWardCode(deptInfo.getWardCode())
-                .setWardName(deptInfo.getWardName())
-                .setHospitalName(deptInfo.getHospitalName())
-                .build())
-            .sorted(Comparator.comparing(IcisDepartmentPB::getId))
-            .toList();
-    }
-
+    // 科室：维护业务科室与 RBAC 科室，并在创建成功后初始化血气参数。
     public StatusCode addDepartment(DepartmentPB deptPb) {
         return addDepartment(
             deptPb.getId(), deptPb.getName(), deptPb.getAbbreviation(),
@@ -421,16 +436,6 @@ public class UserBasicOperator {
     }
 
     @Transactional
-    public Integer getDepartmentId(String deptId) {
-        Department deptInfo = deptInfoRepo.findByDeptIdAndIsDeletedFalse(deptId).orElse(null);
-        if (deptInfo == null) {
-            log.error("Department not found: {}", deptId);
-            return null;
-        }
-        return deptInfo.getId();
-    }
-
-    @Transactional
     public StatusCode updateDepartment(
         Integer deptIntegerId, String deptId, String deptName,
         String abbreviation, String wardCode, String wardName,
@@ -481,12 +486,66 @@ public class UserBasicOperator {
         return StatusCode.OK;
     }
 
+    private void addOrUpdateRbacDept(String deptId, String deptName) {
+        RbacDepartment dept = deptRepo.findByDeptId(deptId).orElse(null);
+        if (dept == null) {
+            dept = new RbacDepartment();
+            dept.setDeptId(deptId);
+        }
+        dept.setDeptName(deptName);
+        deptRepo.save(dept);
+    }
+
+    // 账号科室关系：维护业务关联、RBAC 关联及科室内角色。
     @Transactional
     public StatusCode addDepartmentAccount(DepartmentAccountPB deptAccountPb) {
         return addDepartmentAccount(
             deptAccountPb.getDepartmentId(), deptAccountPb.getAccountId(),
             deptAccountPb.getPrimaryRoleId()
         );
+    }
+
+    @Transactional
+    public StatusCode addDepartmentAccountRole(DepartmentAccountRolePB deptAccountRolePb) {
+        String deptId = deptAccountRolePb.getDepartmentId();
+        final String accountId = deptAccountRolePb.getAccountId();
+
+        RbacDepartment dept = deptRepo.findByDeptId(deptId).orElse(null);
+        if (dept == null) {
+            log.error("RbacDepartment not found: deptId={}", deptId);
+            return StatusCode.DEPARTMENT_NOT_FOUND;
+        }
+
+        RbacAccount account = accountRepo.findByAccountId(accountId).orElse(null);
+        if (account == null) {
+            log.error("RbacAccount not found: {}", accountId);
+            return StatusCode.ACCOUNT_NOT_FOUND;
+        }
+
+        List<RbacDepartmentAccountRole> deptAccountRoles = new ArrayList<>();
+        for (Integer roleId : deptAccountRolePb.getRoleIdList()) {
+            RbacRole role = roleRepo.findById(roleId).orElse(null);
+            if (role == null) {
+                log.error("RbacRole not found: {}", roleId);
+                return StatusCode.ROLE_NOT_FOUND;
+            }
+
+            RbacDepartmentAccountRoleId deptAccountRoleId = new RbacDepartmentAccountRoleId(
+                deptId, accountId, roleId);
+            RbacDepartmentAccountRole deptAccountRole = deptAccountRoleRepo
+                .findById(deptAccountRoleId).orElse(null);
+            if (deptAccountRole != null) {
+                log.error("RbacDepartmentAccountRole already exists: {} {} {}",
+                    deptId, accountId, roleId);
+                return StatusCode.DEPARTMENT_ACCOUNT_ROLE_ALREADY_EXISTS;
+            }
+            deptAccountRole = new RbacDepartmentAccountRole();
+            deptAccountRole.setId(deptAccountRoleId);
+            deptAccountRoles.add(deptAccountRole);
+        }
+        deptAccountRoleRepo.saveAll(deptAccountRoles);
+
+        return StatusCode.OK;
     }
 
     private StatusCode addDepartmentAccount(
@@ -503,7 +562,8 @@ public class UserBasicOperator {
             log.error("RbacAccount not found: {}", accountId);
             return StatusCode.ACCOUNT_NOT_FOUND;
         }
-        Account accountInfo = accountInfoRepo.findByAccountIdAndIsDeletedFalse(accountId).orElse(null);
+        Account accountInfo = accountInfoRepo
+            .findByAccountIdAndIsDeletedFalse(accountId).orElse(null);
         if (accountInfo == null) {
             log.error("Account not found: {}", accountId);
             return StatusCode.ACCOUNT_NOT_FOUND;
@@ -541,16 +601,21 @@ public class UserBasicOperator {
         return StatusCode.OK;
     }
 
-    private StatusCode updateDepartmentAccount(RbacDepartmentAccount deptAccount, Integer newPrimaryRoleId) {
+    private StatusCode updateDepartmentAccount(
+        RbacDepartmentAccount deptAccount, Integer newPrimaryRoleId
+    ) {
         // 删除旧的RbacDepartmentAccountRole
         String accountId = deptAccount.getId().getAccountId();
         String deptId = deptAccount.getId().getDeptId();
         RbacDepartmentAccountRoleId deptAccountRoleId = new RbacDepartmentAccountRoleId(
             deptId, accountId, deptAccount.getPrimaryRoleId()
         );
-        RbacDepartmentAccountRole deptAccountRole = deptAccountRoleRepo.findById(deptAccountRoleId).orElse(null);
+        RbacDepartmentAccountRole deptAccountRole = deptAccountRoleRepo
+            .findById(deptAccountRoleId).orElse(null);
         if (deptAccountRole == null) {
-            log.error("RbacDepartmentAccountRole not found: {} {} {}", deptAccountRoleId.getDeptId(), deptAccountRoleId.getAccountId(), deptAccountRoleId.getRoleId());
+            log.error("RbacDepartmentAccountRole not found: {} {} {}",
+                deptAccountRoleId.getDeptId(), deptAccountRoleId.getAccountId(),
+                deptAccountRoleId.getRoleId());
             return StatusCode.DEPARTMENT_ACCOUNT_ROLE_NOT_FOUND;
         }
         deptAccountRoleRepo.delete(deptAccountRole);
@@ -562,7 +627,8 @@ public class UserBasicOperator {
         deptAccountRole = deptAccountRoleRepo.findById(deptAccountRoleId).orElse(null);
         if (deptAccountRole != null) {
             log.error("RbacDepartmentAccountRole already exists: {} {} {}",
-                deptAccountRoleId.getDeptId(), deptAccountRoleId.getAccountId(), deptAccountRoleId.getRoleId()
+                deptAccountRoleId.getDeptId(), deptAccountRoleId.getAccountId(),
+                deptAccountRoleId.getRoleId()
             );
             return StatusCode.DEPARTMENT_ACCOUNT_ROLE_ALREADY_EXISTS;
         }
@@ -589,217 +655,72 @@ public class UserBasicOperator {
         deleteRawDepartmentAccount(accountId, deptId, modifiedBy);
     }
 
-    @Transactional
-    List<Department> getAllDeptInfo() {
-        return deptInfoRepo.findByIsDeletedFalse();
-    }
-
-    @Transactional
-    public List<Department> getAllDeptInfoByAccountId(String accountId) {
-        List<String> deptIds = deptAccountRepo.findByIdAccountId(accountId).stream()
-            .map(deptAccount -> deptAccount.getId().getDeptId())
-            .toList();
-        return deptInfoRepo.findByDeptIdInAndIsDeletedFalse(deptIds);
-    }
-
-    @Transactional
-    public StatusCode addDepartmentAccountRole(DepartmentAccountRolePB deptAccountRolePb) {
-        String deptId = deptAccountRolePb.getDepartmentId();
-        final String accountId = deptAccountRolePb.getAccountId();
-
+    private StatusCode checkDepartmentAndRole(String deptId, Integer roleId) {
         RbacDepartment dept = deptRepo.findByDeptId(deptId).orElse(null);
         if (dept == null) {
-            log.error("RbacDepartment not found: deptId={}", deptId);
+            log.error("RbacDepartment not found: {}", deptId);
             return StatusCode.DEPARTMENT_NOT_FOUND;
         }
 
-        RbacAccount account = accountRepo.findByAccountId(accountId).orElse(null);
-        if (account == null) {
-            log.error("RbacAccount not found: {}", accountId);
-            return StatusCode.ACCOUNT_NOT_FOUND;
+        RbacRole role = roleRepo.findById(roleId).orElse(null);
+        if (role == null) {
+            log.error("RbacRole not found: {}", roleId);
+            return StatusCode.ROLE_NOT_FOUND;
         }
-
-        List<RbacDepartmentAccountRole> deptAccountRoles = new ArrayList<>();
-        for (Integer roleId : deptAccountRolePb.getRoleIdList()) {
-            RbacRole role = roleRepo.findById(roleId).orElse(null);
-            if (role == null) {
-                log.error("RbacRole not found: {}", roleId);
-                return StatusCode.ROLE_NOT_FOUND;
-            }
-
-            RbacDepartmentAccountRoleId deptAccountRoleId = new RbacDepartmentAccountRoleId(deptId, accountId, roleId);
-            RbacDepartmentAccountRole deptAccountRole = deptAccountRoleRepo.findById(deptAccountRoleId).orElse(null);
-            if (deptAccountRole != null) {
-                log.error("RbacDepartmentAccountRole already exists: {} {} {}", deptId, accountId, roleId);
-                return StatusCode.DEPARTMENT_ACCOUNT_ROLE_ALREADY_EXISTS;
-            }
-            deptAccountRole = new RbacDepartmentAccountRole();
-            deptAccountRole.setId(deptAccountRoleId);
-            deptAccountRoles.add(deptAccountRole);
-        }
-        deptAccountRoleRepo.saveAll(deptAccountRoles);
 
         return StatusCode.OK;
     }
 
-    @Transactional
-    public List<IcisRolePB> getPrimaryRoles() {
-        return roleRepo.findByIsPrimaryTrue().stream()
-            .map(role -> IcisRolePB.newBuilder()
-                .setId(role.getId())
-                .setName(role.getName())
-                .build())
-            .sorted(Comparator.comparing(IcisRolePB::getId))
-            .toList();
+    private void addRawDepartmentAccount(
+        Long employeeId, String accountId, String deptId, Integer primaryRoleId
+    ) {
+        DepartmentAccount deptAcct = DepartmentAccount.builder()
+            .employeeId(employeeId)
+            .accountId(accountId)
+            .deptId(deptId)
+            .primaryRoleId(primaryRoleId)
+            .startDate(TimeUtils.getNowUtc())
+            .isDeleted(false)
+            .build();
+        deptAcctRepo.save(deptAcct);
     }
 
-    @Transactional
-    public Boolean departmentExists(String deptId) {
-        return deptRepo.existsByDeptId(deptId);
+    private void updateRawDepartmentAccount(
+        String accountId, String deptId, Integer primaryRoleId
+    ) {
+        DepartmentAccount deptAcct = deptAcctRepo.findByAccountIdAndDeptIdAndIsDeletedFalse(
+            accountId, deptId).orElse(null);
+        if (deptAcct == null) {
+            log.error("DepartmentAccount not found: {} {}", accountId, deptId);
+            return;
+        }
+        deptAcct.setPrimaryRoleId(primaryRoleId);
+        deptAcctRepo.save(deptAcct);
     }
 
-    /*
-        => List<nonPrimaryRoleId, roleName> => List<nonPrimaryRoleId> => List<nonPrimaryRoleId, permissionId> => Map<nonPrimaryRoleId, List<permissionId>> ===============> List<IcisPermissionGroupPB>
-           (groupRoles)                        (groupRoleIds)            (groupRolePermissions)                  roleIdToPermissionIds                                      permissionGroups
-                                                                                      ||                                                                                              ^
-                                                                                      |=> Set<nonPrimaryRolePermissionId> => Map<permissionId, List<primaryRoleId>>                  / \
-                                                                                          (permissionIds)                            (permissionIdToRoleIds)                          ||
-                                                                                            ||    ||                                                    ||                            ||
-                                                                                            ||    |=> Map<permissionId, List<accountId>>=======|        ||                            ||
-                                                                                            ||        (permissionIdToAccountIds)              ||        ||                            ||
-                                                                                            ||                                                ||        ||                            ||
-                                                                                            |=> Map<permissionId, RbacPermission>             ||        ||                            ||
-                                                                                                (allPermissions)                              ||        ||                            ||
-                                                                                                    ||                                        ||        ||                            ||
-                                                                                                    |=> IcisPermissionPB.id(permissionId)     ||        ||                            ||
-                                                                                                            ||          .name(permissionName) ||        ||                            ||
-                                                                                                            ||          .roleList             ||    <====|                            ||
-                                                                                                            ||          .accountIdList     <===|                                      ||
-                                                                                                            ||                                                                        ||
-                                                                                                            |==========================================================================|
-    */
-    @Transactional
-    public List<IcisPermissionGroupPB> getNonPrimaryRolePermissions(String deptId) {
-        // 在RbacRole中找到所有非主要角色，及其对应的权限
-        List<RbacRole> groupRoles = roleRepo.findByIsPrimaryFalse();
-        List<Integer> groupRoleIds = groupRoles.stream().map(RbacRole::getId).toList();
-
-        List<RbacRolePermission> groupRolePermissions = rolePermRepo.findByIdRoleIdIn(groupRoleIds);
-        Map<Integer, List<Integer>> roleIdToPermissionIds = groupRolePermissions.stream()
-            .collect(Collectors.groupingBy(
-                rolePermission -> rolePermission.getId().getRoleId(),
-                Collectors.mapping(rolePermission -> rolePermission.getId().getPermissionId(), Collectors.toList())
-            ));
-
-        // 获取权限对应的主要角色
-        Set<Integer> permissionIds = groupRolePermissions.stream()
-            .map(rolePermission -> rolePermission.getId().getPermissionId())
-            .collect(Collectors.toSet());
-        Map<Integer, RbacPermission> allPermissions = permRepo.findByIdIn(new ArrayList<>(permissionIds))
-            .stream().collect(Collectors.toMap(RbacPermission::getId, permission -> permission));
-        Map<Integer, List<Integer>> permissionIdToRoleIds = rolePermRepo
-            .findByIdPermissionIdIn(new ArrayList<>(permissionIds))
-            .stream()
-            .collect(Collectors.groupingBy(
-                rolePermission -> rolePermission.getId().getPermissionId(),
-                Collectors.mapping(rolePermission -> rolePermission.getId().getRoleId(), Collectors.toList())
-            ));
-        Map<Integer, RbacRole> allRoles = roleRepo.findAll().stream()
-            .collect(Collectors.toMap(RbacRole::getId, role -> role));
-
-        // 获取权限对应的部门用户
-        Map<Integer, List<String>> permissionIdToAccountIds = deptAccountPermRepo
-            .findByIdDeptIdAndIdPermissionIdIn(deptId, new ArrayList<>(permissionIds))
-            .stream()
-            .collect(Collectors.groupingBy(
-                deptAccountPermission -> deptAccountPermission.getId().getPermissionId(),
-                Collectors.mapping(deptAccountPermission -> deptAccountPermission.getId().getAccountId(), Collectors.toList())
-            ));
-        Map<String, RbacAccount> allAccounts = accountRepo.findAll().stream()
-            .collect(Collectors.toMap(RbacAccount::getAccountId, account -> account));
-
-        // 组装IcisPermissionPB
-        Map<Integer, IcisPermissionPB> permissionMap = new HashMap<>();
-        for (Map.Entry<Integer, RbacPermission> entry : allPermissions.entrySet()) {
-            Integer permissionId = entry.getKey();
-            RbacPermission permission = entry.getValue();
-
-            // 设置权限id和name
-            IcisPermissionPB.Builder permissionBuilder = IcisPermissionPB.newBuilder()
-                .setId(permissionId)
-                .setName(permission.getName());
-
-            // 设置角色
-            List<IcisRolePB> rolePbs = new ArrayList<>();
-            List<Integer> roleIds = permissionIdToRoleIds.getOrDefault(permissionId, new ArrayList<>());
-            for (Integer roleId : roleIds) {
-                RbacRole role = allRoles.get(roleId);
-                if (role != null && role.getIsPrimary()) {
-                    rolePbs.add(IcisRolePB.newBuilder()
-                        .setId(role.getId())
-                        .setName(role.getName())
-                        .build());
-                }
+    private void deleteRawDepartmentAccount(String accountId, String deptId, String modifiedBy) {
+        List<DepartmentAccount> deptAccts = new ArrayList<>();
+        if (StrUtils.isBlank(deptId)) {
+            deptAccts = deptAcctRepo.findByAccountIdAndIsDeletedFalse(accountId);
+        } else {
+            DepartmentAccount deptAcct = deptAcctRepo.findByAccountIdAndDeptIdAndIsDeletedFalse(
+                    accountId, deptId).orElse(null);
+            if (deptAcct == null) {
+                log.error("DepartmentAccount not found: {} {}", accountId, deptId);
+                return;
             }
-            permissionBuilder.addAllRole(
-                rolePbs.stream().sorted(Comparator.comparing(IcisRolePB::getId)).toList()
-            );
-
-            // 设置部门用户
-            List<StringIdEntityPB> accountPbs = new ArrayList<>();
-            List<String> accountIds = permissionIdToAccountIds.getOrDefault(permissionId, new ArrayList<>());
-            for (String accountId : accountIds) {
-                RbacAccount account = allAccounts.get(accountId);
-                if (account != null) {
-                    accountPbs.add(StringIdEntityPB.newBuilder()
-                        .setId(account.getAccountId())
-                        .setName(account.getAccountName())
-                        .build());
-                }
-            }
-            permissionBuilder.addAllAccountId(
-                accountPbs.stream().sorted(Comparator.comparing(StringIdEntityPB::getId)).toList()
-            );
-            permissionMap.put(permissionId, permissionBuilder.build());
+            deptAccts.add(deptAcct);
         }
 
-        // 组装IcisPermissionGroupPB
-        List<IcisPermissionGroupPB> permissionGroups = new ArrayList<>();
-        for (Map.Entry<Integer, List<Integer>> entry : roleIdToPermissionIds.entrySet()) {
-            Integer roleId = entry.getKey();
-            List<Integer> groupPermIds = entry.getValue();
-
-            RbacRole role = allRoles.get(roleId);
-            if (role == null) {
-                log.error("RbacRole not found: {}", roleId);
-                continue;
-            }
-
-            // 组装分组id和name
-            IcisPermissionGroupPB.Builder permissionGroupBuilder = IcisPermissionGroupPB.newBuilder()
-                .setId(roleId)
-                .setName(role.getName());
-
-            // 组装权限
-            List<IcisPermissionPB> permissions = new ArrayList<>();
-            for (Integer permissionId : groupPermIds) {
-                IcisPermissionPB permission = permissionMap.get(permissionId);
-                if (permission == null) {
-                    log.error("RbacPermission not found: {}", permissionId);
-                    continue;
-                }
-                permissions.add(permission);
-            }
-            permissionGroupBuilder.addAllPermission(
-                permissions.stream().sorted(Comparator.comparing(IcisPermissionPB::getId)).toList()
-            );
-
-            permissionGroups.add(permissionGroupBuilder.build());
+        for (DepartmentAccount deptAcct : deptAccts) {
+            deptAcct.setIsDeleted(true);
+            deptAcct.setDeletedBy(modifiedBy);
+            deptAcct.setDeletedAt(TimeUtils.getNowUtc());
         }
-
-        return permissionGroups;
+        deptAcctRepo.saveAll(deptAccts);
     }
 
+    // 角色权限：维护 rbac_roles_permissions。
     @Transactional
     public StatusCode addRolePermission(Integer roleId, Integer permissionId, String modifiedBy) {
         RbacRole role = roleRepo.findById(roleId).orElse(null);
@@ -830,7 +751,9 @@ public class UserBasicOperator {
     }
 
     @Transactional
-    public StatusCode revokeRolePermission(Integer roleId, Integer permissionId, String modifiedBy) {
+    public StatusCode revokeRolePermission(
+        Integer roleId, Integer permissionId, String modifiedBy
+    ) {
         RbacRole role = roleRepo.findById(roleId).orElse(null);
         if (role == null || !role.getIsPrimary()) {
             log.error("RbacRole not found: {}", roleId);
@@ -856,8 +779,11 @@ public class UserBasicOperator {
         return StatusCode.OK;
     }
 
+    // 科室账号权限：维护 rbac_accounts_departments_permissions。
     @Transactional
-    public StatusCode addAccountPermission(String accountId, String deptId, Integer permissionId, String modifiedBy) {
+    public StatusCode addAccountPermission(
+        String accountId, String deptId, Integer permissionId, String modifiedBy
+    ) {
         RbacAccount account = accountRepo.findByAccountId(accountId).orElse(null);
         if (account == null) {
             log.error("RbacAccount not found: {}", accountId);
@@ -876,23 +802,29 @@ public class UserBasicOperator {
             return StatusCode.PERMISSION_NOT_FOUND;
         }
 
-        RbacDepartmentAccountPermissionId id = new RbacDepartmentAccountPermissionId(deptId, accountId, permissionId);
-        RbacDepartmentAccountPermission deptAccountPerm = deptAccountPermRepo.findById(id).orElse(null);
+        RbacDepartmentAccountPermissionId id = new RbacDepartmentAccountPermissionId(
+            deptId, accountId, permissionId);
+        RbacDepartmentAccountPermission deptAccountPerm = deptAccountPermRepo
+            .findById(id).orElse(null);
         if (deptAccountPerm != null) {
-            log.error("RbacDepartmentAccountPermission already exists: {} {} {}", deptId, accountId, permissionId);
+            log.error("RbacDepartmentAccountPermission already exists: {} {} {}",
+                deptId, accountId, permissionId);
             return StatusCode.OK;
         }
 
         deptAccountPerm = new RbacDepartmentAccountPermission();
         deptAccountPerm.setId(id);
         deptAccountPermRepo.save(deptAccountPerm);
-        log.info("Account permission added: {} {} {}, by {}", deptId, accountId, permissionId, modifiedBy);
+        log.info("Account permission added: {} {} {}, by {}",
+            deptId, accountId, permissionId, modifiedBy);
 
         return StatusCode.OK;
     }
 
     @Transactional
-    public StatusCode revokeAccountPermission(String accountId, String deptId, Integer permissionId, String modifiedBy) {
+    public StatusCode revokeAccountPermission(
+        String accountId, String deptId, Integer permissionId, String modifiedBy
+    ) {
         RbacAccount account = accountRepo.findByAccountId(accountId).orElse(null);
         if (account == null) {
             log.error("RbacAccount not found: {}", accountId);
@@ -911,143 +843,21 @@ public class UserBasicOperator {
             return StatusCode.PERMISSION_NOT_FOUND;
         }
 
-        RbacDepartmentAccountPermissionId id = new RbacDepartmentAccountPermissionId(deptId, accountId, permissionId);
-        RbacDepartmentAccountPermission deptAccountPerm = deptAccountPermRepo.findById(id).orElse(null);
+        RbacDepartmentAccountPermissionId id = new RbacDepartmentAccountPermissionId(
+            deptId, accountId, permissionId);
+        RbacDepartmentAccountPermission deptAccountPerm = deptAccountPermRepo
+            .findById(id).orElse(null);
         if (deptAccountPerm == null) {
-            log.error("RbacDepartmentAccountPermission not found: {} {} {}", deptId, accountId, permissionId);
+            log.error("RbacDepartmentAccountPermission not found: {} {} {}",
+                deptId, accountId, permissionId);
             return StatusCode.OK;
         }
 
         deptAccountPermRepo.delete(deptAccountPerm);
-        log.info("Account permission revoked: {} {} {}, by {}", deptId, accountId, permissionId, modifiedBy);
+        log.info("Account permission revoked: {} {} {}, by {}",
+            deptId, accountId, permissionId, modifiedBy);
 
         return StatusCode.OK;
-    }
-
-    public Set<Integer> getPermissionIds(String accountId, String deptId) {
-        return userQuery.getPermissionIds(accountId, deptId);
-    }
-
-    @Transactional
-    public String getPrimaryRoleName(String accountId, String deptId) {
-        return userQuery.getPrimaryRoleName(accountId, deptId);
-    }
-
-    private StatusCode checkAddAccount(String accountId) {
-        RbacAccount account = accountRepo.findByAccountId(accountId).orElse(null);
-        if (account != null) {
-            log.error("RbacAccount already exists: {}", accountId);
-            return StatusCode.ACCOUNT_ALREADY_EXISTS;
-        }
-
-        Account accountInfo = accountInfoRepo.findByAccountIdAndIsDeletedFalse(accountId).orElse(null);
-        if (accountInfo != null) {
-            log.error("Account already exists: {}", accountId);
-            return StatusCode.ACCOUNT_ALREADY_EXISTS;
-        }
-
-        return StatusCode.OK;
-    }
-
-    private void addAccountImpl(IcisAccountPB accountPb, String modifiedBy) {
-        RbacAccount account = new RbacAccount();
-        account.setAccountId(accountPb.getAccountId());
-        account.setAccountName(accountPb.getAccountName());
-        String newPasswdHash = StrUtils.isBlank(accountPb.getPassword()) ?
-            RsaUtils.encodePassword(accountPb.getAccountId(), encoder) :
-            encoder.encode(accountPb.getPassword()/*前端已经加密并做了base64编码*/);
-        account.setPasswordHash(newPasswdHash);
-        accountRepo.save(account);
-
-        Account accountInfo = new Account();
-        accountInfo.setAccountId(accountPb.getAccountId());
-        accountInfo.setName(accountPb.getAccountName());
-        accountInfo.setGender(accountPb.getGender());
-        final LocalDateTime dateOfBirth = StrUtils.isBlank(accountPb.getDateOfBirthIso8601()) ?
-            null : TimeUtils.fromIso8601String(accountPb.getDateOfBirthIso8601(), "UTC");
-        if (dateOfBirth != null) {
-            accountInfo.setDateOfBirth(dateOfBirth);
-        }
-        if (!StrUtils.isBlank(accountPb.getTitle())) accountInfo.setTitle(accountPb.getTitle());
-        if (!StrUtils.isBlank(accountPb.getEducationLevel())) accountInfo.setEducationLevel(accountPb.getEducationLevel());
-        if (!StrUtils.isBlank(accountPb.getPhone())) accountInfo.setPhone(accountPb.getPhone());
-        if (!StrUtils.isBlank(accountPb.getIdCardNumber())) accountInfo.setIdCardNumber(accountPb.getIdCardNumber());
-        if (!StrUtils.isBlank(accountPb.getSignPic())) accountInfo.setSignPic(accountPb.getSignPic());
-        accountInfo.setIsDeleted(false);
-        accountInfo.setModifiedBy(modifiedBy);
-        accountInfo.setModifiedAt(TimeUtils.getNowUtc());
-        accountInfoRepo.save(accountInfo);
-    }
-
-    private StatusCode checkDepartmentAndRole(String deptId, Integer roleId) {
-        RbacDepartment dept = deptRepo.findByDeptId(deptId).orElse(null);
-        if (dept == null) {
-            log.error("RbacDepartment not found: {}", deptId);
-            return StatusCode.DEPARTMENT_NOT_FOUND;
-        }
-
-        RbacRole role = roleRepo.findById(roleId).orElse(null);
-        if (role == null) {
-            log.error("RbacRole not found: {}", roleId);
-            return StatusCode.ROLE_NOT_FOUND;
-        }
-
-        return StatusCode.OK;
-    }
-
-    private void addOrUpdateRbacDept(String deptId, String deptName) {
-        RbacDepartment dept = deptRepo.findByDeptId(deptId).orElse(null);
-        if (dept == null) {
-            dept = new RbacDepartment();
-            dept.setDeptId(deptId);
-        }
-        dept.setDeptName(deptName);
-        deptRepo.save(dept);
-    }
-
-    private void deleteRawDepartmentAccount(String accountId, String deptId, String modifiedBy) {
-        List<DepartmentAccount> deptAccts = new ArrayList<>();
-        if (StrUtils.isBlank(deptId)) {
-            deptAccts = deptAcctRepo.findByAccountIdAndIsDeletedFalse(accountId);
-        } else {
-            DepartmentAccount deptAcct = deptAcctRepo.findByAccountIdAndDeptIdAndIsDeletedFalse(
-                    accountId, deptId).orElse(null);
-            if (deptAcct == null) {
-                log.error("DepartmentAccount not found: {} {}", accountId, deptId);
-                return;
-            }
-            deptAccts.add(deptAcct);
-        }
-
-        for (DepartmentAccount deptAcct : deptAccts) {
-            deptAcct.setIsDeleted(true);
-            deptAcct.setDeletedBy(modifiedBy);
-            deptAcct.setDeletedAt(TimeUtils.getNowUtc());
-        }
-        deptAcctRepo.saveAll(deptAccts);
-    }
-
-    private void addRawDepartmentAccount(Long employeeId, String accountId, String deptId, Integer primaryRoleId) {
-        DepartmentAccount deptAcct = DepartmentAccount.builder()
-            .employeeId(employeeId)
-            .accountId(accountId)
-            .deptId(deptId)
-            .primaryRoleId(primaryRoleId)
-            .startDate(TimeUtils.getNowUtc())
-            .isDeleted(false)
-            .build();
-        deptAcctRepo.save(deptAcct);
-    }
-
-    private void updateRawDepartmentAccount(String accountId, String deptId, Integer primaryRoleId) {
-        DepartmentAccount deptAcct = deptAcctRepo.findByAccountIdAndDeptIdAndIsDeletedFalse(
-            accountId, deptId).orElse(null);
-        if (deptAcct == null) {
-            log.error("DepartmentAccount not found: {} {}", accountId, deptId);
-            return;
-        }
-        deptAcct.setPrimaryRoleId(primaryRoleId);
-        deptAcctRepo.save(deptAcct);
     }
 
     private RbacPermissionRepository permRepo;
@@ -1066,5 +876,4 @@ public class UserBasicOperator {
     private BCryptPasswordEncoder encoder;
     private final BgaMetaService bgaMetaService;
     private final LockExecutor lockExecutor;
-    private final UserQuery userQuery;
 }

@@ -1,14 +1,15 @@
 package com.jingyicare.jingyi_icis_engine.service.users;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.PlatformTransactionManager;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+
+import lombok.extern.slf4j.Slf4j;
 
 import com.jingyicare.jingyi_icis_engine.entity.users.*;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
@@ -27,12 +28,14 @@ public class UserQuery {
         RbacAccountRepository accountRepo,
         AccountRepository accountInfoRepo,
         RbacDepartmentRepository deptRepo,
+        DepartmentRepository deptInfoRepo,
         RbacDepartmentAccountRepository deptAccountRepo,
         RbacRoleRepository roleRepo,
         RbacDepartmentAccountPermissionRepository deptAccountPermRepo,
         RbacDepartmentAccountRoleRepository deptAccountRoleRepo,
         RbacRoleRoleRepository roleRoleRepo,
         RbacRolePermissionRepository rolePermRepo,
+        RbacPermissionRepository permRepo,
         PlatformTransactionManager transactionManager
     ) {
         this.ADMIN_ACCOUNT_ID = config.getUser().getAdminAccountId();
@@ -40,12 +43,14 @@ public class UserQuery {
         this.accountRepo = accountRepo;
         this.accountInfoRepo = accountInfoRepo;
         this.deptRepo = deptRepo;
+        this.deptInfoRepo = deptInfoRepo;
         this.deptAccountRepo = deptAccountRepo;
         this.roleRepo = roleRepo;
         this.deptAccountPermRepo = deptAccountPermRepo;
         this.deptAccountRoleRepo = deptAccountRoleRepo;
         this.roleRoleRepo = roleRoleRepo;
         this.rolePermRepo = rolePermRepo;
+        this.permRepo = permRepo;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -130,7 +135,6 @@ public class UserQuery {
         return deptAccountRepo.findById(new RbacDepartmentAccountId(deptId, accountId)).isPresent();
     }
 
-    @Transactional
     public List<IcisAccountPB> getDeptAccounts(String deptId) {
         return getAllAccounts(deptId, "", "", ZONE_ID);
     }
@@ -273,6 +277,184 @@ public class UserQuery {
         return accountInfoRepo.findByIdAndIsDeletedFalse(accountAutoId).orElse(null);
     }
 
+    public List<IcisDepartmentPB> getAllDepartments() {
+        return deptInfoRepo.findByIsDeletedFalse().stream()
+            .map(deptInfo -> IcisDepartmentPB.newBuilder()
+                .setId(deptInfo.getId())
+                .setDeptId(deptInfo.getDeptId())
+                .setDeptName(deptInfo.getName())
+                .setAbbreviation(deptInfo.getAbbreviation())
+                .setWardCode(deptInfo.getWardCode())
+                .setWardName(deptInfo.getWardName())
+                .setHospitalName(deptInfo.getHospitalName())
+                .build())
+            .sorted(Comparator.comparing(IcisDepartmentPB::getId))
+            .toList();
+    }
+
+    public Integer getDepartmentId(String deptId) {
+        Department deptInfo = deptInfoRepo.findByDeptIdAndIsDeletedFalse(deptId).orElse(null);
+        if (deptInfo == null) {
+            log.error("Department not found: {}", deptId);
+            return null;
+        }
+        return deptInfo.getId();
+    }
+
+    List<Department> getAllDeptInfo() {
+        return deptInfoRepo.findByIsDeletedFalse();
+    }
+
+    public List<Department> getAllDeptInfoByAccountId(String accountId) {
+        List<String> deptIds = deptAccountRepo.findByIdAccountId(accountId).stream()
+            .map(deptAccount -> deptAccount.getId().getDeptId())
+            .toList();
+        return deptInfoRepo.findByDeptIdInAndIsDeletedFalse(deptIds);
+    }
+
+    public List<IcisRolePB> getPrimaryRoles() {
+        return roleRepo.findByIsPrimaryTrue().stream()
+            .map(role -> IcisRolePB.newBuilder()
+                .setId(role.getId())
+                .setName(role.getName())
+                .build())
+            .sorted(Comparator.comparing(IcisRolePB::getId))
+            .toList();
+    }
+
+    public Boolean departmentExists(String deptId) {
+        return deptRepo.existsByDeptId(deptId);
+    }
+
+    public List<IcisPermissionGroupPB> getNonPrimaryRolePermissions(String deptId) {
+        // 在RbacRole中找到所有非主要角色，及其对应的权限
+        List<RbacRole> groupRoles = roleRepo.findByIsPrimaryFalse();
+        List<Integer> groupRoleIds = groupRoles.stream().map(RbacRole::getId).toList();
+
+        List<RbacRolePermission> groupRolePermissions = rolePermRepo.findByIdRoleIdIn(groupRoleIds);
+        Map<Integer, List<Integer>> roleIdToPermissionIds = groupRolePermissions.stream()
+            .collect(Collectors.groupingBy(
+                rolePermission -> rolePermission.getId().getRoleId(),
+                Collectors.mapping(rolePermission -> rolePermission.getId().getPermissionId(),
+                    Collectors.toList())
+            ));
+
+        // 获取权限对应的主要角色
+        Set<Integer> permissionIds = groupRolePermissions.stream()
+            .map(rolePermission -> rolePermission.getId().getPermissionId())
+            .collect(Collectors.toSet());
+        Map<Integer, RbacPermission> allPermissions = permRepo
+            .findByIdIn(new ArrayList<>(permissionIds))
+            .stream().collect(Collectors.toMap(RbacPermission::getId, permission -> permission));
+        Map<Integer, List<Integer>> permissionIdToRoleIds = rolePermRepo
+            .findByIdPermissionIdIn(new ArrayList<>(permissionIds))
+            .stream()
+            .collect(Collectors.groupingBy(
+                rolePermission -> rolePermission.getId().getPermissionId(),
+                Collectors.mapping(rolePermission -> rolePermission.getId().getRoleId(),
+                    Collectors.toList())
+            ));
+        Map<Integer, RbacRole> allRoles = roleRepo.findAll().stream()
+            .collect(Collectors.toMap(RbacRole::getId, role -> role));
+
+        // 获取权限对应的部门用户
+        Map<Integer, List<String>> permissionIdToAccountIds = deptAccountPermRepo
+            .findByIdDeptIdAndIdPermissionIdIn(deptId, new ArrayList<>(permissionIds))
+            .stream()
+            .collect(Collectors.groupingBy(
+                deptAccountPermission -> deptAccountPermission.getId().getPermissionId(),
+                Collectors.mapping(
+                    deptAccountPermission -> deptAccountPermission.getId().getAccountId(),
+                    Collectors.toList())
+            ));
+        Map<String, RbacAccount> allAccounts = accountRepo.findAll().stream()
+            .collect(Collectors.toMap(RbacAccount::getAccountId, account -> account));
+
+        // 组装IcisPermissionPB
+        Map<Integer, IcisPermissionPB> permissionMap = new HashMap<>();
+        for (Map.Entry<Integer, RbacPermission> entry : allPermissions.entrySet()) {
+            Integer permissionId = entry.getKey();
+            RbacPermission permission = entry.getValue();
+
+            // 设置权限id和name
+            IcisPermissionPB.Builder permissionBuilder = IcisPermissionPB.newBuilder()
+                .setId(permissionId)
+                .setName(permission.getName());
+
+            // 设置角色
+            List<IcisRolePB> rolePbs = new ArrayList<>();
+            List<Integer> roleIds = permissionIdToRoleIds
+                .getOrDefault(permissionId, new ArrayList<>());
+            for (Integer roleId : roleIds) {
+                RbacRole role = allRoles.get(roleId);
+                if (role != null && role.getIsPrimary()) {
+                    rolePbs.add(IcisRolePB.newBuilder()
+                        .setId(role.getId())
+                        .setName(role.getName())
+                        .build());
+                }
+            }
+            permissionBuilder.addAllRole(
+                rolePbs.stream().sorted(Comparator.comparing(IcisRolePB::getId)).toList()
+            );
+
+            // 设置部门用户
+            List<StringIdEntityPB> accountPbs = new ArrayList<>();
+            List<String> accountIds = permissionIdToAccountIds
+                .getOrDefault(permissionId, new ArrayList<>());
+            for (String accountId : accountIds) {
+                RbacAccount account = allAccounts.get(accountId);
+                if (account != null) {
+                    accountPbs.add(StringIdEntityPB.newBuilder()
+                        .setId(account.getAccountId())
+                        .setName(account.getAccountName())
+                        .build());
+                }
+            }
+            permissionBuilder.addAllAccountId(
+                accountPbs.stream().sorted(Comparator.comparing(StringIdEntityPB::getId)).toList()
+            );
+            permissionMap.put(permissionId, permissionBuilder.build());
+        }
+
+        // 组装IcisPermissionGroupPB
+        List<IcisPermissionGroupPB> permissionGroups = new ArrayList<>();
+        for (Map.Entry<Integer, List<Integer>> entry : roleIdToPermissionIds.entrySet()) {
+            Integer roleId = entry.getKey();
+            List<Integer> groupPermIds = entry.getValue();
+
+            RbacRole role = allRoles.get(roleId);
+            if (role == null) {
+                log.error("RbacRole not found: {}", roleId);
+                continue;
+            }
+
+            // 组装分组id和name
+            IcisPermissionGroupPB.Builder permissionGroupBuilder = IcisPermissionGroupPB
+                .newBuilder()
+                .setId(roleId)
+                .setName(role.getName());
+
+            // 组装权限
+            List<IcisPermissionPB> permissions = new ArrayList<>();
+            for (Integer permissionId : groupPermIds) {
+                IcisPermissionPB permission = permissionMap.get(permissionId);
+                if (permission == null) {
+                    log.error("RbacPermission not found: {}", permissionId);
+                    continue;
+                }
+                permissions.add(permission);
+            }
+            permissionGroupBuilder.addAllPermission(
+                permissions.stream().sorted(Comparator.comparing(IcisPermissionPB::getId)).toList()
+            );
+
+            permissionGroups.add(permissionGroupBuilder.build());
+        }
+
+        return permissionGroups;
+    }
+
     Set<Integer> getPermissionIds(String accountId, String deptId) {
         Set<Integer> permIds = new HashSet<>();
 
@@ -346,11 +528,13 @@ public class UserQuery {
     private final RbacAccountRepository accountRepo;
     private final AccountRepository accountInfoRepo;
     private final RbacDepartmentRepository deptRepo;
+    private final DepartmentRepository deptInfoRepo;
     private final RbacDepartmentAccountRepository deptAccountRepo;
     private final RbacRoleRepository roleRepo;
     private final RbacDepartmentAccountPermissionRepository deptAccountPermRepo;
     private final RbacDepartmentAccountRoleRepository deptAccountRoleRepo;
     private final RbacRoleRoleRepository roleRoleRepo;
     private final RbacRolePermissionRepository rolePermRepo;
+    private final RbacPermissionRepository permRepo;
     private final TransactionTemplate transactionTemplate;
 }

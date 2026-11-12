@@ -35,8 +35,8 @@ class IcisBootstrapInitializationTests {
             .setUser(UserConfigPB.newBuilder().setAdminRoleId(1))
             .build());
 
-        UserBasicOperator userBasicOperator = mock(UserBasicOperator.class);
-        when(userBasicOperator.addDepartment(
+        UserCmdService userCmdService = mock(UserCmdService.class);
+        when(userCmdService.addDepartment(
             "ICU01", "重症医学科", "重症医学科", "", "", "测试医院", "System"))
             .thenReturn(StatusCode.OK);
 
@@ -57,7 +57,7 @@ class IcisBootstrapInitializationTests {
         UserConfig userConfig = new UserConfig(
             mock(ConfigurableApplicationContext.class),
             protoService,
-            userBasicOperator,
+            userCmdService,
             mock(RbacPermissionRepository.class),
             mock(RbacRoleRepository.class),
             mock(RbacRolePermissionRepository.class),
@@ -72,7 +72,7 @@ class IcisBootstrapInitializationTests {
 
         ReflectionTestUtils.invokeMethod(userConfig, "initAccountsAndDepartments");
 
-        verify(userBasicOperator).addDepartment(
+        verify(userCmdService).addDepartment(
             "ICU01", "重症医学科", "重症医学科", "", "", "测试医院", "System");
     }
 }

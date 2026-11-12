@@ -347,7 +347,7 @@ message IcisAccountPB {
 }
 ```
 
-`UserBasicOperator.getAllAccounts` 和新签名目录接口需要映射这两个字段。
+`UserQuery.getAllAccounts` 和新签名目录接口需要映射这两个字段。
 
 只读扩展不意味着允许现有账号更新接口写 `ca_sign_pic`。该字段仍由既有后台流程管理，签名选择和实时 CA 获取均不得反写。
 
@@ -1084,7 +1084,7 @@ jingyi_icis_engine2/
         ├── settings/
         │   └── SettingService.java            # enableCa 读取和独立更新
         └── users/
-            └── UserBasicOperator.java         # 映射 caSignPic/isDisabled
+            └── UserQuery.java         # 映射 caSignPic/isDisabled
 └── src/test/java/.../service/ca/
     ├── CaClientPropertiesTests.java
     ├── CaServiceTests.java

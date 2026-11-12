@@ -45,9 +45,8 @@ import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
-import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
+import com.jingyicare.jingyi_icis_engine.service.users.UserCmdService;
 import com.jingyicare.jingyi_icis_engine.service.users.auth.Encoder;
-import com.jingyicare.jingyi_icis_engine.service.users.UserBasicOperator;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
@@ -173,7 +172,7 @@ class BgaMetaServiceTests extends TestsBase {
 
     @Test
     void bgaFailureRollsBackOnlyInitializationAndAllowsIndependentRetry() {
-        UserBasicOperator operator = departmentOperator(departmentInfoRepository);
+        UserCmdService operator = departmentOperator(departmentInfoRepository);
         doAnswer(invocation -> {
             Iterable<BgaParam> params = invocation.getArgument(0);
             repository.saveAllAndFlush(params);
@@ -210,7 +209,7 @@ class BgaMetaServiceTests extends TestsBase {
             departmentInfoRepository.saveAndFlush(department);
             throw new IllegalStateException("模拟科室保存失败");
         }).when(failingRepository).save(any(Department.class));
-        UserBasicOperator operator = departmentOperator(failingRepository);
+        UserCmdService operator = departmentOperator(failingRepository);
 
         assertThatThrownBy(() -> operator.addDepartment(
             ROLLBACK_DEPT_ID, "血气事务边界测试", "血气", "", "", "测试医院", "test-user"))
@@ -224,8 +223,8 @@ class BgaMetaServiceTests extends TestsBase {
         verifyNoMoreInteractions(trackedExecutor);
     }
 
-    private UserBasicOperator departmentOperator(DepartmentRepository infoRepository) {
-        return new UserBasicOperator(
+    private UserCmdService departmentOperator(DepartmentRepository infoRepository) {
+        return new UserCmdService(
             mock(RbacPermissionRepository.class), mock(RbacRoleRepository.class),
             mock(RbacRolePermissionRepository.class),
             mock(RbacAccountRepository.class), mock(AccountRepository.class),
@@ -233,7 +232,7 @@ class BgaMetaServiceTests extends TestsBase {
             mock(RbacDepartmentAccountRepository.class), mock(DepartmentAccountRepository.class),
             mock(RbacDepartmentAccountRoleRepository.class),
             mock(RbacDepartmentAccountPermissionRepository.class),
-            encoder, service, trackedExecutor, mock(UserQuery.class));
+            encoder, service, trackedExecutor);
     }
 
     private BgaMetaService configuredService(List<String> codes) {
