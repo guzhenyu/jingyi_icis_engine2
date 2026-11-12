@@ -343,7 +343,9 @@ enum StatusCode {
     WARD_REPORT_TEMPLATE_INVALID = 304; // 病室报告单模板内容无效或没有页面
     PATIENT_SCORE_ID_NOT_MATCH = 305; // 患者或评分类型与原评分记录不一致
     SCORE_GROUP_SCORE_NOT_MATCH = 306; // 评分总分与评分明细不一致
-    LAST_CODE = 307;
+    INVALID_FORM_TEMPLATE = 307; // 表单模板内容无效
+    MENU_ITEM_ALREADY_ASSIGNED = 308; // 菜单项已分配，不能重复添加
+    LAST_CODE = 309;
 }
 
 /*****************************************************************************

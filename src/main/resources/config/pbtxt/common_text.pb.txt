@@ -305,6 +305,8 @@
     status_code_msg: "病室报告单模板内容无效或没有页面"
     status_code_msg: "患者或评分类型与原评分记录不一致"
     status_code_msg: "评分总分与评分明细不一致"
+    status_code_msg: "表单模板内容无效"
+    status_code_msg: "菜单项已分配，不能重复添加"
     units {
         unit: {
             id: 1
