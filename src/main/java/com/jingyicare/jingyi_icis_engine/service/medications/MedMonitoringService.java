@@ -31,7 +31,6 @@ import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Component

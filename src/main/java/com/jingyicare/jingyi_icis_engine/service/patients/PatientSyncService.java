@@ -31,7 +31,6 @@ import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
 import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.service.certs.*;
-import com.jingyicare.jingyi_icis_engine.service.users.UserService;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientSyncUtils.PatientSyncInfo;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
