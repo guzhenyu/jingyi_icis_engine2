@@ -276,10 +276,6 @@
         name: "配置菜单"
     }
     permission {
-        id: 7
-        name: "科研管理菜单"
-    }
-    permission {
         id: 8
         name: "配置组长质控组和质控项"
     }

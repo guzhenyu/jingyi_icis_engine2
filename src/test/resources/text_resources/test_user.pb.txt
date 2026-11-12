@@ -249,10 +249,6 @@
         id: 6
         name: "配置菜单"
     }
-    permission {
-        id: 7
-        name: "科研管理菜单"
-    }
     menu_permission {
         menu_group_id: 1
         permission_id: 1

@@ -110,7 +110,6 @@ public class UserConfig {
 
         // 初始化
         for (PermissionPB perm : configPb.getPermissionList()) {
-            if (perm.getName().equals("科研管理菜单")) continue;  // todo(guzhenyu): 当有科研管理的内容时，在开放该权限
             perms.add(new RbacPermission(perm.getId(), perm.getName()));
         }
         permRepo.saveAll(perms);
