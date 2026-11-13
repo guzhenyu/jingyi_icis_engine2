@@ -13,6 +13,7 @@ import com.google.protobuf.util.JsonFormat;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisOverview.*;
@@ -108,18 +109,17 @@ public class OverviewService {
         }
 
         // Get user information
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GetOverviewTemplatesResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // Query templates by dept_id and account_id
         List<OverviewTemplate> deptTemplates = templateRepo.findByDeptIdAndIsDeletedFalse(req.getDeptId());
-        List<OverviewTemplate> accountTemplates = templateRepo.findByAccountIdAndIsDeletedFalse(accountId);
+        List<OverviewTemplate> accountTemplates =
+            templateRepo.findByAccountIdAndIsDeletedFalse(account.autoAcctId());
 
         // Sort templates by display_order and then id
         Comparator<OverviewTemplate> templateComparator = Comparator
@@ -270,20 +270,18 @@ public class OverviewService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return AddOverviewTemplateResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 获取请求参数
         OverviewTemplatePB templatePB = req.getTemplate();
         boolean deptIdBlank = StrUtils.isBlank(templatePB.getDeptId());
         String templateDeptId = deptIdBlank ? null : templatePB.getDeptId();
-        String templateAccountId = deptIdBlank ? accountId : null;
+        String templateAccountId = deptIdBlank ? account.autoAcctId() : null;
 
         // 查重
         String templateName = templatePB.getTemplateName();
@@ -304,13 +302,13 @@ public class OverviewService {
         template.setDisplayOrder(templatePB.getDisplayOrder() <= 0 ?
             getTemplateNextDisplayOrder(templateDeptId) : templatePB.getDisplayOrder()
         );
-        template.setCreatedBy(accountId);
+        template.setCreatedBy(account.autoAcctId());
         LocalDateTime now = TimeUtils.getNowUtc();
         template.setCreatedAt(now);
         template.setIsDeleted(false);
 
-        template.setModifiedBy(accountId);
-        template.setModifiedByAccountName(accountName);
+        template.setModifiedBy(account.autoAcctId());
+        template.setModifiedByAccountName(account.acctName());
         template.setModifiedAt(now);
 
         // Save template
@@ -337,14 +335,12 @@ public class OverviewService {
         }
 
         // 获取账号信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        String accountId = account.getFirst();
-        String accountName = account.getSecond();
 
         OverviewTemplatePB templatePB = req.getTemplate();
         Long id = templatePB.getId();
@@ -369,8 +365,8 @@ public class OverviewService {
 
         template.setNotes(templatePB.getNotes());
         template.setDisplayOrder(templatePB.getDisplayOrder());
-        template.setModifiedBy(accountId);
-        template.setModifiedByAccountName(accountName);
+        template.setModifiedBy(account.autoAcctId());
+        template.setModifiedByAccountName(account.acctName());
         template.setModifiedAt(TimeUtils.getNowUtc());
 
         templateRepo.save(template);
@@ -395,14 +391,12 @@ public class OverviewService {
         }
 
         // 获取账号信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        String accountId = account.getFirst();
-        String accountName = account.getSecond();
 
         final Long id = req.getTemplateId();
         OverviewTemplate template = templateRepo.findByIdAndIsDeletedFalse(id).orElse(null);
@@ -414,10 +408,10 @@ public class OverviewService {
 
         // 逻辑删除
         template.setIsDeleted(true);
-        template.setDeletedBy(accountId);
+        template.setDeletedBy(account.autoAcctId());
         template.setDeletedAt(TimeUtils.getNowUtc());
-        template.setModifiedBy(accountId);
-        template.setModifiedByAccountName(accountName);
+        template.setModifiedBy(account.autoAcctId());
+        template.setModifiedByAccountName(account.acctName());
         template.setModifiedAt(TimeUtils.getNowUtc());
         templateRepo.save(template);
 
@@ -441,14 +435,12 @@ public class OverviewService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return AddOverviewGroupResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 获取请求参数
         OverviewGroupPB groupPB = req.getGroup();
@@ -482,8 +474,8 @@ public class OverviewService {
             getGroupNextDisplayOrder(templateId) : groupPB.getDisplayOrder()
         );
         group.setIsDeleted(false);
-        group.setModifiedBy(accountId);
-        group.setModifiedByAccountName(accountName);
+        group.setModifiedBy(account.autoAcctId());
+        group.setModifiedByAccountName(account.acctName());
         LocalDateTime now = TimeUtils.getNowUtc();
         group.setModifiedAt(now);
 
@@ -510,14 +502,12 @@ public class OverviewService {
                 .build();
         }
 
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        String accountId = account.getFirst();
-        String accountName = account.getSecond();
 
         OverviewGroupPB groupPB = req.getGroup();
         Long id = groupPB.getId();
@@ -543,8 +533,8 @@ public class OverviewService {
         // 忽略出入量类型
         // group.setIsBalanceGroup(groupPB.getIsBalanceGroup());
         group.setDisplayOrder(groupPB.getDisplayOrder());
-        group.setModifiedBy(accountId);
-        group.setModifiedByAccountName(accountName);
+        group.setModifiedBy(account.autoAcctId());
+        group.setModifiedByAccountName(account.acctName());
         group.setModifiedAt(TimeUtils.getNowUtc());
 
         groupRepo.save(group);
@@ -569,14 +559,12 @@ public class OverviewService {
         }
 
         // 获取账号信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        String accountId = account.getFirst();
-        String accountName = account.getSecond();
 
         final Long id = req.getGroupId();
         OverviewGroup group = groupRepo.findByIdAndIsDeletedFalse(id).orElse(null);
@@ -588,10 +576,10 @@ public class OverviewService {
 
         // 逻辑删除
         group.setIsDeleted(true);
-        group.setDeletedBy(accountId);
+        group.setDeletedBy(account.autoAcctId());
         group.setDeletedAt(TimeUtils.getNowUtc());
-        group.setModifiedBy(accountId);
-        group.setModifiedByAccountName(accountName);
+        group.setModifiedBy(account.autoAcctId());
+        group.setModifiedByAccountName(account.acctName());
         group.setModifiedAt(TimeUtils.getNowUtc());
         groupRepo.save(group);
 
@@ -720,14 +708,12 @@ public class OverviewService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return AddOverviewParamResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 获取请求参数
         OverviewParamPB paramPB = req.getParam();
@@ -791,8 +777,8 @@ public class OverviewService {
 
         LocalDateTime now = TimeUtils.getNowUtc();
         param.setIsDeleted(false);
-        param.setModifiedBy(accountId);
-        param.setModifiedByAccountName(accountName);
+        param.setModifiedBy(account.autoAcctId());
+        param.setModifiedByAccountName(account.acctName());
         param.setModifiedAt(now);
 
         // Save parameter
@@ -818,14 +804,12 @@ public class OverviewService {
                 .build();
         }
 
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        String accountId = account.getFirst();
-        String accountName = account.getSecond();
 
         OverviewParamPB paramPB = req.getParam();
         Long id = paramPB.getId();
@@ -860,8 +844,8 @@ public class OverviewService {
         param.setParamCode(paramPB.getParamCode());
         param.setDisplayOrder(paramPB.getDisplayOrder());
 
-        param.setModifiedBy(accountId);
-        param.setModifiedByAccountName(accountName);
+        param.setModifiedBy(account.autoAcctId());
+        param.setModifiedByAccountName(account.acctName());
         param.setModifiedAt(TimeUtils.getNowUtc());
 
         paramRepo.save(param);
@@ -886,14 +870,12 @@ public class OverviewService {
         }
 
                 // 获取账号信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        String accountId = account.getFirst();
-        String accountName = account.getSecond();
 
         final Long id = req.getParamId();
         OverviewParam param = paramRepo.findByIdAndIsDeletedFalse(id).orElse(null);
@@ -905,10 +887,10 @@ public class OverviewService {
 
         // 逻辑删除
         param.setIsDeleted(true);
-        param.setDeletedBy(accountId);
+        param.setDeletedBy(account.autoAcctId());
         param.setDeletedAt(TimeUtils.getNowUtc());
-        param.setModifiedBy(accountId);
-        param.setModifiedByAccountName(accountName);
+        param.setModifiedBy(account.autoAcctId());
+        param.setModifiedByAccountName(account.acctName());
         param.setModifiedAt(TimeUtils.getNowUtc());
         paramRepo.save(param);
 

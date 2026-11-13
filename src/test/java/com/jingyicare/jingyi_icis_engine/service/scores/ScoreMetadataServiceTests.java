@@ -35,6 +35,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.MonitoringParam;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientMonitoringRecord;
 import com.jingyicare.jingyi_icis_engine.entity.scores.PatientScore;
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
@@ -77,7 +78,8 @@ class ScoreMetadataServiceTests extends TestsBase {
             WHERE is_deleted = FALSE AND pid = 9620041
             """);
         users = mock(UserQuery.class);
-        when(users.getAccountWithAutoId()).thenReturn(new Pair<>("123", "当前用户"));
+        when(users.getCurrentAccount())
+            .thenReturn(new CurrentAccount("current-user", "123", "当前用户"));
         calculator = mock(ScoreCalculator.class);
         when(calculator.validateScoreGroup(any(), any())).thenReturn(StatusCode.OK);
         when(calculator.printGroupScore(any(), any(), any())).thenAnswer(invocation -> {
@@ -357,9 +359,10 @@ class ScoreMetadataServiceTests extends TestsBase {
         PatientScore original = seed(TIME, CODE);
         assertThat(service.deletePatientScore("{").getRt().getCode())
             .isEqualTo(StatusCode.PARSE_JSON_FAILED_VALUE);
-        when(users.getAccountWithAutoId()).thenReturn(null);
+        when(users.getCurrentAccount()).thenReturn(null);
         assertThat(delete(original.getId(), true)).isEqualTo(StatusCode.ACCOUNT_NOT_FOUND_VALUE);
-        when(users.getAccountWithAutoId()).thenReturn(new Pair<>("123", "当前用户"));
+        when(users.getCurrentAccount())
+            .thenReturn(new CurrentAccount("current-user", "123", "当前用户"));
         assertThat(delete(Long.MAX_VALUE, true)).isEqualTo(StatusCode.OK_VALUE);
         jdbc.update("DELETE FROM patient_records WHERE id = ?", PID);
         assertThat(delete(original.getId(), true)).isEqualTo(StatusCode.PATIENT_NOT_FOUND_VALUE);
@@ -631,9 +634,10 @@ class ScoreMetadataServiceTests extends TestsBase {
 
     @Test
     void validationFailuresDoNotWriteSourceOrSnapshotRows() {
-        when(users.getAccountWithAutoId()).thenReturn(null);
+        when(users.getCurrentAccount()).thenReturn(null);
         assertThat(write("ADD", request(TIME))).isEqualTo(StatusCode.ACCOUNT_NOT_FOUND_VALUE);
-        when(users.getAccountWithAutoId()).thenReturn(new Pair<>("123", "当前用户"));
+        when(users.getCurrentAccount())
+            .thenReturn(new CurrentAccount("current-user", "123", "当前用户"));
         assertThat(write("ADD", request(TIME).toBuilder().clearRecordedAtIso8601().build()))
             .isEqualTo(StatusCode.INVALID_SCORE_RECORD_TIME_VALUE);
         when(calculator.validateScoreGroup(any(), any()))

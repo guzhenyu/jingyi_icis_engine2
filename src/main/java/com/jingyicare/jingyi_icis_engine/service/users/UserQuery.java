@@ -54,29 +54,15 @@ public class UserQuery {
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
-    public String getCtxAccountId() {
+    // 未登录或 RBAC 账号不存在时返回 null，其余情况通过一次查询获取账号信息。
+    public CurrentAccount getCurrentAccount() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated() || auth.getPrincipal().equals("anonymousUser"))
-            return "";
-        return auth.getName();
-    }
+        if (auth == null || !auth.isAuthenticated()
+            || "anonymousUser".equals(auth.getPrincipal())) return null;
 
-    public Pair<String/*accountAutoId*/, String/*accountName*/> getAccountWithAutoId() {
-        String accountId = getCtxAccountId();
+        String accountId = auth.getName();
         if (StrUtils.isBlank(accountId)) return null;
-
-        RbacAccount rbacAccount = getRbacAccount(accountId);
-        if (rbacAccount == null) return null;
-        Pair<String, String> fallbackAcctPair = new Pair<>(accountId, rbacAccount.getAccountName());
-
-        Account account = getAccount(accountId);
-        if (account == null) return fallbackAcctPair;
-        return new Pair<>(account.getId().toString(), account.getName());
-    }
-
-    public String getAccountAutoId() {
-        Pair<String, String> account = getAccountWithAutoId();
-        return account == null ? "" : account.getFirst();
+        return accountRepo.findCurrentAccountByAccountId(accountId).orElse(null);
     }
 
     public String getAccountAutoId(String accountId) {
@@ -113,21 +99,18 @@ public class UserQuery {
     }
 
     public Pair<String/*primary_role_name*/, Boolean/*has_permission*/> hasPermission(
-        String deptId, Integer permissionId
+        String rbacAcctId, String deptId, Integer permissionId
     ) {
-        String accountId = getCtxAccountId();
-        if (StrUtils.isBlank(accountId)) return null;
-
-        Boolean hasPermission = accountId.equals(ADMIN_ACCOUNT_ID) ||
-            getPermissionIds(accountId, deptId).contains(permissionId);
-        return new Pair<>(getPrimaryRoleName(accountId, deptId), hasPermission);
+        Boolean hasPermission = rbacAcctId.equals(ADMIN_ACCOUNT_ID) ||
+            getPermissionIds(rbacAcctId, deptId).contains(permissionId);
+        return new Pair<>(getPrimaryRoleName(rbacAcctId, deptId), hasPermission);
     }
 
     public boolean canCurrentUserAccessDept(String deptId) {
-        String callerAccountId = getCtxAccountId();
-        if (StrUtils.isBlank(callerAccountId) || StrUtils.isBlank(deptId)) return false;
-        return ADMIN_ACCOUNT_ID.equals(callerAccountId)
-            || accountBelongsToDept(callerAccountId, deptId);
+        if (StrUtils.isBlank(deptId)) return false;
+        CurrentAccount account = getCurrentAccount();
+        return account != null && (ADMIN_ACCOUNT_ID.equals(account.rbacAcctId())
+            || accountBelongsToDept(account.rbacAcctId(), deptId));
     }
 
     public boolean accountBelongsToDept(String accountId, String deptId) {

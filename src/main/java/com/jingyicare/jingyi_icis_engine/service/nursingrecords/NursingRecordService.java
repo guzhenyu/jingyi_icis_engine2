@@ -36,6 +36,7 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.*;
 import com.jingyicare.jingyi_icis_engine.entity.patients.*;
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientMonitoringRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.nursingrecords.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordRepository;
@@ -159,15 +160,13 @@ public class NursingRecordService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             log.error("accountId is empty.");
             return AddNursingRecordResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         long patientId = req.getPid();
         NursingRecordPB recordPb = req.getRecord();
@@ -205,11 +204,11 @@ public class NursingRecordService {
                     .content(recordPb.getContent())
                     .effectiveTime(effectiveTime)
                     .isDeleted(false)
-                    .modifiedBy(accountId)
-                    .modifiedByAccountName(accountName)
+                    .modifiedBy(account.autoAcctId())
+                    .modifiedByAccountName(account.acctName())
                     .modifiedAt(formatTime(nowUtc))
-                    .createdBy(accountId)
-                    .createdByAccountName(accountName)
+                    .createdBy(account.autoAcctId())
+                    .createdByAccountName(account.acctName())
                     .createdAt(formatTime(nowUtc))
                     .build());
                 snapshotService.markModified(SnapshotModule.Kind.NURSING_RECORD,
@@ -231,7 +230,7 @@ public class NursingRecordService {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
             return nursingRecordResponse(StatusCode.PARSE_JSON_FAILED);
         }
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) return nursingRecordResponse(StatusCode.ACCOUNT_NOT_FOUND);
 
         NursingRecordPB recordPb = req.getRecord();
@@ -278,18 +277,18 @@ public class NursingRecordService {
                 .reviewedBy(null)
                 .reviewedByAccountName(null)
                 .reviewedAt(null)
-                .modifiedBy(account.getFirst())
-                .modifiedByAccountName(account.getSecond())
+                .modifiedBy(account.autoAcctId())
+                .modifiedByAccountName(account.acctName())
                 .modifiedAt(formatTime(nowUtc))
-                .createdBy(updateCreator ? account.getFirst() : old.getCreatedBy())
+                .createdBy(updateCreator ? account.autoAcctId() : old.getCreatedBy())
                 .createdByAccountName(updateCreator
-                    ? account.getSecond() : old.getCreatedByAccountName())
+                    ? account.acctName() : old.getCreatedByAccountName())
                 .createdAt(formatTime(updateCreator ? nowUtc : old.getCreatedAt()))
                 .build();
 
             // 先 flush 释放部分唯一索引中的旧键，但不提前提交；任何后续异常整体回滚。
             old.setIsDeleted(true);
-            old.setDeletedBy(account.getFirst());
+            old.setDeletedBy(account.autoAcctId());
             old.setDeletedAt(formatTime(nowUtc));
             recordRepo.saveAndFlush(old);
             recordRepo.save(replacement);
@@ -328,7 +327,7 @@ public class NursingRecordService {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
             return nursingRecordResponse(StatusCode.PARSE_JSON_FAILED);
         }
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) return nursingRecordResponse(StatusCode.ACCOUNT_NOT_FOUND);
 
         return withNursingRecordLocks(List.of(req.getId()), null, (records, snapshotPlan) -> {
@@ -339,10 +338,10 @@ public class NursingRecordService {
 
             LocalDateTime nowUtc = TimeUtils.getNowUtc();
             record.setIsDeleted(true);
-            record.setDeletedBy(account.getFirst());
+            record.setDeletedBy(account.autoAcctId());
             record.setDeletedAt(formatTime(nowUtc));
-            record.setModifiedBy(account.getFirst());
-            record.setModifiedByAccountName(account.getSecond());
+            record.setModifiedBy(account.autoAcctId());
+            record.setModifiedByAccountName(account.acctName());
             record.setModifiedAt(formatTime(nowUtc));
             recordRepo.save(record);
             snapshotService.markModified(SnapshotModule.Kind.NURSING_RECORD, snapshotPlan,
@@ -363,7 +362,7 @@ public class NursingRecordService {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
             return nursingRecordResponse(StatusCode.PARSE_JSON_FAILED);
         }
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) return nursingRecordResponse(StatusCode.ACCOUNT_NOT_FOUND);
 
         LocalDateTime reviewTime = formatTime(
@@ -382,14 +381,14 @@ public class NursingRecordService {
                     StatusCode.NURSING_RECORD_REVIEW_TIME_BEFORE_RECORD_TIME);
             }
             List<NursingRecord> changed = records.stream().filter(record ->
-                !Objects.equals(record.getReviewedBy(), account.getFirst())
-                    || !Objects.equals(record.getReviewedByAccountName(), account.getSecond())
+                !Objects.equals(record.getReviewedBy(), account.autoAcctId())
+                    || !Objects.equals(record.getReviewedByAccountName(), account.acctName())
                     || !Objects.equals(record.getReviewedAt(), reviewTime)).toList();
             if (changed.isEmpty()) return nursingRecordResponse(StatusCode.OK);
             LocalDateTime nowUtc = TimeUtils.getNowUtc();
             for (NursingRecord record : changed) {
-                record.setReviewedBy(account.getFirst());
-                record.setReviewedByAccountName(account.getSecond());
+                record.setReviewedBy(account.autoAcctId());
+                record.setReviewedByAccountName(account.acctName());
                 record.setReviewedAt(reviewTime);
             }
             recordRepo.saveAll(changed);
@@ -446,14 +445,13 @@ public class NursingRecordService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GetNursingRecordShortcutsResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 解析参数
         final Long pid = req.getPid();
@@ -507,11 +505,11 @@ public class NursingRecordService {
             pid, queryUtcTimeRange.getFirst(), queryUtcTimeRange.getSecond()
         );
         List<MonitoringGroupBetaPB> groupBetaList = monitoringConfig.getMonitoringGroups(
-            pid, deptId, BALANCE_GROUP_TYPE_ID, tubeParamCodes, accountId
+            pid, deptId, BALANCE_GROUP_TYPE_ID, tubeParamCodes, account.autoAcctId()
         );
         PatientMonitoringService.GetMonitoringRecordsResult recordsResult = patientMonitoringService
             .getMonitoringRecords(pid, deptId, BALANCE_GROUP_TYPE_ID,
-                startTime, endTime, true, groupBetaList, accountId
+                startTime, endTime, true, groupBetaList, account.autoAcctId()
             );
         if (recordsResult.statusCode != StatusCode.OK) {
             log.error("Failed to get monitoring records: {}", recordsResult.statusCode);
@@ -527,7 +525,7 @@ public class NursingRecordService {
             monitoringConfig.getMonitoringParams(deptId),
             recordsResult.groupBetaList,
             recordsResult.recordList,
-            accountId
+            account.autoAcctId()
         );
         balanceCalculator.storeGroupRecordsStats(args);  // 存储小时汇总数据，统计对应的天数据
         List<PatientMonitoringRecord> recordList = recordsResult.recordList.stream()
@@ -572,14 +570,13 @@ public class NursingRecordService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GetNursingRecordShortcuts2Resp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 解析参数
         final Long pid = req.getPid();
@@ -625,7 +622,7 @@ public class NursingRecordService {
         final LocalDateTime shiftEndUtc = shiftStartUtc.plusDays(1);
 
         Pair<StatusCode, List<NrShortcutBalancesPB>> balancePair = buildShortcutBalances(
-            pid, deptId, shiftStartUtc, shiftEndUtc, accountId);
+            pid, deptId, shiftStartUtc, shiftEndUtc, account.autoAcctId());
         if (balancePair.getFirst() != StatusCode.OK) {
             return GetNursingRecordShortcuts2Resp.newBuilder()
                 .setRt(protoService.getReturnCode(balancePair.getFirst()))

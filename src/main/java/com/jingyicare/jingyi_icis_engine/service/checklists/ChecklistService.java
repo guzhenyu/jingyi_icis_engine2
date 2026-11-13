@@ -131,14 +131,12 @@ public class ChecklistService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return AddDeptChecklistGroupResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 提取关键参数
         String deptId = req.getGroup().getDeptId();
@@ -151,7 +149,7 @@ public class ChecklistService {
 
         // 检查用户权限
         Pair<String, Boolean> permPair = userQuery.hasPermission(
-            deptId, Consts.PERM_ID_CONFIG_CHECKLIST);
+            account.rbacAcctId(), deptId, Consts.PERM_ID_CONFIG_CHECKLIST);
         if (permPair == null || !permPair.getSecond()) {
             String primaryRoleName = permPair == null ? Consts.VOID_ROLE : permPair.getFirst();
             return AddDeptChecklistGroupResp.newBuilder()
@@ -182,7 +180,7 @@ public class ChecklistService {
         // 创建组长质控分组
         DeptChecklistGroup newGroup = ChecklistUtils.toEntity(req.getGroup());
         newGroup.setDisplayOrder(maxDisplayOrder + 1);
-        newGroup.setModifiedBy(accountId);
+        newGroup.setModifiedBy(account.autoAcctId());
         newGroup.setModifiedAt(TimeUtils.getNowUtc());
         newGroup = deptGroupRepo.save(newGroup);
 
@@ -207,14 +205,12 @@ public class ChecklistService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 提取关键参数
         Integer groupIdToDelete = req.getGroupId();
@@ -231,7 +227,7 @@ public class ChecklistService {
 
         // 检查用户权限
         Pair<String, Boolean> permPair = userQuery.hasPermission(
-            deptId, Consts.PERM_ID_CONFIG_CHECKLIST);
+            account.rbacAcctId(), deptId, Consts.PERM_ID_CONFIG_CHECKLIST);
         if (permPair == null || !permPair.getSecond()) {
             String primaryRoleName = permPair == null ? Consts.VOID_ROLE : permPair.getFirst();
             return GenericResp.newBuilder()
@@ -243,7 +239,7 @@ public class ChecklistService {
 
         // 删除组长质控分组
         groupToDelete.setIsDeleted(true);
-        groupToDelete.setModifiedBy(accountId);
+        groupToDelete.setModifiedBy(account.autoAcctId());
         groupToDelete.setModifiedAt(TimeUtils.getNowUtc());
         deptGroupRepo.save(groupToDelete);
 
@@ -267,14 +263,12 @@ public class ChecklistService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 提取关键参数
         String deptId = req.getDeptId();
@@ -282,7 +276,7 @@ public class ChecklistService {
 
         // 检查用户权限
         Pair<String, Boolean> permPair = userQuery.hasPermission(
-            deptId, Consts.PERM_ID_CONFIG_CHECKLIST);
+            account.rbacAcctId(), deptId, Consts.PERM_ID_CONFIG_CHECKLIST);
         if (permPair == null || !permPair.getSecond()) {
             String primaryRoleName = permPair == null ? Consts.VOID_ROLE : permPair.getFirst();
             return GenericResp.newBuilder()
@@ -323,7 +317,7 @@ public class ChecklistService {
         for (Integer groupId : groupIdList) {
             DeptChecklistGroup group = groupMap.get(groupId);
             group.setDisplayOrder(displayOrder++);
-            group.setModifiedBy(accountId);
+            group.setModifiedBy(account.autoAcctId());
             group.setModifiedAt(now);
             updatedGroups.add(group);
         }
@@ -349,14 +343,12 @@ public class ChecklistService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return AddDeptChecklistItemResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 提取关键参数
         Integer deptChecklistGroupId = req.getGroupId();
@@ -375,7 +367,7 @@ public class ChecklistService {
 
         // 检查用户权限
         Pair<String, Boolean> permPair = userQuery.hasPermission(
-            deptId, Consts.PERM_ID_CONFIG_CHECKLIST);
+            account.rbacAcctId(), deptId, Consts.PERM_ID_CONFIG_CHECKLIST);
         if (permPair == null || !permPair.getSecond()) {
             String primaryRoleName = permPair == null ? Consts.VOID_ROLE : permPair.getFirst();
             return AddDeptChecklistItemResp.newBuilder()
@@ -407,7 +399,7 @@ public class ChecklistService {
         DeptChecklistItem newItem = ChecklistUtils.toEntity(itemPb);
         newItem.setGroupId(deptChecklistGroupId);
         newItem.setDisplayOrder(maxDisplayOrder + 1);
-        newItem.setModifiedBy(accountId);
+        newItem.setModifiedBy(account.autoAcctId());
         newItem.setModifiedAt(TimeUtils.getNowUtc());
         newItem = deptItemRepo.save(newItem);
 
@@ -432,14 +424,12 @@ public class ChecklistService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 提取关键参数
         Integer itemId = req.getItemId();
@@ -465,7 +455,7 @@ public class ChecklistService {
 
         // 检查用户权限
         Pair<String, Boolean> permPair = userQuery.hasPermission(
-            deptId, Consts.PERM_ID_CONFIG_CHECKLIST);
+            account.rbacAcctId(), deptId, Consts.PERM_ID_CONFIG_CHECKLIST);
         if (permPair == null || !permPair.getSecond()) {
             String primaryRoleName = permPair == null ? Consts.VOID_ROLE : permPair.getFirst();
             return GenericResp.newBuilder()
@@ -477,7 +467,7 @@ public class ChecklistService {
 
         // 删除组长质控项
         itemToDelete.setIsDeleted(true);
-        itemToDelete.setModifiedBy(accountId);
+        itemToDelete.setModifiedBy(account.autoAcctId());
         itemToDelete.setModifiedAt(TimeUtils.getNowUtc());
         deptItemRepo.save(itemToDelete);
 
@@ -501,14 +491,12 @@ public class ChecklistService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 提取关键参数
         Integer deptChecklistGroupId = req.getGroupId();
@@ -526,7 +514,7 @@ public class ChecklistService {
 
         // 检查用户权限
         Pair<String, Boolean> permPair = userQuery.hasPermission(
-            deptId, Consts.PERM_ID_CONFIG_CHECKLIST);
+            account.rbacAcctId(), deptId, Consts.PERM_ID_CONFIG_CHECKLIST);
         if (permPair == null || !permPair.getSecond()) {
             String primaryRoleName = permPair == null ? Consts.VOID_ROLE : permPair.getFirst();
             return GenericResp.newBuilder()
@@ -567,7 +555,7 @@ public class ChecklistService {
         for (Integer itemId : itemIdList) {
             DeptChecklistItem item = itemMap.get(itemId);
             item.setDisplayOrder(displayOrder++);
-            item.setModifiedBy(accountId);
+            item.setModifiedBy(account.autoAcctId());
             item.setModifiedAt(now);
             updatedItems.add(item);
         }
@@ -742,14 +730,12 @@ public class ChecklistService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return AddPatientChecklistRecordResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 提取关键参数
         final PatientChecklistRecordPB recordPb = req.getRecord();
@@ -787,10 +773,10 @@ public class ChecklistService {
 
         // 新建病人组长质控记录
         PatientChecklistRecord record = ChecklistUtils.toEntity(recordPb, deptId);
-        record.setCreatedBy(accountId);
+        record.setCreatedBy(account.autoAcctId());
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
         record.setCreatedAt(nowUtc);
-        record.setModifiedBy(accountId);
+        record.setModifiedBy(account.autoAcctId());
         record.setModifiedAt(nowUtc);
         record = patientRecordRepo.save(record);
 
@@ -809,7 +795,7 @@ public class ChecklistService {
             PatientChecklistGroup patientGroup = ChecklistUtils.toEntity(
                 0L /*id自动生成*/, record.getId(), deptGroup.getId(), deptGroup.getDisplayOrder()
             );
-            patientGroup.setModifiedBy(accountId);
+            patientGroup.setModifiedBy(account.autoAcctId());
             patientGroup.setModifiedAt(nowUtc);
             patientGroup = patientGroupRepo.save(patientGroup);
 
@@ -820,7 +806,7 @@ public class ChecklistService {
                     0L /*id自动生成*/, patientGroup.getId(), deptItem.getId(), false/*checked*/,
                      deptItem.getDefaultNote(), deptItem.getDisplayOrder()
                 );
-                patientItem.setModifiedBy(accountId);
+                patientItem.setModifiedBy(account.autoAcctId());
                 patientItem.setModifiedAt(nowUtc);
                 patientItemList.add(patientItem);
             }
@@ -849,14 +835,12 @@ public class ChecklistService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 提取关键参数
         final Integer recordIdToDel = req.getId();
@@ -873,7 +857,7 @@ public class ChecklistService {
         // 删除病人组长质控记录
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
         recordToDel.setIsDeleted(true);
-        recordToDel.setDeletedBy(accountId);
+        recordToDel.setDeletedBy(account.autoAcctId());
         recordToDel.setDeletedAt(nowUtc);
         patientRecordRepo.save(recordToDel);
 
@@ -897,14 +881,12 @@ public class ChecklistService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 提取关键参数
         final PatientChecklistItemPB patientItemPb = req.getItem();
@@ -931,7 +913,7 @@ public class ChecklistService {
         if (deptItem.getHasNote()) {
             patientItem.setNote(patientItemPb.getNote());
         }
-        patientItem.setModifiedBy(accountId);
+        patientItem.setModifiedBy(account.autoAcctId());
         patientItem.setModifiedAt(TimeUtils.getNowUtc());
         patientItem = patientItemRepo.save(patientItem);
 

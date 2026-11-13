@@ -14,12 +14,12 @@ import org.springframework.transaction.support.TransactionTemplate;
 import lombok.extern.slf4j.Slf4j;
 
 import com.jingyicare.jingyi_icis_engine.entity.archives.PatientArchive;
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisArchive.NursingReportCompactArchivePB;
 import com.jingyicare.jingyi_icis_engine.repository.archives.PatientArchiveRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.Consts;
-import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
@@ -215,11 +215,11 @@ public class ArchiveServiceImpl implements ArchiveService {
     }
 
     private String currentAccountId() {
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
-        if (account == null || StrUtils.isBlank(account.getFirst())) {
+        CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null || StrUtils.isBlank(account.autoAcctId())) {
             throw new IllegalStateException("Current account not found");
         }
-        return account.getFirst();
+        return account.autoAcctId();
     }
 
     private boolean sameArchive(PatientArchive existing, int type, String pbStr, int pageCount, String relativeUrl) {

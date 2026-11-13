@@ -162,7 +162,7 @@ allowed_order_type {
 | `stop_time` | `medical_orders.stop_time` 或取消时间 | 用于停止生成后续执行记录 |
 | `note` | `medical_orders.medication_note` + HIS 来源信息 | 追加 `order_id/group_id` |
 | `is_deleted` | `false` | 手工删除后保持删除，不恢复 |
-| `modified_by` | 当前接口账号 | 来自 `UserService.getAccountWithAutoId()` |
+| `modified_by` | 当前接口账号 | 来自 `userQuery.getCurrentAccount().autoAcctId()` |
 | `modified_at` | 当前 UTC 时间 | `TimeUtils.getNowUtc()` |
 | `medical_order_id` | `medical_orders.order_id` | HIS 医嘱唯一标识 |
 | `medical_order_group_id` | `medical_orders.group_id` | 仅记录来源，不用于合并 |
@@ -360,7 +360,7 @@ ALTER TABLE nursing_execution_records
 伪流程：
 
 ```text
-accountId = userService.getAccountWithAutoId().getFirst()
+accountId = userQuery.getCurrentAccount().autoAcctId()
 patientRecord = patientService.getPatientRecord(pid)
 nursingOrderSyncService.sync(patientRecord, accountId)
 orders = orderRepo.findByPidAndIsDeletedFalse(pid)
@@ -381,7 +381,7 @@ orders = orderRepo.findByPidAndIsDeletedFalse(pid)
 伪流程：
 
 ```text
-accountId = userService.getAccountWithAutoId().getFirst()
+accountId = userQuery.getCurrentAccount().autoAcctId()
 patientRecord = patientService.getPatientRecord(pid)
 nursingOrderSyncService.sync(patientRecord, accountId)
 orders = orderRepo.findByPidAndIsDeletedFalse(pid)

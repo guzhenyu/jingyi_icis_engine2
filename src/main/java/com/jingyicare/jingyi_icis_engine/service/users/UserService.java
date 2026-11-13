@@ -54,30 +54,27 @@ public class UserService {
     }
 
     public GetUsernameResp getUsername() {
-        RbacAccount account = userQuery.getRbacAccount(userQuery.getCtxAccountId());
-        final String accountName = account == null ? "" : account.getAccountName();
+        CurrentAccount account = userQuery.getCurrentAccount();
         return GetUsernameResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
-            .setUsername(accountName)
+            .setUsername(account == null ? "" : account.acctName())
             .build();
     }
 
     public GetUserInfoResp getUserInfo() {
         // 获取相关用户
-        RbacAccount account = userQuery.getRbacAccount(userQuery.getCtxAccountId());
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GetUserInfoResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(
                     statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getAccountId();
-        final String accountName = account.getAccountName();
 
         // 获取相关部门，部门用户权限
         List<Department> departments;
         Map<String, Set<Integer>> deptPermIdsMap = new HashMap<>();
-        if (accountId.equals(ADMIN_ACCOUNT_ID)) {
+        if (account.rbacAcctId().equals(ADMIN_ACCOUNT_ID)) {
             departments = userQuery.getAllDeptInfo();
             for (Department department : departments) {
                 Set<Integer> adminRoleSet = new HashSet<>();
@@ -85,11 +82,12 @@ public class UserService {
                 deptPermIdsMap.put(department.getDeptId(), adminRoleSet);
             }
         } else {
-            departments = userQuery.getAllDeptInfoByAccountId(accountId)
+            departments = userQuery.getAllDeptInfoByAccountId(account.rbacAcctId())
                 .stream().sorted(Comparator.comparing(Department::getId)).toList();
             for (Department department : departments) {
                 final String deptId = department.getDeptId();
-                deptPermIdsMap.put(deptId, userQuery.getPermissionIds(accountId, deptId));
+                deptPermIdsMap.put(deptId,
+                    userQuery.getPermissionIds(account.rbacAcctId(), deptId));
             }
         }
 
@@ -117,7 +115,7 @@ public class UserService {
 
             List<MenuGroup> menuGroups = menuService.getMenuGroups(deptId);
             for (MenuGroup menuGroup : menuGroups) {
-                if (accountId.equals(ADMIN_ACCOUNT_ID)) {
+                if (account.rbacAcctId().equals(ADMIN_ACCOUNT_ID)) {
                     menuBuilder.addGroup(menuGroup);
                     continue;
                 }
@@ -132,13 +130,15 @@ public class UserService {
             }
 
             // 查询并添加主要角色
-            deptInfoBuilder.setPrimaryRoleName(userQuery.getPrimaryRoleName(accountId, deptId));
+            deptInfoBuilder.setPrimaryRoleName(
+                userQuery.getPrimaryRoleName(account.rbacAcctId(), deptId));
             deptInfos.add(deptInfoBuilder.setMenu(menuBuilder.build()).build());
         }
 
         return GetUserInfoResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
-            .setUser(StringIdEntityPB.newBuilder().setId(accountId).setName(accountName).build())
+            .setUser(StringIdEntityPB.newBuilder()
+                .setId(account.rbacAcctId()).setName(account.acctName()).build())
             .addAllDeptInfo(deptInfos)
             .build();
     }
@@ -176,13 +176,14 @@ public class UserService {
         }
 
         // 获取当前用户
-        final String accountId = userQuery.getCtxAccountId();
-        if (accountId.isEmpty()) {
+        CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             return AddDeptResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.NOT_LOGGED_IN))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        if (!accountId.equals(ADMIN_ACCOUNT_ID)) {
+        if (!account.rbacAcctId().equals(ADMIN_ACCOUNT_ID)) {
             return AddDeptResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(
                     statusCodeMsgList, StatusCode.ONLY_ADMIN_IS_AUTHORIZED))
@@ -196,16 +197,12 @@ public class UserService {
                 .build();
         }
 
-        // 获取accountAutoId
-        Account account = userQuery.getAccount(accountId);
-        String accountAutoId = account == null ? accountId : account.getId().toString();
-
         // 新增部门
         IcisDepartmentPB deptPb = req.getDepartment();
         StatusCode statusCode = userCmdService.addDepartment(
             deptPb.getDeptId(), deptPb.getDeptName(), deptPb.getAbbreviation(),
             deptPb.getWardCode(), deptPb.getWardName(), deptPb.getHospitalName(),
-            accountAutoId
+            account.autoAcctId()
         );
         if (statusCode != StatusCode.OK) {
             return AddDeptResp.newBuilder()
@@ -242,13 +239,14 @@ public class UserService {
         }
 
         // 获取当前用户
-        final String accountId = userQuery.getCtxAccountId();
-        if (accountId.isEmpty()) {
+        CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.NOT_LOGGED_IN))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        if (!accountId.equals(ADMIN_ACCOUNT_ID)) {
+        if (!account.rbacAcctId().equals(ADMIN_ACCOUNT_ID)) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(
                     statusCodeMsgList, StatusCode.ONLY_ADMIN_IS_AUTHORIZED))
@@ -270,15 +268,11 @@ public class UserService {
                 .build();
         }
 
-        // 获取accountAutoId
-        Account account = userQuery.getAccount(accountId);
-        String accountAutoId = account == null ? accountId : account.getId().toString();
-
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, userCmdService.updateDepartment(
                 deptPb.getId(), deptPb.getDeptId(), deptPb.getDeptName(),
                 deptPb.getAbbreviation(), deptPb.getWardCode(), deptPb.getWardName(),
-                deptPb.getHospitalName(), accountAutoId
+                deptPb.getHospitalName(), account.autoAcctId()
             ))).build();
     }
 
@@ -295,13 +289,14 @@ public class UserService {
         }
 
         // 获取当前用户
-        final String accountId = userQuery.getCtxAccountId();
-        if (accountId.isEmpty()) {
+        CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.NOT_LOGGED_IN))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        if (!accountId.equals(ADMIN_ACCOUNT_ID)) {
+        if (!account.rbacAcctId().equals(ADMIN_ACCOUNT_ID)) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(
                     statusCodeMsgList, StatusCode.ONLY_ADMIN_IS_AUTHORIZED))
@@ -316,13 +311,9 @@ public class UserService {
                 .build();
         }
 
-        // 获取accountAutoId
-        Account account = userQuery.getAccount(accountId);
-        String accountAutoId = account == null ? accountId : account.getId().toString();
-
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, userCmdService.deleteDepartment(
-                req.getDeptId(), accountAutoId
+                req.getDeptId(), account.autoAcctId()
             ))).build();
     }
 
@@ -359,20 +350,17 @@ public class UserService {
                 .build();
         }
 
-        final String accountId = userQuery.getCtxAccountId();
-        if (accountId.isEmpty()) {
+        CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.NOT_LOGGED_IN))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
 
-        // 获取accountAutoId
-        Account account = userQuery.getAccount(accountId);
-        String accountAutoId = account == null ? accountId : account.getId().toString();
-
         // 检查用户权限
         Pair<String, Boolean> permPair = userQuery.hasPermission(
-            req.getOpDeptId(), Consts.PERM_ID_CONFIG_CHECKLIST);
+            account.rbacAcctId(), req.getOpDeptId(), Consts.PERM_ID_CONFIG_CHECKLIST);
         if (permPair == null || !permPair.getSecond()) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(
@@ -382,7 +370,8 @@ public class UserService {
 
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(
-                statusCodeMsgList, userCmdService.addAccount(req.getAccount(), accountAutoId)))
+                statusCodeMsgList, userCmdService.addAccount(
+                    req.getAccount(), account.autoAcctId())))
             .build();
     }
 
@@ -398,21 +387,18 @@ public class UserService {
                 .build();
         }
 
-        final String accountId = userQuery.getCtxAccountId();
-        if (accountId.isEmpty()) {
+        CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.NOT_LOGGED_IN))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
 
-        // 获取accountAutoId
-        Account account = userQuery.getAccount(accountId);
-        String accountAutoId = account == null ? accountId : account.getId().toString();
-
         // 检查用户权限
-        if (!accountId.equals(req.getAccount().getAccountId())) {
+        if (!account.rbacAcctId().equals(req.getAccount().getAccountId())) {
             Pair<String, Boolean> permPair = userQuery.hasPermission(
-                req.getOpDeptId(), Consts.PERM_ID_CONFIG_CHECKLIST);
+                account.rbacAcctId(), req.getOpDeptId(), Consts.PERM_ID_CONFIG_CHECKLIST);
             if (permPair == null || !permPair.getSecond()) {
                 return GenericResp.newBuilder()
                     .setRt(ReturnCodeUtils.getReturnCode(
@@ -423,7 +409,8 @@ public class UserService {
 
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(
-                statusCodeMsgList, userCmdService.updateAccount(req.getAccount(), accountAutoId)))
+                statusCodeMsgList, userCmdService.updateAccount(
+                    req.getAccount(), account.autoAcctId())))
             .build();
     }
 
@@ -439,27 +426,24 @@ public class UserService {
                 .build();
         }
 
-        final String accountId = userQuery.getCtxAccountId();
-        if (accountId.isEmpty()) {
+        CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.NOT_LOGGED_IN))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
 
-        // 获取accountAutoId
-        Account account = userQuery.getAccount(accountId);
-        String accountAutoId = account == null ? accountId : account.getId().toString();
-
         // 检查用户权限
         Pair<String, Boolean> permPair = userQuery.hasPermission(
-            req.getOpDeptId(), Consts.PERM_ID_CONFIG_CHECKLIST);
+            account.rbacAcctId(), req.getOpDeptId(), Consts.PERM_ID_CONFIG_CHECKLIST);
         if (permPair == null || !permPair.getSecond()) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(
                     statusCodeMsgList, StatusCode.PERMISSION_DENIED))
                 .build();
         }
-        if (accountId.equals(req.getAccountId())) {
+        if (account.rbacAcctId().equals(req.getAccountId())) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(
                     statusCodeMsgList, StatusCode.CANNOT_DELETE_SELF_ACCOUNT))
@@ -469,7 +453,7 @@ public class UserService {
         // deleteAccount(String accountId, String deptId, String modifiedBy)
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, userCmdService.deleteAccount(
-                req.getAccountId(), req.getDeptId(), accountAutoId
+                req.getAccountId(), req.getDeptId(), account.autoAcctId()
             )))
             .build();
     }
@@ -488,16 +472,18 @@ public class UserService {
         }
 
         // 获取当前用户
-        final String accountId = userQuery.getCtxAccountId();
-        if (accountId.isEmpty()) {
+        CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.NOT_LOGGED_IN))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
 
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList,
-                userCmdService.changePassword(accountId, req.getOldPassword(), req.getNewPassword())
+                userCmdService.changePassword(
+                    account.rbacAcctId(), req.getOldPassword(), req.getNewPassword())
             ))
             .build();
     }
@@ -515,16 +501,17 @@ public class UserService {
         }
 
         // 获取当前用户
-        final String accountId = userQuery.getCtxAccountId();
-        if (accountId.isEmpty()) {
+        CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.NOT_LOGGED_IN))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
 
         // 检查用户权限
         Pair<String, Boolean> permPair = userQuery.hasPermission(
-            req.getOpDeptId(), Consts.PERM_ID_CONFIG_CHECKLIST);
+            account.rbacAcctId(), req.getOpDeptId(), Consts.PERM_ID_CONFIG_CHECKLIST);
         if (permPair == null || !permPair.getSecond()) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(
@@ -535,7 +522,7 @@ public class UserService {
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(
                 statusCodeMsgList, userCmdService.resetPassword(
-                    req.getAccountId(), accountId, ADMIN_ROLE_ID)))
+                    req.getAccountId(), account.rbacAcctId(), ADMIN_ROLE_ID)))
             .build();
     }
 
@@ -591,21 +578,18 @@ public class UserService {
                 .build();
         }
 
-        final String accountId = userQuery.getCtxAccountId();
-        if (accountId.isEmpty()) {
+        CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.NOT_LOGGED_IN))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-
-        // 获取accountAutoId
-        Account account = userQuery.getAccount(accountId);
-        String accountAutoId = account == null ? accountId : account.getId().toString();
 
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(
                 statusCodeMsgList, userCmdService.addRolePermission(
-                    req.getRoleId(), req.getPermissionId(), accountAutoId
+                    req.getRoleId(), req.getPermissionId(), account.autoAcctId()
                 )))
             .build();
     }
@@ -623,21 +607,18 @@ public class UserService {
                 .build();
         }
 
-        final String accountId = userQuery.getCtxAccountId();
-        if (accountId.isEmpty()) {
+        CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.NOT_LOGGED_IN))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-
-        // 获取accountAutoId
-        Account account = userQuery.getAccount(accountId);
-        String accountAutoId = account == null ? accountId : account.getId().toString();
 
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(
                 statusCodeMsgList, userCmdService.revokeRolePermission(
-                    req.getRoleId(), req.getPermissionId(), accountAutoId
+                    req.getRoleId(), req.getPermissionId(), account.autoAcctId()
                 )))
             .build();
     }
@@ -655,21 +636,18 @@ public class UserService {
                 .build();
         }
 
-        final String accountId = userQuery.getCtxAccountId();
-        if (accountId.isEmpty()) {
+        CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.NOT_LOGGED_IN))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-
-        // 获取accountAutoId
-        Account account = userQuery.getAccount(accountId);
-        String accountAutoId = account == null ? accountId : account.getId().toString();
 
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(
                 statusCodeMsgList, userCmdService.addAccountPermission(
-                    req.getAccountId(), req.getDeptId(), req.getPermissionId(), accountAutoId
+                    req.getAccountId(), req.getDeptId(), req.getPermissionId(), account.autoAcctId()
                 )))
             .build();
     }
@@ -687,21 +665,18 @@ public class UserService {
                 .build();
         }
 
-        final String accountId = userQuery.getCtxAccountId();
-        if (accountId.isEmpty()) {
+        CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.NOT_LOGGED_IN))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-
-        // 获取accountAutoId
-        Account account = userQuery.getAccount(accountId);
-        String accountAutoId = account == null ? accountId : account.getId().toString();
 
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(
                 statusCodeMsgList, userCmdService.revokeAccountPermission(
-                    req.getAccountId(), req.getDeptId(), req.getPermissionId(), accountAutoId
+                    req.getAccountId(), req.getDeptId(), req.getPermissionId(), account.autoAcctId()
                 )))
             .build();
     }

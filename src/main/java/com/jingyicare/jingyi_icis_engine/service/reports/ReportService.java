@@ -14,6 +14,7 @@ import com.google.protobuf.TextFormat;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisShift.*;
@@ -122,14 +123,13 @@ public class ReportService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return SaveFormTemplateResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 提取元数据
         JfkTemplatePB templatePb = req.getJfkTemplate();
@@ -169,7 +169,7 @@ public class ReportService {
 
         // 保存模板
         template = dragableTemplateRepo.save(template);
-        log.info("Added form template: {}, by {}", template, accountId);
+        log.info("Added form template: {}, by {}", template, account.autoAcctId());
 
         return SaveFormTemplateResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.OK))
@@ -189,14 +189,13 @@ public class ReportService {
                     .build();
         }
 
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         DragableFormTemplate template = dragableTemplateRepo
             .findByIdAndIsDeletedFalse(req.getId()).orElse(null);
@@ -208,10 +207,10 @@ public class ReportService {
 
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
         template.setIsDeleted(true);
-        template.setDeletedBy(accountId);
+        template.setDeletedBy(account.autoAcctId());
         template.setDeletedAt(nowUtc);
         dragableTemplateRepo.save(template);
-        log.info("Deleted form template: {}, by {}", template, accountId);
+        log.info("Deleted form template: {}, by {}", template, account.autoAcctId());
 
         return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.OK))
@@ -351,14 +350,13 @@ public class ReportService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return SaveFormResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.ACCOUNT_NOT_FOUND))
             .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 提取元数据
         JfkFormInstancePB formPb = req.getForm();
@@ -392,7 +390,7 @@ public class ReportService {
 
             // 更新表单数据
             dragableForm.setFormPb(ProtoUtils.encodeJfkFormInstance(formPb));
-            dragableForm.setModifiedBy(accountId);
+            dragableForm.setModifiedBy(account.autoAcctId());
             dragableForm.setModifiedAt(TimeUtils.getNowUtc());
         } else {  // 新增表单
             if (dragableForm != null) {
@@ -404,14 +402,14 @@ public class ReportService {
                 .pid(pid).deptId(deptId).templateId(templateId)
                 .formPb(ProtoUtils.encodeJfkFormInstance(formPb))
                 .documentedAt(documentedAt)
-                .modifiedBy(accountId).modifiedAt(TimeUtils.getNowUtc())
+                .modifiedBy(account.autoAcctId()).modifiedAt(TimeUtils.getNowUtc())
                 .isDeleted(false)
                 .build();
         }
 
         // 保存表单
         dragableForm = dragableFormRepo.save(dragableForm);
-        log.info("Saved form: {}, by {}", dragableForm, accountId);
+        log.info("Saved form: {}, by {}", dragableForm, account.autoAcctId());
 
         return SaveFormResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.OK))
@@ -431,14 +429,13 @@ public class ReportService {
                 .build();
         }
 
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         DragableForm dragableForm = dragableFormRepo.findByIdAndIsDeletedFalse(req.getId()).orElse(null);
         if (dragableForm == null) {
@@ -449,10 +446,10 @@ public class ReportService {
 
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
         dragableForm.setIsDeleted(true);
-        dragableForm.setDeletedBy(accountId);
+        dragableForm.setDeletedBy(account.autoAcctId());
         dragableForm.setDeletedAt(nowUtc);
         dragableFormRepo.save(dragableForm);
-        log.info("Deleted form: {}, by {}", dragableForm, accountId);
+        log.info("Deleted form: {}, by {}", dragableForm, account.autoAcctId());
 
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.OK))
@@ -472,13 +469,12 @@ public class ReportService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GetMonitoringReportResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
 
         // 提取输入参数
         final Long pid = req.getPid();
@@ -538,7 +534,7 @@ public class ReportService {
             .groupType(groupType)
             .queryStartUtc(queryStartUtc)
             .queryEndUtc(queryEndUtc)
-            .accountId(accountId)
+            .accountId(account.autoAcctId())
             .shiftStartTime(shiftStartTime)
             .balanceReport(isBalanceReport)
             .patientRecord(patientShift.patient)
@@ -626,14 +622,13 @@ public class ReportService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("Account ID is empty while setting ward report.");
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 提取班次开始时间
         final LocalDateTime shiftStartTime = TimeUtils.fromIso8601String(req.getShiftStartIso8601(), "UTC");
@@ -687,17 +682,18 @@ public class ReportService {
                 .shiftStartTime(shiftStartTime)
                 .wardReportPb(wardReportBase64)
                 .modifiedAt(nowUtc)
-                .modifiedBy(accountId)
+                .modifiedBy(account.autoAcctId())
                 .isDeleted(false)
                 .build();
         } else {
             wardReport.setWardReportPb(wardReportBase64);
             wardReport.setModifiedAt(nowUtc);
-            wardReport.setModifiedBy(accountId);
+            wardReport.setModifiedBy(account.autoAcctId());
         }
 
         wardReportRepo.save(wardReport);
-        log.info("Saved ward report for dept {} shift {}, by {}", deptId, shiftStartTime, accountId);
+        log.info("Saved ward report for dept {} shift {}, by {}",
+            deptId, shiftStartTime, account.autoAcctId());
 
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.OK))

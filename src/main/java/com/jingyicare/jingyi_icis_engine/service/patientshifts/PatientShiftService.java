@@ -23,6 +23,7 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 
 import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.entity.patientshifts.*;
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.patientshifts.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
@@ -147,15 +148,13 @@ public class PatientShiftService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return AddPatientShiftRecordResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
-        final String accountName = accountWithAutoId.getSecond();
 
         // 获取病人信息
         final Long pid = req.getPid();
@@ -191,8 +190,8 @@ public class PatientShiftService {
         PatientShiftRecord psRecord = PatientShiftRecord.builder()
             .pid(pid)
             .content(req.getContent())
-            .shiftNurseId(accountId)
-            .shiftNurseName(accountName)
+            .shiftNurseId(account.autoAcctId())
+            .shiftNurseName(account.acctName())
             .shiftName(shiftName)
             .shiftStart(shiftStartUtc)
             .shiftEnd(shiftEndUtc)
@@ -200,7 +199,8 @@ public class PatientShiftService {
             .isDeleted(false)
             .build();
         psRecord = psrRepo.save(psRecord);
-        log.info("PatientShiftRecord added: {} - {} - {}, by {}", pid, shiftName, shiftStartUtc, accountId);
+        log.info("PatientShiftRecord added: {} - {} - {}, by {}",
+            pid, shiftName, shiftStartUtc, account.autoAcctId());
 
         return AddPatientShiftRecordResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -221,15 +221,13 @@ public class PatientShiftService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
-        final String accountName = accountWithAutoId.getSecond();
 
         // 获取病人信息
         final Long pid = req.getPid();
@@ -264,15 +262,16 @@ public class PatientShiftService {
         // 更新记录，写日志
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
         psRecord.setContent(req.getContent());
-        psRecord.setShiftNurseId(accountId);
-        psRecord.setShiftNurseName(accountName);
+        psRecord.setShiftNurseId(account.autoAcctId());
+        psRecord.setShiftNurseName(account.acctName());
         // pid和班次等信息不能变
         // psRecord.setShiftName(shiftName);
         // psRecord.setShiftStart(shiftStartUtc);
         // psRecord.setShiftEnd(shiftEndUtc);
         psRecord.setModifiedAt(nowUtc);
         psrRepo.save(psRecord);
-        log.info("PatientShiftRecord updated: {} - {} - {}, by {}", pid, shiftName, shiftStartUtc, accountId);
+        log.info("PatientShiftRecord updated: {} - {} - {}, by {}",
+            pid, shiftName, shiftStartUtc, account.autoAcctId());
 
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -292,14 +291,13 @@ public class PatientShiftService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 检查是否有记录
         PatientShiftRecord psRecord = psrRepo.findByIdAndIsDeletedFalse(req.getId()).orElse(null);
@@ -314,9 +312,9 @@ public class PatientShiftService {
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
         psRecord.setIsDeleted(true);
         psRecord.setDeletedAt(nowUtc);
-        psRecord.setDeletedBy(accountId);
+        psRecord.setDeletedBy(account.autoAcctId());
         psrRepo.save(psRecord);
-        log.info("PatientShiftRecord deleted: {} , by {}", psRecord.getId(), accountId);
+        log.info("PatientShiftRecord deleted: {} , by {}", psRecord.getId(), account.autoAcctId());
 
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))

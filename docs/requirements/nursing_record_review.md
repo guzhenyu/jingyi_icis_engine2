@@ -93,7 +93,7 @@ reviewPatientBgaRecords
 处理规则：
 
 1. 解析 `ReviewNursingRecordsReq`；解析失败返回 `PARSE_JSON_FAILED`。
-2. 通过 `userService.getAccountWithAutoId()` 获取当前账号；失败返回 `ACCOUNT_NOT_FOUND`。
+2. 通过 `userQuery.getCurrentAccount()` 获取当前账号；失败返回 `ACCOUNT_NOT_FOUND`。
 3. 解析 `review_time_iso8601`；失败返回 `INVALID_TIME_FORMAT`。
 4. 对请求中的 `id` 去重。
 5. 查询 `id in (...) and is_deleted = false` 的护理记录。

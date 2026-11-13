@@ -1,7 +1,7 @@
     status_code_msg: "ok"
     status_code_msg: "部门为空"
     status_code_msg: "用户未登录"
-    status_code_msg: "用户不存在"
+    status_code_msg: "未找到当前用户信息"
     status_code_msg: "当前密码错误"
     status_code_msg: "新密码和确认密码不一致"
     status_code_msg: "新密码和旧密码不能相同"

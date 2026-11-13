@@ -18,6 +18,7 @@ import org.springframework.core.io.DefaultResourceLoader;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientMonitoringRecord;
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
 import com.jingyicare.jingyi_icis_engine.entity.users.Account;
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
@@ -247,7 +248,8 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandlerTests {
                         .build())
                     .build())
                 .build());
-            when(userQuery.getAccountWithAutoId()).thenReturn(new Pair<>("account-1", "当前用户"));
+            when(userQuery.getCurrentAccount())
+                .thenReturn(new CurrentAccount("rbac-account-1", "account-1", "当前用户"));
         }
 
         private PatientNonHourlyMonitoringRecordsDataSourceHandler handler() {

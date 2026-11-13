@@ -12,6 +12,7 @@ import com.google.protobuf.util.JsonFormat;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDiagnosis.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.*;
@@ -225,13 +226,12 @@ public class PatientOverviewService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GetDailyBalanceResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
 
         // 获取当前病人科室
         Long pid = req.getPid();
@@ -260,7 +260,7 @@ public class PatientOverviewService {
 
         // 获取每日出入量数据
         Pair<StatusCode, List<DailyBalancePB>> codeListPair = patientMonitoringService.getDailyBalanceStats(
-            pid, deptId, shiftSettingsPb, queryStartUtc, queryEndUtc, accountId);
+            pid, deptId, shiftSettingsPb, queryStartUtc, queryEndUtc, account.autoAcctId());
         if (codeListPair.getFirst() != StatusCode.OK) {
             log.error("Failed to get daily balance stats: " + codeListPair.getFirst());
             return GetDailyBalanceResp.newBuilder()
@@ -289,14 +289,12 @@ public class PatientOverviewService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 获取当前病人科室
         Long pid = req.getPid();
@@ -329,7 +327,7 @@ public class PatientOverviewService {
         if (existingDailyBalance != null) {
             existingDailyBalance.setIsDeleted(true);
             existingDailyBalance.setDeletedAt(nowUtc);
-            existingDailyBalance.setDeletedBy(accountId);
+            existingDailyBalance.setDeletedBy(account.autoAcctId());
             targetDailyBalanceRepo.save(existingDailyBalance);
         }
 
@@ -339,8 +337,8 @@ public class PatientOverviewService {
             .shiftStartTime(targetDateUtc)
             .targetBalanceMl(Double.valueOf(req.getTargetBalanceMl()))
             .modifiedAt(nowUtc)
-            .modifiedBy(accountId)
-            .modifiedByAccountName(accountName)
+            .modifiedBy(account.autoAcctId())
+            .modifiedByAccountName(account.acctName())
             .isDeleted(false)
             .build();
         targetDailyBalanceRepo.save(newDailyBalance);

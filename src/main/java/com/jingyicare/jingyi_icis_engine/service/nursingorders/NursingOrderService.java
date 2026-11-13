@@ -30,6 +30,7 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.entity.medications.*;
 import com.jingyicare.jingyi_icis_engine.entity.nursingorders.*;
 import com.jingyicare.jingyi_icis_engine.entity.patients.*;
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.repository.medications.*;
 import com.jingyicare.jingyi_icis_engine.repository.nursingorders.*;
 import com.jingyicare.jingyi_icis_engine.service.*;
@@ -109,14 +110,13 @@ public class NursingOrderService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return AddNursingOrderTemplateGroupResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 检查部门ID是否为空
         if (StrUtils.isBlank(req.getDeptId())) {
@@ -141,11 +141,11 @@ public class NursingOrderService {
             .name(req.getGroup().getName())
             .displayOrder(req.getGroup().getDisplayOrder())
             .isDeleted(false)
-            .modifiedBy(accountId)
+            .modifiedBy(account.autoAcctId())
             .modifiedAt(nowUtc)
             .build();
         group = templateGroupRepo.save(group);
-        log.info("Added nursing order template group: {}, by {}\n, ", group, accountId);
+        log.info("Added nursing order template group: {}, by {}\n, ", group, account.autoAcctId());
 
         return AddNursingOrderTemplateGroupResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -166,14 +166,13 @@ public class NursingOrderService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 待更新
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
@@ -191,7 +190,8 @@ public class NursingOrderService {
         // 更新
         existingGroup.setName(req.getName());
         templateGroupRepo.save(existingGroup);
-        log.info("Updated nursing order template group: {}, by {}\n, ", existingGroup, accountId);
+        log.info("Updated nursing order template group: {}, by {}\n, ",
+            existingGroup, account.autoAcctId());
 
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -211,14 +211,13 @@ public class NursingOrderService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 查找模板组
         NursingOrderTemplateGroup group = templateGroupRepo.findById(req.getId()).orElse(null);
@@ -242,12 +241,13 @@ public class NursingOrderService {
         // 删除
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
         group.setIsDeleted(true);
-        group.setDeletedBy(accountId);
+        group.setDeletedBy(account.autoAcctId());
         group.setDeletedAt(nowUtc);
-        group.setModifiedBy(accountId);
+        group.setModifiedBy(account.autoAcctId());
         group.setModifiedAt(nowUtc);
         templateGroupRepo.save(group);
-        log.info("Deleted nursing record template group: {}, by {}\n, ", group, accountId);
+        log.info("Deleted nursing record template group: {}, by {}\n, ",
+            group, account.autoAcctId());
 
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -267,14 +267,13 @@ public class NursingOrderService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return AddNursingOrderTemplateResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 检查部门
         if (StrUtils.isBlank(req.getDeptId())) {
@@ -325,11 +324,11 @@ public class NursingOrderService {
             .medicationFreqCode(req.getTemplate().getMedicationFreqCode())
             .displayOrder(req.getTemplate().getDisplayOrder())
             .isDeleted(false)
-            .modifiedBy(accountId)
+            .modifiedBy(account.autoAcctId())
             .modifiedAt(nowUtc)
             .build();
         template = templateRepo.save(template);
-        log.info("Added nursing order template: {}, by {}\n, ", template, accountId);
+        log.info("Added nursing order template: {}, by {}\n, ", template, account.autoAcctId());
 
         return AddNursingOrderTemplateResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -350,14 +349,13 @@ public class NursingOrderService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 查找模板组
         Integer groupId = req.getTemplate().getGroupId();
@@ -395,10 +393,10 @@ public class NursingOrderService {
         template.setDurationType(req.getTemplate().getDurationType());
         template.setMedicationFreqCode(req.getTemplate().getMedicationFreqCode());
         template.setDisplayOrder(req.getTemplate().getDisplayOrder());
-        template.setModifiedBy(accountId);
+        template.setModifiedBy(account.autoAcctId());
         template.setModifiedAt(nowUtc);
         templateRepo.save(template);
-        log.info("Updated nursing order template: {}, by {}\n, ", template, accountId);
+        log.info("Updated nursing order template: {}, by {}\n, ", template, account.autoAcctId());
 
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -418,14 +416,13 @@ public class NursingOrderService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 检查模板是否已存在
         NursingOrderTemplate template = templateRepo.findById(req.getId()).orElse(null);
@@ -440,11 +437,11 @@ public class NursingOrderService {
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
         template.setIsDeleted(true);
         template.setDeletedAt(nowUtc);
-        template.setDeletedBy(accountId);
+        template.setDeletedBy(account.autoAcctId());
         template.setModifiedAt(nowUtc);
-        template.setModifiedBy(accountId);
+        template.setModifiedBy(account.autoAcctId());
         templateRepo.save(template);
-        log.info("Deleted nursing order template: {}, by {}\n, ", template, accountId);
+        log.info("Deleted nursing order template: {}, by {}\n, ", template, account.autoAcctId());
 
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -493,14 +490,13 @@ public class NursingOrderService {
                 .build();
         }
 
-        Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return AddNursingOrderNoteResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        String accountId = accountWithAutoId.getFirst();
 
         if (StrUtils.isBlank(req.getDeptId())) {
             log.error("deptId is empty.");
@@ -530,11 +526,11 @@ public class NursingOrderService {
             .content(content)
             .displayOrder(displayOrder)
             .isDeleted(false)
-            .modifiedBy(accountId)
+            .modifiedBy(account.autoAcctId())
             .modifiedAt(nowUtc)
             .build();
         note = noteRepo.save(note);
-        log.info("Added nursing order note: {}, by {}", note, accountId);
+        log.info("Added nursing order note: {}, by {}", note, account.autoAcctId());
 
         return AddNursingOrderNoteResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -554,14 +550,13 @@ public class NursingOrderService {
                 .build();
         }
 
-        Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        String accountId = accountWithAutoId.getFirst();
 
         if (StrUtils.isBlank(req.getDeptId())) {
             log.error("deptId is empty.");
@@ -598,10 +593,10 @@ public class NursingOrderService {
 
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
         note.setContent(content);
-        note.setModifiedBy(accountId);
+        note.setModifiedBy(account.autoAcctId());
         note.setModifiedAt(nowUtc);
         noteRepo.save(note);
-        log.info("Updated nursing order note: {}, by {}", note, accountId);
+        log.info("Updated nursing order note: {}, by {}", note, account.autoAcctId());
 
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -620,14 +615,13 @@ public class NursingOrderService {
                 .build();
         }
 
-        Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        String accountId = accountWithAutoId.getFirst();
 
         if (StrUtils.isBlank(req.getDeptId())) {
             log.error("deptId is empty.");
@@ -646,12 +640,12 @@ public class NursingOrderService {
 
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
         note.setIsDeleted(true);
-        note.setDeletedBy(accountId);
+        note.setDeletedBy(account.autoAcctId());
         note.setDeletedAt(nowUtc);
-        note.setModifiedBy(accountId);
+        note.setModifiedBy(account.autoAcctId());
         note.setModifiedAt(nowUtc);
         noteRepo.save(note);
-        log.info("Deleted nursing order note: {}, by {}", note, accountId);
+        log.info("Deleted nursing order note: {}, by {}", note, account.autoAcctId());
 
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -670,14 +664,13 @@ public class NursingOrderService {
                 .build();
         }
 
-        Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        String accountId = accountWithAutoId.getFirst();
 
         if (StrUtils.isBlank(req.getDeptId())) {
             log.error("deptId is empty.");
@@ -705,13 +698,14 @@ public class NursingOrderService {
                     .build();
             }
             note.setDisplayOrder(noteOrder.getDisplayOrder());
-            note.setModifiedBy(accountId);
+            note.setModifiedBy(account.autoAcctId());
             note.setModifiedAt(nowUtc);
             notesToSave.add(note);
         }
 
         noteRepo.saveAll(notesToSave);
-        log.info("Reordered nursing order notes, deptId={}, count={}, by {}", req.getDeptId(), notesToSave.size(), accountId);
+        log.info("Reordered nursing order notes, deptId={}, count={}, by {}",
+            req.getDeptId(), notesToSave.size(), account.autoAcctId());
 
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -731,14 +725,13 @@ public class NursingOrderService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GetNursingOrderDetailsResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 获取查询条件
         final Long pid = req.getPid();
@@ -759,7 +752,8 @@ public class NursingOrderService {
         final String deptId = patientRecord.getDeptId();
         final ShiftSettingsPB shiftSettings = shiftUtils.getShiftByDeptId(deptId);
 
-        StatusCode syncStatus = nursingOrderSyncService.syncFromMedicalOrders(patientRecord, accountId);
+        StatusCode syncStatus = nursingOrderSyncService.syncFromMedicalOrders(
+            patientRecord, account.autoAcctId());
         if (syncStatus != StatusCode.OK) {
             return GetNursingOrderDetailsResp.newBuilder()
                 .setRt(protoService.getReturnCode(syncStatus))
@@ -783,7 +777,8 @@ public class NursingOrderService {
             .filter(order -> !recordMap.containsKey(order.getId()))
             .toList();
         Map<Long, List<NursingExecutionRecord>> newRecordMap = parseNursingOrders(
-            accountId, noRecordOrders, shiftSettings, queryStartUtc, queryEndUtc, patientInIcu);
+            account.autoAcctId(), noRecordOrders, shiftSettings, queryStartUtc, queryEndUtc,
+            patientInIcu);
 
         // 根据护理计划获得对应的分组
         List<NursingOrder> hisOrders = orders.stream()
@@ -835,14 +830,13 @@ public class NursingOrderService {
         }
 
         // 获取用户信息，用于同步HIS护嘱的modified_by
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GetNursingOrdersResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         final PatientRecord patientRecord = patientService.getPatientRecord(req.getPid());
         if (patientRecord == null) {
@@ -852,7 +846,8 @@ public class NursingOrderService {
                 .build();
         }
 
-        StatusCode syncStatus = nursingOrderSyncService.syncFromMedicalOrders(patientRecord, accountId);
+        StatusCode syncStatus = nursingOrderSyncService.syncFromMedicalOrders(
+            patientRecord, account.autoAcctId());
         if (syncStatus != StatusCode.OK) {
             return GetNursingOrdersResp.newBuilder()
                 .setRt(protoService.getReturnCode(syncStatus))
@@ -939,14 +934,13 @@ public class NursingOrderService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return AddNursingOrdersResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 查询病人
         final Long pid = req.getPid();
@@ -1024,20 +1018,20 @@ public class NursingOrderService {
                 .name(orderPb.getName())
                 .durationType(orderPb.getDurationType())
                 .medicationFreqCode(orderPb.getMedicationFreqCode())
-                .orderBy(accountId)
+                .orderBy(account.autoAcctId())
                 .orderTime(orderTime)
                 .note(orderPb.getNote())
                 .isDeleted(false)
-                .modifiedBy(accountId)
+                .modifiedBy(account.autoAcctId())
                 .modifiedAt(nowUtc)
                 .build();
             if (stopTime != null) {
-                order.setStopBy(accountId);
+                order.setStopBy(account.autoAcctId());
                 order.setStopTime(stopTime);
             }
             order = orderRepo.save(order);
             orderIds.add(order.getId());
-            log.info("Added nursing order: {}, by {}\n, ", order, accountId);
+            log.info("Added nursing order: {}, by {}\n, ", order, account.autoAcctId());
         }
 
         return AddNursingOrdersResp.newBuilder()
@@ -1059,14 +1053,13 @@ public class NursingOrderService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 查询护理计划
         List<NursingOrder> ordersToStop = new ArrayList<>();
@@ -1097,15 +1090,15 @@ public class NursingOrderService {
                 .build();
         }
         for (NursingOrder order : ordersToStop) {
-            order.setStopBy(accountId);
+            order.setStopBy(account.autoAcctId());
             order.setStopTime(stopTime);
             if (!StrUtils.isBlank(req.getNote())) {
                 order.setNote(req.getNote());
             }
-            order.setModifiedBy(accountId);
+            order.setModifiedBy(account.autoAcctId());
             order.setModifiedAt(nowUtc);
             orderRepo.save(order);
-            log.info("Stopped nursing order: {}, by {}\n, ", order, accountId);
+            log.info("Stopped nursing order: {}, by {}\n, ", order, account.autoAcctId());
         }
 
         return GenericResp.newBuilder()
@@ -1126,14 +1119,13 @@ public class NursingOrderService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 查询护理计划
         List<NursingOrder> ordersToDelete = new ArrayList<>();
@@ -1157,10 +1149,11 @@ public class NursingOrderService {
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
         for (NursingOrder order : ordersToDelete) {
             order.setIsDeleted(true);
-            order.setDeletedBy(accountId);
+            order.setDeletedBy(account.autoAcctId());
             order.setDeletedAt(nowUtc);
             orderRepo.save(order);
-            log.info("Delete nursing order: id {}, account {}", order.getId(), accountId);
+            log.info("Delete nursing order: id {}, account {}",
+                order.getId(), account.autoAcctId());
         }
         
 
@@ -1182,14 +1175,13 @@ public class NursingOrderService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 查询护理记录
         NursingExecutionRecord record = recordRepo.findById(req.getId()).orElse(null);
@@ -1209,13 +1201,13 @@ public class NursingOrderService {
             record.setCompletedBy("");
             record.setNote("");
         } else {
-            record.setCompletedBy(accountId);
+            record.setCompletedBy(account.autoAcctId());
             record.setNote(req.getNote());
         }
-        record.setModifiedBy(accountId);
+        record.setModifiedBy(account.autoAcctId());
         record.setModifiedAt(nowUtc);
         recordRepo.save(record);
-        log.info("Updated nursing execution record: {}, by {}\n, ", record, accountId);
+        log.info("Updated nursing execution record: {}, by {}\n, ", record, account.autoAcctId());
 
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -1235,14 +1227,13 @@ public class NursingOrderService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 查询护理记录
         NursingExecutionRecord record = recordRepo.findById(req.getId()).orElse(null);
@@ -1256,10 +1247,10 @@ public class NursingOrderService {
         // 删除
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
         record.setIsDeleted(true);
-        record.setDeletedBy(accountId);
+        record.setDeletedBy(account.autoAcctId());
         record.setDeletedAt(nowUtc);
         recordRepo.save(record);
-        log.info("Deleted nursing execution record: {}, by {}\n, ", record, accountId);
+        log.info("Deleted nursing execution record: {}, by {}\n, ", record, account.autoAcctId());
 
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))

@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
 import com.jingyicare.jingyi_icis_engine.entity.skincares.*;
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSkincare.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
@@ -1765,9 +1766,9 @@ public class SkincareService {
     }
 
     private String getCurrentAccountId() {
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) return null;
-        return account.getFirst();
+        return account.autoAcctId();
     }
 
     private void softDeleteType(SkincareType type, String accountId, LocalDateTime now) {

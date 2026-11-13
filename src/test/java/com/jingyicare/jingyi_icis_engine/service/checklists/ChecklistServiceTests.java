@@ -7,6 +7,7 @@ import java.util.*;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
@@ -48,6 +49,105 @@ public class ChecklistServiceTests extends TestsBase {
         this.patientRepo = patientRepo;
 
         init();
+    }
+
+    @Test
+    @Transactional
+    void usesRbacIdForPermissionAndAutoIdForAudit() {
+        String rbacAcctId = "checklist-current-account-user";
+        String deptId = "checklist-current-account-dept";
+        int roleId = 920008;
+        try {
+            jdbcTemplate.update("""
+                INSERT INTO rbac_accounts(account_id, account_name) VALUES (?, ?)
+                """, rbacAcctId, "质控测试账号");
+            Long autoAcctId = jdbcTemplate.queryForObject("""
+                INSERT INTO accounts(account_id, name, is_deleted)
+                VALUES (?, ?, false) RETURNING id
+                """, Long.class, rbacAcctId, "质控测试用户");
+            assertThat(autoAcctId).isNotNull();
+            assertThat(autoAcctId.toString()).isNotEqualTo(rbacAcctId);
+            jdbcTemplate.update("""
+                INSERT INTO rbac_departments(dept_id, dept_name) VALUES (?, ?)
+                """, deptId, "质控测试科室");
+            jdbcTemplate.update("""
+                INSERT INTO rbac_roles(id, name, is_primary) VALUES (?, ?, true)
+                """, roleId, "质控测试角色");
+            jdbcTemplate.update("""
+                INSERT INTO rbac_permissions(id, name) VALUES (?, ?)
+                ON CONFLICT (id) DO NOTHING
+                """, Consts.PERM_ID_CONFIG_CHECKLIST, "配置组长质控");
+            jdbcTemplate.update("""
+                INSERT INTO rbac_accounts_departments(account_id, dept_id, primary_role_id)
+                VALUES (?, ?, ?)
+                """, rbacAcctId, deptId, roleId);
+            jdbcTemplate.update("""
+                INSERT INTO rbac_accounts_departments_permissions
+                    (account_id, dept_id, permission_id)
+                VALUES (?, ?, ?)
+                """, rbacAcctId, deptId, Consts.PERM_ID_CONFIG_CHECKLIST);
+            SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(rbacAcctId, null, List.of()));
+
+            AddDeptChecklistGroupReq req = AddDeptChecklistGroupReq.newBuilder()
+                .setGroup(DeptChecklistGroupPB.newBuilder()
+                    .setDeptId(deptId).setGroupName("有权限的质控分组"))
+                .build();
+            AddDeptChecklistGroupResp allowed = checklistService.addDeptChecklistGroup(
+                ProtoUtils.protoToJson(req));
+            assertThat(allowed.getRt().getCode()).isEqualTo(StatusCode.OK.getNumber());
+            assertThat(jdbcTemplate.queryForObject(
+                "SELECT modified_by FROM dept_checklist_groups WHERE id = ?",
+                String.class, allowed.getId())).isEqualTo(autoAcctId.toString());
+
+            jdbcTemplate.update("""
+                DELETE FROM rbac_accounts_departments_permissions
+                WHERE account_id = ? AND dept_id = ? AND permission_id = ?
+                """, rbacAcctId, deptId, Consts.PERM_ID_CONFIG_CHECKLIST);
+            AddDeptChecklistGroupReq deniedReq = req.toBuilder()
+                .setGroup(req.getGroup().toBuilder().setGroupName("撤权后的质控分组"))
+                .build();
+            AddDeptChecklistGroupResp denied = checklistService.addDeptChecklistGroup(
+                ProtoUtils.protoToJson(deniedReq));
+            assertThat(denied.getRt().getCode())
+                .isEqualTo(StatusCode.PERMISSION_DENIED.getNumber());
+            assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM dept_checklist_groups WHERE dept_id = ?",
+                Long.class, deptId)).isEqualTo(1L);
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+    }
+
+    @Test
+    @Transactional
+    void rejectsMissingRbacAccountAndMissingLoginBeforeWriting() {
+        String rbacAcctId = "checklist-current-account-missing-rbac";
+        String deptId = "checklist-current-account-missing-dept";
+        try {
+            // 只有业务账号仍应拒绝，不能将其自增 ID 当成已认证的 RBAC 账号。
+            jdbcTemplate.update("""
+                INSERT INTO accounts(account_id, name, is_deleted) VALUES (?, ?, false)
+                """, rbacAcctId, "无 RBAC 的质控测试用户");
+            AddDeptChecklistGroupReq req = AddDeptChecklistGroupReq.newBuilder()
+                .setGroup(DeptChecklistGroupPB.newBuilder()
+                    .setDeptId(deptId).setGroupName("不应写入的质控分组"))
+                .build();
+            String reqJson = ProtoUtils.protoToJson(req);
+            SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(rbacAcctId, null, List.of()));
+            assertThat(checklistService.addDeptChecklistGroup(reqJson).getRt().getCode())
+                .isEqualTo(StatusCode.ACCOUNT_NOT_FOUND.getNumber());
+
+            SecurityContextHolder.clearContext();
+            assertThat(checklistService.addDeptChecklistGroup(reqJson).getRt().getCode())
+                .isEqualTo(StatusCode.ACCOUNT_NOT_FOUND.getNumber());
+            assertThat(jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM dept_checklist_groups WHERE dept_id = ?",
+                Long.class, deptId)).isZero();
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
     }
 
     @Test
@@ -455,6 +555,8 @@ public class ChecklistServiceTests extends TestsBase {
 
     private final ConfigProtoService protoService;
     private final ChecklistService checklistService;
+
+    @Autowired private JdbcTemplate jdbcTemplate;
 
     RbacDepartmentRepository deptRepo;
     PatientRecordRepository patientRepo;

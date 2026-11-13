@@ -19,6 +19,7 @@ import org.mockito.ArgumentCaptor;
 import com.jingyicare.jingyi_icis_engine.entity.reports.DragableFormTemplate;
 import com.jingyicare.jingyi_icis_engine.entity.settings.DeptSystemSettings;
 import com.jingyicare.jingyi_icis_engine.entity.settings.DeptSystemSettingsId;
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.*;
@@ -32,7 +33,6 @@ import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkTemplateReader;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
-import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
 class ArchiveConfigServiceTests {
@@ -55,7 +55,8 @@ class ArchiveConfigServiceTests {
         service = new SettingService(config, users,
             new SettingsStore(settingsRepo, mock(SystemSettingsRepository.class)),
             new JfkTemplateReader(templates), lockExecutor);
-        when(users.getAccountWithAutoId()).thenReturn(new Pair<>("admin", "1"));
+        when(users.getCurrentAccount())
+            .thenReturn(new CurrentAccount("admin", "admin", "1"));
     }
 
     @Test
@@ -164,7 +165,7 @@ class ArchiveConfigServiceTests {
         assertThat(service.getArchiveConfig("{").getRt().getCode()).isEqualTo(StatusCode.PARSE_JSON_FAILED_VALUE);
         assertThat(service.updateArchiveConfig("{").getRt().getCode()).isEqualTo(StatusCode.PARSE_JSON_FAILED_VALUE);
         assertThat(service.updateArchiveConfig("{}").getRt().getCode()).isEqualTo(StatusCode.ARCHIVE_CONFIG_INVALID_VALUE);
-        when(users.getAccountWithAutoId()).thenReturn(null);
+        when(users.getCurrentAccount()).thenReturn(null);
         assertThat(update("ICU", 42).getRt().getCode()).isEqualTo(StatusCode.ACCOUNT_NOT_FOUND_VALUE);
         verifyNoInteractions(templates, settingsRepo);
     }

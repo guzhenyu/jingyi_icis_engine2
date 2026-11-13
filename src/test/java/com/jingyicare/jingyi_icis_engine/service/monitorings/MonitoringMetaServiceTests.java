@@ -44,6 +44,7 @@ import com.jingyicare.jingyi_icis_engine.entity.monitorings.DeptMonitoringParam;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.DeptMonitoringParamId;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.MonitoringParam;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.MonitoringParamHistory;
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringParamPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
@@ -58,14 +59,14 @@ import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
-import com.jingyicare.jingyi_icis_engine.utils.Pair;
 
 class MonitoringMetaServiceTests extends TestsBase {
     @BeforeEach
     void prepare() {
         cleanParams();
         userQuery = mock(UserQuery.class);
-        when(userQuery.getAccountWithAutoId()).thenReturn(new Pair<>(ACCOUNT, ACCOUNT));
+        when(userQuery.getCurrentAccount())
+            .thenReturn(new CurrentAccount("rbac-" + ACCOUNT, ACCOUNT, ACCOUNT));
         serviceExecutor = spy(executor);
         service = configuredService(List.of(param(FIRST_CODE), param(SECOND_CODE)), historyRepo);
     }

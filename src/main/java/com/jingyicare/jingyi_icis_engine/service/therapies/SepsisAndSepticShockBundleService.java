@@ -19,6 +19,7 @@ import com.jingyicare.jingyi_icis_engine.entity.medications.*;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.entity.therapies.SepsisAndSepticShockBundle;
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisAlarm.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.*;
@@ -363,7 +364,7 @@ public class SepsisAndSepticShockBundleService {
                 .build();
         }
 
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return SaveSepticShockCaseResp.newBuilder()
                 .setRt(returnCode(StatusCode.ACCOUNT_NOT_FOUND))
@@ -375,7 +376,7 @@ public class SepsisAndSepticShockBundleService {
                 .pid(pid)
                 .needBundle(false)
                 .modifiedAt(TimeUtils.getNowUtc())
-                .modifiedBy(account.getFirst())
+                .modifiedBy(account.autoAcctId())
                 .build());
         String validationError = validateCompletionTimes(entity, patch);
         if (!StrUtils.isBlank(validationError)) {
@@ -383,7 +384,7 @@ public class SepsisAndSepticShockBundleService {
                 .setRt(returnCode(StatusCode.INVALID_TIME_FORMAT, validationError))
                 .build();
         }
-        applyPatch(entity, patch, account.getFirst());
+        applyPatch(entity, patch, account.autoAcctId());
         bundleRepo.save(entity);
 
         List<SepsisAndSepticShockCasePB> cases = buildSepticShockCases(List.of(pid));

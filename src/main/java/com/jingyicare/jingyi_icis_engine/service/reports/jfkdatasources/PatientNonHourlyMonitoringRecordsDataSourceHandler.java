@@ -20,6 +20,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientMonitoringRecord;
 import com.jingyicare.jingyi_icis_engine.entity.users.Account;
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkFieldDataPB;
@@ -120,13 +121,13 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandler extends Abstract
             return new Pair<>(returnCode(StatusCode.OK), outputBuilder.build());
         }
 
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
-        if (account == null || StrUtils.isBlank(account.getFirst())) {
+        CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null || StrUtils.isBlank(account.autoAcctId())) {
             return error(StatusCode.ACCOUNT_NOT_FOUND, "pid: " + pid);
         }
 
         Map<String, MonitoringParamPB> paramMap = monitoringConfig.getMonitoringParams(deptId);
-        Map<String, Integer> paramOrder = monitoringParamOrder(pid, deptId, account.getFirst());
+        Map<String, Integer> paramOrder = monitoringParamOrder(pid, deptId, account.autoAcctId());
         Map<String, String> accountNameByModifiedBy = accountNameByModifiedBy(nonHourlyRecords);
         JfkSignatureValueResolver signatureResolver = new JfkSignatureValueResolver(
             accountRepo,

@@ -13,6 +13,7 @@ import com.google.protobuf.util.JsonFormat;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
@@ -157,15 +158,13 @@ public class PatientDeviceService {
         final String hisBedNumber = req.getBedConfig().getHisBedNumber();
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             log.error("Account not found");
             return AddBedConfigResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 查找床位配置
         List<BedConfig> bedConfigs = bedConfigRepo.findByDepartmentIdAndIsDeletedFalse(deptId)
@@ -205,9 +204,9 @@ public class PatientDeviceService {
         }
 
         // 新增床位配置
-        bedConfig = getBedConfig(req.getBedConfig(), accountId, accountName);
+        bedConfig = getBedConfig(req.getBedConfig(), account.autoAcctId(), account.acctName());
         bedConfig = bedConfigRepo.save(bedConfig);
-        log.info("BedConfig added: {}, by {}", bedConfig, accountName);
+        log.info("BedConfig added: {}, by {}", bedConfig, account.acctName());
 
         return AddBedConfigResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -228,15 +227,13 @@ public class PatientDeviceService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             log.error("Account not found");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 检查床位是否存在
         BedConfig bedConfig = bedConfigRepo
@@ -279,9 +276,9 @@ public class PatientDeviceService {
         }
 
         // 更新床位配置
-        bedConfig = getBedConfig(req.getBedConfig(), accountId, accountName);
+        bedConfig = getBedConfig(req.getBedConfig(), account.autoAcctId(), account.acctName());
         bedConfig = bedConfigRepo.save(bedConfig);
-        log.info("BedConfig updated: {}, by {}", bedConfig, accountName);
+        log.info("BedConfig updated: {}, by {}", bedConfig, account.acctName());
 
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -301,14 +298,12 @@ public class PatientDeviceService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 检查床位是否存在
         BedConfig bedConfig = bedConfigRepo
@@ -321,10 +316,10 @@ public class PatientDeviceService {
 
         // 删除床位配置
         bedConfig.setIsDeleted(true);
-        bedConfig.setDeletedBy(accountId);
+        bedConfig.setDeletedBy(account.autoAcctId());
         bedConfig.setDeletedAt(TimeUtils.getNowUtc());
         bedConfigRepo.save(bedConfig);
-        log.info("BedConfig deleted: {}, by {}", bedConfig, accountName);
+        log.info("BedConfig deleted: {}, by {}", bedConfig, account.acctName());
 
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -379,15 +374,13 @@ public class PatientDeviceService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             log.error("Account not found");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 解析关键参数
         String deptId = req.getDeptId();
@@ -417,12 +410,12 @@ public class PatientDeviceService {
             .bedCount(count)
             .effectiveTime(effectiveTime)
             .isDeleted(false)
-            .modifiedBy(accountId)
+            .modifiedBy(account.autoAcctId())
             .modifiedAt(TimeUtils.getNowUtc())
             .build();
 
         bedCount = bedCountRepo.save(bedCount);
-        log.info("BedCount added: {}, by {}", bedCount, accountName);
+        log.info("BedCount added: {}, by {}", bedCount, account.acctName());
 
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -442,14 +435,12 @@ public class PatientDeviceService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 检查床位数量记录是否存在
         BedCount bedCount = bedCountRepo.findByIdAndIsDeletedFalse(req.getId()).orElse(null);
@@ -461,10 +452,10 @@ public class PatientDeviceService {
 
         // 删除床位数量记录
         bedCount.setIsDeleted(true);
-        bedCount.setDeletedBy(accountId);
+        bedCount.setDeletedBy(account.autoAcctId());
         bedCount.setDeletedAt(TimeUtils.getNowUtc());
         bedCountRepo.save(bedCount);
-        log.info("BedCount deleted: {}, by {}", bedCount, accountName);
+        log.info("BedCount deleted: {}, by {}", bedCount, account.acctName());
 
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -598,14 +589,12 @@ public class PatientDeviceService {
         }
 
         // 获取当前用户
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return AddDeviceInfoResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         DeviceInfoPB deviceInfoPB = normalizeDeviceInfo(req.getDeviceInfo());
 
@@ -637,11 +626,11 @@ public class PatientDeviceService {
 
         // 新增设备信息
         devInfo = patientConfig.toDeviceInfo(deviceInfoPB);
-        devInfo.setModifiedBy(accountId);
-        devInfo.setModifiedByAccountName(accountName);
+        devInfo.setModifiedBy(account.autoAcctId());
+        devInfo.setModifiedByAccountName(account.acctName());
         devInfo.setModifiedAt(TimeUtils.getNowUtc());
         devInfo = devRepo.save(devInfo);
-        log.info("DeviceInfo added: {}, by {}", devInfo, accountName);
+        log.info("DeviceInfo added: {}, by {}", devInfo, account.acctName());
 
         return AddDeviceInfoResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -661,14 +650,12 @@ public class PatientDeviceService {
                 .build();
         }
 
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         DeviceInfoPB deviceInfoPB = normalizeDeviceInfo(req.getDeviceInfo());
 
@@ -707,11 +694,11 @@ public class PatientDeviceService {
         // 更新设备信息
         devInfo = patientConfig.toDeviceInfo(deviceInfoPB);
         devInfo.setId(deviceInfoPB.getId());
-        devInfo.setModifiedBy(accountId);
-        devInfo.setModifiedByAccountName(accountName);
+        devInfo.setModifiedBy(account.autoAcctId());
+        devInfo.setModifiedByAccountName(account.acctName());
         devInfo.setModifiedAt(TimeUtils.getNowUtc());
         devInfo = devRepo.save(devInfo);
-        log.info("DeviceInfo updated: {}, by {}", devInfo, accountName);
+        log.info("DeviceInfo updated: {}, by {}", devInfo, account.acctName());
 
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -730,14 +717,12 @@ public class PatientDeviceService {
                 .build();
         }
 
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 查找设备是否存在
         DeviceInfo devInfo = devRepo.findById(req.getId()).orElse(null);
@@ -758,13 +743,13 @@ public class PatientDeviceService {
         // 删除设备信息
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
         devInfo.setIsDeleted(true);
-        devInfo.setDeletedBy(accountId);
+        devInfo.setDeletedBy(account.autoAcctId());
         devInfo.setDeletedAt(nowUtc);
-        devInfo.setModifiedBy(accountId);
-        devInfo.setModifiedByAccountName(accountName);
+        devInfo.setModifiedBy(account.autoAcctId());
+        devInfo.setModifiedByAccountName(account.acctName());
         devInfo.setModifiedAt(nowUtc);
         devRepo.save(devInfo);
-        log.info("DeviceInfo deleted: {}, by {}", devInfo, accountName);
+        log.info("DeviceInfo deleted: {}, by {}", devInfo, account.acctName());
 
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -784,14 +769,12 @@ public class PatientDeviceService {
         }
 
         // 获取当前用户
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return BindPatientDeviceResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
         final Integer deviceId = req.getDeviceId();
 
         if (!StrUtils.isBlank(req.getBindingTimeIso8601())) {
@@ -822,8 +805,8 @@ public class PatientDeviceService {
                             .build();
                     }
                     patientDev.setUnbindingTime(bindingTime);
-                    patientDev.setModifiedBy(accountId);
-                    patientDev.setModifiedByAccountName(accountName);
+                    patientDev.setModifiedBy(account.autoAcctId());
+                    patientDev.setModifiedByAccountName(account.acctName());
                     patientDev.setModifiedAt(TimeUtils.getNowUtc());
                     patientDevRepo.save(patientDev);
                 }
@@ -860,12 +843,12 @@ public class PatientDeviceService {
                 .deviceId(deviceId)
                 .bindingTime(bindingTime)
                 .isDeleted(false)
-                .modifiedBy(accountId)
-                .modifiedByAccountName(accountName)
+                .modifiedBy(account.autoAcctId())
+                .modifiedByAccountName(account.acctName())
                 .modifiedAt(TimeUtils.getNowUtc())
                 .build();
             patientDev = patientDevRepo.save(patientDev);
-            log.info("PatientDevice binded: {}, by {}", patientDev, accountName);
+            log.info("PatientDevice binded: {}, by {}", patientDev, account.acctName());
 
             return BindPatientDeviceResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -902,14 +885,15 @@ public class PatientDeviceService {
                     .build();
             }
             StatusCode statusCode = PatientDevUtils.unbindDevice(
-                patientDev, unbindingTime, accountId, accountName, TimeUtils.getNowUtc()
+                patientDev, unbindingTime,
+                account.autoAcctId(), account.acctName(), TimeUtils.getNowUtc()
             );
             if (statusCode != StatusCode.OK) {
                 log.error("Failed to unbind device: {}", statusCode);
                 return BindPatientDeviceResp.newBuilder().setRt(protoService.getReturnCode(statusCode)).build();
             }
             patientDevRepo.save(patientDev);
-            log.info("PatientDevice unbinded: {}, by {}", patientDev, accountName);
+            log.info("PatientDevice unbinded: {}, by {}", patientDev, account.acctName());
         }
 
         return BindPatientDeviceResp.newBuilder()

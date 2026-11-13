@@ -13,6 +13,7 @@ import com.google.protobuf.util.JsonFormat;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUrl.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
@@ -90,13 +91,12 @@ public class ExtUrlService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
 
         // 提取参数
         ExtUrlPB extUrlPb = req.getUrl();
@@ -138,7 +138,7 @@ public class ExtUrlService {
             .extUrlPb(ProtoUtils.encodeExtUrl(extUrlPb))
             .isDeleted(false)
             .modifiedAt(nowUtc)
-            .modifiedBy(accountId)
+            .modifiedBy(account.autoAcctId())
             .build();
         urlConfigRepo.save(extUrlConfig);
 
@@ -162,13 +162,12 @@ public class ExtUrlService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
 
         // 提取参数
         Integer idToDelete = req.getId();
@@ -188,7 +187,7 @@ public class ExtUrlService {
         }
         extUrlConfig.setIsDeleted(true);
         extUrlConfig.setModifiedAt(nowUtc);
-        extUrlConfig.setModifiedBy(accountId);
+        extUrlConfig.setModifiedBy(account.autoAcctId());
         urlConfigRepo.save(extUrlConfig);
 
         return GenericResp.newBuilder()

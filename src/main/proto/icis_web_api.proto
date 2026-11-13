@@ -38,8 +38,8 @@ package com.jingyicare.jingyi_icis_engine.proto;
 enum StatusCode {
     OK = 0;
     DEPT_IS_EMPTY = 1;                      // 部门为空
-    NOT_LOGGED_IN = 2;                      // 用户未登录
-    ACCOUNT_NOT_FOUND = 3;                  // 用户不存在
+    NOT_LOGGED_IN = 2 [deprecated = true];  // 兼容旧编号，统一使用 ACCOUNT_NOT_FOUND
+    ACCOUNT_NOT_FOUND = 3;                  // 未找到当前用户信息
     WRONG_PASSWORD = 4;                     // 密码错误
     NEWPASSWD_CONFIRMPASSWD_NOT_MATCH = 5;  // 新密码和确认密码不一致
     NEWPASSWD_OLDPASSWD_SAME = 6;           // 新密码和旧密码不能相同

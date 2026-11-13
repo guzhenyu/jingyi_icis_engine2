@@ -30,6 +30,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientMonitoringRecord;
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
 import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
@@ -261,14 +262,15 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
     @Test
     public void handlePreservesAccountAndSourceErrors() {
         TestContext ctx = new TestContext();
-        when(ctx.userQuery.getAccountWithAutoId()).thenReturn(null);
+        when(ctx.userQuery.getCurrentAccount()).thenReturn(null);
         var accountError = ctx.handler().handle(input(List.of("intravenous_intake")));
         assertThat(accountError.getFirst().getCode()).isEqualTo(StatusCode.ACCOUNT_NOT_FOUND
             .ordinal());
         assertThat(accountError.getSecond()).isNull();
         verifyNoInteractions(ctx.patientMonitoringService);
 
-        when(ctx.userQuery.getAccountWithAutoId()).thenReturn(new Pair<>("42", "护士"));
+        when(ctx.userQuery.getCurrentAccount())
+            .thenReturn(new CurrentAccount("nurse", "42", "护士"));
         ctx.withParams();
         ctx.withBalanceRecords(List.of()).statusCode = StatusCode.INVALID_TIME_FORMAT;
         var sourceError = ctx.handler().handle(input(List.of("intravenous_intake")));
@@ -391,7 +393,8 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
         private TestContext() {
             ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
                 new StatisticsDayWindowResolver(balanceStatsShiftRepo));
-            when(userQuery.getAccountWithAutoId()).thenReturn(new Pair<>("42", "护士"));
+            when(userQuery.getCurrentAccount())
+                .thenReturn(new CurrentAccount("nurse", "42", "护士"));
             when(configProtoService.getConfig()).thenReturn(Config.newBuilder()
                 .setMonitoring(MonitoringPB.newBuilder()
                     .setParamCodeSummary("all")

@@ -15,6 +15,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import com.jingyicare.jingyi_icis_engine.entity.users.Account;
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.entity.users.RbacDepartment;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.RealtimeCaSignImageSourcePB;
@@ -28,7 +29,6 @@ import com.jingyicare.jingyi_icis_engine.service.ca.CaSignImageValidator.Validat
 import com.jingyicare.jingyi_icis_engine.service.ca.client.CigCaClient;
 import com.jingyicare.jingyi_icis_engine.service.settings.SettingService;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
-import com.jingyicare.jingyi_icis_engine.utils.Pair;
 
 class CaServiceTests {
     @BeforeEach
@@ -59,7 +59,8 @@ class CaServiceTests {
         account.setId(7L);
         account.setAccountId("doctor-7");
         account.setIsDisabled(0);
-        when(userQuery.getAccountWithAutoId()).thenReturn(new Pair<>("1", "调用人"));
+        when(userQuery.getCurrentAccount())
+            .thenReturn(new CurrentAccount("caller", "1", "调用人"));
         when(deptRepo.findByDeptId("ICU")).thenReturn(Optional.of(mock(RbacDepartment.class)));
         when(userQuery.canCurrentUserAccessDept("ICU")).thenReturn(true);
         when(accountRepo.findByIdAndIsDeletedFalse(7L)).thenReturn(Optional.of(account));

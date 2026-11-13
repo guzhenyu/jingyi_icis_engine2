@@ -23,6 +23,7 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 
 import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.entity.tubes.*;
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.PatientNursingReportInvalidationService;
@@ -157,15 +158,13 @@ public class PatientTubeService {
         }
 
         // 获取当前用户
-        final Pair<String, String> account = userQuery.getAccountWithAutoId();
+        final CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             log.error("accountId is empty.");
             return NewPatientTubeResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 提取关键参数
         final Long pid = req.getPid();
@@ -227,11 +226,13 @@ public class PatientTubeService {
         // 更新护理单的处理时间（为 打印从首页到尾页都一致的护理单 提效，省二院）
         pnrUtils.updateLatestDataTime(pid, deptId, insertedAt, insertedAt, nowUtc);
 
-        log.info("a patient tube is created, accountId {}, json {}", accountId, newPatientTubeReqJson);
+        log.info("a patient tube is created, accountId {}, json {}",
+            account.autoAcctId(), newPatientTubeReqJson);
         // 调用实现类进行插管记录的创建
         return NewPatientTubeResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
-            .setId(patientTubeImpl.addPatientTube(req, tubeType.getType(), tubeName, accountId, accountName))
+            .setId(patientTubeImpl.addPatientTube(
+                req, tubeType.getType(), tubeName, account.autoAcctId(), account.acctName()))
             .build();
     }
 
@@ -247,17 +248,16 @@ public class PatientTubeService {
         }
 
         // 获取当前用户
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 调用实现类执行拔管记录删除操作
-        patientTubeImpl.removePatientTube(req, accountId);
+        patientTubeImpl.removePatientTube(req, account.autoAcctId());
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
             .build();
@@ -275,17 +275,16 @@ public class PatientTubeService {
         }
 
         // 获取当前用户
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 调用实现类执行删除操作
-        patientTubeImpl.deletePatientTube(req, accountId);
+        patientTubeImpl.deletePatientTube(req, account.autoAcctId());
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
             .build();
@@ -303,17 +302,16 @@ public class PatientTubeService {
         }
 
         // 获取当前用户
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 调用实现类执行带管出科标记操作
-        patientTubeImpl.retainTubeOnDischarge(req, accountId);
+        patientTubeImpl.retainTubeOnDischarge(req, account.autoAcctId());
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
             .build();
@@ -331,14 +329,13 @@ public class PatientTubeService {
         }
 
         // 获取当前用户
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return NewPatientTubeResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 确认旧管道信息
         PatientTubeRecord oldRecord = patientTubeImpl.findPatientTubeRecord(req.getReplacedTubeRecordId());
@@ -367,11 +364,12 @@ public class PatientTubeService {
                 }
             }
         }
-        log.info("a patient tube is to be replaced, accountId {}, json {}", accountId, replacePatientTubeReqJson);
+        log.info("a patient tube is to be replaced, accountId {}, json {}",
+            account.autoAcctId(), replacePatientTubeReqJson);
 
         return NewPatientTubeResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
-            .setId(patientTubeImpl.replacePatientTube(req, oldRecord, accountId))
+            .setId(patientTubeImpl.replacePatientTube(req, oldRecord, account.autoAcctId()))
             .build();
     }
 
@@ -387,14 +385,13 @@ public class PatientTubeService {
         }
 
         // 获取当前用户
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 确认管道信息
         PatientTubeRecord record = patientTubeImpl.findPatientTubeRecord(req.getPatientTubeRecordId());
@@ -423,7 +420,8 @@ public class PatientTubeService {
                 }
             }
         }
-        log.info("a patient tube is to be updated, accountId {}, json {}", accountId, updatePatientTubeAttrReqJson);
+        log.info("a patient tube is to be updated, accountId {}, json {}",
+            account.autoAcctId(), updatePatientTubeAttrReqJson);
 
         // 调用实现类更新属性记录
         String updatedBy = req.getInsertedBy();
@@ -436,7 +434,7 @@ public class PatientTubeService {
             req.getPlannedRemovalAtIso8601(), req.getRemovedAtIso8601(),
             req.getNote()
         );
-        patientTubeImpl.updatePatientTubeAttr(req, record, accountId);
+        patientTubeImpl.updatePatientTubeAttr(req, record, account.autoAcctId());
 
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -455,14 +453,13 @@ public class PatientTubeService {
         }
 
         // 获取当前用户
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GetPatientTubeStatusResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 确认管道信息
         PatientTubeRecord record = patientTubeImpl.findPatientTubeRecord(req.getPatientTubeRecordId());
@@ -520,15 +517,13 @@ public class PatientTubeService {
         }
 
         // 获取当前用户
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 确认管道记录信息
         PatientTubeRecord record = patientTubeImpl.findPatientTubeRecord(req.getPatientTubeRecordId());
@@ -565,7 +560,7 @@ public class PatientTubeService {
         }
 
         // 检查状态和新增记录
-        patientTubeImpl.newPatientTubeStatus(req, accountId, accountName);
+        patientTubeImpl.newPatientTubeStatus(req, account.autoAcctId(), account.acctName());
 
         // 更新护理单的处理时间（为 打印从首页到尾页都一致的护理单 提效，省二院）
         pnrUtils.updateLatestDataTime(pid, deptId, recordedAt, recordedAt, nowUtc);
@@ -587,14 +582,13 @@ public class PatientTubeService {
         }
 
         // 获取当前用户
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 确认管道状态记录信息
         PatientTubeRecord record = patientTubeImpl.findPatientTubeRecord(req.getPatientTubeRecordId());
@@ -617,7 +611,8 @@ public class PatientTubeService {
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
 
         // 执行删除操作
-        List<PatientTubeStatusRecord> statusRecords = patientTubeImpl.deletePatientTubeStatus(req, accountId);
+        List<PatientTubeStatusRecord> statusRecords = patientTubeImpl.deletePatientTubeStatus(
+            req, account.autoAcctId());
 
         // 更新护理单的处理时间（为 打印从首页到尾页都一致的护理单 提效，省二院）
         for (PatientTubeStatusRecord statusRecord : statusRecords) {

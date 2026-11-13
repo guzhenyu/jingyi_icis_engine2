@@ -27,6 +27,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
 
 import com.jingyicare.jingyi_icis_engine.entity.reports.DragableFormTemplate;
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.AddMenuItemFormTemplateReq;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.AddMenuItemReq;
@@ -84,7 +85,8 @@ class MenuServiceTests {
             return templates.stream().filter(template -> ids.contains(template.getId())).toList();
         });
         userQuery = mock(UserQuery.class);
-        when(userQuery.getAccountAutoId()).thenReturn("42");
+        when(userQuery.getCurrentAccount())
+            .thenReturn(new CurrentAccount("menu-user", "42", "菜单用户"));
         lockExecutor = mock(LockExecutor.class);
         when(lockExecutor.execute(anyCollection(), any())).thenAnswer(invocation -> {
             Supplier<?> action = invocation.getArgument(1);

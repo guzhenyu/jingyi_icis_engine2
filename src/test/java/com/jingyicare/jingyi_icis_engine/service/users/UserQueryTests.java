@@ -4,6 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
 
+import jakarta.persistence.EntityManagerFactory;
+
+import org.hibernate.SessionFactory;
+import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -12,6 +16,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.IcisAccountPB;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
@@ -85,33 +90,75 @@ class UserQueryTests extends TestsBase {
     }
 
     @Test
-    void preservesMissingAndAnonymousLoginResults() {
-        assertThat(query.getCtxAccountId()).isEmpty();
-        assertThat(query.getAccountWithAutoId()).isNull();
-        assertThat(query.hasPermission(DEPT, DIRECT_PERMISSION)).isNull();
-        authenticate("anonymousUser");
-        assertThat(query.getCtxAccountId()).isEmpty();
-        assertThat(query.getAccountWithAutoId()).isNull();
-        SecurityContextHolder.getContext().setAuthentication(
-            new UsernamePasswordAuthenticationToken(ACCOUNT, ""));
-        assertThat(query.getCtxAccountId()).isEmpty();
+    void currentAccountRejectsInvalidAuthenticationWithoutQuerying() {
+        Statistics statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+        boolean statisticsEnabled = statistics.isStatisticsEnabled();
+        statistics.setStatisticsEnabled(true);
+        try {
+            long previousStatements = statistics.getPrepareStatementCount();
+            assertThat(query.getCurrentAccount()).isNull();
+            for (String code : List.of("anonymousUser", "", "  ")) {
+                authenticate(code);
+                assertThat(query.getCurrentAccount()).isNull();
+            }
+            SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(ACCOUNT, ""));
+            assertThat(query.getCurrentAccount()).isNull();
+            assertThat(statistics.getPrepareStatementCount()).isEqualTo(previousStatements);
+        } finally {
+            statistics.setStatisticsEnabled(statisticsEnabled);
+        }
     }
 
     @Test
-    void preservesAutoIdAndRbacFallbackForCurrentUser() {
-        authenticate(ACCOUNT);
-        Pair<String, String> current = query.getAccountWithAutoId();
-        assertThat(query.getCtxAccountId()).isEqualTo(ACCOUNT);
-        assertThat(current.getFirst()).isEqualTo(accountAutoId.toString());
-        assertThat(current.getSecond()).isEqualTo("用户姓名");
-        for (String code : List.of(RBAC_ONLY, DELETED)) {
-            authenticate(code);
-            Pair<String, String> fallback = query.getAccountWithAutoId();
-            assertThat(fallback.getFirst()).isEqualTo(code);
-            assertThat(fallback.getSecond()).isEqualTo("RBAC姓名");
+    void currentAccountReadsAllFieldsAndFallbacksWithOneProjectionQuery() {
+        Statistics statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
+        boolean statisticsEnabled = statistics.isStatisticsEnabled();
+        statistics.setStatisticsEnabled(true);
+        try {
+            List<CurrentAccount> expectedAccounts = List.of(
+                new CurrentAccount(ACCOUNT, accountAutoId.toString(), "用户姓名"),
+                new CurrentAccount(RBAC_ONLY, RBAC_ONLY, "RBAC姓名"),
+                new CurrentAccount(DELETED, DELETED, "RBAC姓名")
+            );
+            for (CurrentAccount expected : expectedAccounts) {
+                authenticate(expected.rbacAcctId());
+                assertCurrentAccountProjection(statistics, expected);
+            }
+            authenticate(NO_RBAC);
+            assertCurrentAccountProjection(statistics, null);
+        } finally {
+            statistics.setStatisticsEnabled(statisticsEnabled);
         }
-        authenticate(NO_RBAC);
-        assertThat(query.getAccountWithAutoId()).isNull();
+    }
+
+    @Test
+    void currentAccountIgnoresDeletedHistoryForTheSameAccountCode() {
+        saveAccount(ACCOUNT, "历史姓名一", true);
+        saveAccount(ACCOUNT, "历史姓名二", true);
+        authenticate(ACCOUNT);
+
+        assertThat(query.getCurrentAccount()).isEqualTo(
+            new CurrentAccount(ACCOUNT, accountAutoId.toString(), "用户姓名"));
+    }
+
+    @Test
+    void currentAccountPreservesEmptyBusinessNameAndMissingRbacName() {
+        jdbcTemplate.update("UPDATE accounts SET name = '' WHERE id = ?", accountAutoId);
+        authenticate(ACCOUNT);
+        assertThat(query.getCurrentAccount()).isEqualTo(
+            new CurrentAccount(ACCOUNT, accountAutoId.toString(), ""));
+
+        jdbcTemplate.update(
+            "UPDATE rbac_accounts SET account_name = NULL WHERE account_id = ?", RBAC_ONLY);
+        authenticate(RBAC_ONLY);
+        assertThat(query.getCurrentAccount()).isEqualTo(
+            new CurrentAccount(RBAC_ONLY, RBAC_ONLY, null));
+
+        jdbcTemplate.update(
+            "UPDATE rbac_accounts SET account_name = '' WHERE account_id = ?", RBAC_ONLY);
+        assertThat(query.getCurrentAccount()).isEqualTo(
+            new CurrentAccount(RBAC_ONLY, RBAC_ONLY, ""));
     }
 
     @Test
@@ -142,22 +189,24 @@ class UserQueryTests extends TestsBase {
 
     @Test
     void preservesDirectInheritedAndMissingDepartmentPermissions() {
-        authenticate(ACCOUNT);
+        authenticate(config.getUser().getAdminAccountId());
         for (int permissionId : List.of(DIRECT_PERMISSION, INHERITED_PERMISSION)) {
-            Pair<String, Boolean> permission = query.hasPermission(DEPT, permissionId);
+            Pair<String, Boolean> permission = query.hasPermission(ACCOUNT, DEPT, permissionId);
             assertThat(permission.getFirst()).isEqualTo("查询角色" + PRIMARY_ROLE);
             assertThat(permission.getSecond()).isTrue();
         }
-        assertThat(query.hasPermission(DEPT, -1).getSecond()).isFalse();
-        Pair<String, Boolean> missing = query.hasPermission(DEPT + "-missing", DIRECT_PERMISSION);
+        assertThat(query.hasPermission(ACCOUNT, DEPT, -1).getSecond()).isFalse();
+        Pair<String, Boolean> missing = query.hasPermission(
+            ACCOUNT, DEPT + "-missing", DIRECT_PERMISSION);
         assertThat(missing.getFirst()).isEqualTo(Consts.VOID_ROLE);
         assertThat(missing.getSecond()).isFalse();
     }
 
     @Test
     void preservesAdministratorBypass() {
-        authenticate(config.getUser().getAdminAccountId());
-        Pair<String, Boolean> permission = query.hasPermission(DEPT + "-missing", -1);
+        authenticate(ACCOUNT);
+        Pair<String, Boolean> permission = query.hasPermission(
+            config.getUser().getAdminAccountId(), DEPT + "-missing", -1);
         assertThat(permission.getFirst()).isEqualTo(Consts.ADMIN_ROLE);
         assertThat(permission.getSecond()).isTrue();
     }
@@ -200,6 +249,14 @@ class UserQueryTests extends TestsBase {
             new UsernamePasswordAuthenticationToken(code, "", List.of()));
     }
 
+    private void assertCurrentAccountProjection(Statistics statistics, CurrentAccount expected) {
+        long previousStatements = statistics.getPrepareStatementCount();
+        long previousEntityLoads = statistics.getEntityLoadCount();
+        assertThat(query.getCurrentAccount()).isEqualTo(expected);
+        assertThat(statistics.getPrepareStatementCount() - previousStatements).isEqualTo(1);
+        assertThat(statistics.getEntityLoadCount()).isEqualTo(previousEntityLoads);
+    }
+
     private static final String PREFIX = "user-query-tests-";
     private static final String ACCOUNT = PREFIX + "account";
     private static final String RBAC_ONLY = PREFIX + "rbac";
@@ -215,5 +272,6 @@ class UserQueryTests extends TestsBase {
 
     @Autowired private UserQuery query;
     @Autowired private Config config;
+    @Autowired private EntityManagerFactory entityManagerFactory;
     @Autowired private JdbcTemplate jdbcTemplate;
 }

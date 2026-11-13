@@ -11,6 +11,7 @@ import com.google.protobuf.util.JsonFormat;
 import lombok.extern.slf4j.Slf4j;
 
 import com.jingyicare.jingyi_icis_engine.entity.reports.*;
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.*;
@@ -558,7 +559,9 @@ public class MenuService {
                 .addAllMenuItem(normalizedItems)
                 .clearUnassignedFormTemplate()
                 .build();
-            settingsStore.saveMenuConfigPB(deptId, config, userQuery.getAccountAutoId());
+            CurrentAccount account = userQuery.getCurrentAccount();
+            settingsStore.saveMenuConfigPB(
+                deptId, config, account == null ? "" : account.autoAcctId());
         }
 
         // 只统计最终保留菜单项引用的模板，失效菜单项不占用模板。
@@ -732,8 +735,9 @@ public class MenuService {
             .clearUnassignedFormTemplate()
             .build();
 
+        CurrentAccount account = userQuery.getCurrentAccount();
         settingsStore.saveMenuConfigPB(
-            deptId, persisted, userQuery.getAccountAutoId());
+            deptId, persisted, account == null ? "" : account.autoAcctId());
     }
 
     private static final int TEMPLATE_MENU_ITEM_START_ID = 10000;

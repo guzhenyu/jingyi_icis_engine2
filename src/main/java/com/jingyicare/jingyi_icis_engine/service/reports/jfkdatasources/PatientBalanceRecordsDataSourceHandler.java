@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkFieldDataPB;
@@ -110,11 +111,10 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
             );
         }
 
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
-        if (account == null || StrUtils.isBlank(account.getFirst())) {
+        CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null || StrUtils.isBlank(account.autoAcctId())) {
             return error(StatusCode.ACCOUNT_NOT_FOUND, "pid: " + pid);
         }
-        String accountId = account.getFirst();
 
         Map<String, MonitoringParamPB> paramMap = monitoringConfig.getMonitoringParams(deptId);
         List<String> tubeParamCodes = patientTubeImpl.getMonitoringParamCodes(
@@ -122,13 +122,14 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
         List<String> expandedParamCodes = expandDrainageTubeParamCodes(paramCodes, tubeParamCodes);
         List<String> validParamCodes = validParamCodes(tableId, deptId, expandedParamCodes, paramMap);
         var groupBetaList = monitoringConfig.getMonitoringGroups(
-            pid, deptId, monitoringConfig.getBalanceGroupTypeId(), tubeParamCodes, accountId);
+            pid, deptId, monitoringConfig.getBalanceGroupTypeId(), tubeParamCodes,
+            account.autoAcctId());
 
         PatientMonitoringService.GetMonitoringRecordsResult recordsResult =
             patientMonitoringService.getMonitoringRecords(
                 pid, deptId, monitoringConfig.getBalanceGroupTypeId(),
                 window.balanceStartUtc(), window.balanceEndUtc(),
-                false, groupBetaList, accountId
+                false, groupBetaList, account.autoAcctId()
             );
         if (recordsResult.statusCode != StatusCode.OK) {
             return error(recordsResult.statusCode, "pid: " + pid + ", tableId: " + tableId);
@@ -142,7 +143,7 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
             paramMap,
             recordsResult.groupBetaList,
             recordsResult.recordList,
-            accountId
+            account.autoAcctId()
         );
         balanceCalculator.storeGroupRecordsStats(args);
 

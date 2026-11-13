@@ -15,6 +15,7 @@ import com.google.protobuf.util.JsonFormat;
 import lombok.extern.slf4j.Slf4j;
 
 import com.jingyicare.jingyi_icis_engine.entity.settings.SystemSettings;
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisQualityControl.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.SystemSettingFunctionId;
@@ -24,7 +25,6 @@ import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
-import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.ReturnCodeUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
@@ -109,7 +109,7 @@ public class IcuQcConfigService {
                 .build();
         }
 
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(
@@ -118,7 +118,7 @@ public class IcuQcConfigService {
         }
 
         IcuQcConfigPB nextConfig = normalizeConfig(req.getIqcConfig(), defaultIcuQcConfigPb);
-        return saveIcuQcConfig(nextConfig, account.getFirst());
+        return saveIcuQcConfig(nextConfig, account.autoAcctId());
     }
 
     private GenericResp saveIcuQcConfig(IcuQcConfigPB nextConfig, String accountId) {

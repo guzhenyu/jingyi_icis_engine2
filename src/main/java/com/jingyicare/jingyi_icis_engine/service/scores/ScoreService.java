@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingScore.*;
@@ -382,7 +383,7 @@ public class ScoreService {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED)).build();
         }
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return ReturnCodeUtils.genericResponse(
                 protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND));
@@ -419,7 +420,7 @@ public class ScoreService {
                     return ScoreLockPlan.create(record, plannedPid,
                         snapshotPlan.departments().getOrDefault(plannedPid, pr.getDeptId()),
                         code, null, "", paramCode, snapshotPlan,
-                        account.getFirst(), account.getSecond());
+                        account.autoAcctId(), account.acctName());
                 },
                 lockPlan -> lockPlan.resourceKeys().isEmpty()
                     ? fallbackKeys : lockPlan.resourceKeys(),
@@ -465,13 +466,11 @@ public class ScoreService {
 
     private Pair<StatusCode, Supplier<ScoreLockPlan>> getScoreLockPlanSupplier(ScoreGroupPB sgPb) {
         // 检查当前用户的账号信息
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("Account ID is empty.");
             return new Pair<>(StatusCode.ACCOUNT_NOT_FOUND, null);
         }
-        final String accountId = accountWithAutoId.getFirst();
-        final String accountName = accountWithAutoId.getSecond();
 
         final Long pid = sgPb.getPid();
         if (pid <= 0) return new Pair<>(StatusCode.PATIENT_NOT_FOUND, null);
@@ -492,7 +491,7 @@ public class ScoreService {
         // 验证患者信息
         final PatientRecord pr = patientService.getPatientRecord(pid);
         if (pr == null) {
-            log.error("Patient not found for pid: {}, accountId {}", pid, accountId);
+            log.error("Patient not found for pid: {}, accountId {}", pid, account.autoAcctId());
             return new Pair<>(StatusCode.PATIENT_NOT_FOUND, null);
         }
         final String deptId = pr.getDeptId();
@@ -552,7 +551,7 @@ public class ScoreService {
             return ScoreLockPlan.create(
                 plannedRecord, pid, snapshotPlan.departments().getOrDefault(pid, deptId),
                 scoreGroupCode, effectiveTime, patientScoreStr.toString(), paramCode,
-                snapshotPlan, accountId, accountName);
+                snapshotPlan, account.autoAcctId(), account.acctName());
         });
     }
 

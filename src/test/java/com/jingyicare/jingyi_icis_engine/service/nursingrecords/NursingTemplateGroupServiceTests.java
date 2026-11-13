@@ -25,6 +25,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.*;
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingRecord.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
@@ -35,7 +36,6 @@ import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
-import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
 class NursingTemplateGroupServiceTests extends TestsBase {
@@ -45,7 +45,8 @@ class NursingTemplateGroupServiceTests extends TestsBase {
         jdbcTemplate.update(
             "INSERT INTO rbac_departments(dept_id, dept_name) VALUES (?, ?)", DEPT_ID, DEPT_ID);
         userQuery = mock(UserQuery.class);
-        when(userQuery.getAccountWithAutoId()).thenReturn(new Pair<>(ACCOUNT_ID, "测试用户"));
+        when(userQuery.getCurrentAccount())
+            .thenReturn(new CurrentAccount("rbac-" + ACCOUNT_ID, ACCOUNT_ID, "测试用户"));
         service = newService(lockExecutor);
     }
 
@@ -215,7 +216,7 @@ class NursingTemplateGroupServiceTests extends TestsBase {
             .getRt().getCode())
             .isEqualTo(StatusCode.INVALID_PARAM_VALUE.getNumber());
 
-        when(userQuery.getAccountWithAutoId()).thenReturn(null);
+        when(userQuery.getCurrentAccount()).thenReturn(null);
         assertThat(service.addNursingRecordTemplateGroup(addRequest(DEPT_ID, "name"))
             .getRt().getCode()).isEqualTo(StatusCode.ACCOUNT_NOT_FOUND.getNumber());
         assertThat(service.updateNursingRecordTemplateGroups(updateRequest()).getRt().getCode())

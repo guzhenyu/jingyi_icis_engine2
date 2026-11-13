@@ -19,6 +19,7 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 
 import com.jingyicare.jingyi_icis_engine.entity.settings.*;
 import com.jingyicare.jingyi_icis_engine.entity.shifts.*;
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.repository.settings.*;
 import com.jingyicare.jingyi_icis_engine.repository.shifts.*;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
@@ -109,14 +110,13 @@ public class ConfigShiftService {
         }
 
         // 获取当前用户
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 更新班次配置
         DeptSystemSettingsId deptSettingsId = DeptSystemSettingsId.builder()
@@ -130,17 +130,17 @@ public class ConfigShiftService {
                 .id(deptSettingsId)
                 .settingsPb(ProtoUtils.encodeShiftSettings(req.getShift()))
                 .modifiedAt(modifiedAt)
-                .modifiedBy(accountId)
+                .modifiedBy(account.autoAcctId())
                 .build();
         } else {
             deptSettings.setSettingsPb(ProtoUtils.encodeShiftSettings(req.getShift()));
             deptSettings.setModifiedAt(modifiedAt);
-            deptSettings.setModifiedBy(accountId);
+            deptSettings.setModifiedBy(account.autoAcctId());
         }
         deptSystemSettingsRepo.save(deptSettings);
 
         log.info("ShiftSettings updated (by {}): deptId = {}, shift = {}",
-            accountId, req.getDeptId(), ProtoUtils.protoToTxt(req.getShift()));
+            account.autoAcctId(), req.getDeptId(), ProtoUtils.protoToTxt(req.getShift()));
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
             .build();
@@ -229,14 +229,12 @@ public class ConfigShiftService {
         }
 
         // 获取当前用户
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return AddDeptBalanceStatsShiftResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         LocalDateTime effectiveTimeLocal = TimeUtils.fromIso8601String(
             req.getShift().getEffectiveTimeIso8601(), ZONE_ID);
@@ -273,8 +271,8 @@ public class ConfigShiftService {
             .effectiveTime(effectiveTime)
             .isDeleted(false)
             .modifiedAt(TimeUtils.getNowUtc())
-            .modifiedBy(accountId)
-            .modifiedByAccountName(accountName)
+            .modifiedBy(account.autoAcctId())
+            .modifiedByAccountName(account.acctName())
             .build();
         balanceStatsShift =  balanceStatsShiftRepo.save(balanceStatsShift);
 
@@ -299,14 +297,12 @@ public class ConfigShiftService {
         }
 
         // 获取当前用户
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         LocalDateTime effectiveTime = TimeUtils.fromIso8601String(
             req.getShift().getEffectiveTimeIso8601(), "UTC");
@@ -350,11 +346,12 @@ public class ConfigShiftService {
         balanceStatsShift.setMonStartHour(getMonStartHourOrDefault(req.getShift()));
         balanceStatsShift.setEffectiveTime(effectiveTime);
         balanceStatsShift.setModifiedAt(TimeUtils.getNowUtc());
-        balanceStatsShift.setModifiedBy(accountId);
-        balanceStatsShift.setModifiedByAccountName(accountName);
+        balanceStatsShift.setModifiedBy(account.autoAcctId());
+        balanceStatsShift.setModifiedByAccountName(account.acctName());
         balanceStatsShiftRepo.save(balanceStatsShift);
         log.info("BalanceStatsShift updated (by {}): id = {}, deptId = {}, effectiveTime = {}",
-            accountId, req.getShift().getId(), req.getShift().getDeptId(), effectiveTime);
+            account.autoAcctId(), req.getShift().getId(), req.getShift().getDeptId(),
+            effectiveTime);
 
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -376,14 +373,12 @@ public class ConfigShiftService {
         }
 
         // 获取当前用户
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 查找现有的 BalanceStatsShift 实体
         BalanceStatsShift balanceStatsShift = balanceStatsShiftRepo
@@ -399,7 +394,7 @@ public class ConfigShiftService {
         // 删除 BalanceStatsShift 实体
         balanceStatsShift.setIsDeleted(true);
         balanceStatsShift.setDeletedAt(TimeUtils.getNowUtc());
-        balanceStatsShift.setDeletedBy(accountId);
+        balanceStatsShift.setDeletedBy(account.autoAcctId());
         balanceStatsShiftRepo.save(balanceStatsShift);
 
         return GenericResp.newBuilder()

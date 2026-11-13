@@ -13,17 +13,17 @@
 ## 2. 总体调用流程（高频模式）
 1. `UserService` 入口方法接收 `xxxReqJson`。
 2. `ProtoUtils.parseJsonToProto(...)` 解析请求，失败返回 `PARSE_JSON_FAILED`。
-3. `getCtxAccountId()` 获取当前登录账号，空则返回 `NOT_LOGGED_IN`。
+3. `getCurrentAccount()` 获取当前账号，缺失时统一返回 `ACCOUNT_NOT_FOUND`（未找到当前用户信息）。鉴权和密码操作使用 `rbacAcctId()`，审计字段使用 `autoAcctId()`。
 4. 按功能执行授权校验：
-   - 管理员校验：`accountId.equals(ADMIN_ACCOUNT_ID)`。
-   - 权限校验：`hasPermission(opDeptId, Consts.PERM_ID_CONFIG_CHECKLIST)`。
+   - 管理员校验：`account.rbacAcctId().equals(ADMIN_ACCOUNT_ID)`。
+   - 权限校验：`hasPermission(rbacAcctId, opDeptId, Consts.PERM_ID_CONFIG_CHECKLIST)`。
 5. 查询调用 `UserQuery`，写入调用 `UserCmdService`。
 6. `ReturnCodeUtils.getReturnCode(statusCodeMsgList, statusCode)` 统一包装响应。
 
 ## 3. 入口方法 -> 核心能力映射
 
 ### 3.1 用户与账号
-- `getUserInfo` -> `getRbacAccount` / `getAllDeptInfoByAccountId` / `getPermissionIds` / `getPrimaryRoleName`
+- `getUserInfo` -> `getCurrentAccount` / `getAllDeptInfoByAccountId` / `getPermissionIds` / `getPrimaryRoleName`
   - 额外依赖：`menuService.getMenuGroups`、`certificateService.checkBedAvailable`。
 - `getAllAccounts` -> `getAllAccounts(queryDeptId, queryAccountId, queryAccountName, zoneId)`
   - 结果会过滤管理员账号（`ADMIN_ACCOUNT_ID`）。

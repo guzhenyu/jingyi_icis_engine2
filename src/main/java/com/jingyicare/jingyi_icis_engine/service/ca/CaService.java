@@ -6,6 +6,7 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 import com.jingyicare.jingyi_icis_engine.entity.users.Account;
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.GetRealtimeCaSignImageReq;
@@ -17,7 +18,6 @@ import com.jingyicare.jingyi_icis_engine.service.ca.CaSignImageValidator.Validat
 import com.jingyicare.jingyi_icis_engine.service.ca.client.CigCaClient;
 import com.jingyicare.jingyi_icis_engine.service.settings.SettingService;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
-import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.ReturnCodeUtils;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
@@ -48,7 +48,7 @@ public class CaService {
     }
 
     public GetRealtimeCaSignImageResp getSignImage(String requestJson) {
-        Pair<String, String> callerAccount = userQuery.getAccountWithAutoId();
+        CurrentAccount callerAccount = userQuery.getCurrentAccount();
         if (callerAccount == null) return error(StatusCode.ACCOUNT_NOT_FOUND);
 
         final GetRealtimeCaSignImageReq request;
@@ -62,7 +62,7 @@ public class CaService {
         long accountId = request.getAccountId();
         log.info("[CA_SIGN_TRACE][ICIS_ENGINE] stage=request_received "
             + "callerAccountAutoId={} callerAccountName={} deptId={} accountId={}",
-            callerAccount.getFirst(), callerAccount.getSecond(), deptId, accountId);
+            callerAccount.autoAcctId(), callerAccount.acctName(), deptId, accountId);
         if (StrUtils.isBlank(deptId) || accountId <= 0) return error(StatusCode.PARSE_JSON_FAILED);
         if (deptRepo.findByDeptId(deptId).isEmpty()) return error(StatusCode.DEPARTMENT_NOT_FOUND);
         if (!userQuery.canCurrentUserAccessDept(deptId)) {

@@ -13,6 +13,7 @@ import com.google.protobuf.util.JsonFormat;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisShift.*;
@@ -110,14 +111,13 @@ public class PatientMonitoringService {
         }
 
         // 获取用户信息
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("Account ID is empty.");
             return GetPatientMonitoringRecordsResp.newBuilder()
                     .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                     .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 解析参数
         final Long pid = req.getPid();
@@ -143,10 +143,11 @@ public class PatientMonitoringService {
                 pid, queryUtcTimeRange.getFirst(), queryUtcTimeRange.getSecond()
             ) : Collections.emptyList();
         List<MonitoringGroupBetaPB> groupBetaList = monitoringConfig.getMonitoringGroups(
-            pid, deptId, groupType, tubeParamCodes, accountId
+            pid, deptId, groupType, tubeParamCodes, account.autoAcctId()
         );
         GetMonitoringRecordsResult recordsResult = getMonitoringRecords(
-            pid, deptId, groupType, startTime, endTime, syncDeviceData, groupBetaList, accountId
+            pid, deptId, groupType, startTime, endTime, syncDeviceData, groupBetaList,
+            account.autoAcctId()
         );
         if (recordsResult.statusCode != StatusCode.OK) {
             log.error("Failed to get monitoring records: {}", recordsResult.statusCode);
@@ -164,7 +165,7 @@ public class PatientMonitoringService {
             monitoringConfig.getMonitoringParams(deptId),
             recordsResult.groupBetaList,
             recordsResult.recordList,
-            accountId
+            account.autoAcctId()
         );
         List<MonitoringGroupRecordsPB> groupRecordsList = null;
         if (recordsResult.isBalanceGroups) {  // 平衡组s
@@ -324,14 +325,13 @@ public class PatientMonitoringService {
                     .build();
         }
 
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("Account ID is empty.");
             return AddPatientMonitoringRecordResp.newBuilder()
                     .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                     .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // Fetch ValueMetaPB from monitoring_params or dept_monitoring_params
         String paramCode = req.getParamCode();
@@ -421,7 +421,7 @@ public class PatientMonitoringService {
             .source("") // Optionally derive source
             .note("") // Optionally set note
             .status("") // Optionally set status
-            .modifiedBy(accountId)
+            .modifiedBy(account.autoAcctId())
             .modifiedAt(nowUtc)
             .build();
         newRecord = monitoringRecordUtils.saveRecordJdbc(newRecord);
@@ -434,7 +434,8 @@ public class PatientMonitoringService {
         // 更新护理单的处理时间（为 打印从首页到尾页都一致的护理单 提效，省二院）
         pnrUtils.updateLatestDataTime(pid, deptId, effectiveTime, effectiveTime, nowUtc);
 
-        log.info("Successfully added new record for PID: {}, effective_time: {}, by user: {}", req.getPid(), effectiveTime, accountId);
+        log.info("Successfully added new record for PID: {}, effective_time: {}, by user: {}",
+            req.getPid(), effectiveTime, account.autoAcctId());
         return AddPatientMonitoringRecordResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.OK))
                 .setId(newRecord.getId())
@@ -453,14 +454,13 @@ public class PatientMonitoringService {
                     .build();
         }
 
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("Account ID is empty.");
             return GenericResp.newBuilder()
                     .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                     .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // Fetch the existing record
         PatientMonitoringRecord existingRecord = recordRepository
@@ -523,7 +523,7 @@ public class PatientMonitoringService {
             .paramValue(monitoringValueStr)
             .paramValueStr(paramValueStr)
             .unit(valueMeta.getUnit())
-            .modifiedBy(accountId)
+            .modifiedBy(account.autoAcctId())
             .modifiedAt(nowUtc)
             .build();
         monitoringRecordUtils.saveRecordJdbc(newRecord);
@@ -531,7 +531,8 @@ public class PatientMonitoringService {
         // 更新护理单的处理时间（为 打印从首页到尾页都一致的护理单 提效，省二院）
         pnrUtils.updateLatestDataTime(pid, deptId, effectiveTime, effectiveTime, nowUtc);
 
-        log.info("Successfully updated monitoring record for ID: {}, by user: {}", req.getId(), accountId);
+        log.info("Successfully updated monitoring record for ID: {}, by user: {}",
+            req.getId(), account.autoAcctId());
         return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.OK))
                 .build();
@@ -551,19 +552,20 @@ public class PatientMonitoringService {
         }
 
         // Get the current account ID
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("Account ID is empty.");
             return GenericResp.newBuilder()
                     .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                     .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 软删除
-        PatientMonitoringRecord deletedRecord = monitoringRecordUtils.deleteRecord(req.getId(), accountId);
+        PatientMonitoringRecord deletedRecord =
+            monitoringRecordUtils.deleteRecord(req.getId(), account.autoAcctId());
         if (deletedRecord != null) {
-            log.info("Deleted PatientMonitoringRecord ID: {}. User: {}", req.getId(), accountId);
+            log.info("Deleted PatientMonitoringRecord ID: {}. User: {}",
+                req.getId(), account.autoAcctId());
             // 更新护理单的处理时间（为 打印从首页到尾页都一致的护理单 提效，省二院）
             Long pid = deletedRecord.getPid();
             String deptId = deletedRecord.getDeptId();
@@ -591,14 +593,13 @@ public class PatientMonitoringService {
         }
 
         // Get accountId
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("AccountId is empty.");
             return AddPatientMonitoringTimePointsResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 获取患者信息
         final Long pid = req.getPid();
@@ -611,7 +612,8 @@ public class PatientMonitoringService {
         }
 
         if (req.getTimePointIso8601Count() <= 0) {
-            log.error("No valid time points provided for PID: {} by User: {}", pid, accountId);
+            log.error("No valid time points provided for PID: {} by User: {}",
+                pid, account.autoAcctId());
             return AddPatientMonitoringTimePointsResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.MONITORING_TIME_POINTS_EMPTY))
                 .build();
@@ -662,13 +664,14 @@ public class PatientMonitoringService {
                 .pid(pid)
                 .deptId(req.getDeptId())
                 .timePoint(timePoint)
-                .modifiedBy(accountId)
+                .modifiedBy(account.autoAcctId())
                 .modifiedAt(TimeUtils.getNowUtc())
                 .isDeleted(false)
                 .build();
             newTimePoint = timePointRepository.save(newTimePoint);
             existingTimePointMap.put(timePoint, newTimePoint.getId());
-            log.info("Added TimePoint: {} for PID: {} by User: {}, newID {}", timePoint, pid, accountId, newTimePoint.getId());
+            log.info("Added TimePoint: {} for PID: {} by User: {}, newID {}",
+                timePoint, pid, account.autoAcctId(), newTimePoint.getId());
         }
 
         List<Long> insertedIds = timePointList.stream()
@@ -697,19 +700,19 @@ public class PatientMonitoringService {
         }
 
         // Get accountId
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("AccountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // Fetch time point record
         Optional<PatientMonitoringTimePoint> optionalTimePoint = timePointRepository.findById(req.getId());
         if (optionalTimePoint.isEmpty() || optionalTimePoint.get().getIsDeleted()) {
-            log.info("TimePoint ID {} not found or already deleted. User: {}", req.getId(), accountId);
+            log.info("TimePoint ID {} not found or already deleted. User: {}",
+                req.getId(), account.autoAcctId());
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.OK)) // Deletion is idempotent
                 .build();
@@ -719,7 +722,7 @@ public class PatientMonitoringService {
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
         PatientMonitoringTimePoint timePoint = optionalTimePoint.get();
         timePoint.setIsDeleted(true);
-        timePoint.setDeletedBy(accountId);
+        timePoint.setDeletedBy(account.autoAcctId());
         timePoint.setDeletedAt(nowUtc);
 
         timePointRepository.save(timePoint);
@@ -728,12 +731,14 @@ public class PatientMonitoringService {
         List<PatientMonitoringRecord> recordsToDelete = recordRepository
             .findByPidAndEffectiveTimeAndIsDeletedFalse(timePoint.getPid(), timePoint.getTimePoint());
         for (PatientMonitoringRecord record : recordsToDelete) {
-            monitoringRecordUtils.markRecordAsDeleted(record, accountId, nowUtc);
-            log.info("Deleted PatientMonitoringRecord ID: {} by User: {}", record.getId(), accountId);
+            monitoringRecordUtils.markRecordAsDeleted(record, account.autoAcctId(), nowUtc);
+            log.info("Deleted PatientMonitoringRecord ID: {} by User: {}",
+                record.getId(), account.autoAcctId());
         }
         recordRepository.saveAll(recordsToDelete);
 
-        log.info("Deleted PatientMonitoringTimePoint ID: {} by User: {}", req.getId(), accountId);
+        log.info("Deleted PatientMonitoringTimePoint ID: {} by User: {}",
+            req.getId(), account.autoAcctId());
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
             .build();

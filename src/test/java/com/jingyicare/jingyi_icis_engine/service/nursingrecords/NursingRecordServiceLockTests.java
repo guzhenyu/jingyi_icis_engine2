@@ -44,6 +44,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 
 import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.NursingRecord;
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingRecord.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSnapshot.PatientSnapshotPB;
@@ -68,7 +69,6 @@ import com.jingyicare.jingyi_icis_engine.service.snapshots.SnapshotService;
 import com.jingyicare.jingyi_icis_engine.service.tubes.PatientTubeImpl;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
-import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
@@ -91,7 +91,8 @@ class NursingRecordServiceLockTests extends TestsBase {
 
     private NursingRecordService createService(JdbcTemplate readerJdbc) {
         UserQuery users = mock(UserQuery.class);
-        when(users.getAccountWithAutoId()).thenReturn(new Pair<>(ACCOUNT, ACCOUNT_NAME));
+        when(users.getCurrentAccount())
+            .thenReturn(new CurrentAccount("rbac-" + ACCOUNT, ACCOUNT, ACCOUNT_NAME));
         PatientService patients = mock(PatientService.class);
         PatientRecord patient = new PatientRecord();
         patient.setId(PID);

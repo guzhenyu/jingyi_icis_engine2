@@ -71,6 +71,9 @@ class ConfigPbtxtTests {
 
         assertThat(builder.getStatusCodeMsgList()).contains("ok", "患者不存在");
         assertThat(builder.getStatusCodeMsgCount()).isEqualTo(StatusCode.LAST_CODE_VALUE);
+        assertThat(StatusCode.ACCOUNT_NOT_FOUND_VALUE).isEqualTo(3);
+        assertThat(builder.getStatusCodeMsg(StatusCode.ACCOUNT_NOT_FOUND_VALUE))
+            .isEqualTo("未找到当前用户信息");
         assertThat(builder.getStatusCodeMsg(StatusCode.PATIENT_SCORE_ID_NOT_MATCH_VALUE))
             .isEqualTo("患者或评分类型与原评分记录不一致");
         assertThat(builder.getStatusCodeMsg(StatusCode.SCORE_GROUP_SCORE_NOT_MATCH_VALUE))

@@ -25,6 +25,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.*;
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingRecord.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
@@ -35,7 +36,6 @@ import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
-import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
 class NursingTemplateServiceTests extends TestsBase {
@@ -47,7 +47,8 @@ class NursingTemplateServiceTests extends TestsBase {
                 "INSERT INTO rbac_departments(dept_id, dept_name) VALUES (?, ?)", deptId, deptId);
         }
         userQuery = mock(UserQuery.class);
-        when(userQuery.getAccountWithAutoId()).thenReturn(new Pair<>(ACCOUNT_ID, "测试用户"));
+        when(userQuery.getCurrentAccount())
+            .thenReturn(new CurrentAccount("rbac-" + ACCOUNT_ID, ACCOUNT_ID, "测试用户"));
         service = newService(lockExecutor);
     }
 

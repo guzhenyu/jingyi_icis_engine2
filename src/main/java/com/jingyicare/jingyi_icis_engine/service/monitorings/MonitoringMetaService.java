@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.DeptMonitoringParam;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.MonitoringParam;
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
@@ -22,7 +23,6 @@ import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
-import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
 @Service
@@ -88,22 +88,23 @@ public class MonitoringMetaService {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
             return response(StatusCode.PARSE_JSON_FAILED);
         }
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return response(StatusCode.ACCOUNT_NOT_FOUND);
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 验证请求中的 MonitoringParamPB 对象。
         MonitoringParamPB paramPb = req.getParam();
         if (paramPb == null || paramPb.getCode().isBlank()) {
-            log.warn("Invalid or missing MonitoringParamPB in request. User: {}", accountId);
+            log.warn("Invalid or missing MonitoringParamPB in request. User: {}",
+                account.autoAcctId());
             return response(StatusCode.MONITORING_PARAM_CODE_EMPTY);
         }
         StatusCode statusCode = MonitoringMapper.isValidParamPb(paramPb, monitoringPb);
         if (statusCode != StatusCode.OK) {
-            log.warn("Invalid MonitoringParamPB {} in request. User: {}", paramPb, accountId);
+            log.warn("Invalid MonitoringParamPB {} in request. User: {}",
+                paramPb, account.autoAcctId());
             return response(statusCode);
         }
         final String code = paramPb.getCode();
@@ -113,21 +114,21 @@ public class MonitoringMetaService {
                 // 初始化和接口新增均在取得列表锁后检查编码并分配显示顺序。
                 if (monitoringParamRepository.findByCode(code).isPresent()) {
                     log.warn("MonitoringParam with code '{}' already exists. User: {}",
-                        code, accountId);
+                        code, account.autoAcctId());
                     return response(StatusCode.MONITORING_PARAM_CODE_EXIST);
                 }
                 MonitoringParam param = monitoringParamRepository.save(
                     MonitoringMapper.toMonitoringParamEntity(paramPb, nextDisplayOrder()));
                 monitoringParamHistoryRepository.save(
-                    MonitoringMapper.toMonitoringParamHistoryEntity(param, accountId));
+                    MonitoringMapper.toMonitoringParamHistoryEntity(param, account.autoAcctId()));
                 log.info("Successfully added MonitoringParam with code: {} by user: {}",
-                    code, accountId);
+                    code, account.autoAcctId());
                 return response(StatusCode.OK);
             });
         } catch (Exception e) {
             // 在执行器完成回滚后转换错误响应，保证参数与历史记录同时提交或回滚。
             log.error("Unexpected error saving MonitoringParam with code: {} by user: {}",
-                code, accountId, e);
+                code, account.autoAcctId(), e);
             return response(StatusCode.INTERNAL_EXCEPTION);
         }
     }
@@ -142,22 +143,23 @@ public class MonitoringMetaService {
             return response(StatusCode.PARSE_JSON_FAILED);
         }
 
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return response(StatusCode.ACCOUNT_NOT_FOUND);
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 验证请求中的 MonitoringParamPB 对象。
         MonitoringParamPB paramPb = req.getParam();
         if (paramPb == null || paramPb.getCode().isBlank()) {
-            log.warn("Invalid or missing MonitoringParamPB in request. User: {}", accountId);
+            log.warn("Invalid or missing MonitoringParamPB in request. User: {}",
+                account.autoAcctId());
             return response(StatusCode.MONITORING_PARAM_CODE_EMPTY);
         }
         StatusCode statusCode = MonitoringMapper.isValidParamPb(paramPb, monitoringPb);
         if (statusCode != StatusCode.OK) {
-            log.warn("Invalid MonitoringParamPB {} in request. User: {}", paramPb, accountId);
+            log.warn("Invalid MonitoringParamPB {} in request. User: {}",
+                paramPb, account.autoAcctId());
             return response(statusCode);
         }
         final String code = paramPb.getCode();
@@ -166,23 +168,25 @@ public class MonitoringMetaService {
             return lockExecutor.execute(List.of(LockKeys.monitoringParam()), () -> {
                 MonitoringParam param = monitoringParamRepository.findByCode(code).orElse(null);
                 if (param == null) {
-                    log.warn("MonitoringParam with code '{}' not found. User: {}", code, accountId);
+                    log.warn("MonitoringParam with code '{}' not found. User: {}",
+                        code, account.autoAcctId());
                     return response(StatusCode.MONITORING_PARAM_CODE_NOT_EXIST);
                 }
                 monitoringParamHistoryRepository.save(
-                    MonitoringMapper.toMonitoringParamHistoryEntity(param, accountId));
+                    MonitoringMapper.toMonitoringParamHistoryEntity(param, account.autoAcctId()));
                 MonitoringMapper.toMonitoringParamEntity(paramPb, param, -1);
                 monitoringParamRepository.save(param);
                 monitoringParamHistoryRepository.save(
-                    MonitoringMapper.toMonitoringParamHistoryEntity(param, accountId, false));
+                    MonitoringMapper.toMonitoringParamHistoryEntity(
+                        param, account.autoAcctId(), false));
                 log.info("Successfully updated MonitoringParam with code: {} by user: {}",
-                    code, accountId);
+                    code, account.autoAcctId());
                 return response(StatusCode.OK);
             });
         } catch (Exception e) {
             // 在执行器完成回滚后转换错误响应，避免参数或历史记录部分提交。
             log.error("Unexpected error updating MonitoringParam with code: {} by user: {}",
-                code, accountId, e);
+                code, account.autoAcctId(), e);
             return response(StatusCode.INTERNAL_EXCEPTION);
         }
     }
@@ -202,12 +206,11 @@ public class MonitoringMetaService {
             log.warn("Invalid request: code is empty.");
             return response(StatusCode.MONITORING_PARAM_CODE_EMPTY);
         }
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return response(StatusCode.ACCOUNT_NOT_FOUND);
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         try {
             List<String> lockKeys = departmentId.isEmpty()
@@ -220,7 +223,7 @@ public class MonitoringMetaService {
                         deptMonitoringParamRepository.findByIdDeptIdAndIdCode(departmentId, code);
                     if (optionalDeptParam.isEmpty()) {
                         log.info("DeptMonitoringParam not found: {}, dept: {}. User: {}",
-                            code, departmentId, accountId);
+                            code, departmentId, account.autoAcctId());
                         return response(StatusCode.OK);
                     }
                     DeptMonitoringParam deptParam = optionalDeptParam.get();
@@ -229,34 +232,36 @@ public class MonitoringMetaService {
                     //         deptParam, accountId, true));
                     deptMonitoringParamRepository.delete(deptParam);
                     log.info("Deleted DeptMonitoringParam with code: {} for dept: {}. User: {}",
-                        code, departmentId, accountId);
+                        code, departmentId, account.autoAcctId());
                     return response(StatusCode.OK);
                 }
 
                 Optional<MonitoringParam> optionalParam =
                     monitoringParamRepository.findByCode(code);
                 if (optionalParam.isEmpty()) {
-                    log.info("MonitoringParam not found for code: {}. User: {}", code, accountId);
+                    log.info("MonitoringParam not found for code: {}. User: {}",
+                        code, account.autoAcctId());
                     return response(StatusCode.OK);
                 }
                 List<DeptMonitoringParam> deptParams =
                     deptMonitoringParamRepository.findByIdCode(code);
                 if (deptParams == null || !deptParams.isEmpty()) {
                     log.warn("Cannot delete MonitoringParam with dept config: {}. User: {}",
-                        code, accountId);
+                        code, account.autoAcctId());
                     return response(StatusCode.MONITORING_PARAM_HAS_DEPT_CONFIG);
                 }
                 MonitoringParam param = optionalParam.get();
                 monitoringParamHistoryRepository.save(
-                    MonitoringMapper.toMonitoringParamHistoryEntity(param, accountId));
+                    MonitoringMapper.toMonitoringParamHistoryEntity(param, account.autoAcctId()));
                 monitoringParamRepository.delete(param);
-                log.info("Deleted MonitoringParam with code: {}. User: {}", code, accountId);
+                log.info("Deleted MonitoringParam with code: {}. User: {}",
+                    code, account.autoAcctId());
                 return response(StatusCode.OK);
             });
         } catch (Exception e) {
             // 删除和历史记录必须在同一事务中提交或回滚。
             log.error("Failed to delete monitoring parameter for code: {} and dept: {}. User: {}",
-                code, departmentId, accountId, e);
+                code, departmentId, account.autoAcctId(), e);
             return response(StatusCode.INTERNAL_EXCEPTION);
         }
     }

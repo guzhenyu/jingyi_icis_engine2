@@ -12,6 +12,7 @@ import com.google.protobuf.util.JsonFormat;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
@@ -90,7 +91,7 @@ public class SettingService {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.PARSE_JSON_FAILED)).build();
         }
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND)).build();
@@ -107,7 +108,7 @@ public class SettingService {
         String resourceKey = LockKeys.deptSystemSettings(
             settings.getDeptId(), SettingsStore.GET_ARCHIVE_CONFIG);
         return lockExecutor.execute(List.of(resourceKey),
-            () -> saveArchiveConfig(settings, account.getFirst()));
+            () -> saveArchiveConfig(settings, account.autoAcctId()));
     }
 
     private GenericResp saveArchiveConfig(DeptArchiveSettings settings, String accountId) {
@@ -207,13 +208,12 @@ public class SettingService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
 
         // 获取请求参数
         String deptId = req.getDeptId();
@@ -243,7 +243,7 @@ public class SettingService {
         List<String> resourceKeys = functionIds.stream()
             .map(functionId -> LockKeys.deptSystemSettings(deptId, functionId)).toList();
         return lockExecutor.execute(resourceKeys,
-            () -> saveAppSettings(deptId, settingTypes, appSettingsPb, accountId));
+            () -> saveAppSettings(deptId, settingTypes, appSettingsPb, account.autoAcctId()));
     }
 
     private GenericResp saveAppSettings(
@@ -420,17 +420,16 @@ public class SettingService {
                 .build();
         }
 
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
         final Integer functionId = SettingsStore.GET_APP_LOGO;
         final String customLogoB64 = req.getCustomLogoB64().trim();
         return lockExecutor.execute(List.of(LockKeys.systemSettings(functionId)),
-            () -> saveLogo(customLogoB64, accountId));
+            () -> saveLogo(customLogoB64, account.autoAcctId()));
     }
 
     private GenericResp saveLogo(String customLogoB64, String accountId) {

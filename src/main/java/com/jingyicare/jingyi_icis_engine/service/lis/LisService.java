@@ -13,6 +13,7 @@ import com.google.protobuf.util.JsonFormat;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.*;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisLis.*;
@@ -470,14 +471,12 @@ public class LisService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         String reportId = req.getReportId();
         PatientLisItem patientLisItem = patientLisItemRepo.findByReportId(reportId).orElse(null);
@@ -486,8 +485,8 @@ public class LisService {
             List<PatientLisResult> patientLisResults = patientLisResultRepo.findByReportIdAndIsDeletedFalse(reportId);
             for (PatientLisResult result : patientLisResults) {
                 result.setIsDeleted(true);
-                result.setDeletedBy(accountId);
-                result.setDeletedByAccountName(accountName);
+                result.setDeletedBy(account.autoAcctId());
+                result.setDeletedByAccountName(account.acctName());
             }
             patientLisResultRepo.saveAll(patientLisResults);
 

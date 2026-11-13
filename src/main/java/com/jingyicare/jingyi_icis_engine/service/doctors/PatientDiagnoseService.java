@@ -11,6 +11,7 @@ import com.google.protobuf.util.JsonFormat;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDiagnosis.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
@@ -139,14 +140,12 @@ public class PatientDiagnoseService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return ConfirmDiseaseResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 获取当前病人科室
         Long pid = req.getPid();
@@ -233,11 +232,11 @@ public class PatientDiagnoseService {
             .diseasePbtxt(ProtoUtils.encodeDisease(req.getDisease()))
             .evalStartAt(evalStart)
             .evalEndAt(evalEnd)
-            .confirmedBy(accountId)
-            .confirmedByAccountName(accountName)
+            .confirmedBy(account.autoAcctId())
+            .confirmedByAccountName(account.acctName())
             .confirmedAt(confirmedAt)
             .isDeleted(false)
-            .modifiedBy(accountId)
+            .modifiedBy(account.autoAcctId())
             .modifiedAt(TimeUtils.getNowUtc())
             .build();
         diagnosis = patientDiagnosisRepo.save(diagnosis);
@@ -263,14 +262,12 @@ public class PatientDiagnoseService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 合法性检验
         LocalDateTime excludedAt = TimeUtils.fromIso8601String(req.getExcludedAtIso8601(), "UTC");
@@ -295,10 +292,10 @@ public class PatientDiagnoseService {
 
         // 排除/推翻，之前的确诊
         diagnosis.setIsDeleted(true);
-        diagnosis.setDeletedBy(accountId);
-        diagnosis.setDeletedByAccountName(accountName);
+        diagnosis.setDeletedBy(account.autoAcctId());
+        diagnosis.setDeletedByAccountName(account.acctName());
         diagnosis.setDeletedAt(excludedAt);
-        diagnosis.setModifiedBy(accountId);
+        diagnosis.setModifiedBy(account.autoAcctId());
         diagnosis.setModifiedAt(TimeUtils.getNowUtc());
         diagnosis = patientDiagnosisRepo.save(diagnosis);
 

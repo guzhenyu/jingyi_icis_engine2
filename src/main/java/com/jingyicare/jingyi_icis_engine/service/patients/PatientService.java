@@ -15,6 +15,7 @@ import com.google.protobuf.util.JsonFormat;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSepticShock.*;
@@ -396,14 +397,12 @@ public class PatientService {
                 .build();
         }
 
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 根据mrn查找是否已经存在该病人
         List<PatientRecord> patients = patientRecordRepository.findByMrnAndAdmissionStatusNotEquals(
@@ -431,7 +430,7 @@ public class PatientService {
         record.setHisMrn(req.getHisMrn());
         record.setHisBedNumber(bedConfig.getHisBedNumber());
         record.setIcuManualEntry(true);
-        record.setIcuManualEntryAccountId(accountId);
+        record.setIcuManualEntryAccountId(account.autoAcctId());
         record.setIcuGender(req.getIcuGender());
         record.setIcuDateOfBirth(TimeUtils.fromIso8601String(req.getIcuDateOfBirth(), "UTC"));
         record.setAdmissionTime(TimeUtils.fromIso8601String(req.getAdmissionTime(), "UTC"));
@@ -467,15 +466,13 @@ public class PatientService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             log.error("Account not found");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
         final LocalDateTime nowUtc = TimeUtils.getNowUtc();
 
         // 提取关键信息
@@ -512,14 +509,14 @@ public class PatientService {
                     .icuDischargingAccountId(lastDischargedPatient.getDischargeAccountId())
                     .icuAdmissionTime(admissionTime)
                     .icuAdmissionEditTime(nowUtc)
-                    .icuAdmittingAccountId(accountId)
+                    .icuAdmittingAccountId(account.autoAcctId())
                     .build();
                 readmissionHistoryRepository.save(readmissionHistory);
 
                 // 详细记录床位切换历史
                 StatusCode statusCode = patientDeviceService.switchBedImpl(
                     lastDischargedPatient, patient.getHisBedNumber(), patient.getAdmissionTime(), true,
-                    accountId, accountName
+                    account.autoAcctId(), account.acctName()
                 );
                 if (statusCode != StatusCode.OK) {
                     log.error("Failed to switch bed: {}", statusCode);
@@ -574,7 +571,7 @@ public class PatientService {
             monitoringConfig.getMonitoringGroups(
                 patient.getId(), patient.getDeptId(),
                 monitoringConfig.getBalanceGroupTypeId(),
-                new ArrayList<>(), accountId
+                new ArrayList<>(), account.autoAcctId()
             );
         }
 
@@ -598,15 +595,13 @@ public class PatientService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             log.error("Account not found");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
         final LocalDateTime nowUtc = TimeUtils.getNowUtc();
 
         // 获取病人信息
@@ -678,7 +673,8 @@ public class PatientService {
             .findByPatientIdAndUnbindingTimeNullAndIsDeletedFalse(patient.getId());
         StatusCode statusCode = StatusCode.OK;
         for (PatientDevice patientDev : patientDevs) {
-            statusCode = PatientDevUtils.unbindDevice(patientDev, dischargeTime, accountId, accountName, nowUtc);
+            statusCode = PatientDevUtils.unbindDevice(
+                patientDev, dischargeTime, account.autoAcctId(), account.acctName(), nowUtc);
             if (statusCode != StatusCode.OK) {
                 log.error("Failed to unbind device: {}", patientDev.getId());
                 return GenericResp.newBuilder()
@@ -928,13 +924,12 @@ public class PatientService {
                 .build();
         }
 
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
         final LocalDateTime nowUtc = TimeUtils.getNowUtc();
 
         Long pid = req.getPid();
@@ -962,12 +957,12 @@ public class PatientService {
                 .pid(pid)
                 .reportCfg(reportCfgBase64)
                 .modifiedAt(nowUtc)
-                .modifiedBy(accountId)
+                .modifiedBy(account.autoAcctId())
                 .build();
         } else {
             settings.setReportCfg(reportCfgBase64);
             settings.setModifiedAt(nowUtc);
-            settings.setModifiedBy(accountId);
+            settings.setModifiedBy(account.autoAcctId());
         }
         patientSettingsRepository.save(settings);
 
@@ -1090,14 +1085,12 @@ public class PatientService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return AddDiagnosisHistoryResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 获取最新诊断历史，检查新增记录时间是否为最新，如果为最新，则更新病人记录
         DiagnosisHistory latestDiagnosis = diagnosisHistoryRepository
@@ -1119,13 +1112,13 @@ public class PatientService {
         DiagnosisHistory diagnosisHistory = DiagnosisHistory.builder()
             .patientId(pid)
             .diagnosisTime(diagnosisTime)
-            .diagnosisAccountId(accountId)
+            .diagnosisAccountId(account.autoAcctId())
             .diagnosis(req.getDiagnosisHistory().getDiagnosis())
             .diagnosisCode(req.getDiagnosisHistory().getDiagnosisCode())
             .isDeleted(false)
             .modifiedAt(TimeUtils.getNowUtc())
-            .modifiedBy(accountId)
-            .modifiedByAccountName(accountName)
+            .modifiedBy(account.autoAcctId())
+            .modifiedByAccountName(account.acctName())
             .build();
         diagnosisHistory = diagnosisHistoryRepository.save(diagnosisHistory);
 
@@ -1150,14 +1143,12 @@ public class PatientService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 检查诊断时间
         LocalDateTime diagnosisTime = TimeUtils.fromIso8601String(
@@ -1218,12 +1209,12 @@ public class PatientService {
 
         // 更新诊断历史记录
         diagnosisHistory.setDiagnosisTime(diagnosisTime);
-        diagnosisHistory.setDiagnosisAccountId(accountId);
+        diagnosisHistory.setDiagnosisAccountId(account.autoAcctId());
         diagnosisHistory.setDiagnosis(req.getDiagnosisHistory().getDiagnosis());
         diagnosisHistory.setDiagnosisCode(req.getDiagnosisHistory().getDiagnosisCode());
         diagnosisHistory.setModifiedAt(TimeUtils.getNowUtc());
-        diagnosisHistory.setModifiedBy(accountId);
-        diagnosisHistory.setModifiedByAccountName(accountName);
+        diagnosisHistory.setModifiedBy(account.autoAcctId());
+        diagnosisHistory.setModifiedByAccountName(account.acctName());
         diagnosisHistoryRepository.save(diagnosisHistory);
 
         return GenericResp.newBuilder()
@@ -1246,14 +1237,12 @@ public class PatientService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 查找诊断历史记录
         DiagnosisHistory diagnosisHistory = diagnosisHistoryRepository
@@ -1273,7 +1262,7 @@ public class PatientService {
         // 逻辑删除
         diagnosisHistory.setIsDeleted(true);
         diagnosisHistory.setDeletedAt(TimeUtils.getNowUtc());
-        diagnosisHistory.setDeletedBy(accountId);
+        diagnosisHistory.setDeletedBy(account.autoAcctId());
         diagnosisHistoryRepository.save(diagnosisHistory);
 
         // 查找病人信息

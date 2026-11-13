@@ -106,14 +106,13 @@ public class MedicationService {
         }
 
         // 获取当前用户
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GetOrderGroupsResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 获取当前病人
         final Long patientId = req.getPatientId();
@@ -162,7 +161,8 @@ public class MedicationService {
                 );
                 for (LocalDateTime shiftUtc : shiftUtcList) {
                     ordExecutor.retrieveExeRecords(
-                        patientInIcu, shiftSettings, medOgSettings, accountId, orderGroups, shiftUtc, patientRecord.getDischargeTime()
+                        patientInIcu, shiftSettings, medOgSettings, account.autoAcctId(),
+                        orderGroups, shiftUtc, patientRecord.getDischargeTime()
                     );
                 }
             }
@@ -186,14 +186,13 @@ public class MedicationService {
         }
 
         // 获取当前用户
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GetOrderGroupResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 查找医嘱，执行记录，执行过程
         final Long medOrderGroupId = req.getMedOrderGroupId();
@@ -225,7 +224,9 @@ public class MedicationService {
             shiftSettings, queryStartUtc, queryEndUtc.minusMinutes(1), ZONE_ID
         );
         for (LocalDateTime shiftUtc : shiftUtcList) {
-            ordExecutor.retrieveExeRecords(patientInIcu, shiftSettings, medOgSettings, accountId, orderGroup, shiftUtc, patientRecord.getDischargeTime());
+            ordExecutor.retrieveExeRecords(
+                patientInIcu, shiftSettings, medOgSettings, account.autoAcctId(),
+                orderGroup, shiftUtc, patientRecord.getDischargeTime());
         }
 
         // 组装医嘱
@@ -256,14 +257,12 @@ public class MedicationService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return NewOrderGroupResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 检查总液体量是否为正数
         Double totalIntakeMl = 0.0;
@@ -323,7 +322,8 @@ public class MedicationService {
             .collect(Collectors.toMap(RouteDetails::getCode, rd -> rd));
 
         Pair<StatusCode, OrderGroupPB> resPair = newOrderGroupImpl(
-            req, patientRecord, medOgSettings, shiftSettings, routeDetailsMap, accountId, accountName, deptId
+            req, patientRecord, medOgSettings, shiftSettings, routeDetailsMap,
+            account.autoAcctId(), account.acctName(), deptId
         );
         StatusCode statusCode = resPair.getFirst();
         OrderGroupPB orderGroupPB = resPair.getSecond();
@@ -469,15 +469,13 @@ public class MedicationService {
         }
 
         // 获取当前用户
-        final Pair<String, String> account = userQuery.getAccountWithAutoId();
+        final CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             log.error("accountId is empty.");
             return SaveOrderExeActionResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 查找 MedicationExecutionRecord, MedicationOrderGroup, List<MedicationExecutionAction>
         final Long medExeRecId = req.getMedExeRecId();
@@ -584,7 +582,8 @@ public class MedicationService {
             updatedExeActions.set(updatedExeActions.size() - 1, savedAction);
         } else {
             savedAction = ordExecutor.addExeAction(
-                accountId, accountName, medExeRecId, actionType, req.getAdministrationRate(),
+                account.autoAcctId(), account.acctName(), medExeRecId, actionType,
+                req.getAdministrationRate(),
                 medicationRateStr, req.getIntakeVolMl(), createdAtUtc
             );
             updatedExeActions.add(savedAction);
@@ -637,7 +636,8 @@ public class MedicationService {
         );
         updateExeRecordStats(exeRecPb);
         medReportUtils.setDirtyPatientNursingReports(
-            orderGroup, exeRec, oldExeActions, updatedExeActions, routeDetailsMap, TimeUtils.getNowUtc(), accountId
+            orderGroup, exeRec, oldExeActions, updatedExeActions, routeDetailsMap,
+            TimeUtils.getNowUtc(), account.autoAcctId()
         );
 
         return SaveOrderExeActionResp.newBuilder()
@@ -661,14 +661,13 @@ public class MedicationService {
         }
 
         // 获取当前用户
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return DelOrderExeActionResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 查找MedicationExecutionAction, MedicationExecutionRecord, MedicationOrderGroup, List<MedicationExecutionAction>
         MedicationExecutionRecord exeRec = ordExecutor.getExeRecordForUpdateByActionId(req.getMedExeActionId());
@@ -708,7 +707,7 @@ public class MedicationService {
         }
         final LocalDateTime deleteTime = TimeUtils.fromIso8601String(req.getDeleteTimeIso8601(), "UTC");
         List<MedicationExecutionAction> oldExeActions = snapshotExeActions(exeActions);
-        ordExecutor.deleteExeAction(lastAction, accountId, deleteTime);
+        ordExecutor.deleteExeAction(lastAction, account.autoAcctId(), deleteTime);
         exeActions.remove(exeActions.size() - 1);
 
         // 更新执行记录的开始和结束时间
@@ -729,7 +728,7 @@ public class MedicationService {
                 medMonitoringService.deleteIntakeRecords(
                     orderGroup.getPatientId(), orderGroup.getDeptId(), route.getCode(),
                     // todo(guzhenyu): 为什么是8？
-                    exeRec.getPlanTime().minusHours(8), accountId
+                    exeRec.getPlanTime().minusHours(8), account.autoAcctId()
                 );
             }
             
@@ -738,7 +737,8 @@ public class MedicationService {
             ordExecutor.updateExeRecord(exeRec);
         }
         medReportUtils.setDirtyPatientNursingReports(
-            orderGroup, exeRec, oldExeActions, exeActions, routeDetailsMap, TimeUtils.getNowUtc(), accountId
+            orderGroup, exeRec, oldExeActions, exeActions, routeDetailsMap,
+            TimeUtils.getNowUtc(), account.autoAcctId()
         );
 
         // 重新计算药物剩余量
@@ -855,23 +855,23 @@ public class MedicationService {
         }
 
         if (updated) {
-            final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-            if (accountWithAutoId == null) {
+            final CurrentAccount account = userQuery.getCurrentAccount();
+            if (account == null) {
                 log.error("accountId is empty.");
                 return GenericResp.newBuilder()
                     .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                     .build();
             }
-            final String accountId = accountWithAutoId.getFirst();
 
             ordExecutor.updateExeRecord(exeRec);
             log.info(
-                "ExecutionRecord updated (by ", accountId, "): ", medExeRecId,
+                "ExecutionRecord updated (by ", account.autoAcctId(), "): ", medExeRecId,
                 " dosageGroup:\n", ProtoUtils.protoToTxt(req.getDosageGroup()),
                 "\nrouteCode: ", req.getAdministrationRouteCode(), "\nrouteName: ", req.getAdministrationRouteName()
             );
             log.info("ExecutionRecord updated (by {}, exe record - {}, dosageGroup: \n{},\n routeCode: {})",
-                accountId, medExeRecId, ProtoUtils.protoToTxt(req.getDosageGroup()), req.getAdministrationRouteCode());
+                account.autoAcctId(), medExeRecId, ProtoUtils.protoToTxt(req.getDosageGroup()),
+                req.getAdministrationRouteCode());
         }
 
         return GenericResp.newBuilder()
@@ -911,14 +911,13 @@ public class MedicationService {
         }
 
         // 获取当前用户
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 删除
         MedicationOrderGroup orderGroup = ordGroupGenerator.getOrderGroup(exeRec.getMedicationOrderGroupId());
@@ -929,7 +928,7 @@ public class MedicationService {
                 .build();
         }
         ordExecutor.deleteExeRecord(
-            exeRec, accountId,
+            exeRec, account.autoAcctId(),
             TimeUtils.fromIso8601String(req.getDeleteTimeIso8601(), "UTC"),
             req.getDeleteReason(),
             ProtoUtils.decodeDosageGroup(orderGroup.getMedicationDosageGroup()).getDisplayName());
@@ -1083,14 +1082,13 @@ public class MedicationService {
         }
 
         // 查找当前用户
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 检查药物信息
         MedicationPB medPb = req.getMedication();
@@ -1111,7 +1109,7 @@ public class MedicationService {
         }
 
         // 创建新的药物
-        med = fromProto(medPb, accountId);
+        med = fromProto(medPb, account.autoAcctId());
         med = medRepo.save(med);
         log.info("New medication added: code={}, name={}", med.getCode(), med.getName());
 
@@ -1160,14 +1158,13 @@ public class MedicationService {
         }
 
         // 查找当前用户
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 检查药物信息
         MedicationPB medPb = req.getMedication();
@@ -1187,7 +1184,7 @@ public class MedicationService {
 
         // 如果原药物代码和更新的药物代码相同，直接更新
         if (req.getOrigCode().equals(medPb.getCode())) {
-            medRepo.save(fromProto(medPb, accountId));
+            medRepo.save(fromProto(medPb, account.autoAcctId()));
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.OK))
                 .build();
@@ -1204,7 +1201,7 @@ public class MedicationService {
 
         // 更新药物信息(删除原来药物，新增新药物)
         medRepo.delete(origMedication);
-        medRepo.save(fromProto(medPb, accountId));
+        medRepo.save(fromProto(medPb, account.autoAcctId()));
         log.info("Medication updated: code={}, name={}", medPb.getCode(), medPb.getName());
 
         return GenericResp.newBuilder()
@@ -1226,14 +1223,13 @@ public class MedicationService {
                 .build();
         }
 
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 查找药物
         Medication medication = medRepo.findByCode(req.getCode()).orElse(null);
@@ -1294,14 +1290,13 @@ public class MedicationService {
                 .build();
         }
 
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return AddRouteResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 检查用药途径信息
         AdministrationRoutePB routePb = req.getRoute();
@@ -1332,7 +1327,8 @@ public class MedicationService {
             .isValid(true)
             .build();
         route = routeRepo.save(route);
-        log.info("New administration route added: code={}, name={}, by {}", route.getCode(), route.getName(), accountId);
+        log.info("New administration route added: code={}, name={}, by {}",
+            route.getCode(), route.getName(), account.autoAcctId());
 
         return AddRouteResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -1354,14 +1350,13 @@ public class MedicationService {
                 .build();
         }
 
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 检查用药途径信息
         AdministrationRoutePB routePb = req.getRoute();
@@ -1399,7 +1394,7 @@ public class MedicationService {
         route.setIsValid(true);
         routeRepo.save(route);
         log.info("AdministrationRoute updated: id={}, code={}, name={}, by {}",
-            route.getId(), route.getCode(), route.getName(), accountId);
+            route.getId(), route.getCode(), route.getName(), account.autoAcctId());
 
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -1420,14 +1415,13 @@ public class MedicationService {
                 .build();
         }
 
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 查找用药途径
         Integer routeId = req.getId();
@@ -1519,14 +1513,13 @@ public class MedicationService {
                 .build();
         }
 
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return AddFreqResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         MedicationFrequencySpec freqPb = req.getFreq();
         // 检查频率信息
@@ -1547,7 +1540,8 @@ public class MedicationService {
             .isDeleted(false)
             .build();
         freq = medFreqRepo.save(freq);
-        log.info("New medication frequency added: code={}, name={}, by {}", freq.getCode(), freq.getName(), accountId);
+        log.info("New medication frequency added: code={}, name={}, by {}",
+            freq.getCode(), freq.getName(), account.autoAcctId());
 
         return AddFreqResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -1569,14 +1563,13 @@ public class MedicationService {
                 .build();
         }
 
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         MedicationFrequencySpec freqPb = req.getFreq();
         // 检查频率信息
@@ -1604,7 +1597,7 @@ public class MedicationService {
         freq.setSupportNursingOrder(freqPb.getSupportNursingOrder() > 0);
         medFreqRepo.save(freq);
         log.info("MedicationFrequency updated: id={}, code={}, name={}, by {}",
-            freq.getId(), freq.getCode(), freq.getName(), accountId);
+            freq.getId(), freq.getCode(), freq.getName(), account.autoAcctId());
 
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
@@ -1625,14 +1618,13 @@ public class MedicationService {
                 .build();
         }
 
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 检查频率信息
         MedicationFrequency freq = medFreqRepo.findByIdAndIsDeletedFalse(req.getId()).orElse(null);
@@ -1645,11 +1637,11 @@ public class MedicationService {
 
         // 删除频率
         freq.setIsDeleted(true);
-        freq.setDeletedBy(accountId);
+        freq.setDeletedBy(account.autoAcctId());
         freq.setDeletedAt(TimeUtils.getNowUtc());
         medFreqRepo.save(freq);
         log.info("MedicationFrequency deleted: id={}, code={}, name={}, by {}",
-            freq.getId(), freq.getCode(), freq.getName(), accountId);
+            freq.getId(), freq.getCode(), freq.getName(), account.autoAcctId());
 
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))

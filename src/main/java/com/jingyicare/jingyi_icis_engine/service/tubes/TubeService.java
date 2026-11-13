@@ -15,6 +15,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisTube.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 
 import com.jingyicare.jingyi_icis_engine.entity.tubes.*;
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -82,16 +83,17 @@ public class TubeService {
         }
 
         // 获取当前用户，新增管道类型
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return AddTubeTypeResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
-        final Integer addedTubeTypeId = setting.addOrUpdateTubeType(deptId, tubeTypePb, null, accountId);
-        log.info("Add a tube type, deptId {}, tubetypepb {}, accountId {}", deptId, tubeTypePb, accountId);
+        final Integer addedTubeTypeId = setting.addOrUpdateTubeType(
+            deptId, tubeTypePb, null, account.autoAcctId());
+        log.info("Add a tube type, deptId {}, tubetypepb {}, accountId {}",
+            deptId, tubeTypePb, account.autoAcctId());
 
         return AddTubeTypeResp.newBuilder().setRt(protoService.getReturnCode(StatusCode.OK))
             .setAddedTubeTypeId(addedTubeTypeId).build();
@@ -138,17 +140,16 @@ public class TubeService {
         }
 
         // 获取当前用户，更新管道类型
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
-        setting.addOrUpdateTubeType(deptId, tubeTypePb, tubeTypeId, accountId);
+        setting.addOrUpdateTubeType(deptId, tubeTypePb, tubeTypeId, account.autoAcctId());
         log.info("Update a tube type, deptId {}, tubetypepb {}, accountId {}",
-            deptId, tubeTypePb, accountId);
+            deptId, tubeTypePb, account.autoAcctId());
 
         return GenericResp.newBuilder().setRt(protoService.getReturnCode(StatusCode.OK)).build();
     }
@@ -166,14 +167,13 @@ public class TubeService {
         }
 
         // 获取当前用户，更新管道类型
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 获得需要更新的tubeTypeId
         final Integer tubeTypeId = req.getTubeTypeId();
@@ -185,7 +185,7 @@ public class TubeService {
                 .build();
         }
 
-        setting.disableTubeType(tubeTypeId, isDisabled, accountId);
+        setting.disableTubeType(tubeTypeId, isDisabled, account.autoAcctId());
 
         return GenericResp.newBuilder().setRt(protoService.getReturnCode(StatusCode.OK)).build();
     }
@@ -202,15 +202,14 @@ public class TubeService {
         }
 
         // 删除管道类型
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
-        setting.deleteDeptTubeType(req.getTubeTypeId(), accountId);
+        setting.deleteDeptTubeType(req.getTubeTypeId(), account.autoAcctId());
 
         return GenericResp.newBuilder().setRt(protoService.getReturnCode(StatusCode.OK)).build();
     }
@@ -236,14 +235,13 @@ public class TubeService {
         }
 
         // 获取当前用户
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return AddTubeTypeAttrResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 检查管道属性是否已经存在
         final TubeValueSpecPB attrPb = req.getAttr();
@@ -266,9 +264,11 @@ public class TubeService {
         Integer tubeTypeAttrId = -1;
         TubeTypeAttribute deletedAttr = setting.findTubeTypeAttribute(tubeTypeId, attrCode, true);
         if (deletedAttr == null) {
-            tubeTypeAttrId = setting.addOrUpdateTubeTypeAttribute(tubeTypeId, attrPb, null, accountId);
+            tubeTypeAttrId = setting.addOrUpdateTubeTypeAttribute(
+                tubeTypeId, attrPb, null, account.autoAcctId());
         } else {
-            tubeTypeAttrId = setting.addOrUpdateTubeTypeAttribute(tubeTypeId, attrPb, deletedAttr.getId(), accountId);
+            tubeTypeAttrId = setting.addOrUpdateTubeTypeAttribute(
+                tubeTypeId, attrPb, deletedAttr.getId(), account.autoAcctId());
         }
 
         return AddTubeTypeAttrResp.newBuilder().setRt(protoService.getReturnCode(StatusCode.OK))
@@ -329,15 +329,15 @@ public class TubeService {
         }
 
         // 获取当前用户, 更新属性
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
-        setting.addOrUpdateTubeTypeAttribute(tubeTypeId, attrPb, tubeTypeAttrId, accountId);
+        setting.addOrUpdateTubeTypeAttribute(
+            tubeTypeId, attrPb, tubeTypeAttrId, account.autoAcctId());
 
         return GenericResp.newBuilder().setRt(protoService.getReturnCode(StatusCode.OK)).build();
     }
@@ -354,15 +354,14 @@ public class TubeService {
         }
 
         // 删除 TubeTypeAttribute
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
-        setting.deleteTubeTypeAttribute(req.getTubeTypeAttrId(), accountId);
+        setting.deleteTubeTypeAttribute(req.getTubeTypeAttrId(), account.autoAcctId());
 
         return GenericResp.newBuilder().setRt(protoService.getReturnCode(StatusCode.OK)).build();
     }
@@ -388,14 +387,13 @@ public class TubeService {
         }
 
         // 获取当前用户
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return AddTubeTypeStatusResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
 
         // 检查管道状态是否已经存在
         final TubeValueSpecPB statusPb = req.getStatus();
@@ -417,9 +415,11 @@ public class TubeService {
         Integer tubeTypeStatusId = -1;
         TubeTypeStatus deletedStatus = setting.findTubeTypeStatus(tubeTypeId, statusCode, true);
         if (deletedStatus == null) {
-            tubeTypeStatusId = setting.addOrUpdateTubeTypeStatus(tubeTypeId, statusPb, null, accountId);
+            tubeTypeStatusId = setting.addOrUpdateTubeTypeStatus(
+                tubeTypeId, statusPb, null, account.autoAcctId());
         } else {
-            tubeTypeStatusId = setting.addOrUpdateTubeTypeStatus(tubeTypeId, statusPb, deletedStatus.getId(), accountId);
+            tubeTypeStatusId = setting.addOrUpdateTubeTypeStatus(
+                tubeTypeId, statusPb, deletedStatus.getId(), account.autoAcctId());
         }
 
         return AddTubeTypeStatusResp.newBuilder().setRt(protoService.getReturnCode(StatusCode.OK))
@@ -480,15 +480,15 @@ public class TubeService {
         }
 
         // 获取当前用户, 更新状态
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
-        setting.addOrUpdateTubeTypeStatus(tubeTypeId, statusPb, tubeTypeStatusId, accountId);
+        setting.addOrUpdateTubeTypeStatus(
+            tubeTypeId, statusPb, tubeTypeStatusId, account.autoAcctId());
 
         return GenericResp.newBuilder().setRt(protoService.getReturnCode(StatusCode.OK)).build();
     }
@@ -506,15 +506,14 @@ public class TubeService {
         }
 
         // 删除 TubeTypeStatus
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
-        setting.deleteTubeTypeStatus(req.getTubeTypeStatusId(), accountId);
+        setting.deleteTubeTypeStatus(req.getTubeTypeStatusId(), account.autoAcctId());
 
         return GenericResp.newBuilder().setRt(protoService.getReturnCode(StatusCode.OK)).build();
     }
@@ -531,15 +530,14 @@ public class TubeService {
         }
 
         // 调整管道类型顺序
-        final Pair<String, String> accountWithAutoId = userQuery.getAccountWithAutoId();
-        if (accountWithAutoId == null) {
+        final CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
             log.error("accountId is empty.");
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = accountWithAutoId.getFirst();
-        setting.adjustTubeOrder(req, accountId);
+        setting.adjustTubeOrder(req, account.autoAcctId());
         return GenericResp.newBuilder().setRt(protoService.getReturnCode(StatusCode.OK)).build();
     }
 

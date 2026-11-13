@@ -18,6 +18,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import com.jingyicare.jingyi_icis_engine.entity.scores.DeptScoreGroup;
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingScore.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
@@ -28,7 +29,6 @@ import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
-import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
@@ -137,7 +137,7 @@ public class ScoreMetaService {
         if (hasBlankGroupKey(req.getDeptId(), req.getScoreGroupCode())) {
             return addGroupResponse(StatusCode.INVALID_PARAM_VALUE);
         }
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) return addGroupResponse(StatusCode.ACCOUNT_NOT_FOUND);
 
         return lockExecutor.execute(
@@ -151,7 +151,7 @@ public class ScoreMetaService {
                 ScoreGroupMetaPB meta = configuredScoreGroupMetaByCode.get(req.getScoreGroupCode());
                 if (meta == null) return addGroupResponse(StatusCode.DEPT_SCORE_GROUP_NOT_FOUND);
                 Integer id = saveDeptScoreGroup(null, req.getDeptId(), req.getScoreGroupCode(),
-                    meta, account.getFirst(), TimeUtils.getNowUtc());
+                    meta, account.autoAcctId(), TimeUtils.getNowUtc());
                 return AddDeptScoreGroupResp.newBuilder()
                     .setRt(protoService.getReturnCode(StatusCode.OK)).setId(id).build();
             });
@@ -170,7 +170,7 @@ public class ScoreMetaService {
         ) {
             return addGroupsResponse(StatusCode.INVALID_PARAM_VALUE);
         }
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) return addGroupsResponse(StatusCode.ACCOUNT_NOT_FOUND);
         List<String> codes = req.getGroupList().stream()
             .map(DeptScoreGroupPB::getScoreGroupCode).toList();
@@ -196,7 +196,7 @@ public class ScoreMetaService {
             List<Integer> ids = new ArrayList<>();
             for (String code : codes) {
                 ids.add(saveDeptScoreGroup(null, req.getDeptId(), code,
-                    configuredScoreGroupMetaByCode.get(code), account.getFirst(), nowUtc));
+                    configuredScoreGroupMetaByCode.get(code), account.autoAcctId(), nowUtc));
             }
             return AddDeptScoreGroupsResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.OK)).addAllId(ids).build();
@@ -211,7 +211,7 @@ public class ScoreMetaService {
             log.error("评分元数据请求解析失败", e);
             return response(StatusCode.PARSE_JSON_FAILED);
         }
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) return response(StatusCode.ACCOUNT_NOT_FOUND);
         Optional<DeptScoreGroupKey> initial = DeptScoreGroupJdbc.findKeyById(
             jdbcTemplate, req.getId());
@@ -230,7 +230,7 @@ public class ScoreMetaService {
                     .findByIdAndIsDeletedFalse(req.getId()).orElse(null);
                 if (group == null) return response(StatusCode.OK);
                 group.setIsDeleted(true);
-                group.setDeletedBy(account.getFirst());
+                group.setDeletedBy(account.autoAcctId());
                 group.setDeletedAt(TimeUtils.getNowUtc());
                 deptScoreGroupRepo.save(group);
                 return response(StatusCode.OK);
@@ -246,7 +246,7 @@ public class ScoreMetaService {
             return response(StatusCode.PARSE_JSON_FAILED);
         }
         if (StrUtils.isBlank(req.getDeptId())) return response(StatusCode.INVALID_PARAM_VALUE);
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) return response(StatusCode.ACCOUNT_NOT_FOUND);
         List<Integer> ids = req.getGroupOrderList().stream().map(ScoreGroupOrder::getId).toList();
         if (new HashSet<>(ids).size() != ids.size()) {
@@ -279,7 +279,7 @@ public class ScoreMetaService {
                     DeptScoreGroup group = groups.get(order.getId());
                     if (Objects.equals(group.getDisplayOrder(), order.getDisplayOrder())) continue;
                     group.setDisplayOrder(order.getDisplayOrder());
-                    group.setModifiedBy(account.getFirst());
+                    group.setModifiedBy(account.autoAcctId());
                     group.setModifiedAt(nowUtc);
                     deptScoreGroupRepo.save(group);
                 }
@@ -445,7 +445,7 @@ public class ScoreMetaService {
         String deptId, String code, Function<ScoreGroupMetaPB, ScoreGroupMetaUpdate> update
     ) {
         if (hasBlankGroupKey(deptId, code)) return response(StatusCode.INVALID_PARAM_VALUE);
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) return response(StatusCode.ACCOUNT_NOT_FOUND);
         // 修改接口也允许首次创建科室配置，因此同时锁住科室排序和目标评分组。
         return lockExecutor.execute(deptScoreGroupLockKeys(deptId, List.of(code)), () -> {
@@ -458,7 +458,7 @@ public class ScoreMetaService {
             ScoreGroupMetaUpdate result = update.apply(meta);
             if (result.status() != StatusCode.OK) return response(result.status());
             if (result.meta() != null) {
-                saveDeptScoreGroup(group, deptId, code, result.meta(), account.getFirst(),
+                saveDeptScoreGroup(group, deptId, code, result.meta(), account.autoAcctId(),
                     TimeUtils.getNowUtc());
             }
             return response(StatusCode.OK);

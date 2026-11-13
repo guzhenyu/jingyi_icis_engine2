@@ -13,6 +13,7 @@ import com.google.protobuf.util.JsonFormat;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDoctorScore.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
@@ -118,14 +119,12 @@ public class DoctorScoreService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 提取关键参数
         String deptId = req.getDeptId();
@@ -160,7 +159,7 @@ public class DoctorScoreService {
             newType.setName(scoreTypeName);
             newType.setDisplayOrder(nextDisplayOrder++);
             newType.setIsDeleted(false);
-            newType.setModifiedBy(accountId);
+            newType.setModifiedBy(account.autoAcctId());
             newType.setModifiedAt(nowUtc);
 
             newTypes.add(newType);
@@ -187,14 +186,12 @@ public class DoctorScoreService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 提取关键参数
         String deptId = req.getDeptId();
@@ -213,7 +210,7 @@ public class DoctorScoreService {
 
         // 逻辑删除
         scoreTypeToDel.setIsDeleted(true);
-        scoreTypeToDel.setDeletedBy(accountId);
+        scoreTypeToDel.setDeletedBy(account.autoAcctId());
         scoreTypeToDel.setDeletedAt(nowUtc);
         deptDoctorScoreTypeRepo.save(scoreTypeToDel);
 
@@ -237,14 +234,12 @@ public class DoctorScoreService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 提取关键参数
         String deptId = req.getDeptId();
@@ -272,7 +267,7 @@ public class DoctorScoreService {
                 continue;
             }
             type.setDisplayOrder(displayOrder++);
-            type.setModifiedBy(accountId);
+            type.setModifiedBy(account.autoAcctId());
             type.setModifiedAt(nowUtc);
             toUpdate.add(type);
         }
@@ -280,7 +275,7 @@ public class DoctorScoreService {
         for (DeptDoctorScoreType type : existingTypes) {
             if (!newCodes.contains(type.getCode())) {
                 type.setDisplayOrder(displayOrder++);
-                type.setModifiedBy(accountId);
+                type.setModifiedBy(account.autoAcctId());
                 type.setModifiedAt(nowUtc);
                 toUpdate.add(type);
             }
@@ -600,21 +595,19 @@ public class DoctorScoreService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 删除评分信息
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
         apacheIIScore.setIsDeleted(true);
         apacheIIScore.setDeletedAt(nowUtc);
-        apacheIIScore.setDeletedBy(accountId);
-        apacheIIScore.setDeletedByAccountName(accountName);
+        apacheIIScore.setDeletedBy(account.autoAcctId());
+        apacheIIScore.setDeletedByAccountName(account.acctName());
         apacheIIScore = apacheRepo.save(apacheIIScore);
 
         return GenericResp.newBuilder()
@@ -960,21 +953,19 @@ public class DoctorScoreService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
             .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 删除评分信息
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
         sofaScore.setIsDeleted(true);
         sofaScore.setDeletedAt(nowUtc);
-        sofaScore.setDeletedBy(accountId);
-        sofaScore.setDeletedByAccountName(accountName);
+        sofaScore.setDeletedBy(account.autoAcctId());
+        sofaScore.setDeletedByAccountName(account.acctName());
         sofaScore = sofaRepo.save(sofaScore);
 
         return GenericResp.newBuilder()
@@ -1232,20 +1223,18 @@ public class DoctorScoreService {
                 .build();
         }
 
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
         vteCapriniScore.setIsDeleted(true);
         vteCapriniScore.setDeletedAt(nowUtc);
-        vteCapriniScore.setDeletedBy(accountId);
-        vteCapriniScore.setDeletedByAccountName(accountName);
+        vteCapriniScore.setDeletedBy(account.autoAcctId());
+        vteCapriniScore.setDeletedByAccountName(account.acctName());
         vteCapriniScore = vteCapriniRepo.save(vteCapriniScore);
 
         return GenericResp.newBuilder()
@@ -1458,20 +1447,18 @@ public class DoctorScoreService {
                 .build();
         }
 
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
         vtePaduaScore.setIsDeleted(true);
         vtePaduaScore.setDeletedAt(nowUtc);
-        vtePaduaScore.setDeletedBy(accountId);
-        vtePaduaScore.setDeletedByAccountName(accountName);
+        vtePaduaScore.setDeletedBy(account.autoAcctId());
+        vtePaduaScore.setDeletedByAccountName(account.acctName());
         vtePaduaScore = vtePaduaRepo.save(vtePaduaScore);
 
         return GenericResp.newBuilder()
@@ -1492,12 +1479,10 @@ public class DoctorScoreService {
         final String deptId = patientRecord.getDeptId();
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return new Pair<ReturnCode, ApacheIIScore>(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND), null);
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         LocalDateTime scoreTime = TimeUtils.fromIso8601String(scoredAtIso8601, "UTC");
         if (scoreTime == null) {
@@ -1511,8 +1496,9 @@ public class DoctorScoreService {
 
         // 构建评分信息
         ScoreUtils.ScorerInfo scorerInfo = new ScoreUtils.ScorerInfo(
-            pid, deptId, scoreTime, accountId, accountName, evalStartAt, evalEndAt,
-            nowUtc, accountId, false, null, null, null);
+            pid, deptId, scoreTime,
+            account.autoAcctId(), account.acctName(), evalStartAt, evalEndAt,
+            nowUtc, account.autoAcctId(), false, null, null, null);
 
         // 打分, 构建Entity
         Pair<ReturnCode, ApacheIIScorePB> apacheIIScorePair = ApacheIIScorer.score(
@@ -1549,12 +1535,10 @@ public class DoctorScoreService {
         final String deptId = patientRecord.getDeptId();
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return new Pair<ReturnCode, SofaScore>(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND), null);
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         LocalDateTime scoreTime = TimeUtils.fromIso8601String(scoredAtIso8601, "UTC");
         if (scoreTime == null) {
@@ -1568,8 +1552,9 @@ public class DoctorScoreService {
 
         // 构建评分信息
         ScoreUtils.ScorerInfo scorerInfo = new ScoreUtils.ScorerInfo(
-            pid, deptId, scoreTime, accountId, accountName, evalStartAt, evalEndAt,
-            nowUtc, accountId, false, null, null, null);
+            pid, deptId, scoreTime,
+            account.autoAcctId(), account.acctName(), evalStartAt, evalEndAt,
+            nowUtc, account.autoAcctId(), false, null, null, null);
 
         // 打分, 构建Entity
         Pair<ReturnCode, SOFAScorePB> sofaScorePair = SofaScorer.score(
@@ -1606,12 +1591,10 @@ public class DoctorScoreService {
         final String deptId = patientRecord.getDeptId();
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return new Pair<>(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND), null);
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         LocalDateTime scoreTime = TimeUtils.fromIso8601String(scoredAtIso8601, "UTC");
         if (scoreTime == null) {
@@ -1625,8 +1608,9 @@ public class DoctorScoreService {
 
         // 构建评分信息
         ScoreUtils.ScorerInfo scorerInfo = new ScoreUtils.ScorerInfo(
-            pid, deptId, scoreTime, accountId, accountName, evalStartAt, evalEndAt,
-            nowUtc, accountId, false, null, null, null);
+            pid, deptId, scoreTime,
+            account.autoAcctId(), account.acctName(), evalStartAt, evalEndAt,
+            nowUtc, account.autoAcctId(), false, null, null, null);
 
         // 打分, 构建Entity
         Pair<ReturnCode, VTECapriniScorePB> vteCapriniScorePair = VTECapriniScorer.score(
@@ -1663,12 +1647,10 @@ public class DoctorScoreService {
         final String deptId = patientRecord.getDeptId();
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return new Pair<>(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND), null);
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         LocalDateTime scoreTime = TimeUtils.fromIso8601String(scoredAtIso8601, "UTC");
         if (scoreTime == null) {
@@ -1682,8 +1664,9 @@ public class DoctorScoreService {
 
         // 构建评分信息
         ScoreUtils.ScorerInfo scorerInfo = new ScoreUtils.ScorerInfo(
-            pid, deptId, scoreTime, accountId, accountName, evalStartAt, evalEndAt,
-            nowUtc, accountId, false, null, null, null);
+            pid, deptId, scoreTime,
+            account.autoAcctId(), account.acctName(), evalStartAt, evalEndAt,
+            nowUtc, account.autoAcctId(), false, null, null, null);
 
         // 打分, 构建Entity
         Pair<ReturnCode, VTEPaduaScorePB> vtePaduaScorePair = VTEPaduaScorer.score(

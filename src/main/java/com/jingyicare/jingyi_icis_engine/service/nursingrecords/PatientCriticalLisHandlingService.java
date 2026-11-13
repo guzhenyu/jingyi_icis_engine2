@@ -20,6 +20,7 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.entity.lis.*;
 import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.*;
 import com.jingyicare.jingyi_icis_engine.entity.patients.*;
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.repository.lis.*;
 import com.jingyicare.jingyi_icis_engine.repository.nursingrecords.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
@@ -77,14 +78,12 @@ public class PatientCriticalLisHandlingService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GetPatientCriticalLisHandlingsResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 获取患者信息
         Long pid = req.getPid();
@@ -102,7 +101,8 @@ public class PatientCriticalLisHandlingService {
         LocalDateTime queryStart = TimeUtils.fromIso8601String(req.getQueryStartIso8601(), "UTC");
         LocalDateTime queryEnd = TimeUtils.fromIso8601String(req.getQueryEndIso8601(), "UTC");
         if (queryStart == null || queryEnd == null) {
-            log.error("Invalid query time: {} - {}", req.getQueryStartIso8601(), req.getQueryEndIso8601(), accountId);
+            log.error("Invalid query time: {} - {}",
+                req.getQueryStartIso8601(), req.getQueryEndIso8601(), account.autoAcctId());
             return GetPatientCriticalLisHandlingsResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(
                     statusCodeMsgList,
@@ -114,7 +114,7 @@ public class PatientCriticalLisHandlingService {
 
         // 获取危急值记录
         List<PatientCriticalLisResult> lisResults = getPatientCriticalLisResults(
-            pid, hisPid, deptId, queryStart, queryEnd, accountId
+            pid, hisPid, deptId, queryStart, queryEnd, account.autoAcctId()
         );
 
         // 获取危急值处理记录
@@ -175,14 +175,12 @@ public class PatientCriticalLisHandlingService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return SavePatientCriticalLisHandlingResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 获取患者信息
         Long pid = req.getHandling().getPid();
@@ -200,7 +198,8 @@ public class PatientCriticalLisHandlingService {
             req.getHandling().getEffectiveTimeIso8601(), "UTC"
         );
         if (effectiveTime == null) {
-            log.error("Invalid effective time: {}", req.getHandling().getEffectiveTimeIso8601(), accountId);
+            log.error("Invalid effective time: {}",
+                req.getHandling().getEffectiveTimeIso8601(), account.autoAcctId());
             return SavePatientCriticalLisHandlingResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.INVALID_TIME_FORMAT))
                 .build();
@@ -240,11 +239,11 @@ public class PatientCriticalLisHandlingService {
         handling.setActions(actions);
         handling.setEffectiveTime(effectiveTime);
         handling.setIsDeleted(false);
-        handling.setModifiedBy(accountId);
+        handling.setModifiedBy(account.autoAcctId());
         handling.setModifiedAt(now);
         handling = criticalLisHandlingRepo.save(handling);
         result.setHandlingId(handling.getId());
-        result.setModifiedBy(accountId);
+        result.setModifiedBy(account.autoAcctId());
         result.setModifiedAt(now);
         criticalLisResultRepo.save(result);
 
@@ -261,11 +260,11 @@ public class PatientCriticalLisHandlingService {
                     .effectiveTime(effectiveTime)
                     .isDeleted(false)
                     .patientCriticalLisHandlingId(handling.getId())
-                    .modifiedBy(accountId)
-                    .modifiedByAccountName(accountName)
+                    .modifiedBy(account.autoAcctId())
+                    .modifiedByAccountName(account.acctName())
                     .modifiedAt(now)
-                    .createdBy(accountId)
-                    .createdByAccountName(accountName)
+                    .createdBy(account.autoAcctId())
+                    .createdByAccountName(account.acctName())
                     .createdAt(now)
                     .build();
                 recordRepo.save(nursingRecord);
@@ -274,7 +273,8 @@ public class PatientCriticalLisHandlingService {
                     .getNursingRecordSettings(deptId);
                 boolean enableUpdatingCreatedBy = settingsPb.getEnableUpdatingCreatedBy();
                 StatusCode status = nursingRecordUtils.updateNursingRecord(
-                    nursingRecord.getId(), actions, effectiveTime, accountId, accountName,
+                    nursingRecord.getId(), actions, effectiveTime,
+                    account.autoAcctId(), account.acctName(),
                     enableUpdatingCreatedBy
                 );
                 if (status != StatusCode.OK) {
@@ -310,14 +310,12 @@ public class PatientCriticalLisHandlingService {
         }
 
         // 获取当前用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
         final LocalDateTime now = TimeUtils.getNowUtc();
 
         // 删除对应的处理记录
@@ -331,7 +329,7 @@ public class PatientCriticalLisHandlingService {
                 .build();
         }
         handling.setIsDeleted(true);
-        handling.setDeletedBy(accountId);
+        handling.setDeletedBy(account.autoAcctId());
         handling.setDeletedAt(now);
         criticalLisHandlingRepo.save(handling);
 
@@ -340,7 +338,7 @@ public class PatientCriticalLisHandlingService {
             .findByPidAndHandlingIdAndIsDeletedFalse(handling.getPid(), handling.getId());
         for (PatientCriticalLisResult result : results) {
             result.setHandlingId(0); // 清除处理ID
-            result.setModifiedBy(accountId);
+            result.setModifiedBy(account.autoAcctId());
             result.setModifiedAt(now);
         }
         criticalLisResultRepo.saveAll(results);
@@ -352,7 +350,7 @@ public class PatientCriticalLisHandlingService {
             ).orElse(null);
         if (nursingRecord != null) {
             nursingRecord.setIsDeleted(true);
-            nursingRecord.setDeletedBy(accountId);
+            nursingRecord.setDeletedBy(account.autoAcctId());
             nursingRecord.setDeletedAt(now);
             recordRepo.save(nursingRecord);
         }

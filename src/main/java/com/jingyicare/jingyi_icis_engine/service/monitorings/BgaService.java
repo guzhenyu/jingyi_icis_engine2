@@ -13,6 +13,7 @@ import com.google.protobuf.util.JsonFormat;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisBga.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
@@ -134,13 +135,12 @@ public class BgaService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
 
         // 获取参数信息
         BgaParam bgaParam = bgaParamRepository.findByDeptIdAndMonitoringParamCodeAndIsDeletedFalse(
@@ -155,7 +155,7 @@ public class BgaService {
         // 更新参数信息
         bgaParam.setEnabled(req.getEnabled());
         bgaParam.setLisResultCode(normalizeNullableString(req.getLisResultCode()));
-        bgaParam.setModifiedBy(accountId);
+        bgaParam.setModifiedBy(account.autoAcctId());
         bgaParam.setModifiedAt(TimeUtils.getNowUtc());
         bgaParamRepository.save(bgaParam);
 
@@ -208,14 +208,13 @@ public class BgaService {
                 .build();
         }
 
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
 
-        final String accountId = account.getFirst();
         final String deptId = req.getDeptId();
         final Integer bgaCategoryId = req.getBgaCategoryId();
         final LocalDateTime nowUtc = TimeUtils.getNowUtc();
@@ -240,7 +239,7 @@ public class BgaService {
         mapping.setDeptId(deptId);
         mapping.setBgaCategoryId(bgaCategoryId);
         mapping.setLisItemCode(normalizeNullableString(req.getLisItemCode()));
-        mapping.setModifiedBy(accountId);
+        mapping.setModifiedBy(account.autoAcctId());
         mapping.setModifiedAt(nowUtc);
         bgaCategoryMappingRepository.save(mapping);
 
@@ -264,14 +263,12 @@ public class BgaService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 获取参数信息
         Map<String, BgaParam> bgaParams = bgaParamRepository.findByDeptIdAndIsDeletedFalseOrderByDisplayOrder(req.getDeptId())
@@ -287,7 +284,7 @@ public class BgaService {
                     .build();
             }
             bgaParam.setDisplayOrder(bgaParamPb.getDisplayOrder());
-            bgaParam.setModifiedBy(accountId);
+            bgaParam.setModifiedBy(account.autoAcctId());
             bgaParam.setModifiedAt(TimeUtils.getNowUtc());
             paramsToUpdate.add(bgaParam);
         }
@@ -324,14 +321,12 @@ public class BgaService {
         final boolean forceSync = req.getForceSync();
 
         // 获取用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GetPatientBgaRecordsResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
         final LocalDateTime nowUtc = TimeUtils.getNowUtc();
 
         // 验证患者ID
@@ -347,7 +342,7 @@ public class BgaService {
         if (forceSync) {
             syncPatientBgaRecords(
                 patientRecord, queryStartUtc, queryEndUtc,
-                accountId, accountName, nowUtc
+                account.autoAcctId(), account.acctName(), nowUtc
             );
 
             // 更新护理单的处理时间（为 打印从首页到尾页都一致的护理单 提效，省二院）
@@ -368,8 +363,8 @@ public class BgaService {
         for (PatientBgaRecord record : records) {
             String reviewedBy = StrUtils.isBlank(record.getReviewedByAccountName()) ? "" : record.getReviewedByAccountName();
             if (StrUtils.isBlank(record.getRecordedBy())) {
-                record.setRecordedBy(accountId);
-                record.setRecordedByAccountName(accountName);
+                record.setRecordedBy(account.autoAcctId());
+                record.setRecordedByAccountName(account.acctName());
                 record.setRecordedAt(nowUtc);
                 recordsToUpdate.add(record);
             }
@@ -430,14 +425,12 @@ public class BgaService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return AddPatientBgaRecordResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 验证患者ID
         Long pid = req.getRecord().getPid();
@@ -487,13 +480,13 @@ public class BgaService {
             .deptId(deptId)
             .bgaCategoryId(req.getRecord().getBgaCategoryId())
             .bgaCategoryName(req.getRecord().getBgaCategoryName())
-            .recordedBy(accountId)
-            .recordedByAccountName(accountName)
+            .recordedBy(account.autoAcctId())
+            .recordedByAccountName(account.acctName())
             .recordedAt(nowUtc)
             .effectiveTime(effectiveTime)
             .isDeleted(false)
-            .modifiedBy(accountId)
-            .modifiedByAccountName(accountName)
+            .modifiedBy(account.autoAcctId())
+            .modifiedByAccountName(account.acctName())
             .modifiedAt(nowUtc)
             .reviewedBy(req.getRecord().getReviewedBy())
             .reviewedAt(reviewedAt)
@@ -514,7 +507,7 @@ public class BgaService {
                 .paramValue(ProtoUtils.encodeGenericValue(genericValue))
                 .paramValueStr(valueStr)
                 .isDeleted(false)
-                .modifiedBy(accountId)
+                .modifiedBy(account.autoAcctId())
                 .modifiedAt(nowUtc)
                 .build();
             recordDetailRepository.save(recordDetail);
@@ -545,14 +538,12 @@ public class BgaService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 验证患者ID
         Long pid = req.getRecord().getPid();
@@ -574,7 +565,7 @@ public class BgaService {
                 .build();
         }
         Pair<ReturnCode, Long> updateResult = updateExistingRecord(
-            req.getRecord(), effectiveTime, accountId, accountName, nowUtc
+            req.getRecord(), effectiveTime, account.autoAcctId(), account.acctName(), nowUtc
         );
         if (updateResult.getFirst().getCode() != 0) {
             return GenericResp.newBuilder()
@@ -584,10 +575,11 @@ public class BgaService {
         Long recordId = updateResult.getSecond();
 
         // 删除旧的BGA记录明细
-        deleteOldDetails(recordId, accountId, nowUtc);
+        deleteOldDetails(recordId, account.autoAcctId(), nowUtc);
 
         // 新建BGA记录明细
-        saveNewDetails(recordId, deptId, req.getRecord().getBgaResultList(), accountId, nowUtc);
+        saveNewDetails(
+            recordId, deptId, req.getRecord().getBgaResultList(), account.autoAcctId(), nowUtc);
 
         // 更新护理单的处理时间（为 打印从首页到尾页都一致的护理单 提效，省二院）
         pnrUtils.updateLatestDataTime(pid, deptId, effectiveTime, effectiveTime, nowUtc);
@@ -614,14 +606,12 @@ public class BgaService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 检查BGA记录是否已存在
         PatientBgaRecord existingRecord = recordRepository.findByIdAndIsDeletedFalse(
@@ -646,8 +636,8 @@ public class BgaService {
         // 删除BGA记录
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
         existingRecord.setIsDeleted(true);
-        existingRecord.setDeletedBy(accountId);
-        existingRecord.setDeletedByAccountName(accountName);
+        existingRecord.setDeletedBy(account.autoAcctId());
+        existingRecord.setDeletedByAccountName(account.acctName());
         existingRecord.setDeletedAt(nowUtc);
         recordRepository.save(existingRecord);
 
@@ -655,7 +645,7 @@ public class BgaService {
         List<PatientBgaRecordDetail> oldDetails = recordDetailRepository.findByRecordIdAndIsDeletedFalse(recordId);
         for (PatientBgaRecordDetail detail : oldDetails) {
             detail.setIsDeleted(true);
-            detail.setDeletedBy(accountId);
+            detail.setDeletedBy(account.autoAcctId());
             detail.setDeletedAt(nowUtc);
         }
         recordDetailRepository.saveAll(oldDetails);
@@ -684,14 +674,12 @@ public class BgaService {
         }
 
         // 获取用户信息
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
-        final String accountId = account.getFirst();
-        final String accountName = account.getSecond();
 
         // 审核时间
         LocalDateTime reviewTime = TimeUtils.fromIso8601String(req.getReviewTimeIso8601(), "UTC");
@@ -711,8 +699,8 @@ public class BgaService {
         }
 
         for (PatientBgaRecord record : recordsToUpdate) {
-            record.setReviewedBy(accountId);
-            record.setReviewedByAccountName(accountName);
+            record.setReviewedBy(account.autoAcctId());
+            record.setReviewedByAccountName(account.acctName());
             record.setReviewedAt(reviewTime);
         }
         recordRepository.saveAll(recordsToUpdate);

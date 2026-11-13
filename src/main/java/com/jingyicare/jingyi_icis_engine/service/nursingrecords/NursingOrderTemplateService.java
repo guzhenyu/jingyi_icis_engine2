@@ -15,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.NursingRecordTemplate;
 import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.NursingRecordTemplateGroup;
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.entity.users.RbacDepartment;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingRecord.*;
@@ -25,7 +26,6 @@ import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
-import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
@@ -142,15 +142,15 @@ public class NursingOrderTemplateService {
                 .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED)).build();
         }
 
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return AddNursingRecordTemplateGroupResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND)).build();
         }
-        String accountId = account.getFirst();
         Integer entityType = StrUtils.isBlank(req.getDeptId())
             ? ENTITY_TYPE_ACCOUNT : ENTITY_TYPE_DEPT;
-        String entityId = StrUtils.isBlank(req.getDeptId()) ? accountId : req.getDeptId();
+        String entityId = StrUtils.isBlank(req.getDeptId())
+            ? account.autoAcctId() : req.getDeptId();
         String groupName = req.getGroup().getName();
         if (StrUtils.isBlank(groupName)) {
             return AddNursingRecordTemplateGroupResp.newBuilder()
@@ -170,7 +170,7 @@ public class NursingOrderTemplateService {
                 NursingRecordTemplateGroup.builder()
                     .entityType(entityType).entityId(entityId).name(groupName)
                     .displayOrder(req.getGroup().getDisplayOrder()).isDeleted(false)
-                    .modifiedBy(accountId).modifiedAt(TimeUtils.getNowUtc()).build());
+                    .modifiedBy(account.autoAcctId()).modifiedAt(TimeUtils.getNowUtc()).build());
             return AddNursingRecordTemplateGroupResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.OK)).setId(group.getId()).build();
         });
@@ -186,14 +186,14 @@ public class NursingOrderTemplateService {
             return genericResponse(StatusCode.PARSE_JSON_FAILED);
         }
 
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) return genericResponse(StatusCode.ACCOUNT_NOT_FOUND);
         if (req.getGroupCount() == 0) return genericResponse(StatusCode.OK);
 
-        String accountId = account.getFirst();
         Integer entityType = StrUtils.isBlank(req.getDeptId())
             ? ENTITY_TYPE_ACCOUNT : ENTITY_TYPE_DEPT;
-        String entityId = StrUtils.isBlank(req.getDeptId()) ? accountId : req.getDeptId();
+        String entityId = StrUtils.isBlank(req.getDeptId())
+            ? account.autoAcctId() : req.getDeptId();
         Map<Integer, NursingRecordTemplateGroup> groups = getTemplateGroups(entityType, entityId);
         Set<String> lockedNames = new HashSet<>();
         for (NursingRecordTemplateGroupPB groupPB : req.getGroupList()) {
@@ -207,7 +207,7 @@ public class NursingOrderTemplateService {
         List<String> resourceKeys = lockedNames.stream()
             .map(name -> LockKeys.nursingRecordTemplateGroup(entityType, entityId, name)).toList();
         return lockExecutor.execute(resourceKeys, () -> updateTemplateGroups(
-            req, entityType, entityId, accountId, lockedNames));
+            req, entityType, entityId, account.autoAcctId(), lockedNames));
     }
 
     public GenericResp deleteNursingRecordTemplateGroup(String reqJson) {
@@ -220,7 +220,7 @@ public class NursingOrderTemplateService {
             return genericResponse(StatusCode.PARSE_JSON_FAILED);
         }
 
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) return genericResponse(StatusCode.ACCOUNT_NOT_FOUND);
         NursingRecordTemplateGroup group = templateGroupRepo
             .findByIdAndIsDeletedFalse(req.getId()).orElse(null);
@@ -229,7 +229,7 @@ public class NursingOrderTemplateService {
         String resourceKey = LockKeys.nursingRecordTemplateGroup(
             group.getEntityType(), group.getEntityId(), group.getName());
         return lockExecutor.execute(List.of(resourceKey), () -> deleteTemplateGroup(
-            req.getId(), account.getFirst(), resourceKey));
+            req.getId(), account.autoAcctId(), resourceKey));
     }
 
     public AddNursingRecordTemplateResp addNursingRecordTemplate(String reqJson) {
@@ -241,7 +241,7 @@ public class NursingOrderTemplateService {
             return templateResponse(StatusCode.PARSE_JSON_FAILED);
         }
 
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) return templateResponse(StatusCode.ACCOUNT_NOT_FOUND);
         if (StrUtils.isBlank(req.getTemplate().getName())) {
             return templateResponse(StatusCode.INVALID_PARAM_VALUE);
@@ -253,7 +253,7 @@ public class NursingOrderTemplateService {
 
         Set<String> resourceKeys = getTemplateResourceKeys(group, req.getTemplate().getName());
         return lockExecutor.execute(resourceKeys, () -> addTemplate(
-            req.getTemplate(), account.getFirst(), resourceKeys));
+            req.getTemplate(), account.autoAcctId(), resourceKeys));
     }
 
     public GenericResp updateNursingRecordTemplate(String reqJson) {
@@ -265,7 +265,7 @@ public class NursingOrderTemplateService {
             return genericResponse(StatusCode.PARSE_JSON_FAILED);
         }
 
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) return genericResponse(StatusCode.ACCOUNT_NOT_FOUND);
         NursingRecordTemplate template = templateRepo
             .findByIdAndIsDeletedFalse(req.getTemplate().getId()).orElse(null);
@@ -282,7 +282,7 @@ public class NursingOrderTemplateService {
             getTemplateResourceKeys(source, template.getName()));
         resourceKeys.addAll(getTemplateResourceKeys(target, targetName));
         return lockExecutor.execute(resourceKeys, () -> updateTemplate(
-            req.getTemplate(), account.getFirst(), resourceKeys));
+            req.getTemplate(), account.autoAcctId(), resourceKeys));
     }
 
     public GenericResp deleteNursingRecordTemplate(String reqJson) {
@@ -294,7 +294,7 @@ public class NursingOrderTemplateService {
             return genericResponse(StatusCode.PARSE_JSON_FAILED);
         }
 
-        Pair<String, String> account = userQuery.getAccountWithAutoId();
+        CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) return genericResponse(StatusCode.ACCOUNT_NOT_FOUND);
         NursingRecordTemplate template = templateRepo
             .findByIdAndIsDeletedFalse(req.getId()).orElse(null);
@@ -306,7 +306,7 @@ public class NursingOrderTemplateService {
 
         Set<String> resourceKeys = getTemplateResourceKeys(group, template.getName());
         return lockExecutor.execute(resourceKeys, () -> deleteTemplate(
-            req.getId(), account.getFirst(), resourceKeys));
+            req.getId(), account.autoAcctId(), resourceKeys));
     }
 
     private AddNursingRecordTemplateResp addTemplate(

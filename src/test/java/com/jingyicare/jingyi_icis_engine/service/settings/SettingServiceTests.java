@@ -20,6 +20,7 @@ import org.mockito.ArgumentCaptor;
 import com.google.protobuf.util.JsonFormat;
 import com.jingyicare.jingyi_icis_engine.entity.settings.DeptSystemSettings;
 import com.jingyicare.jingyi_icis_engine.entity.settings.DeptSystemSettingsId;
+import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.UpdateAppSettingsReq;
@@ -34,7 +35,6 @@ import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkTemplateReader;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
-import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
 class SettingServiceTests {
@@ -60,7 +60,8 @@ class SettingServiceTests {
             mock(JfkTemplateReader.class),
             lockExecutor
         );
-        when(userQuery.getAccountWithAutoId()).thenReturn(new Pair<>("admin", "1"));
+        when(userQuery.getCurrentAccount())
+            .thenReturn(new CurrentAccount("admin", "admin", "1"));
     }
 
     @Test
