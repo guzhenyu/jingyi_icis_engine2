@@ -78,12 +78,12 @@ ICIS 实现进入开发时，必须同步更新 CIG 的 `03_ca_proxy_and_grpc_re
 ### 3.2 账号选择项
 
 - 账号集合分为 `deptAccounts`、`deptNurses`、`deptDoctors`，三者都是数组。
-- option 的 `value` 使用账号数据库主键 `IcisAccountPB.id`。
-- option 的 `label` 使用 `IcisAccountPB.accountName`。
+- option 的 `value` 使用账号数据库主键 `AccountPB.id`。
+- option 的 `label` 使用 `AccountPB.accountName`。
 - `accountName` 为空的账号不展示，不对 label 做其他字段 fallback。
 - `isDisabled != 0` 的账号不展示。
 - 按数据库主键 `id` 进行数值升序排列。
-- 暂不新增最小化账号 DTO；接口可以返回完整 `IcisAccountPB`，但前端签名模块只使用所需字段。
+- 暂不新增最小化账号 DTO；接口可以返回完整 `AccountPB`，但前端签名模块只使用所需字段。
 - 暂不新增独立签名权限点。
 
 ### 3.3 选中后的值
@@ -177,7 +177,7 @@ doctorSignPics: StrKeyValPB[]
 - 最终只返回 `StrKeyValPB` 图片/姓名键值对；
 - 丢失账号数据库主键以及其他 fallback 字段。
 
-当前 `IcisAccountPB` 已包含 `sign_pic`、科室信息和数据库主键 `id`，但没有对外映射：
+当前 `AccountPB` 已包含 `sign_pic`、科室信息和数据库主键 `id`，但没有对外映射：
 
 - `ca_sign_pic`；
 - `is_disabled`。
@@ -190,8 +190,8 @@ ICIS 同时存在两种账号标识：
 
 | 标识 | 类型 | 用途 |
 | --- | --- | --- |
-| `accounts.id` / `IcisAccountPB.id` | PostgreSQL `BIGINT` / Proto `int64` | Select 稳定值、CIG CA 请求账号 ID |
-| `accounts.account_id` / `IcisAccountPB.accountId` | 字符串 | 登录身份、科室关系关联、文本 fallback |
+| `accounts.id` / `AccountPB.id` | PostgreSQL `BIGINT` / Proto `int64` | Select 稳定值、CIG CA 请求账号 ID |
+| `accounts.account_id` / `AccountPB.accountId` | 字符串 | 登录身份、科室关系关联、文本 fallback |
 
 `rbac_accounts_departments` 通过字符串 `account_id` 关联科室。因此后端校验目标账号时必须：
 
@@ -229,7 +229,7 @@ CIG 已能按 ICIS 来源查询账号绑定并调用 CA Provider。本方案需�
 ### 5.1 目标
 
 1. 将账号目录、option 生成、实时 CA 请求、响应校验、本地 fallback 和 JFK 值构造抽到独立前端模块。
-2. 用完整 `IcisAccountPB` 生成 Select，而不是用签名图片反向映射账号。
+2. 用完整 `AccountPB` 生成 Select，而不是用签名图片反向映射账号。
 3. 用 `int64_val` 稳定保存账号身份，用 `str_val` 保存渲染快照。
 4. 通过 ICIS Engine2 统一完成权限、配置、目标账号和 CIG 响应校验。
 5. 保证普通图片、账号签名和历史数据兼容。
@@ -244,7 +244,7 @@ CIG 已能按 ICIS 来源查询账号绑定并调用 CA Provider。本方案需�
 - 不修改 CIG Provider 的业务协议。
 - 不缓存实时 CA 签名。
 - 不把实时 CA 图片持久化回 `accounts.ca_sign_pic` 或 `accounts.sign_pic`。
-- 不对 `IcisAccountPB` 做全面脱敏改造。
+- 不对 `AccountPB` 做全面脱敏改造。
 - 不批量迁移所有旧 `IMAGE` 字段。
 - 不在打印、归档或历史查看阶段重新获取 CA 签名。
 
@@ -272,7 +272,7 @@ flowchart LR
     GRPC["Engine2 CigCaClient"]
     CIG["CIG CigCaService.GetSignImage"]
     PROVIDER["CA Provider"]
-    LOCAL["IcisAccountPB 本地 fallback"]
+    LOCAL["AccountPB 本地 fallback"]
     VAL["JfkValPB: int64_val + str_val"]
 
     UI -->|"Select change"| API
@@ -337,10 +337,10 @@ export const JFK_IMAGE_OR_SIGNATURE_VAL_TYPES = [
 
 ### 7.2 扩展账号 PB
 
-在 `IcisAccountPB` 末尾追加，不调整旧 tag：
+在 `AccountPB` 末尾追加，不调整旧 tag：
 
 ```proto
-message IcisAccountPB {
+message AccountPB {
   // 现有字段保持不变
   string ca_sign_pic = 13;
   int32 is_disabled = 14;
@@ -368,9 +368,9 @@ message GetJfkSignatureAccountsReq {
 
 message GetJfkSignatureAccountsResp {
   ReturnCode rt = 1;
-  repeated IcisAccountPB dept_accounts = 2;
-  repeated IcisAccountPB dept_nurses = 3;
-  repeated IcisAccountPB dept_doctors = 4;
+  repeated config.AccountPB dept_accounts = 2;
+  repeated config.AccountPB dept_nurses = 3;
+  repeated config.AccountPB dept_doctors = 4;
 }
 ```
 
@@ -492,9 +492,9 @@ interface DragableFormState {
   // nursingSignPics: StrKeyValPB[];
   // doctorSignPics: StrKeyValPB[];
 
-  deptAccounts: IcisAccountPB[];
-  deptNurses: IcisAccountPB[];
-  deptDoctors: IcisAccountPB[];
+  deptAccounts: AccountPB[];
+  deptNurses: AccountPB[];
+  deptDoctors: AccountPB[];
   signatureAccountsDeptId?: string;
   signatureAccountsLoading: boolean;
 }
@@ -546,7 +546,7 @@ export interface SignatureOption {
 }
 
 export function buildSignatureOptions(
-  accounts: IcisAccountPB[],
+  accounts: AccountPB[],
 ): SignatureOption[];
 ```
 

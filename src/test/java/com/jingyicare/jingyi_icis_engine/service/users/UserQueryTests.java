@@ -17,8 +17,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
-import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
-import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.IcisAccountPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.AccountPB;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.Consts;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
@@ -178,7 +177,7 @@ class UserQueryTests extends TestsBase {
 
     @Test
     void preservesDepartmentAccountsAndRoleMetadata() {
-        List<IcisAccountPB> accounts = query.getDeptAccounts(DEPT);
+        List<AccountPB> accounts = query.getDeptAccounts(DEPT);
         assertThat(accounts).hasSize(1);
         assertThat(accounts.getFirst().getId()).isEqualTo(accountAutoId);
         assertThat(accounts.getFirst().getAccountId()).isEqualTo(ACCOUNT);
@@ -189,7 +188,7 @@ class UserQueryTests extends TestsBase {
 
     @Test
     void preservesDirectInheritedAndMissingDepartmentPermissions() {
-        authenticate(config.getUser().getAdminAccountId());
+        authenticate(UserQuery.ADMIN_ACCOUNT_ID);
         for (int permissionId : List.of(DIRECT_PERMISSION, INHERITED_PERMISSION)) {
             Pair<String, Boolean> permission = query.hasPermission(ACCOUNT, DEPT, permissionId);
             assertThat(permission.getFirst()).isEqualTo("查询角色" + PRIMARY_ROLE);
@@ -206,7 +205,7 @@ class UserQueryTests extends TestsBase {
     void preservesAdministratorBypass() {
         authenticate(ACCOUNT);
         Pair<String, Boolean> permission = query.hasPermission(
-            config.getUser().getAdminAccountId(), DEPT + "-missing", -1);
+            UserQuery.ADMIN_ACCOUNT_ID, DEPT + "-missing", -1);
         assertThat(permission.getFirst()).isEqualTo(Consts.ADMIN_ROLE);
         assertThat(permission.getSecond()).isTrue();
     }
@@ -219,7 +218,7 @@ class UserQueryTests extends TestsBase {
         assertThat(query.canCurrentUserAccessDept(DEPT + "-missing")).isFalse();
         authenticate(RBAC_ONLY);
         assertThat(query.canCurrentUserAccessDept(DEPT)).isFalse();
-        authenticate(config.getUser().getAdminAccountId());
+        authenticate(UserQuery.ADMIN_ACCOUNT_ID);
         assertThat(query.canCurrentUserAccessDept(DEPT + "-missing")).isTrue();
         assertThat(query.canCurrentUserAccessDept(null)).isFalse();
         assertThat(query.canCurrentUserAccessDept("  ")).isFalse();
@@ -234,7 +233,7 @@ class UserQueryTests extends TestsBase {
         assertThat(query.accountBelongsToDept("  ", DEPT)).isFalse();
         assertThat(query.accountBelongsToDept(ACCOUNT, null)).isFalse();
         assertThat(query.accountBelongsToDept(ACCOUNT, "  ")).isFalse();
-        assertThat(query.accountBelongsToDept(config.getUser().getAdminAccountId(), DEPT)).isFalse();
+        assertThat(query.accountBelongsToDept(UserQuery.ADMIN_ACCOUNT_ID, DEPT)).isFalse();
     }
 
     private Long saveAccount(String code, String name, boolean deleted) {
@@ -271,7 +270,6 @@ class UserQueryTests extends TestsBase {
     private Long accountAutoId;
 
     @Autowired private UserQuery query;
-    @Autowired private Config config;
     @Autowired private EntityManagerFactory entityManagerFactory;
     @Autowired private JdbcTemplate jdbcTemplate;
 }

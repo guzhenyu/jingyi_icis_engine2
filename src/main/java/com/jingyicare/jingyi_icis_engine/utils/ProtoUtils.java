@@ -6,14 +6,13 @@ import java.util.Base64;
 import java.util.HashSet;
 import java.util.Set;
 
-import lombok.*;
-import lombok.extern.slf4j.Slf4j;
-
 import com.google.protobuf.Descriptors;
 import com.google.protobuf.Message;
 import com.google.protobuf.MessageOrBuilder;
 import com.google.protobuf.TextFormat;
 import com.google.protobuf.util.JsonFormat;
+import lombok.*;
+import lombok.extern.slf4j.Slf4j;
 
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisArchive.*;
@@ -25,22 +24,22 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisLis.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisReportAh2.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingOrder.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingRecord.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingScore.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisQualityControl.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisReportAh2.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSepticShock.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisShift.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSnapshot.PatientSnapshotPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisTube.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUrl.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
-import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.EnumValue;
+import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
 
 @Slf4j
 public class ProtoUtils {
@@ -710,9 +709,9 @@ public class ProtoUtils {
         fields.add(GetPatientScoreResp.getDescriptor().findFieldByNumber(2));
         fields.add(GetPatientScoreResp.getDescriptor().findFieldByNumber(3));
 
-        // IcisAccountPB
+        // AccountPB
         //    .gender = 4
-        fields.add(IcisAccountPB.getDescriptor().findFieldByNumber(4));
+        fields.add(AccountPB.getDescriptor().findFieldByNumber(4));
 
         // AppSettingsPB 全部都要
         for (int i = 1; i < 10; ++i) {

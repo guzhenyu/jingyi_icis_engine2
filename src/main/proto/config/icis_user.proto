@@ -62,12 +62,29 @@ message RolePB {
     repeated int32 permission_id = 5;
 }
 
+message AccountDepartmentPB {
+    string dept_id = 1;
+    string dept_name = 2;
+    int32 role_id = 3;
+    string role_name = 4;
+}
+
 message AccountPB {
-    string id = 1;
-    string name = 2;
-    int32 gender = 3;
-    string date_of_birth_iso8601 = 4;
-    repeated int32 role_id = 5;
+    string account_id = 1;
+    string password = 2;
+    string account_name = 3;
+    int32 gender = 4;  // 性别
+    string date_of_birth_iso8601 = 5;  // 出生日期
+    string title = 6;  // 职称
+    string education_level = 7;  // 学历
+    string phone = 8;  // 电话
+    string id_card_number = 9;  // 身份证号
+    string sign_pic = 10;  // 签名图片的base64编码
+    repeated AccountDepartmentPB department = 11;
+
+    int64 id = 12;  // 账号数据库ID
+    string ca_sign_pic = 13; // CA签名图片
+    int32 is_disabled = 14; // 是否禁用，0表示启用
 }
 
 message DepartmentPB {
@@ -77,12 +94,6 @@ message DepartmentPB {
     string ward_code = 4;
     string ward_name = 5;
     string hospital_name = 6;
-}
-
-message DepartmentAccountPB {
-    string department_id = 1;
-    string account_id = 2;
-    int32 primary_role_id = 3;
 }
 
 message DepartmentAccountRolePB {
@@ -98,7 +109,7 @@ message DepartmentAccountPermissionPB {
 }
 
 message UserConfigPB {
-    string admin_account_id = 1;
+    string admin_account_id = 1;  // 兼容旧配置，管理员账号固定为 admin
     int32 admin_role_id = 2;
     Menu menu = 3;
     repeated PermissionPB permission = 4;
@@ -106,7 +117,8 @@ message UserConfigPB {
     repeated RolePB role = 6;
     repeated AccountPB account = 7;
     repeated DepartmentPB department = 8;
-    repeated DepartmentAccountPB department_account = 9;
+    reserved 9;
+    reserved "department_account";
     repeated DepartmentAccountRolePB department_account_role = 10;
     repeated DepartmentAccountPermissionPB department_account_permission = 11;
 }

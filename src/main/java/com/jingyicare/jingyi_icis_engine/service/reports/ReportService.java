@@ -14,14 +14,14 @@ import com.google.protobuf.TextFormat;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.entity.patients.*;
+import com.jingyicare.jingyi_icis_engine.entity.reports.*;
 import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisShift.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.AccountPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
-
-import com.jingyicare.jingyi_icis_engine.entity.patients.*;
-import com.jingyicare.jingyi_icis_engine.entity.reports.*;
 import com.jingyicare.jingyi_icis_engine.repository.reports.*;
 import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
@@ -273,14 +273,14 @@ public class ReportService {
                 .build();
         }
 
-        List<IcisAccountPB> deptAccounts = userQuery.getDeptAccounts(deptId).stream()
+        List<AccountPB> deptAccounts = userQuery.getDeptAccounts(deptId).stream()
             .filter(account -> account.getId() > 0)
             .filter(account -> account.getIsDisabled() == 0)
             .filter(account -> !account.getAccountName().isBlank())
-            .sorted(Comparator.comparingLong(IcisAccountPB::getId))
+            .sorted(Comparator.comparingLong(AccountPB::getId))
             .toList();
-        List<IcisAccountPB> deptNurses = filterAccountsByRole(deptAccounts, deptId, nursingRoleIdSet);
-        List<IcisAccountPB> deptDoctors = filterAccountsByRole(deptAccounts, deptId, doctorRoleIdSet);
+        List<AccountPB> deptNurses = filterAccountsByRole(deptAccounts, deptId, nursingRoleIdSet);
+        List<AccountPB> deptDoctors = filterAccountsByRole(deptAccounts, deptId, doctorRoleIdSet);
 
         return GetJfkSignatureAccountsResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.OK))
@@ -290,8 +290,8 @@ public class ReportService {
             .build();
     }
 
-    private List<IcisAccountPB> filterAccountsByRole(
-        List<IcisAccountPB> accounts,
+    private List<AccountPB> filterAccountsByRole(
+        List<AccountPB> accounts,
         String deptId,
         Set<Integer> roleIds
     ) {

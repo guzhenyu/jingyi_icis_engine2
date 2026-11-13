@@ -1,5 +1,7 @@
 package com.jingyicare.jingyi_icis_engine.service.users;
 
+import static com.jingyicare.jingyi_icis_engine.service.users.UserQuery.ADMIN_ACCOUNT_ID;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -29,7 +31,7 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class UserService {
     public UserService(
         @Autowired ProtoConfig protoConfig,
-        @Autowired UserCmdService userCmdService,
+        @Autowired UserCommand userCommand,
         @Autowired UserQuery userQuery,
         @Autowired MenuService menuService,
         @Autowired CertificateService certificateService
@@ -37,7 +39,6 @@ public class UserService {
         Config config = protoConfig.getConfig();
         UserConfigPB userConfig = config.getUser();
         this.ZONE_ID = config.getZoneId();
-        this.ADMIN_ACCOUNT_ID = userConfig.getAdminAccountId();
         this.ADMIN_ROLE_ID = userConfig.getAdminRoleId();
         this.statusCodeMsgList = config.getText().getStatusCodeMsgList();
 
@@ -47,7 +48,7 @@ public class UserService {
         }
         this.fullMenu = userConfig.getMenu();
 
-        this.userCmdService = userCmdService;
+        this.userCommand = userCommand;
         this.userQuery = userQuery;
         this.menuService = menuService;
         this.certificateService = certificateService;
@@ -199,7 +200,7 @@ public class UserService {
 
         // 新增部门
         IcisDepartmentPB deptPb = req.getDepartment();
-        StatusCode statusCode = userCmdService.addDepartment(
+        StatusCode statusCode = userCommand.addDepartment(
             deptPb.getDeptId(), deptPb.getDeptName(), deptPb.getAbbreviation(),
             deptPb.getWardCode(), deptPb.getWardName(), deptPb.getHospitalName(),
             account.autoAcctId()
@@ -269,7 +270,7 @@ public class UserService {
         }
 
         return GenericResp.newBuilder()
-            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, userCmdService.updateDepartment(
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, userCommand.updateDepartment(
                 deptPb.getId(), deptPb.getDeptId(), deptPb.getDeptName(),
                 deptPb.getAbbreviation(), deptPb.getWardCode(), deptPb.getWardName(),
                 deptPb.getHospitalName(), account.autoAcctId()
@@ -312,7 +313,7 @@ public class UserService {
         }
 
         return GenericResp.newBuilder()
-            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, userCmdService.deleteDepartment(
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, userCommand.deleteDepartment(
                 req.getDeptId(), account.autoAcctId()
             ))).build();
     }
@@ -370,7 +371,7 @@ public class UserService {
 
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(
-                statusCodeMsgList, userCmdService.addAccount(
+                statusCodeMsgList, userCommand.addAccount(
                     req.getAccount(), account.autoAcctId())))
             .build();
     }
@@ -409,7 +410,7 @@ public class UserService {
 
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(
-                statusCodeMsgList, userCmdService.updateAccount(
+                statusCodeMsgList, userCommand.updateAccount(
                     req.getAccount(), account.autoAcctId())))
             .build();
     }
@@ -452,7 +453,7 @@ public class UserService {
 
         // deleteAccount(String accountId, String deptId, String modifiedBy)
         return GenericResp.newBuilder()
-            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, userCmdService.deleteAccount(
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, userCommand.deleteAccount(
                 req.getAccountId(), req.getDeptId(), account.autoAcctId()
             )))
             .build();
@@ -482,7 +483,7 @@ public class UserService {
 
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList,
-                userCmdService.changePassword(
+                userCommand.changePassword(
                     account.rbacAcctId(), req.getOldPassword(), req.getNewPassword())
             ))
             .build();
@@ -521,8 +522,8 @@ public class UserService {
 
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(
-                statusCodeMsgList, userCmdService.resetPassword(
-                    req.getAccountId(), account.rbacAcctId(), ADMIN_ROLE_ID)))
+                statusCodeMsgList, userCommand.resetPassword(
+                    req.getAccountId(), account.rbacAcctId())))
             .build();
     }
 
@@ -588,7 +589,7 @@ public class UserService {
 
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(
-                statusCodeMsgList, userCmdService.addRolePermission(
+                statusCodeMsgList, userCommand.addRolePermission(
                     req.getRoleId(), req.getPermissionId(), account.autoAcctId()
                 )))
             .build();
@@ -617,7 +618,7 @@ public class UserService {
 
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(
-                statusCodeMsgList, userCmdService.revokeRolePermission(
+                statusCodeMsgList, userCommand.revokeRolePermission(
                     req.getRoleId(), req.getPermissionId(), account.autoAcctId()
                 )))
             .build();
@@ -646,7 +647,7 @@ public class UserService {
 
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(
-                statusCodeMsgList, userCmdService.addAccountPermission(
+                statusCodeMsgList, userCommand.addAccountPermission(
                     req.getAccountId(), req.getDeptId(), req.getPermissionId(), account.autoAcctId()
                 )))
             .build();
@@ -675,20 +676,19 @@ public class UserService {
 
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(
-                statusCodeMsgList, userCmdService.revokeAccountPermission(
+                statusCodeMsgList, userCommand.revokeAccountPermission(
                     req.getAccountId(), req.getDeptId(), req.getPermissionId(), account.autoAcctId()
                 )))
             .build();
     }
 
     final String ZONE_ID;
-    final String ADMIN_ACCOUNT_ID;
     final Integer ADMIN_ROLE_ID;
     final Map<Integer, Integer> menuPermissions;
     final Menu fullMenu;
 
     private final List<String> statusCodeMsgList;
-    private UserCmdService userCmdService;
+    private UserCommand userCommand;
     private UserQuery userQuery;
     private MenuService menuService;
     private CertificateService certificateService;

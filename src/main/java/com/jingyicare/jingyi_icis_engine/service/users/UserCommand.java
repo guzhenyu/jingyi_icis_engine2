@@ -1,6 +1,5 @@
 package com.jingyicare.jingyi_icis_engine.service.users;
 
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -27,8 +26,8 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Service
 @Slf4j
-public class UserCmdService {
-    public UserCmdService(
+public class UserCommand {
+    public UserCommand(
         @Autowired RbacPermissionRepository permRepo,
         @Autowired RbacRoleRepository roleRepo,
         @Autowired RbacRolePermissionRepository rolePermRepo,
@@ -64,60 +63,40 @@ public class UserCmdService {
     }
 
     // 账号与密码：维护 accounts、rbac_accounts 及账号角色关系。
+    // modifiedByAutoAcctId: 优先使用 accounts.id，缺失时回退账号编码；系统操作使用 system。
     @Transactional
-    public StatusCode addAccount(AccountPB accountPb) {
-        final String accountId = accountPb.getId();
-
-        final StatusCode statusCode = checkAddAccount(accountId);
-        if (statusCode != StatusCode.OK) return statusCode;
-
-        for (Integer roleId : accountPb.getRoleIdList()) {
-            RbacRole role = roleRepo.findById(roleId).orElse(null);
-            if (role == null) {
-                log.error("RbacRole not found: {}", roleId);
-                return StatusCode.ROLE_NOT_FOUND;
-            }
-            RbacAccountRoleId accountRoleId = new RbacAccountRoleId(accountId, roleId);
-            RbacAccountRole accountRole = accountRoleRepo.findById(accountRoleId).orElse(null);
-            if (accountRole != null) {
-                log.error("RbacAccountRole already exists: {} {}", accountId, roleId);
-                return StatusCode.ACCOUNT_ROLE_ALREADY_EXISTS;
-            }
-        }
-
-        IcisAccountPB icisAccountPb = IcisAccountPB.newBuilder()
-            .setAccountId(accountId)
-            .setAccountName(accountPb.getName())
-            .setGender(accountPb.getGender())
-            .setDateOfBirthIso8601(accountPb.getDateOfBirthIso8601())
-            .build();
-        addAccountImpl(icisAccountPb, "System");
-
-        for (Integer roleId : accountPb.getRoleIdList()) {
-            RbacAccountRoleId accountRoleId = new RbacAccountRoleId(accountId, roleId);
-            RbacAccountRole accountRole = new RbacAccountRole();
-            accountRole.setId(accountRoleId);
-            accountRoleRepo.save(accountRole);
-        }
-
-        return StatusCode.OK;
-    }
-
-    @Transactional
-    public StatusCode addAccount(IcisAccountPB accountPb, String modifiedBy) {
+    public StatusCode addAccount(AccountPB accountPb, String modifiedByAutoAcctId) {
         final String accountId = accountPb.getAccountId();
 
-        StatusCode statusCode = checkAddAccount(accountId);
-        if (statusCode != StatusCode.OK) return statusCode;
+        if (accountRepo.findByAccountId(accountId).orElse(null) != null) {
+            log.error("RbacAccount already exists: {}", accountId);
+            return StatusCode.ACCOUNT_ALREADY_EXISTS;
+        }
 
-        for (IcisAccountDepartmentPB acctDeptPb : accountPb.getDepartmentList()) {
+        if (accountInfoRepo.findByAccountIdAndIsDeletedFalse(accountId).orElse(null) != null) {
+            log.error("Account already exists: {}", accountId);
+            return StatusCode.ACCOUNT_ALREADY_EXISTS;
+        }
+
+        StatusCode statusCode = StatusCode.OK;
+        for (AccountDepartmentPB acctDeptPb : accountPb.getDepartmentList()) {
             statusCode = checkDepartmentAndRole(acctDeptPb.getDeptId(), acctDeptPb.getRoleId());
             if (statusCode != StatusCode.OK) return statusCode;
         }
 
-        addAccountImpl(accountPb, modifiedBy);
+        RbacAccount account = UserMapper.toRbacAccount(accountPb);
+        String passwordHash = StrUtils.isBlank(accountPb.getPassword())
+            ? RsaUtils.encodePassword(accountId, encoder)
+            : encoder.encode(accountPb.getPassword());
+        account.setPasswordHash(passwordHash);
+        accountRepo.save(account);
 
-        for (IcisAccountDepartmentPB acctDeptPb : accountPb.getDepartmentList()) {
+        Account accountInfo = UserMapper.toAccount(accountPb);
+        accountInfo.setModifiedBy(modifiedByAutoAcctId);
+        accountInfo.setModifiedAt(TimeUtils.getNowUtc());
+        accountInfoRepo.save(accountInfo);
+
+        for (AccountDepartmentPB acctDeptPb : accountPb.getDepartmentList()) {
             statusCode = addDepartmentAccount(
                 acctDeptPb.getDeptId(), accountId, acctDeptPb.getRoleId());
             if (statusCode != StatusCode.OK) {
@@ -126,13 +105,13 @@ public class UserCmdService {
             }
         }
 
-        log.info("Account added: {}, by {}", accountId, modifiedBy);
+        log.info("Account added: {}, by {}", accountId, modifiedByAutoAcctId);
 
         return StatusCode.OK;
     }
 
     @Transactional
-    public StatusCode updateAccount(IcisAccountPB accountPb, String modifiedBy) {
+    public StatusCode updateAccount(AccountPB accountPb, String modifiedBy) {
         final String accountId = accountPb.getAccountId();
 
         Account accountInfo = accountInfoRepo
@@ -165,10 +144,10 @@ public class UserCmdService {
 
         Set<String> deptIdsToUpdate = new HashSet<>();
         // 统计新增部门
-        List<IcisAccountDepartmentPB> newDeptAccountPbs = new ArrayList<>();
+        List<AccountDepartmentPB> newDeptAccountPbs = new ArrayList<>();
         // 统计修改的部门
         List<Map.Entry<RbacDepartmentAccount, Integer>> changedDeptAccounts = new ArrayList<>();
-        for (IcisAccountDepartmentPB acctDeptPb : accountPb.getDepartmentList()) {
+        for (AccountDepartmentPB acctDeptPb : accountPb.getDepartmentList()) {
             StatusCode statusCode = checkDepartmentAndRole(
                 acctDeptPb.getDeptId(), acctDeptPb.getRoleId());
             if (statusCode != StatusCode.OK) return statusCode;
@@ -196,7 +175,7 @@ public class UserCmdService {
         }
 
         // 新增
-        for (IcisAccountDepartmentPB acctDeptPb : newDeptAccountPbs) {
+        for (AccountDepartmentPB acctDeptPb : newDeptAccountPbs) {
             StatusCode statusCode = addDepartmentAccount(
                 acctDeptPb.getDeptId(), accountId, acctDeptPb.getRoleId()
             );
@@ -304,17 +283,14 @@ public class UserCmdService {
     }
 
     @Transactional
-    public StatusCode resetPassword(String accountId, String modifiedBy, Integer adminRoleId) {
+    public StatusCode resetPassword(String accountId, String modifiedBy) {
         RbacAccount account = accountRepo.findByAccountId(accountId).orElse(null);
         if (account == null) {
             log.error("RbacAccount not found: {}", accountId);
             return StatusCode.ACCOUNT_NOT_FOUND;
         }
 
-        List<RbacAccountRole> modifierRoles = accountRoleRepo.findByIdAccountId(modifiedBy)
-            .stream().filter(accountRole -> accountRole.getId().getRoleId().equals(adminRoleId))
-            .toList();
-        if (modifierRoles.isEmpty()) {
+        if (!UserQuery.ADMIN_ACCOUNT_ID.equals(modifiedBy)) {
             log.error("RbacAccount not admin: {}", modifiedBy);
             return StatusCode.NO_PERMISSION_TO_OPERATE;
         }
@@ -328,62 +304,12 @@ public class UserCmdService {
         return StatusCode.OK;
     }
 
-    private StatusCode checkAddAccount(String accountId) {
-        RbacAccount account = accountRepo.findByAccountId(accountId).orElse(null);
-        if (account != null) {
-            log.error("RbacAccount already exists: {}", accountId);
-            return StatusCode.ACCOUNT_ALREADY_EXISTS;
-        }
-
-        Account accountInfo = accountInfoRepo
-            .findByAccountIdAndIsDeletedFalse(accountId).orElse(null);
-        if (accountInfo != null) {
-            log.error("Account already exists: {}", accountId);
-            return StatusCode.ACCOUNT_ALREADY_EXISTS;
-        }
-
-        return StatusCode.OK;
-    }
-
-    private void addAccountImpl(IcisAccountPB accountPb, String modifiedBy) {
-        RbacAccount account = new RbacAccount();
-        account.setAccountId(accountPb.getAccountId());
-        account.setAccountName(accountPb.getAccountName());
-        String newPasswdHash = StrUtils.isBlank(accountPb.getPassword()) ?
-            RsaUtils.encodePassword(accountPb.getAccountId(), encoder) :
-            encoder.encode(accountPb.getPassword()/*前端已经加密并做了base64编码*/);
-        account.setPasswordHash(newPasswdHash);
-        accountRepo.save(account);
-
-        Account accountInfo = new Account();
-        accountInfo.setAccountId(accountPb.getAccountId());
-        accountInfo.setName(accountPb.getAccountName());
-        accountInfo.setGender(accountPb.getGender());
-        final LocalDateTime dateOfBirth = StrUtils.isBlank(accountPb.getDateOfBirthIso8601()) ?
-            null : TimeUtils.fromIso8601String(accountPb.getDateOfBirthIso8601(), "UTC");
-        if (dateOfBirth != null) {
-            accountInfo.setDateOfBirth(dateOfBirth);
-        }
-        if (!StrUtils.isBlank(accountPb.getTitle())) accountInfo.setTitle(accountPb.getTitle());
-        if (!StrUtils.isBlank(accountPb.getEducationLevel()))
-            accountInfo.setEducationLevel(accountPb.getEducationLevel());
-        if (!StrUtils.isBlank(accountPb.getPhone())) accountInfo.setPhone(accountPb.getPhone());
-        if (!StrUtils.isBlank(accountPb.getIdCardNumber()))
-            accountInfo.setIdCardNumber(accountPb.getIdCardNumber());
-        if (!StrUtils.isBlank(accountPb.getSignPic()))
-            accountInfo.setSignPic(accountPb.getSignPic());
-        accountInfo.setIsDeleted(false);
-        accountInfo.setModifiedBy(modifiedBy);
-        accountInfo.setModifiedAt(TimeUtils.getNowUtc());
-        accountInfoRepo.save(accountInfo);
-    }
-
     // 科室：维护业务科室与 RBAC 科室，并在创建成功后初始化血气参数。
     public StatusCode addDepartment(DepartmentPB deptPb) {
         return addDepartment(
             deptPb.getId(), deptPb.getName(), deptPb.getAbbreviation(),
             deptPb.getWardCode(), deptPb.getWardName(), deptPb.getHospitalName(),
-            "System"/*modified by*/
+            UserQuery.SYSTEM_ACCOUNT_ID
         );
     }
 
@@ -497,14 +423,6 @@ public class UserCmdService {
     }
 
     // 账号科室关系：维护业务关联、RBAC 关联及科室内角色。
-    @Transactional
-    public StatusCode addDepartmentAccount(DepartmentAccountPB deptAccountPb) {
-        return addDepartmentAccount(
-            deptAccountPb.getDepartmentId(), deptAccountPb.getAccountId(),
-            deptAccountPb.getPrimaryRoleId()
-        );
-    }
-
     @Transactional
     public StatusCode addDepartmentAccountRole(DepartmentAccountRolePB deptAccountRolePb) {
         String deptId = deptAccountRolePb.getDepartmentId();

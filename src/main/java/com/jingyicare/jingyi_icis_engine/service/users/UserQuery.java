@@ -14,6 +14,8 @@ import lombok.extern.slf4j.Slf4j;
 import com.jingyicare.jingyi_icis_engine.entity.users.*;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.AccountDepartmentPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.AccountPB;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
 import com.jingyicare.jingyi_icis_engine.utils.Consts;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
@@ -23,6 +25,9 @@ import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 @Component
 @Slf4j
 public class UserQuery {
+    public static final String ADMIN_ACCOUNT_ID = "admin";
+    public static final String SYSTEM_ACCOUNT_ID = "system";
+
     public UserQuery(
         Config config,
         RbacAccountRepository accountRepo,
@@ -38,7 +43,6 @@ public class UserQuery {
         RbacPermissionRepository permRepo,
         PlatformTransactionManager transactionManager
     ) {
-        this.ADMIN_ACCOUNT_ID = config.getUser().getAdminAccountId();
         this.ZONE_ID = config.getZoneId();
         this.accountRepo = accountRepo;
         this.accountInfoRepo = accountInfoRepo;
@@ -118,11 +122,11 @@ public class UserQuery {
         return deptAccountRepo.findById(new RbacDepartmentAccountId(deptId, accountId)).isPresent();
     }
 
-    public List<IcisAccountPB> getDeptAccounts(String deptId) {
+    public List<AccountPB> getDeptAccounts(String deptId) {
         return getAllAccounts(deptId, "", "", ZONE_ID);
     }
 
-    List<IcisAccountPB> getAllAccounts(
+    List<AccountPB> getAllAccounts(
         String queryDeptId, String queryAccountId, String queryAccountName, String zoneId
     ) {
         // 获取所有账号，及其部门，角色信息
@@ -147,7 +151,7 @@ public class UserQuery {
         }
 
         // 根据输入过滤，组装结果
-        List<IcisAccountPB> accountPbs = new ArrayList<>();
+        List<AccountPB> accountPbs = new ArrayList<>();
         for (Account accountInfo : accountInfoList) {
             String accountId = accountInfo.getAccountId();
             if (!StrUtils.isBlank(queryAccountId) && !accountId.equals(queryAccountId)) continue;
@@ -155,7 +159,7 @@ public class UserQuery {
                 && !accountInfo.getName().contains(queryAccountName)) continue;
 
             // 组装账号基本信息
-            IcisAccountPB.Builder accountPbBuilder = IcisAccountPB.newBuilder()
+            AccountPB.Builder accountPbBuilder = AccountPB.newBuilder()
                 .setAccountId(accountId)
                 .setAccountName(accountInfo.getName())
                 .setId(accountInfo.getId());
@@ -204,7 +208,7 @@ public class UserQuery {
                 continue;
             }
 
-            List<IcisAccountDepartmentPB> accountDeptPbs = new ArrayList<>();
+            List<AccountDepartmentPB> accountDeptPbs = new ArrayList<>();
             for (Map.Entry<String, RbacDepartmentAccount> entry
                 : deptAccountMapForAccount.entrySet()) {
                 String deptId = entry.getKey();
@@ -222,7 +226,7 @@ public class UserQuery {
                     continue;
                 }
 
-                accountDeptPbs.add(IcisAccountDepartmentPB.newBuilder()
+                accountDeptPbs.add(AccountDepartmentPB.newBuilder()
                     .setDeptId(deptId)
                     .setDeptName(dept.getDeptName())
                     .setRoleId(primaryRole.getId())
@@ -231,11 +235,11 @@ public class UserQuery {
                 );
             }
             accountDeptPbs = accountDeptPbs.stream()
-                .sorted(Comparator.comparing(IcisAccountDepartmentPB::getDeptId)).toList();
+                .sorted(Comparator.comparing(AccountDepartmentPB::getDeptId)).toList();
             accountPbs.add(accountPbBuilder.addAllDepartment(accountDeptPbs).build());
         }
         return accountPbs.stream()
-            .sorted(Comparator.comparing(IcisAccountPB::getAccountId)).toList();
+            .sorted(Comparator.comparing(AccountPB::getAccountId)).toList();
     }
 
     RbacAccount getRbacAccount(String accountId) {
@@ -505,7 +509,6 @@ public class UserQuery {
         return primaryRole.getName();
     }
 
-    private final String ADMIN_ACCOUNT_ID;
     private final String ZONE_ID;
 
     private final RbacAccountRepository accountRepo;

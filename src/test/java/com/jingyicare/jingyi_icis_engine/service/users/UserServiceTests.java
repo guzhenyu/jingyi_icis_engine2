@@ -14,10 +14,11 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
-import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
-
 import com.jingyicare.jingyi_icis_engine.entity.users.*;
+import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.AccountDepartmentPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.AccountPB;
+import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -157,12 +158,12 @@ public class UserServiceTests extends TestsBase {
         assertThat(addDeptResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
         // 新增账号
-        AddAccountReq addAccountReq = AddAccountReq.newBuilder().setAccount(IcisAccountPB.newBuilder()
+        AddAccountReq addAccountReq = AddAccountReq.newBuilder().setAccount(AccountPB.newBuilder()
             .setAccountId(accountId4)
             .setAccountName("test-account-004")
             .setGender(1)
             .addDepartment(
-                IcisAccountDepartmentPB.newBuilder()
+                AccountDepartmentPB.newBuilder()
                     .setDeptId(deptId4)
                     .setRoleId(HEAD_NURSE_ROLE_ID)
                     .build()
@@ -209,18 +210,18 @@ public class UserServiceTests extends TestsBase {
 
 
         // 新增账号
-        AddAccountReq addAccountReq = AddAccountReq.newBuilder().setAccount(IcisAccountPB.newBuilder()
+        AddAccountReq addAccountReq = AddAccountReq.newBuilder().setAccount(AccountPB.newBuilder()
             .setAccountId(accountId2)
             .setAccountName("test-account-001")
             .setGender(1)
             .addDepartment(
-                IcisAccountDepartmentPB.newBuilder()
+                AccountDepartmentPB.newBuilder()
                     .setDeptId(deptId2)
                     .setRoleId(HEAD_NURSE_ROLE_ID)
                     .build()
             )
             .addDepartment(
-                IcisAccountDepartmentPB.newBuilder()
+                AccountDepartmentPB.newBuilder()
                     .setDeptId(deptId3)
                     .setRoleId(NURSE_ROLE_ID)
                     .build()
@@ -229,12 +230,12 @@ public class UserServiceTests extends TestsBase {
         GenericResp addAccountResp = userService.addAccount(addAccountReqJson);
         assertThat(addAccountResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
-        addAccountReq = AddAccountReq.newBuilder().setAccount(IcisAccountPB.newBuilder()
+        addAccountReq = AddAccountReq.newBuilder().setAccount(AccountPB.newBuilder()
             .setAccountId(accountId3)
             .setAccountName("test-account-002")
             .setGender(1)
             .addDepartment(
-                IcisAccountDepartmentPB.newBuilder()
+                AccountDepartmentPB.newBuilder()
                     .setDeptId(deptId2)
                     .setRoleId(HEAD_NURSE_ROLE_ID)
                     .build()
@@ -271,7 +272,7 @@ public class UserServiceTests extends TestsBase {
         getAllAccountsReqJson = ProtoUtils.protoToJson(getAllAccountsReq);
         getAllAccountsResp = userService.getAllAccounts(getAllAccountsReqJson);
         assertThat(getAllAccountsResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
-        List<IcisAccountPB> accounts = getAllAccountsResp.getAccountList();
+        List<AccountPB> accounts = getAllAccountsResp.getAccountList();
         assertThat(accounts.stream().filter(account -> account.getAccountId().equals(accountId2)).count()).isEqualTo(1);
         assertThat(accounts.stream().filter(account -> account.getAccountId().equals(accountId3)).count()).isEqualTo(1);
 
@@ -341,19 +342,19 @@ public class UserServiceTests extends TestsBase {
         assertThat(addDeptResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
         // 新增账号
-        AddAccountReq addAccountReq = AddAccountReq.newBuilder().setAccount(IcisAccountPB.newBuilder()
+        AddAccountReq addAccountReq = AddAccountReq.newBuilder().setAccount(AccountPB.newBuilder()
             .setAccountId(accountId5)
             .setAccountName("test-account-004")
             .setGender(1)
             .setIdCardNumber("330721198209301910")
             .addDepartment(
-                IcisAccountDepartmentPB.newBuilder()
+                AccountDepartmentPB.newBuilder()
                     .setDeptId(deptId5)
                     .setRoleId(HEAD_NURSE_ROLE_ID)
                     .build()
             )
             .addDepartment(
-                IcisAccountDepartmentPB.newBuilder()
+                AccountDepartmentPB.newBuilder()
                     .setDeptId(deptId6)
                     .setRoleId(NURSE_ROLE_ID)
                     .build()
@@ -374,13 +375,14 @@ public class UserServiceTests extends TestsBase {
         assertThat(getAllAccountsResp.getAccount(0).getDepartment(1).getRoleId()).isEqualTo(NURSE_ROLE_ID);
 
         // 更新账号(删除deptId6，改deptId5的角色)
-        AddAccountReq updateAccountReq = AddAccountReq.newBuilder().setAccount(IcisAccountPB.newBuilder()
+        AddAccountReq updateAccountReq = AddAccountReq.newBuilder()
+            .setAccount(AccountPB.newBuilder()
             .setAccountId(accountId5)
             .setAccountName("test-account-004")
             .setGender(1)
             .setIdCardNumber("330721198209301932")
             .addDepartment(
-                IcisAccountDepartmentPB.newBuilder()
+                AccountDepartmentPB.newBuilder()
                     .setDeptId(deptId5)
                     .setRoleId(NURSE_ROLE_ID)
                     .build()
@@ -400,12 +402,12 @@ public class UserServiceTests extends TestsBase {
         assertThat(getAllAccountsResp.getAccount(0).getDepartment(0).getRoleId()).isEqualTo(NURSE_ROLE_ID);
 
         // 更新账号(新增deptId6)
-        updateAccountReq = AddAccountReq.newBuilder().setAccount(IcisAccountPB.newBuilder()
+        updateAccountReq = AddAccountReq.newBuilder().setAccount(AccountPB.newBuilder()
             .setAccountId(accountId5)
             .setAccountName("test-account-004")
             .setGender(1)
             .addDepartment(
-                IcisAccountDepartmentPB.newBuilder()
+                AccountDepartmentPB.newBuilder()
                     .setDeptId(deptId6)
                     .setRoleId(DIRECTOR_ROLE_ID)
                     .build()
@@ -485,12 +487,12 @@ public class UserServiceTests extends TestsBase {
 
         // 新增账号
         AddAccountReq addAccountReq = AddAccountReq.newBuilder().setAccount(
-            IcisAccountPB.newBuilder()
+            AccountPB.newBuilder()
                 .setAccountId(accountId6)
                 .setAccountName("test-account-005")
                 .setGender(1)
                 .addDepartment(
-                    IcisAccountDepartmentPB.newBuilder()
+                    AccountDepartmentPB.newBuilder()
                         .setDeptId(deptId7)
                         .setRoleId(HEAD_NURSE_ROLE_ID)
                         .build()

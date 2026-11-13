@@ -4,11 +4,11 @@ import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
-import java.util.LinkedList;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,11 +19,11 @@ import org.springframework.transaction.annotation.Transactional;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.entity.users.*;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
-import com.jingyicare.jingyi_icis_engine.entity.users.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.IcisBootstrapProperties;
@@ -35,14 +35,13 @@ public class UserConfig {
     public UserConfig(
         ConfigurableApplicationContext context,
         @Autowired ConfigProtoService protoService,
-        @Autowired UserCmdService userCmdService,
+        @Autowired UserCommand userCommand,
         @Autowired RbacPermissionRepository permRepo,
         @Autowired RbacRoleRepository roleRepo,
         @Autowired RbacRolePermissionRepository rolePermRepo,
         @Autowired RbacRoleRoleRepository roleRoleRepo,
         @Autowired RbacAccountRepository accountRepo,
         @Autowired RbacDepartmentRepository deptRepo,
-        @Autowired RbacDepartmentAccountRepository deptAccountRepo,
         @Autowired RbacDepartmentAccountRoleRepository deptAccountRoleRepo,
         @Autowired RbacDepartmentAccountPermissionRepository deptAccountPermRepo,
         @Autowired DepartmentRepository departmentInfoRepo,
@@ -54,14 +53,13 @@ public class UserConfig {
         this.configPb = protoService.getConfig().getUser();
         this.ADMIN_ROLE_ID = configPb.getAdminRoleId();
 
-        this.userCmdService = userCmdService;
+        this.userCommand = userCommand;
         this.permRepo = permRepo;
         this.roleRepo = roleRepo;
         this.rolePermRepo = rolePermRepo;
         this.roleRoleRepo = roleRoleRepo;
         this.accountRepo = accountRepo;
         this.deptRepo = deptRepo;
-        this.deptAccountRepo = deptAccountRepo;
         this.deptAccountRoleRepo = deptAccountRoleRepo;
         this.deptAccountPermRepo = deptAccountPermRepo;
         this.departmentInfoRepo = departmentInfoRepo;
@@ -212,26 +210,25 @@ public class UserConfig {
     }
 
     private void initAccountsAndDepartments() {
-        List<RbacAccount> accounts = accountRepo.findAll();
-        if (accounts.size() <= 0) {
-            for (AccountPB account : configPb.getAccountList()) {
-                userCmdService.addAccount(account);
-            }
-        }
+        initDepartments();
+        initAccounts();
+        initDepartmentAccountRoles();
+    }
 
+    private void initDepartments() {
         if (departmentInfoRepo.count() == 0) {
             if (bootstrapProperties.isConfigured()) {
                 String hospitalName = bootstrapProperties.getHospitalName().trim();
                 for (IcisBootstrapProperties.DepartmentEntry entry
                     : bootstrapProperties.getDepartments()) {
-                    StatusCode status = userCmdService.addDepartment(
+                    StatusCode status = userCommand.addDepartment(
                         entry.getDeptCode().trim(),
                         entry.getName().trim(),
                         entry.getName().trim(),
                         "",
                         "",
                         hospitalName,
-                        "System"
+                        UserQuery.SYSTEM_ACCOUNT_ID
                     );
                     if (status != StatusCode.OK) {
                         throw new IllegalStateException(String.format(
@@ -244,7 +241,7 @@ public class UserConfig {
                     bootstrapProperties.getDepartments().size());
             } else {
                 for (DepartmentPB dept : configPb.getDepartmentList()) {
-                    StatusCode status = userCmdService.addDepartment(dept);
+                    StatusCode status = userCommand.addDepartment(dept);
                     if (status != StatusCode.OK) {
                         throw new IllegalStateException(String.format(
                             "Failed to initialize bundled test department: code=%s, status=%s",
@@ -254,18 +251,31 @@ public class UserConfig {
                 }
             }
         }
+    }
 
-        List<RbacDepartmentAccount> deptAccounts = deptAccountRepo.findAll();
-        if (deptAccounts.size() <= 0) {
-            for (DepartmentAccountPB deptAccount : configPb.getDepartmentAccountList()) {
-                userCmdService.addDepartmentAccount(deptAccount);
+    private void initAccounts() {
+        if (configPb.getAccountCount() == 0 || accountRepo.count() > 0) return;
+
+        for (AccountPB account : configPb.getAccountList()) {
+            StatusCode status = userCommand.addAccount(account, UserQuery.SYSTEM_ACCOUNT_ID);
+            if (status != StatusCode.OK) {
+                throw new IllegalStateException(String.format(
+                    "初始化账号失败：accountId=%s, status=%s", account.getAccountId(), status));
             }
         }
+    }
 
-        List<RbacDepartmentAccountRole> deptAccountRoles = deptAccountRoleRepo.findAll();
-        if (deptAccountRoles.size() <= 0) {
-            for (DepartmentAccountRolePB deptAccountRole : configPb.getDepartmentAccountRoleList()) {
-                userCmdService.addDepartmentAccountRole(deptAccountRole);
+    private void initDepartmentAccountRoles() {
+        if (configPb.getDepartmentAccountRoleCount() == 0 || deptAccountRoleRepo.count() > 0) {
+            return;
+        }
+
+        for (DepartmentAccountRolePB role : configPb.getDepartmentAccountRoleList()) {
+            StatusCode status = userCommand.addDepartmentAccountRole(role);
+            if (status != StatusCode.OK) {
+                throw new IllegalStateException(String.format(
+                    "初始化科室账号角色失败：departmentId=%s, accountId=%s, status=%s",
+                    role.getDepartmentId(), role.getAccountId(), status));
             }
         }
     }
@@ -371,7 +381,7 @@ public class UserConfig {
     private ConfigurableApplicationContext context;
     private UserConfigPB configPb;
 
-    private UserCmdService userCmdService;
+    private UserCommand userCommand;
 
     private RbacPermissionRepository permRepo;
     private RbacRoleRepository roleRepo;
@@ -379,7 +389,6 @@ public class UserConfig {
     private RbacRoleRoleRepository roleRoleRepo;
     private RbacAccountRepository accountRepo;
     private RbacDepartmentRepository deptRepo;
-    private RbacDepartmentAccountRepository deptAccountRepo;
     private RbacDepartmentAccountRoleRepository deptAccountRoleRepo;
     private RbacDepartmentAccountPermissionRepository deptAccountPermRepo;
     private DepartmentRepository departmentInfoRepo;

@@ -20,9 +20,9 @@ import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.AddAccountPermissionRe
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.AddAccountReq;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.DeleteAccountReq;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.GetUserInfoResp;
-import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.IcisAccountDepartmentPB;
-import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.IcisAccountPB;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.AccountDepartmentPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.AccountPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.Consts;
@@ -103,11 +103,11 @@ class UserServiceCurrentAccountTests extends TestsBase {
         authenticate(CALLER);
         AddAccountReq updateReq = AddAccountReq.newBuilder()
             .setOpDeptId(DEPT)
-            .setAccount(IcisAccountPB.newBuilder()
+            .setAccount(AccountPB.newBuilder()
                 .setAccountId(CALLER)
                 .setAccountName("本人修改后的姓名")
                 .setDateOfBirthIso8601("1990-01-01T00:00:00Z")
-                .addDepartment(IcisAccountDepartmentPB.newBuilder()
+                .addDepartment(AccountDepartmentPB.newBuilder()
                     .setDeptId(DEPT).setRoleId(ROLE_ID)))
             .build();
         assertThat(userService.updateAccount(ProtoUtils.protoToJson(updateReq)).getRt().getCode())
@@ -186,7 +186,7 @@ class UserServiceCurrentAccountTests extends TestsBase {
     private String accountRequest(String accountId, String name) {
         AddAccountReq req = AddAccountReq.newBuilder()
             .setOpDeptId(DEPT)
-            .setAccount(IcisAccountPB.newBuilder().setAccountId(accountId).setAccountName(name))
+            .setAccount(AccountPB.newBuilder().setAccountId(accountId).setAccountName(name))
             .build();
         return ProtoUtils.protoToJson(req);
     }

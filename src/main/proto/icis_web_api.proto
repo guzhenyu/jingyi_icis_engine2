@@ -592,34 +592,9 @@ message GetAllAccountsReq {
     string account_name = 3;  // 可以是用户名字的一部分
 }
 
-message IcisAccountDepartmentPB {
-    string dept_id = 1;
-    string dept_name = 2;
-    int32 role_id = 3;
-    string role_name = 4;
-}
-
-message IcisAccountPB {
-    string account_id = 1;
-    string password = 2;
-    string account_name = 3;
-    int32 gender = 4;  // 性别
-    string date_of_birth_iso8601 = 5;  // 出生日期
-    string title = 6;  // 职称
-    string education_level = 7;  // 学历
-    string phone = 8;  // 电话
-    string id_card_number = 9;  // 身份证号
-    string sign_pic = 10;  // 签名图片的base64编码
-    repeated IcisAccountDepartmentPB department = 11;
-
-    int64 id = 12;  // 账号数据库ID
-    string ca_sign_pic = 13; // CA签名图片
-    int32 is_disabled = 14; // 是否禁用，0表示启用
-}
-
 message GetAllAccountsResp {
     shared.ReturnCode rt = 1;
-    repeated IcisAccountPB account = 2;
+    repeated config.AccountPB account = 2;
 }
 
 /*
@@ -630,7 +605,7 @@ message GetAllAccountsResp {
  */
 message AddAccountReq {
     string op_dept_id = 1;  // 操作科室ID
-    IcisAccountPB account = 2;
+    config.AccountPB account = 2;
 }
 
 /*
@@ -3278,9 +3253,9 @@ message GetJfkSignatureAccountsReq {
 
 message GetJfkSignatureAccountsResp {
     shared.ReturnCode rt = 1;
-    repeated IcisAccountPB dept_accounts = 2;
-    repeated IcisAccountPB dept_nurses = 3;
-    repeated IcisAccountPB dept_doctors = 4;
+    repeated config.AccountPB dept_accounts = 2;
+    repeated config.AccountPB dept_nurses = 3;
+    repeated config.AccountPB dept_doctors = 4;
 }
 
 /*

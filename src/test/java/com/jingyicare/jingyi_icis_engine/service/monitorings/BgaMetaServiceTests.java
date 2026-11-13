@@ -45,7 +45,7 @@ import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
-import com.jingyicare.jingyi_icis_engine.service.users.UserCmdService;
+import com.jingyicare.jingyi_icis_engine.service.users.UserCommand;
 import com.jingyicare.jingyi_icis_engine.service.users.auth.Encoder;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
@@ -172,7 +172,7 @@ class BgaMetaServiceTests extends TestsBase {
 
     @Test
     void bgaFailureRollsBackOnlyInitializationAndAllowsIndependentRetry() {
-        UserCmdService operator = departmentOperator(departmentInfoRepository);
+        UserCommand operator = departmentOperator(departmentInfoRepository);
         doAnswer(invocation -> {
             Iterable<BgaParam> params = invocation.getArgument(0);
             repository.saveAllAndFlush(params);
@@ -209,7 +209,7 @@ class BgaMetaServiceTests extends TestsBase {
             departmentInfoRepository.saveAndFlush(department);
             throw new IllegalStateException("模拟科室保存失败");
         }).when(failingRepository).save(any(Department.class));
-        UserCmdService operator = departmentOperator(failingRepository);
+        UserCommand operator = departmentOperator(failingRepository);
 
         assertThatThrownBy(() -> operator.addDepartment(
             ROLLBACK_DEPT_ID, "血气事务边界测试", "血气", "", "", "测试医院", "test-user"))
@@ -223,8 +223,8 @@ class BgaMetaServiceTests extends TestsBase {
         verifyNoMoreInteractions(trackedExecutor);
     }
 
-    private UserCmdService departmentOperator(DepartmentRepository infoRepository) {
-        return new UserCmdService(
+    private UserCommand departmentOperator(DepartmentRepository infoRepository) {
+        return new UserCommand(
             mock(RbacPermissionRepository.class), mock(RbacRoleRepository.class),
             mock(RbacRolePermissionRepository.class),
             mock(RbacAccountRepository.class), mock(AccountRepository.class),

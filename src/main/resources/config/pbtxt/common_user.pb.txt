@@ -402,9 +402,8 @@
         permission_id: 9
     }
     account {
-        id: "admin"
-        name: "管理员"
+        account_id: "admin"
+        account_name: "管理员"
         gender: 1
         date_of_birth_iso8601: ""
-        role_id: 1
     }

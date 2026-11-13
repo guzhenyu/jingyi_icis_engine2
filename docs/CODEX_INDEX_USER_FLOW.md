@@ -3,12 +3,20 @@
 ## 1. 作用范围
 - 文件范围：
   - `src/main/java/com/jingyicare/jingyi_icis_engine/service/users/UserService.java`
-  - `src/main/java/com/jingyicare/jingyi_icis_engine/service/users/UserCmdService.java`
+  - `src/main/java/com/jingyicare/jingyi_icis_engine/service/users/UserCommand.java`
+  - `src/main/java/com/jingyicare/jingyi_icis_engine/service/users/UserMapper.java`
   - `src/main/java/com/jingyicare/jingyi_icis_engine/service/users/UserQuery.java`
 - 模块分层：
   - `UserService`：接口编排层（JSON 转 Proto、登录态、权限判断、返回码封装）。
-  - `UserCmdService`：命令层（RBAC/业务表写入、事务管理、状态码返回）。
+  - `UserCommand`：命令层（RBAC/业务表写入、事务管理、状态码返回）。
   - `UserQuery`：查询层（账号、科室、角色、权限读取及结果组装）。
+
+账号配置与接口统一使用 `config/icis_user.proto` 的 `AccountPB`、`AccountDepartmentPB`：
+- 配置账号字段使用 `account_id`、`account_name`，不再配置账号顶层的 `role_id`。
+- 科室归属与主要角色放在 `account.department`；旧 `department_account` 字段已删除并保留编号。
+- 初始化顺序为科室、账号、额外科室角色；初始化失败会停止启动。
+- 管理员编码统一为 `UserQuery.ADMIN_ACCOUNT_ID`（`admin`），系统审计标识为
+  `UserQuery.SYSTEM_ACCOUNT_ID`（`system`）。
 
 ## 2. 总体调用流程（高频模式）
 1. `UserService` 入口方法接收 `xxxReqJson`。
@@ -17,7 +25,7 @@
 4. 按功能执行授权校验：
    - 管理员校验：`account.rbacAcctId().equals(ADMIN_ACCOUNT_ID)`。
    - 权限校验：`hasPermission(rbacAcctId, opDeptId, Consts.PERM_ID_CONFIG_CHECKLIST)`。
-5. 查询调用 `UserQuery`，写入调用 `UserCmdService`。
+5. 查询调用 `UserQuery`，写入调用 `UserCommand`。
 6. `ReturnCodeUtils.getReturnCode(statusCodeMsgList, statusCode)` 统一包装响应。
 
 ## 3. 入口方法 -> 核心能力映射
@@ -27,15 +35,15 @@
   - 额外依赖：`menuService.getMenuGroups`、`certificateService.checkBedAvailable`。
 - `getAllAccounts` -> `getAllAccounts(queryDeptId, queryAccountId, queryAccountName, zoneId)`
   - 结果会过滤管理员账号（`ADMIN_ACCOUNT_ID`）。
-- `addAccount` -> `addAccount(IcisAccountPB, modifiedBy)`
+- `addAccount` -> `addAccount(AccountPB, modifiedByAutoAcctId)`
   - 需要 `PERM_ID_CONFIG_CHECKLIST`。
-- `updateAccount` -> `updateAccount(IcisAccountPB, modifiedBy)`
+- `updateAccount` -> `updateAccount(AccountPB, modifiedBy)`
   - 更新自己时可跳过权限校验；更新他人需权限。
 - `deleteAccount` -> `deleteAccount(accountId, deptId, modifiedBy)`
   - 需要权限，且禁止删除自己（`CANNOT_DELETE_SELF_ACCOUNT`）。
 - `changePassword` -> `changePassword(accountId, oldPassword, newPassword)`。
-- `resetPassword` -> `resetPassword(targetAccountId, operatorAccountId, ADMIN_ROLE_ID)`
-  - 需权限，底层再次校验操作者是否拥有管理员角色。
+- `resetPassword` -> `resetPassword(targetAccountId, operatorAccountId)`
+  - 需权限，底层再次校验操作者是否为固定管理员账号 `admin`。
 
 ### 3.2 部门
 - `getAllDeptNames` -> `getAllDeptInfo`（按 `Department.id` 排序）。
@@ -56,16 +64,15 @@
 
 ## 4. 用户数据层关键流程
 
-### 4.1 账号新增 `addAccount(IcisAccountPB, modifiedBy)`
-1. `checkAddAccount`：校验 `RbacAccount` 与 `Account` 不重复。
+### 4.1 账号新增 `addAccount(AccountPB, modifiedByAutoAcctId)`
+1. 在 `addAccount` 内校验 `RbacAccount` 与 `Account` 不重复。
 2. 校验每个 `department(role)` 存在性（`checkDepartmentAndRole`）。
-3. `addAccountImpl` 同时写入：
-   - `RbacAccount`（含密码哈希）。
-   - `Account`（基础资料，`isDeleted=false`）。
+3. 通过 `UserMapper.toRbacAccount`、`UserMapper.toAccount` 转换实体，
+   在 `addAccount` 中设置密码哈希、审计字段并保存两张账号表。
 4. 遍历部门调用 `addDepartmentAccount` 建立账号-部门-角色关系。
 5. 任一步失败设置事务回滚并返回失败码。
 
-### 4.2 账号更新 `updateAccount(IcisAccountPB, modifiedBy)`
+### 4.2 账号更新 `updateAccount(AccountPB, modifiedBy)`
 1. 更新 `Account` 基础资料与 `RbacAccount.accountName`。
 2. 对比请求部门列表与当前部门关系，拆分三类：
    - 新增部门关系。
@@ -99,7 +106,7 @@
 - `@Transactional` 覆盖大多数写操作（账号、部门、角色权限管理）。
 - `addDepartment` 通过 `LockExecutor` 执行科室创建事务，成功后再初始化血气参数。
 - 显式回滚点集中在账号新增/更新流程：
-  - `addAccount(IcisAccountPB, ...)` 中部门关联失败会 `setRollbackOnly()`。
+  - `addAccount(AccountPB, ...)` 中部门关联失败会 `setRollbackOnly()`。
   - `updateAccount(...)` 中账号实体缺失、部门新增失败、角色更新失败会回滚。
 
 ## 6. 跨表一致性与数据模型要点
@@ -116,7 +123,7 @@
   - `Account` / `Department` / `DepartmentAccount` 多为软删。
 
 ## 7. 索引建议关键词（给 Codex）
-- 账号管理：`addAccount`, `updateAccount`, `deleteAccount`, `checkAddAccount`, `addAccountImpl`
+- 账号管理：`addAccount`, `updateAccount`, `deleteAccount`, `UserMapper.toRbacAccount`, `UserMapper.toAccount`
 - 部门管理：`addDepartment`, `updateDepartment`, `deleteDepartment`, `getDepartmentId`
 - 权限计算：`getPermissionIds`, `getNonPrimaryRolePermissions`, `hasPermission`
 - 角色权限：`addRolePermission`, `revokeRolePermission`, `addAccountPermission`, `revokeAccountPermission`
@@ -125,29 +132,32 @@
 ## 8. 快速定位（行号）
 - `UserService`：
   - `getUserInfo`：65
-  - `addDept`：166
-  - `addAccount`：350
-  - `updateAccount`：389
-  - `deleteAccount`：430
-  - `resetPassword`：505
-  - `getPermissions`：553
-- `UserCmdService`：
-  - `addAccount(IcisAccountPB, ...)`：107
-  - `updateAccount`：135
-  - `deleteAccount`：230
-  - `addDepartment`：382
-  - `addDepartmentAccount`：501
-  - `addRolePermission`：725
-  - `addAccountPermission`：784
+  - `addDept`：167
+  - `addAccount`：342
+  - `updateAccount`：379
+  - `deleteAccount`：418
+  - `resetPassword`：492
+  - `getPermissions`：541
+- `UserCommand`：
+  - `addAccount`：68
+  - `updateAccount`：114
+  - `deleteAccount`：209
+  - `addDepartment`：308
+  - `addDepartmentAccountRole`：427
+  - `resetPassword`：286
+  - `addAccountPermission`：702
+- `UserMapper`：
+  - `toRbacAccount`：15
+  - `toAccount`：22
 - `UserQuery`：
-  - `getAllAccounts`：142
-  - `getAllDeptInfo`：304
-  - `getNonPrimaryRolePermissions`：329
-  - `getPermissionIds`：458
+  - `getAllAccounts`：126
+  - `getAllDeptInfo`：291
+  - `getNonPrimaryRolePermissions`：316
+  - `getPermissionIds`：109
 
 ## 9. 实现注意点（索引风险提示）
 - `UserService` 中 `addRolePermission` / `revokeRolePermission` / `addAccountPermission` / `revokeAccountPermission` 仅校验登录态，未在该层显式校验业务权限。
 - `resetPassword` 是双重门禁：
   - `UserService` 先做 `PERM_ID_CONFIG_CHECKLIST` 权限校验。
-  - `UserCmdService.resetPassword` 再校验操作者是否具备 `ADMIN_ROLE_ID`。
+  - `UserCommand.resetPassword` 按 `UserQuery.ADMIN_ACCOUNT_ID` 校验操作者。
 - 账号与部门删除是“软硬混合”策略，检索删除问题时需同时看 RBAC 表和业务表。
