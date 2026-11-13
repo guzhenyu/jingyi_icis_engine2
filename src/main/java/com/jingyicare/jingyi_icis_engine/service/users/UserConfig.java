@@ -212,7 +212,6 @@ public class UserConfig {
     private void initAccountsAndDepartments() {
         initDepartments();
         initAccounts();
-        initDepartmentAccountRoles();
     }
 
     private void initDepartments() {
@@ -261,21 +260,6 @@ public class UserConfig {
             if (status != StatusCode.OK) {
                 throw new IllegalStateException(String.format(
                     "初始化账号失败：accountId=%s, status=%s", account.getAccountId(), status));
-            }
-        }
-    }
-
-    private void initDepartmentAccountRoles() {
-        if (configPb.getDepartmentAccountRoleCount() == 0 || deptAccountRoleRepo.count() > 0) {
-            return;
-        }
-
-        for (DepartmentAccountRolePB role : configPb.getDepartmentAccountRoleList()) {
-            StatusCode status = userCommand.addDepartmentAccountRole(role);
-            if (status != StatusCode.OK) {
-                throw new IllegalStateException(String.format(
-                    "初始化科室账号角色失败：departmentId=%s, accountId=%s, status=%s",
-                    role.getDepartmentId(), role.getAccountId(), status));
             }
         }
     }

@@ -13,6 +13,33 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class LockKeysTests {
     @Test
+    void shouldScopeRoleKeysToRoleId() {
+        assertThat(LockKeys.role(1)).isEqualTo("role:1")
+            .isNotEqualTo(LockKeys.role(2))
+            .isNotEqualTo(LockKeys.account("1"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, -1})
+    void shouldRejectNonPositiveRoleIds(int roleId) {
+        assertThatIllegalArgumentException().isThrownBy(() -> LockKeys.role(roleId));
+    }
+
+    @Test
+    void shouldScopeAccountKeysToRbacAccountId() {
+        assertThat(LockKeys.account("admin")).isEqualTo("account:admin")
+            .isNotEqualTo(LockKeys.account("other-account"))
+            .isNotEqualTo(LockKeys.department("admin"));
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "\t\n"})
+    void shouldRejectMissingRbacAccountId(String invalid) {
+        assertThatIllegalArgumentException().isThrownBy(() -> LockKeys.account(invalid));
+    }
+
+    @Test
     void shouldScopeBgaParamKeysToDepartment() {
         assertThat(LockKeys.bgaParam("icu")).isEqualTo("bga_params:icu")
             .isNotEqualTo(LockKeys.bgaParam("other-icu"))

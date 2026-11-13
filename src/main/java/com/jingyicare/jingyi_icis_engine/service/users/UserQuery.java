@@ -110,6 +110,18 @@ public class UserQuery {
         return new Pair<>(getPrimaryRoleName(rbacAcctId, deptId), hasPermission);
     }
 
+    // 失败时返回首个无权限的科室 ID，成功时返回空字符串；空列表的必填校验由调用方负责。
+    public Pair<Boolean, String> canConfigAccount(String rbacAcctId, List<String> deptIds) {
+        if (ADMIN_ACCOUNT_ID.equals(rbacAcctId)) return new Pair<>(true, "");
+
+        for (String deptId : deptIds) {
+            if (!getPermissionIds(rbacAcctId, deptId).contains(Consts.PERM_ID_CONFIG_ACCOUNT)) {
+                return new Pair<>(false, deptId);
+            }
+        }
+        return new Pair<>(true, "");
+    }
+
     public boolean canCurrentUserAccessDept(String deptId) {
         if (StrUtils.isBlank(deptId)) return false;
         CurrentAccount account = getCurrentAccount();
@@ -292,11 +304,14 @@ public class UserQuery {
         return deptInfoRepo.findByIsDeletedFalse();
     }
 
-    public List<Department> getAllDeptInfoByAccountId(String accountId) {
-        List<String> deptIds = deptAccountRepo.findByIdAccountId(accountId).stream()
+    public List<String> getDeptIdsByAccountId(String accountId) {
+        return deptAccountRepo.findByIdAccountId(accountId).stream()
             .map(deptAccount -> deptAccount.getId().getDeptId())
             .toList();
-        return deptInfoRepo.findByDeptIdInAndIsDeletedFalse(deptIds);
+    }
+
+    public List<Department> getAllDeptInfoByAccountId(String accountId) {
+        return deptInfoRepo.findByDeptIdInAndIsDeletedFalse(getDeptIdsByAccountId(accountId));
     }
 
     public List<IcisRolePB> getPrimaryRoles() {

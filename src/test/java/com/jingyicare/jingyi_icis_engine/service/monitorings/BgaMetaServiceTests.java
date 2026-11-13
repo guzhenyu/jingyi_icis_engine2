@@ -228,11 +228,12 @@ class BgaMetaServiceTests extends TestsBase {
             mock(RbacPermissionRepository.class), mock(RbacRoleRepository.class),
             mock(RbacRolePermissionRepository.class),
             mock(RbacAccountRepository.class), mock(AccountRepository.class),
-            mock(RbacAccountRoleRepository.class), departmentRepository, infoRepository,
+            mock(RbacAccountRoleRepository.class), mock(RbacAccountPermissionRepository.class),
+            departmentRepository, infoRepository,
             mock(RbacDepartmentAccountRepository.class), mock(DepartmentAccountRepository.class),
             mock(RbacDepartmentAccountRoleRepository.class),
             mock(RbacDepartmentAccountPermissionRepository.class),
-            encoder, service, trackedExecutor);
+            encoder, service, trackedExecutor, jdbcTemplate);
     }
 
     private BgaMetaService configuredService(List<String> codes) {

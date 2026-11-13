@@ -225,7 +225,75 @@ class UserQueryTests extends TestsBase {
     }
 
     @Test
+    void accountConfigurationUsesTheSuppliedAccountAndDirectPermission() {
+        authenticate(UserQuery.ADMIN_ACCOUNT_ID);
+        Pair<Boolean, String> denied = query.canConfigAccount(ACCOUNT, List.of(DEPT));
+        assertThat(denied.getFirst()).isFalse();
+        assertThat(denied.getSecond()).isEqualTo(DEPT);
+
+        grantAccountConfigPermission();
+
+        Pair<Boolean, String> allowed = query.canConfigAccount(ACCOUNT, List.of(DEPT));
+        assertThat(allowed.getFirst()).isTrue();
+        assertThat(allowed.getSecond()).isEmpty();
+    }
+
+    @Test
+    void accountConfigurationIncludesInheritedRolePermission() {
+        jdbcTemplate.update("""
+            INSERT INTO rbac_roles_permissions(role_id, permission_id) VALUES (?, ?)
+            """, CHILD_ROLE, Consts.PERM_ID_CONFIG_ACCOUNT);
+
+        Pair<Boolean, String> result = query.canConfigAccount(ACCOUNT, List.of(DEPT));
+
+        assertThat(result.getFirst()).isTrue();
+        assertThat(result.getSecond()).isEmpty();
+    }
+
+    @Test
+    void accountConfigurationReturnsTheFirstDeniedDepartmentInInputOrder() {
+        grantAccountConfigPermission();
+        String first = DEPT + "-first-missing";
+        String second = DEPT + "-second-missing";
+
+        Pair<Boolean, String> result = query.canConfigAccount(
+            ACCOUNT, List.of(DEPT, first, second));
+        assertThat(result.getFirst()).isFalse();
+        assertThat(result.getSecond()).isEqualTo(first);
+        assertThat(query.canConfigAccount(ACCOUNT, List.of(DEPT, second, first)).getSecond())
+            .isEqualTo(second);
+    }
+
+    @Test
+    void accountConfigurationPreservesAdministratorBypass() {
+        authenticate(ACCOUNT);
+
+        Pair<Boolean, String> result = query.canConfigAccount(
+            UserQuery.ADMIN_ACCOUNT_ID, List.of(DEPT, DEPT + "-missing"));
+
+        assertThat(result.getFirst()).isTrue();
+        assertThat(result.getSecond()).isEmpty();
+    }
+
+    @Test
+    void accountConfigurationHasNoDepartmentPermissionsToCheckForAnEmptyList() {
+        Pair<Boolean, String> result = query.canConfigAccount(ACCOUNT, List.of());
+
+        assertThat(result.getFirst()).isTrue();
+        assertThat(result.getSecond()).isEmpty();
+    }
+
+    private void grantAccountConfigPermission() {
+        jdbcTemplate.update("""
+            INSERT INTO rbac_accounts_departments_permissions(account_id, dept_id, permission_id)
+            VALUES (?, ?, ?)
+            """, ACCOUNT, DEPT, Consts.PERM_ID_CONFIG_ACCOUNT);
+    }
+
+    @Test
     void departmentMembershipRejectsBlankInputAndRequiresAnActualMembership() {
+        assertThat(query.getDeptIdsByAccountId(ACCOUNT)).containsExactly(DEPT);
+        assertThat(query.getDeptIdsByAccountId(RBAC_ONLY)).isEmpty();
         assertThat(query.accountBelongsToDept(ACCOUNT, DEPT)).isTrue();
         assertThat(query.accountBelongsToDept(RBAC_ONLY, DEPT)).isFalse();
         assertThat(query.accountBelongsToDept(ACCOUNT, DEPT + "-missing")).isFalse();

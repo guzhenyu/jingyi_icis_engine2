@@ -307,6 +307,7 @@
     status_code_msg: "评分总分与评分明细不一致"
     status_code_msg: "表单模板内容无效"
     status_code_msg: "菜单项已分配，不能重复添加"
+    status_code_msg: "账号科室不能重复"
     units {
         unit: {
             id: 1

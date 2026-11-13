@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -46,7 +47,6 @@ public class UserService {
         for (MenuPermissionPB menuPermPb : userConfig.getMenuPermissionList()) {
             this.menuPermissions.put(menuPermPb.getMenuGroupId(), menuPermPb.getPermissionId());
         }
-        this.fullMenu = userConfig.getMenu();
 
         this.userCommand = userCommand;
         this.userQuery = userQuery;
@@ -359,13 +359,21 @@ public class UserService {
                 .build();
         }
 
+        if (req.getAccount().getDepartmentCount() == 0) {
+            return GenericResp.newBuilder()
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.DEPT_IS_EMPTY))
+                .build();
+        }
+
         // 检查用户权限
-        Pair<String, Boolean> permPair = userQuery.hasPermission(
-            account.rbacAcctId(), req.getOpDeptId(), Consts.PERM_ID_CONFIG_CHECKLIST);
-        if (permPair == null || !permPair.getSecond()) {
+        Pair<Boolean, String> permPair = userQuery.canConfigAccount(
+            account.rbacAcctId(), req.getAccount().getDepartmentList().stream()
+                .map(AccountDepartmentPB::getDeptId).toList());
+        if (!permPair.getFirst()) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.PERMISSION_DENIED))
+                    statusCodeMsgList, StatusCode.PERMISSION_DENIED,
+                    "deptId: " + permPair.getSecond()))
                 .build();
         }
 
@@ -396,16 +404,22 @@ public class UserService {
                 .build();
         }
 
-        // 检查用户权限
-        if (!account.rbacAcctId().equals(req.getAccount().getAccountId())) {
-            Pair<String, Boolean> permPair = userQuery.hasPermission(
-                account.rbacAcctId(), req.getOpDeptId(), Consts.PERM_ID_CONFIG_CHECKLIST);
-            if (permPair == null || !permPair.getSecond()) {
-                return GenericResp.newBuilder()
-                    .setRt(ReturnCodeUtils.getReturnCode(
-                        statusCodeMsgList, StatusCode.PERMISSION_DENIED))
-                    .build();
-            }
+        // 统一检查目标账号现有科室与请求科室的账号管理权限。
+        // 此处在锁外校验；等待锁期间目标账号新增科室时，命令层重建锁计划不会重新校验权限，
+        // 可能移除未校验权限的新科室。当前接受此并发窗口。
+        Set<String> deptIds = new LinkedHashSet<>(
+            userQuery.getDeptIdsByAccountId(req.getAccount().getAccountId()));
+        for (AccountDepartmentPB acctDept : req.getAccount().getDepartmentList()) {
+            deptIds.add(acctDept.getDeptId());
+        }
+        Pair<Boolean, String> permPair = userQuery.canConfigAccount(
+            account.rbacAcctId(), new ArrayList<>(deptIds));
+        if (!permPair.getFirst()) {
+            return GenericResp.newBuilder()
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PERMISSION_DENIED,
+                    "deptId: " + permPair.getSecond()))
+                .build();
         }
 
         return GenericResp.newBuilder()
@@ -435,13 +449,10 @@ public class UserService {
                 .build();
         }
 
-        // 检查用户权限
-        Pair<String, Boolean> permPair = userQuery.hasPermission(
-            account.rbacAcctId(), req.getOpDeptId(), Consts.PERM_ID_CONFIG_CHECKLIST);
-        if (permPair == null || !permPair.getSecond()) {
+        if (ADMIN_ACCOUNT_ID.equals(req.getAccountId())) {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.PERMISSION_DENIED))
+                    statusCodeMsgList, StatusCode.PERMISSION_DENIED, "不能删除管理员账号"))
                 .build();
         }
         if (account.rbacAcctId().equals(req.getAccountId())) {
@@ -449,6 +460,22 @@ public class UserService {
                 .setRt(ReturnCodeUtils.getReturnCode(
                     statusCodeMsgList, StatusCode.CANNOT_DELETE_SELF_ACCOUNT))
                 .build();
+        }
+        if (!ADMIN_ACCOUNT_ID.equals(account.rbacAcctId())) {
+            // 此处在锁外校验；等待锁期间目标账号新增科室时，命令层重建锁计划不会重新校验权限，
+            // 删除全部科室时可能连同未校验权限的新科室一起删除账号。当前接受此并发窗口。
+            Set<String> deptIds = new LinkedHashSet<>(
+                userQuery.getDeptIdsByAccountId(req.getAccountId()));
+            if (!StrUtils.isBlank(req.getDeptId())) deptIds.add(req.getDeptId());
+            Pair<Boolean, String> permPair = userQuery.canConfigAccount(
+                account.rbacAcctId(), new ArrayList<>(deptIds));
+            if (!permPair.getFirst()) {
+                return GenericResp.newBuilder()
+                    .setRt(ReturnCodeUtils.getReturnCode(
+                        statusCodeMsgList, StatusCode.PERMISSION_DENIED,
+                        "deptId: " + permPair.getSecond()))
+                    .build();
+            }
         }
 
         // deleteAccount(String accountId, String deptId, String modifiedBy)
@@ -466,27 +493,20 @@ public class UserService {
                 changePasswordReqJson, ChangePasswordReq.newBuilder());
         } catch (Exception e) {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
-                .build();
+            return ReturnCodeUtils.genericResponse(ReturnCodeUtils.getReturnCode(
+                statusCodeMsgList, StatusCode.PARSE_JSON_FAILED));
         }
 
-        // 获取当前用户
         CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
+            return ReturnCodeUtils.genericResponse(ReturnCodeUtils.getReturnCode(
+                statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND));
         }
 
-        return GenericResp.newBuilder()
-            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList,
-                userCommand.changePassword(
-                    account.rbacAcctId(), req.getOldPassword(), req.getNewPassword())
-            ))
-            .build();
+        StatusCode statusCode = userCommand.changePassword(
+            account.rbacAcctId(), req.getOldPassword(), req.getNewPassword());
+        return ReturnCodeUtils.genericResponse(
+            ReturnCodeUtils.getReturnCode(statusCodeMsgList, statusCode));
     }
 
     public GenericResp resetPassword(String resetPasswordReqJson) {
@@ -495,36 +515,24 @@ public class UserService {
             req = ProtoUtils.parseJsonToProto(resetPasswordReqJson, ResetPasswordReq.newBuilder());
         } catch (Exception e) {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
-                .build();
+            return ReturnCodeUtils.genericResponse(ReturnCodeUtils.getReturnCode(
+                statusCodeMsgList, StatusCode.PARSE_JSON_FAILED));
         }
 
-        // 获取当前用户
         CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
+            return ReturnCodeUtils.genericResponse(ReturnCodeUtils.getReturnCode(
+                statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND));
+        }
+        if (!ADMIN_ACCOUNT_ID.equals(account.rbacAcctId())) {
+            return ReturnCodeUtils.genericResponse(ReturnCodeUtils.getReturnCode(
+                statusCodeMsgList, StatusCode.NO_PERMISSION_TO_OPERATE));
         }
 
-        // 检查用户权限
-        Pair<String, Boolean> permPair = userQuery.hasPermission(
-            account.rbacAcctId(), req.getOpDeptId(), Consts.PERM_ID_CONFIG_CHECKLIST);
-        if (permPair == null || !permPair.getSecond()) {
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.PERMISSION_DENIED))
-                .build();
-        }
-
-        return GenericResp.newBuilder()
-            .setRt(ReturnCodeUtils.getReturnCode(
-                statusCodeMsgList, userCommand.resetPassword(
-                    req.getAccountId(), account.rbacAcctId())))
-            .build();
+        StatusCode statusCode = userCommand.resetPassword(
+            req.getAccountId(), account.rbacAcctId());
+        return ReturnCodeUtils.genericResponse(
+            ReturnCodeUtils.getReturnCode(statusCodeMsgList, statusCode));
     }
 
     public GetRolesResp getRoles(String getRolesReqJson) {
@@ -587,6 +595,13 @@ public class UserService {
                 .build();
         }
 
+        if (!ADMIN_ACCOUNT_ID.equals(account.rbacAcctId())) {
+            return GenericResp.newBuilder()
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ONLY_ADMIN_IS_AUTHORIZED))
+                .build();
+        }
+
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(
                 statusCodeMsgList, userCommand.addRolePermission(
@@ -613,6 +628,13 @@ public class UserService {
             return GenericResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(
                     statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
+                .build();
+        }
+
+        if (!ADMIN_ACCOUNT_ID.equals(account.rbacAcctId())) {
+            return GenericResp.newBuilder()
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ONLY_ADMIN_IS_AUTHORIZED))
                 .build();
         }
 
@@ -645,6 +667,13 @@ public class UserService {
                 .build();
         }
 
+        if (!ADMIN_ACCOUNT_ID.equals(account.rbacAcctId())) {
+            return GenericResp.newBuilder()
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ONLY_ADMIN_IS_AUTHORIZED))
+                .build();
+        }
+
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(
                 statusCodeMsgList, userCommand.addAccountPermission(
@@ -674,6 +703,13 @@ public class UserService {
                 .build();
         }
 
+        if (!ADMIN_ACCOUNT_ID.equals(account.rbacAcctId())) {
+            return GenericResp.newBuilder()
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ONLY_ADMIN_IS_AUTHORIZED))
+                .build();
+        }
+
         return GenericResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(
                 statusCodeMsgList, userCommand.revokeAccountPermission(
@@ -685,7 +721,6 @@ public class UserService {
     final String ZONE_ID;
     final Integer ADMIN_ROLE_ID;
     final Map<Integer, Integer> menuPermissions;
-    final Menu fullMenu;
 
     private final List<String> statusCodeMsgList;
     private UserCommand userCommand;

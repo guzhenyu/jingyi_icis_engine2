@@ -71,6 +71,8 @@ class ConfigPbtxtTests {
 
         assertThat(builder.getStatusCodeMsgList()).contains("ok", "患者不存在");
         assertThat(builder.getStatusCodeMsgCount()).isEqualTo(StatusCode.LAST_CODE_VALUE);
+        assertThat(builder.getStatusCodeMsg(StatusCode.ACCOUNT_DEPARTMENT_DUPLICATE_VALUE))
+            .isEqualTo("账号科室不能重复");
         assertThat(StatusCode.ACCOUNT_NOT_FOUND_VALUE).isEqualTo(3);
         assertThat(builder.getStatusCodeMsg(StatusCode.ACCOUNT_NOT_FOUND_VALUE))
             .isEqualTo("未找到当前用户信息");

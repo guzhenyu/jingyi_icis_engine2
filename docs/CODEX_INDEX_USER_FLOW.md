@@ -37,13 +37,14 @@
   - 结果会过滤管理员账号（`ADMIN_ACCOUNT_ID`）。
 - `addAccount` -> `addAccount(AccountPB, modifiedByAutoAcctId)`
   - 需要 `PERM_ID_CONFIG_CHECKLIST`。
-- `updateAccount` -> `updateAccount(AccountPB, modifiedBy)`
-  - 更新自己时可跳过权限校验；更新他人需权限。
-- `deleteAccount` -> `deleteAccount(accountId, deptId, modifiedBy)`
-  - 需要权限，且禁止删除自己（`CANNOT_DELETE_SELF_ACCOUNT`）。
-- `changePassword` -> `changePassword(accountId, oldPassword, newPassword)`。
-- `resetPassword` -> `resetPassword(targetAccountId, operatorAccountId)`
-  - 需权限，底层再次校验操作者是否为固定管理员账号 `admin`。
+- `updateAccount` -> `updateAccount(AccountPB, modifiedByAutoAcctId)`
+  - 合并目标账号现有科室与请求科室并去重，统一通过 `canConfigAccount` 检查账号管理权限；
+  - 修改本人也需权限，失败时返回首个无权限科室。
+- `deleteAccount` -> `deleteAccount(rbacAcctId, deptId, modifiedByAutoAcctId)`
+  - 禁止删除管理员或自己；普通操作者需具备目标现有科室与请求科室的账号管理权限。
+- `changePassword` -> `changePassword(rbacAcctId, oldPassword, newPassword)`，仅修改当前登录账号。
+- `resetPassword` -> `resetPassword(rbacAcctId, operatorRbacAcctId)`
+  - Service 与命令层都仅允许固定管理员 `admin` 重置，不依赖科室权限或全局角色绑定。
 
 ### 3.2 部门
 - `getAllDeptNames` -> `getAllDeptInfo`（按 `Department.id` 排序）。
@@ -65,27 +66,35 @@
 ## 4. 用户数据层关键流程
 
 ### 4.1 账号新增 `addAccount(AccountPB, modifiedByAutoAcctId)`
-1. 在 `addAccount` 内校验 `RbacAccount` 与 `Account` 不重复。
-2. 校验每个 `department(role)` 存在性（`checkDepartmentAndRole`）。
-3. 通过 `UserMapper.toRbacAccount`、`UserMapper.toAccount` 转换实体，
-   在 `addAccount` 中设置密码哈希、审计字段并保存两张账号表。
-4. 遍历部门调用 `addDepartmentAccount` 建立账号-部门-角色关系。
-5. 任一步失败设置事务回滚并返回失败码。
+1. API 入口拒绝空科室列表；命令层在锁前检查请求内重复科室。
+   系统初始化可创建无科室的管理员账号。
+2. 从请求确定 `LockKeys.account(rbacAcctId)` 和全部 `LockKeys.department(deptId)`，
+   通过 `LockExecutor.execute` 一次取得锁并开启事务；执行器统一去重、排序。
+3. 在锁内校验账号不重复、科室与主角色存在、角色是主角色、账号科室关系不存在。
+4. 通过 `UserMapper` 转换账号实体，设置密码哈希和审计字段，并写入两张账号表；
+   随后直接建立 RBAC 科室关系、业务科室关系和主角色关系。
+5. 业务校验在写入前返回错误码；持久化异常由执行器整批回滚。
 
-### 4.2 账号更新 `updateAccount(AccountPB, modifiedBy)`
-1. 更新 `Account` 基础资料与 `RbacAccount.accountName`。
-2. 对比请求部门列表与当前部门关系，拆分三类：
-   - 新增部门关系。
-   - 主角色变更。
-   - 需删除的部门关系。
-3. 分别执行新增/更新/删除，任一步失败回滚。
+### 4.2 账号更新 `updateAccount(AccountPB, modifiedByAutoAcctId)`
+1. 在锁前检查请求内重复科室；空科室列表保留移除全部科室归属的语义。
+2. 通过 `RbacDepartmentAccountJdbc` 预读现有科室，使用 `LockExecutor.executePlanned`
+   锁定账号及新旧科室并集；锁后通过同一 JDBC 查询复查，归属变化时重建计划。
+3. 在修改任何托管实体前，校验两张账号表、请求科室及主角色，以及角色变更的
+   原主角色关系存在、新主角色关系不存在。
+4. 更新账号资料与 RBAC 姓名，再依次新增科室关系、修改主角色、移除旧科室关系。
+   移除科室同时删除角色和权限关系，业务科室关系软删除并记录审计信息。
+5. 全部写入在执行器事务内完成，入口无外层 `@Transactional`。
 
-### 4.3 账号删除 `deleteAccount(accountId, deptId, modifiedBy)`
-- 指定 `deptId`：仅删除该部门下的账号关联（不删账号主体）。
-- `deptId` 为空：执行整账号删除流程：
-  - 删除 `RbacDepartmentAccountRole` / `RbacDepartmentAccountPermission` / `RbacDepartmentAccount` / `RbacAccountRole`。
-  - 业务关联 `DepartmentAccount` 做软删除。
-  - `Account` 软删除；`RbacAccount` 实体删除。
+### 4.3 账号删除 `deleteAccount(rbacAcctId, deptId, modifiedByAutoAcctId)`
+1. 使用 `LockExecutor.executePlanned` 锁定账号，以及 RBAC、有效业务归属与请求指定科室的并集。
+2. 锁前与锁后都通过 JDBC 读取 RBAC 科室集合和有效 `accounts_departments` 记录快照；
+   业务记录的 ID、角色、时间或审计字段变化都会使计划失效并重试。
+3. 指定 `deptId` 时删除该科室归属；为空或全空白时删除两侧全部归属。
+   每个科室统一调用 `deleteDepartmentAccount`，硬删除 RBAC 权限、角色和科室关系，
+   软删除有效业务关系；已软删除的历史记录不改动。
+4. 两侧都没有剩余科室时，清理历史全局角色和权限，硬删除 `rbac_accounts`，
+   软删除 `accounts` 并写入删除审计。删除最后一个科室时也执行账号清理。
+5. 无科室账号同样可以删除；重复删除已清理账号返回 `ACCOUNT_NOT_FOUND`。
 
 ### 4.4 部门新增/更新/删除
 - 新增 `addDepartment`：
@@ -103,11 +112,13 @@
 4. 汇总所有角色的 `RbacRolePermission`，与直接权限取并集。
 
 ## 5. 事务与回滚关键点
-- `@Transactional` 覆盖大多数写操作（账号、部门、角色权限管理）。
+- `@Transactional` 覆盖部门更新与删除、角色权限等写操作。
+- `addAccount` 通过 `LockExecutor.execute` 管理创建事务。
+- `changePassword`、`resetPassword` 通过 `LockExecutor.execute` 取得目标账号锁，
+  在同一事务中读取当前密码哈希、校验并写入，与账号增删改共享锁。
+- `updateAccount`、`deleteAccount` 通过 `LockExecutor.executePlanned` 管理动态科室锁与事务。
 - `addDepartment` 通过 `LockExecutor` 执行科室创建事务，成功后再初始化血气参数。
-- 显式回滚点集中在账号新增/更新流程：
-  - `addAccount(AccountPB, ...)` 中部门关联失败会 `setRollbackOnly()`。
-  - `updateAccount(...)` 中账号实体缺失、部门新增失败、角色更新失败会回滚。
+- 账号新增和更新均先完成业务校验，再修改实体；持久化异常触发整个事务回滚。
 
 ## 6. 跨表一致性与数据模型要点
 - 账号信息双表：
@@ -131,33 +142,31 @@
 
 ## 8. 快速定位（行号）
 - `UserService`：
-  - `getUserInfo`：65
-  - `addDept`：167
-  - `addAccount`：342
-  - `updateAccount`：379
-  - `deleteAccount`：418
-  - `resetPassword`：492
-  - `getPermissions`：541
+  - `getUserInfo`：66
+  - `addDept`：168
+  - `addAccount`：343
+  - `updateAccount`：388
+  - `deleteAccount`：431
+  - `resetPassword`：509
+  - `getPermissions`：546
 - `UserCommand`：
-  - `addAccount`：68
-  - `updateAccount`：114
-  - `deleteAccount`：209
-  - `addDepartment`：308
-  - `addDepartmentAccountRole`：427
-  - `resetPassword`：286
-  - `addAccountPermission`：702
+  - `addAccount`：73
+  - `updateAccount`：166
+  - `deleteAccount`：319
+  - `addDepartment`：424
+  - `resetPassword`：400
+  - `addAccountPermission`：632
 - `UserMapper`：
   - `toRbacAccount`：15
   - `toAccount`：22
 - `UserQuery`：
-  - `getAllAccounts`：126
-  - `getAllDeptInfo`：291
-  - `getNonPrimaryRolePermissions`：316
+  - `getAllAccounts`：138
+  - `getAllDeptInfo`：303
+  - `getNonPrimaryRolePermissions`：331
   - `getPermissionIds`：109
 
 ## 9. 实现注意点（索引风险提示）
 - `UserService` 中 `addRolePermission` / `revokeRolePermission` / `addAccountPermission` / `revokeAccountPermission` 仅校验登录态，未在该层显式校验业务权限。
-- `resetPassword` 是双重门禁：
-  - `UserService` 先做 `PERM_ID_CONFIG_CHECKLIST` 权限校验。
-  - `UserCommand.resetPassword` 按 `UserQuery.ADMIN_ACCOUNT_ID` 校验操作者。
+- `resetPassword` 的 Service 和命令层均按 `UserQuery.ADMIN_ACCOUNT_ID` 校验操作者。
+- 改密保留现有的客户端编码输入和历史原文输入兼容；重置密码仍恢复为账号编码。
 - 账号与部门删除是“软硬混合”策略，检索删除问题时需同时看 RBAC 表和业务表。

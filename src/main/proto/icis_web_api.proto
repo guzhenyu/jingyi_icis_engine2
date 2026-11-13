@@ -345,7 +345,8 @@ enum StatusCode {
     SCORE_GROUP_SCORE_NOT_MATCH = 306; // 评分总分与评分明细不一致
     INVALID_FORM_TEMPLATE = 307; // 表单模板内容无效
     MENU_ITEM_ALREADY_ASSIGNED = 308; // 菜单项已分配，不能重复添加
-    LAST_CODE = 309;
+    ACCOUNT_DEPARTMENT_DUPLICATE = 309; // 账号科室不能重复
+    LAST_CODE = 310;
 }
 
 /*****************************************************************************

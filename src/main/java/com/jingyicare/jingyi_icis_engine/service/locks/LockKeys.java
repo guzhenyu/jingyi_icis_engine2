@@ -12,6 +12,18 @@ public final class LockKeys {
 
     private LockKeys() {}
 
+    public static String account(String rbacAcctId) {
+        StrUtils.requireNonBlank(rbacAcctId, "rbacAcctId");
+        return "account:" + rbacAcctId;
+    }
+
+    public static String role(int roleId) {
+        if (roleId <= 0) {
+            throw new IllegalArgumentException("roleId must be positive");
+        }
+        return "role:" + roleId;
+    }
+
     public static String department(String deptId) {
         StrUtils.requireNonBlank(deptId, "deptId");
         return "department:" + deptId;

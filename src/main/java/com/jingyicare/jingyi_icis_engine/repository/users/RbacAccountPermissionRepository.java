@@ -10,4 +10,5 @@ import com.jingyicare.jingyi_icis_engine.entity.users.RbacAccountPermissionId;
 public interface RbacAccountPermissionRepository extends JpaRepository<RbacAccountPermission, RbacAccountPermissionId> {
     List<RbacAccountPermission> findAll();
     List<RbacAccountPermission> findByIdAccountId(String accountId);
+    void deleteByIdAccountId(String accountId);
 }

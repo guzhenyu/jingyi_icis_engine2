@@ -296,14 +296,14 @@ public class UserServiceTests extends TestsBase {
         getAllAccountsReqJson = ProtoUtils.protoToJson(getAllAccountsReq);
         getAllAccountsResp = userService.getAllAccounts(getAllAccountsReqJson);
         assertThat(getAllAccountsResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
-        assertThat(getAllAccountsResp.getAccountList()).hasSize(1);
-        assertThat(getAllAccountsResp.getAccount(0).getDepartmentList()).hasSize(0);
+        assertThat(getAllAccountsResp.getAccountList()).hasSize(0);
 
         // 删除账号002
         deleteAccountReq = DeleteAccountReq.newBuilder().setAccountId(accountId3).build();
         deleteAccountReqJson = ProtoUtils.protoToJson(deleteAccountReq);
         deleteAccountResp = userService.deleteAccount(deleteAccountReqJson);
-        assertThat(deleteAccountResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        assertThat(deleteAccountResp.getRt().getCode())
+            .isEqualTo(StatusCode.ACCOUNT_NOT_FOUND.ordinal());
 
         getAllAccountsReq = GetAllAccountsReq.newBuilder().setAccountId(accountId3).build();
         getAllAccountsReqJson = ProtoUtils.protoToJson(getAllAccountsReq);
