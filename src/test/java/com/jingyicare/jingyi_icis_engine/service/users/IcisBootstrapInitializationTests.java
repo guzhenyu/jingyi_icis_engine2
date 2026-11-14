@@ -16,6 +16,7 @@ import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.AccountDepartmentPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.AccountPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.DepartmentPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.UserConfigPB;
 import com.jingyicare.jingyi_icis_engine.repository.users.DepartmentRepository;
 import com.jingyicare.jingyi_icis_engine.repository.users.RbacAccountRepository;
@@ -44,9 +45,11 @@ class IcisBootstrapInitializationTests {
             .build());
 
         UserCommand userCommand = mock(UserCommand.class);
-        when(userCommand.addDepartment(
-            "ICU01", "重症医学科", "重症医学科", "", "", "测试医院",
-            UserQuery.SYSTEM_ACCOUNT_ID))
+        DepartmentCommand departmentCommand = mock(DepartmentCommand.class);
+        DepartmentPB departmentPb = DepartmentPB.newBuilder()
+            .setDeptId("ICU01").setDeptName("重症医学科").setAbbreviation("重症医学科")
+            .setHospitalName("测试医院").build();
+        when(departmentCommand.addDepartment(departmentPb, UserQuery.SYSTEM_ACCOUNT_ID))
             .thenReturn(StatusCode.OK);
         when(userCommand.addAccount(account, UserQuery.SYSTEM_ACCOUNT_ID))
             .thenReturn(StatusCode.OK);
@@ -69,6 +72,7 @@ class IcisBootstrapInitializationTests {
             mock(ConfigurableApplicationContext.class),
             protoService,
             userCommand,
+            departmentCommand,
             mock(RbacPermissionRepository.class),
             mock(RbacRoleRepository.class),
             mock(RbacRolePermissionRepository.class),
@@ -82,10 +86,8 @@ class IcisBootstrapInitializationTests {
 
         ReflectionTestUtils.invokeMethod(userConfig, "initAccountsAndDepartments");
 
-        InOrder order = inOrder(userCommand);
-        order.verify(userCommand).addDepartment(
-            "ICU01", "重症医学科", "重症医学科", "", "", "测试医院",
-            UserQuery.SYSTEM_ACCOUNT_ID);
+        InOrder order = inOrder(departmentCommand, userCommand);
+        order.verify(departmentCommand).addDepartment(departmentPb, UserQuery.SYSTEM_ACCOUNT_ID);
         order.verify(userCommand).addAccount(account, UserQuery.SYSTEM_ACCOUNT_ID);
     }
 
@@ -104,6 +106,7 @@ class IcisBootstrapInitializationTests {
 
         UserConfig config = new UserConfig(
             mock(ConfigurableApplicationContext.class), protoService, commands,
+            mock(DepartmentCommand.class),
             mock(RbacPermissionRepository.class), mock(RbacRoleRepository.class),
             mock(RbacRolePermissionRepository.class), mock(RbacRoleRoleRepository.class),
             mock(RbacAccountRepository.class), mock(RbacDepartmentRepository.class),

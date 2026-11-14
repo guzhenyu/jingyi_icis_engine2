@@ -13,6 +13,12 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class LockKeysTests {
     @Test
+    void shouldScopeDepartmentCatalogSeparatelyFromIndividualDepartments() {
+        assertThat(LockKeys.departments()).isEqualTo("departments")
+            .isNotEqualTo(LockKeys.department("departments"));
+    }
+
+    @Test
     void shouldScopeRoleKeysToRoleId() {
         assertThat(LockKeys.role(1)).isEqualTo("role:1")
             .isNotEqualTo(LockKeys.role(2))

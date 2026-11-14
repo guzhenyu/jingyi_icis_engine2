@@ -11,6 +11,8 @@ import org.springframework.stereotype.Repository;
 public interface DepartmentAccountRepository extends JpaRepository<DepartmentAccount, Integer> {
     List<DepartmentAccount> findByAccountIdAndIsDeletedFalse(String accountId);
 
+    boolean existsByDeptIdAndIsDeletedFalse(String deptId);
+
     List<DepartmentAccount> findByDeptIdAndPrimaryRoleIdIn(String deptId, List<Integer> primaryRoleIds);
 
     Optional<DepartmentAccount> findByAccountIdAndDeptIdAndIsDeletedFalse(

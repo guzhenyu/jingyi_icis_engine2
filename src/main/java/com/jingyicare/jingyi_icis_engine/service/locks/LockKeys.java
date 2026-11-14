@@ -24,6 +24,10 @@ public final class LockKeys {
         return "role:" + roleId;
     }
 
+    public static String departments() {
+        return "departments";
+    }
+
     public static String department(String deptId) {
         StrUtils.requireNonBlank(deptId, "deptId");
         return "department:" + deptId;

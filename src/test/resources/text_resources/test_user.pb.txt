@@ -361,8 +361,8 @@
         date_of_birth_iso8601: ""
     }
     department {
-        id: "99999"
-        name: "信息科"
+        dept_id: "99999"
+        dept_name: "信息科"
         abbreviation: "信息科"
         hospital_name: ""
     }

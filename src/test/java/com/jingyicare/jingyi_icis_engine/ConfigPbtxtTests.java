@@ -101,6 +101,11 @@ class ConfigPbtxtTests {
             assertThat(builder.getAdminAccountId()).isEqualTo("admin");
             assertThat(builder.getMenu().getGroupCount()).isGreaterThan(0);
             assertThat(builder.getRoleCount()).isGreaterThan(0);
+            if (path.equals("text_resources/test_user.pb.txt")) {
+                assertThat(builder.getDepartmentCount()).isEqualTo(1);
+                assertThat(builder.getDepartment(0).getDeptId()).isEqualTo("99999");
+                assertThat(builder.getDepartment(0).getDeptName()).isEqualTo("信息科");
+            }
         }
     }
 }

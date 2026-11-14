@@ -36,17 +36,20 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.BgaParam;
 import com.jingyicare.jingyi_icis_engine.entity.users.Department;
 import com.jingyicare.jingyi_icis_engine.entity.users.RbacDepartment;
+import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringParamPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.DepartmentPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.BgaParamRepository;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.MonitoringParamRepository;
-import com.jingyicare.jingyi_icis_engine.repository.users.*;
-import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
+import com.jingyicare.jingyi_icis_engine.repository.users.DepartmentAccountRepository;
+import com.jingyicare.jingyi_icis_engine.repository.users.DepartmentRepository;
+import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentAccountRepository;
+import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
-import com.jingyicare.jingyi_icis_engine.service.users.UserCommand;
-import com.jingyicare.jingyi_icis_engine.service.users.auth.Encoder;
+import com.jingyicare.jingyi_icis_engine.service.users.DepartmentCommand;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
@@ -172,23 +175,24 @@ class BgaMetaServiceTests extends TestsBase {
 
     @Test
     void bgaFailureRollsBackOnlyInitializationAndAllowsIndependentRetry() {
-        UserCommand operator = departmentOperator(departmentInfoRepository);
+        DepartmentCommand operator = departmentOperator(departmentInfoRepository);
         doAnswer(invocation -> {
             Iterable<BgaParam> params = invocation.getArgument(0);
             repository.saveAllAndFlush(params);
             throw new IllegalStateException("模拟血气初始化失败");
         }).when(trackedRepository).saveAll(any());
 
-        assertThatThrownBy(() -> operator.addDepartment(
-            ROLLBACK_DEPT_ID, "血气事务边界测试", "血气", "", "", "测试医院", "test-user"))
+        assertThatThrownBy(() -> operator.addDepartment(rollbackDepartment(), "test-user"))
             .isInstanceOf(IllegalStateException.class).hasMessage("模拟血气初始化失败");
 
         assertThat(departmentInfoRepository.findByDeptIdAndIsDeletedFalse(ROLLBACK_DEPT_ID))
-            .isPresent();
+            .hasValueSatisfying(department ->
+                assertThat(department.getModifiedBy()).isEqualTo("test-user"));
         assertThat(departmentRepository.findByDeptId(ROLLBACK_DEPT_ID)).isPresent();
         assertThat(repository.findByDeptIdAndIsDeletedFalseOrderByDisplayOrder(ROLLBACK_DEPT_ID))
             .isEmpty();
-        verify(trackedExecutor).execute(eq(List.of(LockKeys.department(ROLLBACK_DEPT_ID))), any());
+        verify(trackedExecutor).execute(eq(List.of(
+            LockKeys.departments(), LockKeys.department(ROLLBACK_DEPT_ID))), any());
         verify(trackedExecutor).execute(eq(List.of(LockKeys.bgaParam(ROLLBACK_DEPT_ID))), any());
 
         doAnswer(invocation -> {
@@ -209,31 +213,30 @@ class BgaMetaServiceTests extends TestsBase {
             departmentInfoRepository.saveAndFlush(department);
             throw new IllegalStateException("模拟科室保存失败");
         }).when(failingRepository).save(any(Department.class));
-        UserCommand operator = departmentOperator(failingRepository);
+        DepartmentCommand operator = departmentOperator(failingRepository);
 
-        assertThatThrownBy(() -> operator.addDepartment(
-            ROLLBACK_DEPT_ID, "血气事务边界测试", "血气", "", "", "测试医院", "test-user"))
+        assertThatThrownBy(() -> operator.addDepartment(rollbackDepartment(), "test-user"))
             .isInstanceOf(IllegalStateException.class).hasMessage("模拟科室保存失败");
 
         assertThat(departmentInfoRepository.findByDeptIdAndIsDeletedFalse(ROLLBACK_DEPT_ID))
             .isEmpty();
         assertThat(departmentRepository.findByDeptId(ROLLBACK_DEPT_ID)).isEmpty();
         verifyNoInteractions(trackedRepository);
-        verify(trackedExecutor).execute(eq(List.of(LockKeys.department(ROLLBACK_DEPT_ID))), any());
+        verify(trackedExecutor).execute(eq(List.of(
+            LockKeys.departments(), LockKeys.department(ROLLBACK_DEPT_ID))), any());
         verifyNoMoreInteractions(trackedExecutor);
     }
 
-    private UserCommand departmentOperator(DepartmentRepository infoRepository) {
-        return new UserCommand(
-            mock(RbacPermissionRepository.class), mock(RbacRoleRepository.class),
-            mock(RbacRolePermissionRepository.class),
-            mock(RbacAccountRepository.class), mock(AccountRepository.class),
-            mock(RbacAccountRoleRepository.class), mock(RbacAccountPermissionRepository.class),
-            departmentRepository, infoRepository,
+    private DepartmentPB rollbackDepartment() {
+        return DepartmentPB.newBuilder()
+            .setDeptId(ROLLBACK_DEPT_ID).setDeptName("血气事务边界测试").setAbbreviation("血气")
+            .setHospitalName("测试医院").build();
+    }
+
+    private DepartmentCommand departmentOperator(DepartmentRepository infoRepository) {
+        return new DepartmentCommand(infoRepository, departmentRepository,
             mock(RbacDepartmentAccountRepository.class), mock(DepartmentAccountRepository.class),
-            mock(RbacDepartmentAccountRoleRepository.class),
-            mock(RbacDepartmentAccountPermissionRepository.class),
-            encoder, service, trackedExecutor, jdbcTemplate);
+            service, trackedExecutor);
     }
 
     private BgaMetaService configuredService(List<String> codes) {
@@ -323,7 +326,6 @@ class BgaMetaServiceTests extends TestsBase {
     @Autowired private MonitoringParamRepository monitoringParamRepository;
     @Autowired private RbacDepartmentRepository departmentRepository;
     @Autowired private DepartmentRepository departmentInfoRepository;
-    @Autowired private Encoder encoder;
     @Autowired private LockExecutor executor;
     @Autowired private JdbcTemplate jdbcTemplate;
     @Autowired private EntityManagerFactory entityManagerFactory;

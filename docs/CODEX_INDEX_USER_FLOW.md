@@ -4,19 +4,26 @@
 - 文件范围：
   - `src/main/java/com/jingyicare/jingyi_icis_engine/service/users/UserService.java`
   - `src/main/java/com/jingyicare/jingyi_icis_engine/service/users/UserCommand.java`
+  - `src/main/java/com/jingyicare/jingyi_icis_engine/service/users/DepartmentCommand.java`
   - `src/main/java/com/jingyicare/jingyi_icis_engine/service/users/UserMapper.java`
   - `src/main/java/com/jingyicare/jingyi_icis_engine/service/users/UserQuery.java`
 - 模块分层：
   - `UserService`：接口编排层（JSON 转 Proto、登录态、权限判断、返回码封装）。
-  - `UserCommand`：命令层（RBAC/业务表写入、事务管理、状态码返回）。
+  - `UserCommand`：账号命令层（账号、归属、角色和权限写入）。
+  - `DepartmentCommand`：科室命令层（科室增删改及创建后的血气参数初始化）。
   - `UserQuery`：查询层（账号、科室、角色、权限读取及结果组装）。
 
 账号配置与接口统一使用 `config/icis_user.proto` 的 `AccountPB`、`AccountDepartmentPB`：
 - 配置账号字段使用 `account_id`、`account_name`，不再配置账号顶层的 `role_id`。
 - 科室归属与主要角色放在 `account.department`；旧 `department_account` 字段已删除并保留编号。
-- 初始化顺序为科室、账号、额外科室角色；初始化失败会停止启动。
+- 初始化顺序为科室、账号；初始化失败会停止启动。
 - 管理员编码统一为 `UserQuery.ADMIN_ACCOUNT_ID`（`admin`），系统审计标识为
   `UserQuery.SYSTEM_ACCOUNT_ID`（`system`）。
+
+科室配置与接口统一使用 `config/icis_user.proto` 的 `DepartmentPB`：
+- `id` 为数据库 ID，`dept_id` 为科室编码，`dept_name` 为科室名称。
+- 部署配置绑定后生成 `IcisBootstrapProperties.deptPbList`，供科室初始化使用。
+- 创建统一调用 `DepartmentCommand.addDepartment(DepartmentPB, modifiedByAutoAcctId)`，初始化传 `system`。
 
 ## 2. 总体调用流程（高频模式）
 1. `UserService` 入口方法接收 `xxxReqJson`。
@@ -25,7 +32,7 @@
 4. 按功能执行授权校验：
    - 管理员校验：`account.rbacAcctId().equals(ADMIN_ACCOUNT_ID)`。
    - 权限校验：`hasPermission(rbacAcctId, opDeptId, Consts.PERM_ID_CONFIG_CHECKLIST)`。
-5. 查询调用 `UserQuery`，写入调用 `UserCommand`。
+5. 查询调用 `UserQuery`；账号写入调用 `UserCommand`，科室写入调用 `DepartmentCommand`。
 6. `ReturnCodeUtils.getReturnCode(statusCodeMsgList, statusCode)` 统一包装响应。
 
 ## 3. 入口方法 -> 核心能力映射
@@ -48,11 +55,11 @@
 
 ### 3.2 部门
 - `getAllDeptNames` -> `getAllDeptInfo`（按 `Department.id` 排序）。
-- `getAllDepts` -> `getAllDepartments`（返回 `IcisDepartmentPB`）。
-- `addDept` -> `addDepartment(...)` -> `getDepartmentId(deptId)`。
+- `getAllDepts` -> `getAllDepartments`（返回 `DepartmentPB`）。
+- `addDept` -> `DepartmentCommand.addDepartment(DepartmentPB, modifiedByAutoAcctId)` -> `getDepartmentId(deptId)`。
   - 仅管理员可操作。
-- `updateDept` -> `updateDepartment(...)`。
-- `deleteDept` -> `deleteDepartment(deptId, modifiedBy)`。
+- `updateDept` -> `DepartmentCommand.updateDepartment(...)`。
+- `deleteDept` -> `DepartmentCommand.deleteDepartment(deptId, modifiedBy)`。
   - 仅管理员可操作，且至少保留一个部门（`DEPARTMENT_AT_LEAST_ONE`）。
 
 ### 3.3 角色与权限
@@ -96,14 +103,18 @@
    软删除 `accounts` 并写入删除审计。删除最后一个科室时也执行账号清理。
 5. 无科室账号同样可以删除；重复删除已清理账号返回 `ACCOUNT_NOT_FOUND`。
 
-### 4.4 部门新增/更新/删除
+### 4.4 部门新增/更新/删除（`DepartmentCommand`）
+- 三个入口均通过 `LockExecutor.execute` 一次取得科室目录锁和目标科室锁。
+  目录锁保护跨科室名称唯一和“至少保留一个科室”，目标锁与账号归属变更互斥。
 - 新增 `addDepartment`：
-  - 校验 `deptId` 和 `deptName` 唯一（在 `Department` 业务表中）。
-  - 写 `Department`，同步写/更新 `RbacDepartment`，并触发 `bgaMetaService.initBgaParams(deptId)` 初始化。
+  - 在 lambda 中校验业务科室和 RBAC 科室的编码、名称不重复，然后写入两张表。
+  - 科室事务提交成功后，再调用 `bgaMetaService.initBgaParams(deptId)`。
 - 更新 `updateDepartment`：
-  - 更新 `Department` 后同步 `RbacDepartment` 名称与标识。
+  - 编码固定，数据库 ID 与请求编码不匹配时返回 `INVALID_DEPARTMENT_ID`。
+  - 两侧重名检查通过后再更新资料、审计字段并同步 RBAC 名称。
 - 删除 `deleteDepartment`：
-  - 仅对 `Department` 做软删除；并限制至少保留一个部门。
+  - 存在 RBAC 账号归属或有效业务归属时返回 `DEPARTMENT_HAS_ACCOUNTS`。
+  - 无归属时仍须至少保留一个有效科室；成功时软删除业务科室、硬删除 RBAC 科室。
 
 ### 4.5 权限计算 `UserQuery.getPermissionIds(accountId, deptId)`
 1. 先取账号在部门内的直接权限（`RbacDepartmentAccountPermission`）。
@@ -112,12 +123,12 @@
 4. 汇总所有角色的 `RbacRolePermission`，与直接权限取并集。
 
 ## 5. 事务与回滚关键点
-- `@Transactional` 覆盖部门更新与删除、角色权限等写操作。
+- 账号与科室命令的事务由 `LockExecutor` 管理，入口不添加外层 `@Transactional`。
 - `addAccount` 通过 `LockExecutor.execute` 管理创建事务。
 - `changePassword`、`resetPassword` 通过 `LockExecutor.execute` 取得目标账号锁，
   在同一事务中读取当前密码哈希、校验并写入，与账号增删改共享锁。
 - `updateAccount`、`deleteAccount` 通过 `LockExecutor.executePlanned` 管理动态科室锁与事务。
-- `addDepartment` 通过 `LockExecutor` 执行科室创建事务，成功后再初始化血气参数。
+- `DepartmentCommand.addDepartment` 通过 `LockExecutor` 执行科室创建事务，成功后再初始化血气参数。
 - 账号新增和更新均先完成业务校验，再修改实体；持久化异常触发整个事务回滚。
 
 ## 6. 跨表一致性与数据模型要点
@@ -142,28 +153,31 @@
 
 ## 8. 快速定位（行号）
 - `UserService`：
-  - `getUserInfo`：66
-  - `addDept`：168
-  - `addAccount`：343
-  - `updateAccount`：388
+  - `getUserInfo`：67
+  - `addDept`：169
+  - `addAccount`：341
+  - `updateAccount`：386
   - `deleteAccount`：431
-  - `resetPassword`：509
-  - `getPermissions`：546
+  - `resetPassword`：511
+  - `getPermissions`：548
 - `UserCommand`：
-  - `addAccount`：73
-  - `updateAccount`：166
-  - `deleteAccount`：319
-  - `addDepartment`：424
-  - `resetPassword`：400
-  - `addAccountPermission`：632
+  - `addAccount`：67
+  - `updateAccount`：164
+  - `deleteAccount`：332
+  - `resetPassword`：415
+  - `addAccountPermission`：525
+- `DepartmentCommand`：
+  - `addDepartment`：42
+  - `updateDepartment`：85
+  - `deleteDepartment`：129
 - `UserMapper`：
   - `toRbacAccount`：15
   - `toAccount`：22
 - `UserQuery`：
-  - `getAllAccounts`：138
-  - `getAllDeptInfo`：303
-  - `getNonPrimaryRolePermissions`：331
-  - `getPermissionIds`：109
+  - `getAllAccounts`：142
+  - `getAllDeptInfo`：304
+  - `getNonPrimaryRolePermissions`：332
+  - `getPermissionIds`：461
 
 ## 9. 实现注意点（索引风险提示）
 - `UserService` 中 `addRolePermission` / `revokeRolePermission` / `addAccountPermission` / `revokeAccountPermission` 仅校验登录态，未在该层显式校验业务权限。

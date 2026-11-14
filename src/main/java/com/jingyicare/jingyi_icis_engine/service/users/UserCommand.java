@@ -12,7 +12,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -22,7 +21,6 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
-import com.jingyicare.jingyi_icis_engine.service.monitorings.BgaMetaService;
 import com.jingyicare.jingyi_icis_engine.service.users.auth.Encoder;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -38,13 +36,11 @@ public class UserCommand {
         @Autowired RbacAccountRoleRepository accountRoleRepo,
         @Autowired RbacAccountPermissionRepository accountPermRepo,
         @Autowired RbacDepartmentRepository deptRepo,
-        @Autowired DepartmentRepository deptInfoRepo,
         @Autowired RbacDepartmentAccountRepository rbacDeptAcctRepo,
         @Autowired DepartmentAccountRepository deptAcctRepo,
         @Autowired RbacDepartmentAccountRoleRepository deptAccountRoleRepo,
         @Autowired RbacDepartmentAccountPermissionRepository deptAccountPermRepo,
         @Autowired Encoder encoder,
-        @Autowired BgaMetaService bgaMetaService,
         @Autowired LockExecutor lockExecutor,
         @Autowired JdbcTemplate jdbcTemplate
     ) {
@@ -56,14 +52,12 @@ public class UserCommand {
         this.accountRoleRepo = accountRoleRepo;
         this.accountPermRepo = accountPermRepo;
         this.deptRepo = deptRepo;
-        this.deptInfoRepo = deptInfoRepo;
         this.rbacDeptAcctRepo = rbacDeptAcctRepo;
         this.deptAcctRepo = deptAcctRepo;
         this.deptAccountRoleRepo = deptAccountRoleRepo;
         this.deptAccountPermRepo = deptAccountPermRepo;
 
         this.encoder = encoder.get();
-        this.bgaMetaService = bgaMetaService;
         this.lockExecutor = lockExecutor;
         this.jdbcTemplate = jdbcTemplate;
     }
@@ -441,124 +435,6 @@ public class UserCommand {
         });
     }
 
-    // 科室：维护业务科室与 RBAC 科室，并在创建成功后初始化血气参数。
-    public StatusCode addDepartment(DepartmentPB deptPb) {
-        return addDepartment(
-            deptPb.getId(), deptPb.getName(), deptPb.getAbbreviation(),
-            deptPb.getWardCode(), deptPb.getWardName(), deptPb.getHospitalName(),
-            UserQuery.SYSTEM_ACCOUNT_ID
-        );
-    }
-
-    public StatusCode addDepartment(
-        String deptId, String deptName, String abbreviation,
-        String wardCode, String wardName, String hospitalName,
-        String modifiedBy
-    ) {
-        StatusCode statusCode = lockExecutor.execute(
-            List.of(LockKeys.department(deptId)), () -> addDepartmentInTransaction(
-                deptId, deptName, abbreviation, wardCode, wardName, hospitalName, modifiedBy));
-        if (statusCode == StatusCode.OK) bgaMetaService.initBgaParams(deptId);
-        return statusCode;
-    }
-
-    private StatusCode addDepartmentInTransaction(
-        String deptId, String deptName, String abbreviation,
-        String wardCode, String wardName, String hospitalName,
-        String modifiedBy
-    ) {
-        // 处理部门信息表
-        Department deptInfo = deptInfoRepo.findByDeptIdAndIsDeletedFalse(deptId).orElse(null);
-        if (deptInfo != null) {
-            log.error("Department id already exists: {}", deptId);
-            return StatusCode.DEPARTMENT_ALREADY_EXISTS;
-        }
-        deptInfo = deptInfoRepo.findByNameAndIsDeletedFalse(deptName).orElse(null);
-        if (deptInfo != null) {
-            log.error("Department name already exists: {}", deptName);
-            return StatusCode.DEPARTMENT_ALREADY_EXISTS;
-        }
-
-        deptInfo = new Department();
-        deptInfo.setDeptId(deptId);
-        deptInfo.setName(deptName);
-        deptInfo.setAbbreviation(abbreviation);
-        deptInfo.setWardCode(wardCode);
-        deptInfo.setWardName(wardName);
-        deptInfo.setHospitalName(hospitalName);
-        deptInfo.setIsDeleted(false);
-        deptInfo.setModifiedBy(modifiedBy);
-        deptInfo.setModifiedAt(TimeUtils.getNowUtc());
-        deptInfo = deptInfoRepo.save(deptInfo);
-        log.info("Department added: {}, by {}", deptInfo, modifiedBy);
-
-        // 处理部门表
-        addOrUpdateRbacDept(deptId, deptName);
-
-        return StatusCode.OK;
-    }
-
-    @Transactional
-    public StatusCode updateDepartment(
-        Integer deptIntegerId, String deptId, String deptName,
-        String abbreviation, String wardCode, String wardName,
-        String hospitalName, String modifiedBy
-    ) {
-        Department deptInfo = deptInfoRepo.findByIdAndIsDeletedFalse(deptIntegerId).orElse(null);
-        if (deptInfo == null) {
-            log.error("Department not found: {}", deptIntegerId);
-            return StatusCode.DEPARTMENT_NOT_FOUND;
-        }
-
-        deptInfo.setDeptId(deptId);
-        deptInfo.setName(deptName);
-        deptInfo.setAbbreviation(abbreviation);
-        deptInfo.setWardCode(wardCode);
-        deptInfo.setWardName(wardName);
-        deptInfo.setHospitalName(hospitalName);
-        deptInfo.setModifiedBy(modifiedBy);
-        deptInfo.setModifiedAt(TimeUtils.getNowUtc());
-        deptInfoRepo.save(deptInfo);
-        log.info("Department updated: {}, by {}", deptInfo, modifiedBy);
-
-        // 处理部门表
-        addOrUpdateRbacDept(deptId, deptName);
-
-        return StatusCode.OK;
-    }
-
-    @Transactional
-    public StatusCode deleteDepartment(String deptId, String modifiedBy) {
-        Department deptInfo = deptInfoRepo.findByDeptIdAndIsDeletedFalse(deptId).orElse(null);
-        if (deptInfo == null) {
-            log.error("Department not found: {}", deptId);
-            return StatusCode.DEPARTMENT_NOT_FOUND;
-        }
-
-        if (deptInfoRepo.findByIsDeletedFalse().size() <= 1) {
-            log.error("At least one department should be kept");
-            return StatusCode.DEPARTMENT_AT_LEAST_ONE;
-        }
-
-        deptInfo.setIsDeleted(true);
-        deptInfo.setDeletedBy(modifiedBy);
-        deptInfo.setDeletedAt(TimeUtils.getNowUtc());
-        deptInfoRepo.save(deptInfo);
-        log.info("Department deleted: {}, by {}", deptInfo, modifiedBy);
-
-        return StatusCode.OK;
-    }
-
-    private void addOrUpdateRbacDept(String deptId, String deptName) {
-        RbacDepartment dept = deptRepo.findByDeptId(deptId).orElse(null);
-        if (dept == null) {
-            dept = new RbacDepartment();
-            dept.setDeptId(deptId);
-        }
-        dept.setDeptName(deptName);
-        deptRepo.save(dept);
-    }
-
     private void deleteDepartmentAccount(
         String deptId, String rbacAcctId, String modifiedByAutoAcctId
     ) {
@@ -747,14 +623,12 @@ public class UserCommand {
     private RbacAccountRoleRepository accountRoleRepo;
     private RbacAccountPermissionRepository accountPermRepo;
     private RbacDepartmentRepository deptRepo;
-    private DepartmentRepository deptInfoRepo;
     private RbacDepartmentAccountRepository rbacDeptAcctRepo;
     private DepartmentAccountRepository deptAcctRepo;
     private RbacDepartmentAccountRoleRepository deptAccountRoleRepo;
     private RbacDepartmentAccountPermissionRepository deptAccountPermRepo;
 
     private BCryptPasswordEncoder encoder;
-    private final BgaMetaService bgaMetaService;
     private final LockExecutor lockExecutor;
     private final JdbcTemplate jdbcTemplate;
 }

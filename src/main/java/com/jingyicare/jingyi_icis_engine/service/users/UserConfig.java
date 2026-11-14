@@ -36,6 +36,7 @@ public class UserConfig {
         ConfigurableApplicationContext context,
         @Autowired ConfigProtoService protoService,
         @Autowired UserCommand userCommand,
+        @Autowired DepartmentCommand departmentCommand,
         @Autowired RbacPermissionRepository permRepo,
         @Autowired RbacRoleRepository roleRepo,
         @Autowired RbacRolePermissionRepository rolePermRepo,
@@ -54,6 +55,7 @@ public class UserConfig {
         this.ADMIN_ROLE_ID = configPb.getAdminRoleId();
 
         this.userCommand = userCommand;
+        this.departmentCommand = departmentCommand;
         this.permRepo = permRepo;
         this.roleRepo = roleRepo;
         this.rolePermRepo = rolePermRepo;
@@ -215,40 +217,22 @@ public class UserConfig {
     }
 
     private void initDepartments() {
-        if (departmentInfoRepo.count() == 0) {
-            if (bootstrapProperties.isConfigured()) {
-                String hospitalName = bootstrapProperties.getHospitalName().trim();
-                for (IcisBootstrapProperties.DepartmentEntry entry
-                    : bootstrapProperties.getDepartments()) {
-                    StatusCode status = userCommand.addDepartment(
-                        entry.getDeptCode().trim(),
-                        entry.getName().trim(),
-                        entry.getName().trim(),
-                        "",
-                        "",
-                        hospitalName,
-                        UserQuery.SYSTEM_ACCOUNT_ID
-                    );
-                    if (status != StatusCode.OK) {
-                        throw new IllegalStateException(String.format(
-                            "Failed to initialize bootstrap department: code=%s, status=%s",
-                            entry.getDeptCode(),
-                            status));
-                    }
-                }
-                log.info("ICIS deployment bootstrap departments initialized: {}",
-                    bootstrapProperties.getDepartments().size());
-            } else {
-                for (DepartmentPB dept : configPb.getDepartmentList()) {
-                    StatusCode status = userCommand.addDepartment(dept);
-                    if (status != StatusCode.OK) {
-                        throw new IllegalStateException(String.format(
-                            "Failed to initialize bundled test department: code=%s, status=%s",
-                            dept.getId(),
-                            status));
-                    }
-                }
+        if (departmentInfoRepo.count() > 0) return;
+
+        boolean fromBootstrap = bootstrapProperties.isConfigured();
+        List<DepartmentPB> departments = fromBootstrap
+            ? bootstrapProperties.getDeptPbList() : configPb.getDepartmentList();
+        for (DepartmentPB department : departments) {
+            StatusCode status = departmentCommand.addDepartment(
+                department, UserQuery.SYSTEM_ACCOUNT_ID);
+            if (status != StatusCode.OK) {
+                throw new IllegalStateException(String.format(
+                    "Failed to initialize %s department: code=%s, status=%s",
+                    fromBootstrap ? "bootstrap" : "bundled test", department.getDeptId(), status));
             }
+        }
+        if (fromBootstrap) {
+            log.info("ICIS deployment bootstrap departments initialized: {}", departments.size());
         }
     }
 
@@ -366,6 +350,7 @@ public class UserConfig {
     private UserConfigPB configPb;
 
     private UserCommand userCommand;
+    private DepartmentCommand departmentCommand;
 
     private RbacPermissionRepository permRepo;
     private RbacRoleRepository roleRepo;

@@ -18,6 +18,7 @@ import com.jingyicare.jingyi_icis_engine.entity.users.*;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.AccountDepartmentPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.AccountPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.DepartmentPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
@@ -76,7 +77,7 @@ public class UserServiceTests extends TestsBase {
         ).isEqualTo(0);
 
         // 新增科室
-        AddDeptReq addDeptReq = AddDeptReq.newBuilder().setDepartment(IcisDepartmentPB.newBuilder()
+        AddDeptReq addDeptReq = AddDeptReq.newBuilder().setDepartment(DepartmentPB.newBuilder()
             .setDeptId(deptId1)
             .setDeptName("dept-test-dept-ops-1")
             .setAbbreviation("dept_tdo_1")
@@ -105,7 +106,7 @@ public class UserServiceTests extends TestsBase {
         // 查询科室
         getAllDeptsResp = userService.getAllDepts(getAllDeptsReqJson);
         assertThat(getAllDeptsResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
-        List<IcisDepartmentPB> depts = getAllDeptsResp.getDepartmentList()
+        List<DepartmentPB> depts = getAllDeptsResp.getDepartmentList()
             .stream()
             .filter(dept -> dept.getDeptId().equals(deptId1))
             .toList();
@@ -147,7 +148,7 @@ public class UserServiceTests extends TestsBase {
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         // 新增部门deptId4(10022)
-        AddDeptReq addDeptReq = AddDeptReq.newBuilder().setDepartment(IcisDepartmentPB.newBuilder()
+        AddDeptReq addDeptReq = AddDeptReq.newBuilder().setDepartment(DepartmentPB.newBuilder()
             .setDeptId(deptId4)
             .setDeptName("test-dept-10022")
             .setAbbreviation("td-10022")
@@ -172,11 +173,12 @@ public class UserServiceTests extends TestsBase {
         GenericResp addAccountResp = userService.addAccount(addAccountReqJson);
         assertThat(addAccountResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
-        // 删除科室失败（员工再次登录将看不到这个科室）
+        // 科室有关联账号时拒绝删除
         DeleteDeptReq deleteDeptReq = DeleteDeptReq.newBuilder().setDeptId(deptId4).build();
         String deleteDeptReqJson = ProtoUtils.protoToJson(deleteDeptReq);
         GenericResp deleteDeptResp = userService.deleteDept(deleteDeptReqJson);
-        assertThat(deleteDeptResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        assertThat(deleteDeptResp.getRt().getCode())
+            .isEqualTo(StatusCode.DEPARTMENT_HAS_ACCOUNTS.ordinal());
     }
 
     @Test
@@ -188,7 +190,7 @@ public class UserServiceTests extends TestsBase {
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         // 新增部门deptId2(10020)， deptId3(10021)
-        AddDeptReq addDeptReq = AddDeptReq.newBuilder().setDepartment(IcisDepartmentPB.newBuilder()
+        AddDeptReq addDeptReq = AddDeptReq.newBuilder().setDepartment(DepartmentPB.newBuilder()
             .setDeptId(deptId2)
             .setDeptName("test-dept-10020")
             .setAbbreviation("td-10020")
@@ -198,7 +200,7 @@ public class UserServiceTests extends TestsBase {
         AddDeptResp addDeptResp = userService.addDept(addDeptReqJson);
         assertThat(addDeptResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
-        addDeptReq = AddDeptReq.newBuilder().setDepartment(IcisDepartmentPB.newBuilder()
+        addDeptReq = AddDeptReq.newBuilder().setDepartment(DepartmentPB.newBuilder()
             .setDeptId(deptId3)
             .setDeptName("test-dept-10021")
             .setAbbreviation("td-10021")
@@ -321,7 +323,7 @@ public class UserServiceTests extends TestsBase {
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         // 新增部门deptId2(10020)， deptId3(10021)
-        AddDeptReq addDeptReq = AddDeptReq.newBuilder().setDepartment(IcisDepartmentPB.newBuilder()
+        AddDeptReq addDeptReq = AddDeptReq.newBuilder().setDepartment(DepartmentPB.newBuilder()
             .setDeptId(deptId5)
             .setDeptName("test-dept-10023")
             .setAbbreviation("td-10023")
@@ -331,7 +333,7 @@ public class UserServiceTests extends TestsBase {
         AddDeptResp addDeptResp = userService.addDept(addDeptReqJson);
         assertThat(addDeptResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
-        addDeptReq = AddDeptReq.newBuilder().setDepartment(IcisDepartmentPB.newBuilder()
+        addDeptReq = AddDeptReq.newBuilder().setDepartment(DepartmentPB.newBuilder()
             .setDeptId(deptId6)
             .setDeptName("test-dept-10024")
             .setAbbreviation("td-10024")
@@ -475,7 +477,7 @@ public class UserServiceTests extends TestsBase {
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         // 新增部门
-        AddDeptReq addDeptReq = AddDeptReq.newBuilder().setDepartment(IcisDepartmentPB.newBuilder()
+        AddDeptReq addDeptReq = AddDeptReq.newBuilder().setDepartment(DepartmentPB.newBuilder()
             .setDeptId(deptId7)
             .setDeptName("test-dept-10026")
             .setAbbreviation("td-10026")

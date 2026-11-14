@@ -33,6 +33,7 @@ public class UserService {
     public UserService(
         @Autowired ProtoConfig protoConfig,
         @Autowired UserCommand userCommand,
+        @Autowired DepartmentCommand departmentCommand,
         @Autowired UserQuery userQuery,
         @Autowired MenuService menuService,
         @Autowired CertificateService certificateService
@@ -49,6 +50,7 @@ public class UserService {
         }
 
         this.userCommand = userCommand;
+        this.departmentCommand = departmentCommand;
         this.userQuery = userQuery;
         this.menuService = menuService;
         this.certificateService = certificateService;
@@ -199,12 +201,8 @@ public class UserService {
         }
 
         // 新增部门
-        IcisDepartmentPB deptPb = req.getDepartment();
-        StatusCode statusCode = userCommand.addDepartment(
-            deptPb.getDeptId(), deptPb.getDeptName(), deptPb.getAbbreviation(),
-            deptPb.getWardCode(), deptPb.getWardName(), deptPb.getHospitalName(),
-            account.autoAcctId()
-        );
+        DepartmentPB deptPb = req.getDepartment();
+        StatusCode statusCode = departmentCommand.addDepartment(deptPb, account.autoAcctId());
         if (statusCode != StatusCode.OK) {
             return AddDeptResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, statusCode))
@@ -254,7 +252,7 @@ public class UserService {
                 .build();
         }
 
-        IcisDepartmentPB deptPb = req.getDepartment();
+        DepartmentPB deptPb = req.getDepartment();
         if (!certificateService.isDepartmentIdentityUpdateAllowed(
             deptPb.getId(),
             deptPb.getDeptId(),
@@ -270,11 +268,12 @@ public class UserService {
         }
 
         return GenericResp.newBuilder()
-            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, userCommand.updateDepartment(
-                deptPb.getId(), deptPb.getDeptId(), deptPb.getDeptName(),
-                deptPb.getAbbreviation(), deptPb.getWardCode(), deptPb.getWardName(),
-                deptPb.getHospitalName(), account.autoAcctId()
-            ))).build();
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList,
+                departmentCommand.updateDepartment(
+                    deptPb.getId(), deptPb.getDeptId(), deptPb.getDeptName(),
+                    deptPb.getAbbreviation(), deptPb.getWardCode(), deptPb.getWardName(),
+                    deptPb.getHospitalName(), account.autoAcctId())))
+            .build();
     }
 
     public GenericResp deleteDept(String deleteDeptReqJson) {
@@ -313,9 +312,9 @@ public class UserService {
         }
 
         return GenericResp.newBuilder()
-            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, userCommand.deleteDepartment(
-                req.getDeptId(), account.autoAcctId()
-            ))).build();
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList,
+                departmentCommand.deleteDepartment(req.getDeptId(), account.autoAcctId())))
+            .build();
     }
 
     public GetAllAccountsResp getAllAccounts(String getAllAccountsReqJson) {
@@ -724,6 +723,7 @@ public class UserService {
 
     private final List<String> statusCodeMsgList;
     private UserCommand userCommand;
+    private DepartmentCommand departmentCommand;
     private UserQuery userQuery;
     private MenuService menuService;
     private CertificateService certificateService;

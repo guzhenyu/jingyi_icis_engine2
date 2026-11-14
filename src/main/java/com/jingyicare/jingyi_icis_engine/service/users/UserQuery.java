@@ -16,6 +16,7 @@ import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.AccountDepartmentPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.AccountPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.DepartmentPB;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
 import com.jingyicare.jingyi_icis_engine.utils.Consts;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
@@ -276,9 +277,9 @@ public class UserQuery {
         return accountInfoRepo.findByIdAndIsDeletedFalse(accountAutoId).orElse(null);
     }
 
-    public List<IcisDepartmentPB> getAllDepartments() {
+    public List<DepartmentPB> getAllDepartments() {
         return deptInfoRepo.findByIsDeletedFalse().stream()
-            .map(deptInfo -> IcisDepartmentPB.newBuilder()
+            .map(deptInfo -> DepartmentPB.newBuilder()
                 .setId(deptInfo.getId())
                 .setDeptId(deptInfo.getDeptId())
                 .setDeptName(deptInfo.getName())
@@ -287,7 +288,7 @@ public class UserQuery {
                 .setWardName(deptInfo.getWardName())
                 .setHospitalName(deptInfo.getHospitalName())
                 .build())
-            .sorted(Comparator.comparing(IcisDepartmentPB::getId))
+            .sorted(Comparator.comparing(DepartmentPB::getId))
             .toList();
     }
 

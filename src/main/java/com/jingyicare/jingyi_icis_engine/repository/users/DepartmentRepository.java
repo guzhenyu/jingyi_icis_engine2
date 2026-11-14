@@ -17,5 +17,7 @@ public interface DepartmentRepository extends JpaRepository<Department, Integer>
 
     List<Department> findByIsDeletedFalse();
 
+    long countByIsDeletedFalse();
+
     List<Department> findByDeptIdInAndIsDeletedFalse(List<String> deptIds);
 }

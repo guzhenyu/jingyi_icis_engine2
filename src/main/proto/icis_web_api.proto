@@ -543,19 +543,9 @@ message GetAllDeptNamesResp {
  */
 message GetAllDeptsReq {}
 
-message IcisDepartmentPB {
-    int32 id = 1;  // 科室id
-    string dept_id = 2;  // 科室编码
-    string dept_name = 3;  // 科室名称
-    string abbreviation = 4;  // 科室简称
-    string ward_code = 5;  // 病区编码
-    string ward_name = 6;  // 病区名称
-    string hospital_name = 7;  // 医院名称
-}
-
 message GetAllDeptsResp {
     shared.ReturnCode rt = 1;
-    repeated IcisDepartmentPB department = 2;
+    repeated config.DepartmentPB department = 2;
 }
 
 /*
@@ -565,7 +555,7 @@ message GetAllDeptsResp {
  * output: GenericResp
  */
 message AddDeptReq {
-    IcisDepartmentPB department = 1;
+    config.DepartmentPB department = 1;
 }
 
 message AddDeptResp {

@@ -12,6 +12,7 @@ public interface RbacDepartmentAccountRepository extends JpaRepository<RbacDepar
     List<RbacDepartmentAccount> findAll();
     List<RbacDepartmentAccount> findByIdAccountId(String accountId);
     List<RbacDepartmentAccount> findByIdDeptId(String deptId);
+    boolean existsByIdDeptId(String deptId);
 
     Optional<RbacDepartmentAccount> findById(RbacDepartmentAccountId id);
     void deleteByIdAccountId(String accountId);

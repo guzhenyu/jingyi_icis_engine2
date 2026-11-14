@@ -88,12 +88,13 @@ message AccountPB {
 }
 
 message DepartmentPB {
-    string id = 1;
-    string name = 2;
-    string abbreviation = 3;
-    string ward_code = 4;
-    string ward_name = 5;
-    string hospital_name = 6;
+    int32 id = 1;  // 科室id
+    string dept_id = 2;  // 科室编码
+    string dept_name = 3;  // 科室名称
+    string abbreviation = 4;  // 科室简称
+    string ward_code = 5;  // 病区编码
+    string ward_name = 6;  // 病区名称
+    string hospital_name = 7;  // 医院名称
 }
 
 message DepartmentAccountRolePB {
