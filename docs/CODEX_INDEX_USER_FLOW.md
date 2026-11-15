@@ -10,7 +10,7 @@
 - 模块分层：
   - `UserService`：接口编排层（JSON 转 Proto、登录态、权限判断、返回码封装）。
   - `UserCommand`：账号命令层（账号、归属、角色和权限写入）。
-  - `DepartmentCommand`：科室命令层（科室增删改及创建后的血气参数初始化）。
+  - `DepartmentCommand`：科室命令层（科室增删改及血气、评分、护理模板的统一初始化）。
   - `UserQuery`：查询层（账号、科室、角色、权限读取及结果组装）。
 
 账号配置与接口统一使用 `config/icis_user.proto` 的 `AccountPB`、`AccountDepartmentPB`：
@@ -108,7 +108,7 @@
   目录锁保护跨科室名称唯一和“至少保留一个科室”，目标锁与账号归属变更互斥。
 - 新增 `addDepartment`：
   - 在 lambda 中校验业务科室和 RBAC 科室的编码、名称不重复，然后写入两张表。
-  - 科室事务提交成功后，再调用 `bgaMetaService.initBgaParams(deptId)`。
+  - 科室事务提交成功后，再调用 `DepartmentCommand.initDept`，统一初始化血气、评分和护理模板。
 - 更新 `updateDepartment`：
   - 编码固定，数据库 ID 与请求编码不匹配时返回 `INVALID_DEPARTMENT_ID`。
   - 两侧重名检查通过后再更新资料、审计字段并同步 RBAC 名称。
@@ -128,7 +128,10 @@
 - `changePassword`、`resetPassword` 通过 `LockExecutor.execute` 取得目标账号锁，
   在同一事务中读取当前密码哈希、校验并写入，与账号增删改共享锁。
 - `updateAccount`、`deleteAccount` 通过 `LockExecutor.executePlanned` 管理动态科室锁与事务。
-- `DepartmentCommand.addDepartment` 通过 `LockExecutor` 执行科室创建事务，成功后再初始化血气参数。
+- `DepartmentCommand.addDepartment` 通过 `LockExecutor` 提交科室创建，再单独初始化默认数据。
+- 启动和新增科室共用 `DepartmentCommand.initDept`；一次取得科室、血气、评分及默认护理模板锁，
+  在同一笔初始化事务中写入三个模块。初始化失败只回滚默认数据，保留科室，可单独重试。
+- 三个模块的 `initDept` 要求已有事务，由统一入口提供事务和锁；重复初始化保留已有配置。
 - 账号新增和更新均先完成业务校验，再修改实体；持久化异常触发整个事务回滚。
 
 ## 6. 跨表一致性与数据模型要点

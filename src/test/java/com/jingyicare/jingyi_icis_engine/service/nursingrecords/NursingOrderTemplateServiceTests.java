@@ -2,33 +2,23 @@ package com.jingyicare.jingyi_icis_engine.service.nursingrecords;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.util.Collection;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Supplier;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.transaction.PlatformTransactionManager;
 
 import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.*;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingRecord.*;
 import com.jingyicare.jingyi_icis_engine.repository.nursingrecords.*;
-import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
@@ -57,8 +47,7 @@ class NursingOrderTemplateServiceTests extends TestsBase {
                     .setName("empty-group")))
             .build());
         service = new NursingOrderTemplateService(
-            protoService, userQuery, templateGroupRepo, templateRepo, deptRepo,
-            lockExecutor);
+            protoService, userQuery, templateGroupRepo, templateRepo, lockExecutor);
     }
 
     @AfterEach
@@ -80,7 +69,7 @@ class NursingOrderTemplateServiceTests extends TestsBase {
 
     @Test
     void shouldInitializeAllDepartmentsAndRemainIdempotent() {
-        service.initDeptTemplateGroups();
+        initialize();
 
         for (String deptId : DEPT_IDS) {
             List<NursingRecordTemplateGroup> groups = activeGroups(deptId);
@@ -107,7 +96,7 @@ class NursingOrderTemplateServiceTests extends TestsBase {
                 assertThat(template.getModifiedAt()).isEqualTo(firstGroup.getModifiedAt());
             }
 
-            service.initDeptTemplateGroups();
+            initialize();
             assertThat(activeGroups(deptId)).extracting(NursingRecordTemplateGroup::getId)
                 .containsExactlyInAnyOrderElementsOf(groups.stream()
                     .map(NursingRecordTemplateGroup::getId).toList());
@@ -123,11 +112,11 @@ class NursingOrderTemplateServiceTests extends TestsBase {
     void shouldSkipDepartmentWithAnyActiveGroup() {
         NursingRecordTemplateGroup existing = saveGroup(1, "custom-group", false);
 
-        service.initDeptTemplateGroups();
+        initialize();
 
         assertThat(activeGroups(DEPT_IDS.getFirst())).extracting(NursingRecordTemplateGroup::getId)
             .containsExactly(existing.getId());
-        assertThat(lockCount(DEPT_IDS.getFirst())).isZero();
+        assertThat(lockCount(DEPT_IDS.getFirst())).isEqualTo(2);
         assertThat(activeGroups(DEPT_IDS.getLast())).hasSize(2);
     }
 
@@ -136,7 +125,7 @@ class NursingOrderTemplateServiceTests extends TestsBase {
         saveGroup(1, "first-group", true);
         saveGroup(0, "first-group", false);
 
-        service.initDeptTemplateGroups();
+        initialize();
 
         assertThat(activeGroups(DEPT_IDS.getFirst())).hasSize(2);
         assertThat(templateGroupRepo.findByEntityTypeAndEntityIdAndIsDeletedFalse(
@@ -146,8 +135,10 @@ class NursingOrderTemplateServiceTests extends TestsBase {
     @Test
     void shouldDoNothingWithoutDefaultGroups() {
         when(protoService.getConfig()).thenReturn(Config.getDefaultInstance());
+        service = new NursingOrderTemplateService(
+            protoService, userQuery, templateGroupRepo, templateRepo, lockExecutor);
 
-        service.initDeptTemplateGroups();
+        initialize();
 
         for (String deptId : DEPT_IDS) {
             assertThat(activeGroups(deptId)).isEmpty();
@@ -158,16 +149,15 @@ class NursingOrderTemplateServiceTests extends TestsBase {
     @Test
     void shouldRollbackTemplatesGroupsAndLocksOnFailure() {
         NursingRecordTemplateRepository failingRepo = mock(NursingRecordTemplateRepository.class);
-        AtomicInteger saves = new AtomicInteger();
-        when(failingRepo.save(any(NursingRecordTemplate.class))).thenAnswer(invocation -> {
-            if (saves.incrementAndGet() == 2) throw new IllegalStateException("保存模板失败");
-            return templateRepo.save(invocation.getArgument(0));
+        when(failingRepo.saveAll(any())).thenAnswer(invocation -> {
+            Iterable<NursingRecordTemplate> templates = invocation.getArgument(0);
+            templateRepo.saveAllAndFlush(templates);
+            throw new IllegalStateException("保存模板失败");
         });
         service = new NursingOrderTemplateService(
-            protoService, userQuery, templateGroupRepo, failingRepo, deptRepo,
-            lockExecutor);
+            protoService, userQuery, templateGroupRepo, failingRepo, lockExecutor);
 
-        assertThrows(IllegalStateException.class, service::initDeptTemplateGroups);
+        assertThrows(IllegalStateException.class, this::initialize);
 
         for (String deptId : DEPT_IDS) {
             assertThat(activeGroups(deptId)).isEmpty();
@@ -177,41 +167,14 @@ class NursingOrderTemplateServiceTests extends TestsBase {
         }
     }
 
-    @Test
-    void shouldSerializeConcurrentInitializationsAfterSamePreRead() throws Exception {
-        CountDownLatch planned = new CountDownLatch(2);
-        LockExecutor concurrentExecutor = new LockExecutor(transactionManager, jdbcTemplate) {
-            @Override
-            public <T> T execute(Collection<String> resourceKeys, Supplier<T> action) {
-                planned.countDown();
-                try {
-                    assertTrue(planned.await(10, TimeUnit.SECONDS), "两个请求应在拿锁前完成预读取");
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw new IllegalStateException(e);
-                }
-                return super.execute(resourceKeys, action);
-            }
-        };
-        service = new NursingOrderTemplateService(
-            protoService, userQuery, templateGroupRepo, templateRepo, deptRepo,
-            concurrentExecutor);
-        ExecutorService pool = Executors.newFixedThreadPool(2);
-        try {
-            Future<?> first = pool.submit(service::initDeptTemplateGroups);
-            Future<?> second = pool.submit(service::initDeptTemplateGroups);
-            first.get(15, TimeUnit.SECONDS);
-            second.get(15, TimeUnit.SECONDS);
-
-            for (String deptId : DEPT_IDS) {
-                assertThat(activeGroups(deptId)).hasSize(2);
-                assertThat(templateRepo.findByEntityTypeAndEntityIdAndIsDeletedFalse(1, deptId))
-                    .hasSize(2);
-                assertThat(lockCount(deptId)).isEqualTo(2);
-            }
-        } finally {
-            pool.shutdownNow();
-            assertTrue(pool.awaitTermination(15, TimeUnit.SECONDS));
+    private void initialize() {
+        for (String deptId : DEPT_IDS) {
+            List<String> keys = new ArrayList<>(service.getInitDeptLockKeys(deptId));
+            keys.add(LockKeys.department(deptId));
+            lockExecutor.execute(keys, () -> {
+                service.initDept(deptId);
+                return null;
+            });
         }
     }
 
@@ -249,14 +212,9 @@ class NursingOrderTemplateServiceTests extends TestsBase {
     private NursingRecordTemplateRepository templateRepo;
 
     @Autowired
-    private RbacDepartmentRepository deptRepo;
-
-    @Autowired
     private JdbcTemplate jdbcTemplate;
 
     @Autowired
     private LockExecutor lockExecutor;
 
-    @Autowired
-    private PlatformTransactionManager transactionManager;
 }

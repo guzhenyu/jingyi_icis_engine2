@@ -12,18 +12,18 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import com.jingyicare.jingyi_icis_engine.entity.patients.*;
+import com.jingyicare.jingyi_icis_engine.entity.users.RbacDepartment;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingRecord.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
-
-import com.jingyicare.jingyi_icis_engine.entity.patients.*;
-import com.jingyicare.jingyi_icis_engine.entity.users.RbacDepartment;
 import com.jingyicare.jingyi_icis_engine.repository.nursingrecords.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
-import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
+import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.testutils.*;
+import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 public class NursingRecordServiceTests extends TestsBase {
@@ -31,6 +31,7 @@ public class NursingRecordServiceTests extends TestsBase {
         @Autowired ConfigProtoService protoService,
         @Autowired NursingRecordService recordService,
         @Autowired NursingOrderTemplateService templateService,
+        @Autowired LockExecutor lockExecutor,
         @Autowired NursingRecordTemplateGroupRepository templateGroupRepo,
         @Autowired NursingRecordTemplateRepository templateRepo,
         @Autowired NursingRecordRepository recordRepo,
@@ -47,6 +48,7 @@ public class NursingRecordServiceTests extends TestsBase {
         this.configPb = protoService.getConfig().getNursingRecord();
         this.recordService = recordService;
         this.templateService = templateService;
+        this.lockExecutor = lockExecutor;
         this.templateGroupRepo = templateGroupRepo;
         this.templateRepo = templateRepo;
         this.recordRepo = recordRepo;
@@ -247,7 +249,6 @@ public class NursingRecordServiceTests extends TestsBase {
         patient = patientRepo.save(patient);
         patientId = patient.getId();
 
-
         // 新增
         LocalDateTime recTimeUtc1 = LocalDateTime.of(2024, 12, 24, 1, 0, 0);
         AddNursingRecordReq addReq = AddNursingRecordReq.newBuilder()
@@ -332,7 +333,12 @@ public class NursingRecordServiceTests extends TestsBase {
         dept3.setDeptName("dept-3");
         deptRepo.save(dept3);
 
-        templateService.initDeptTemplateGroups();
+        for (String code : List.of(deptId, deptId2, deptId3)) {
+            lockExecutor.execute(templateService.getInitDeptLockKeys(code), () -> {
+                templateService.initDept(code);
+                return null;
+            });
+        }
     }
 
     private final String ZONE_ID;
@@ -341,6 +347,7 @@ public class NursingRecordServiceTests extends TestsBase {
     private final String deptId2;
     private final String deptId3;
 
+    private final LockExecutor lockExecutor;
     private final ConfigProtoService protoService;
     private final NursingRecordConfigPB configPb;
     private final NursingRecordService recordService;

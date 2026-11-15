@@ -29,7 +29,7 @@ import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingScore.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
 import com.jingyicare.jingyi_icis_engine.repository.scores.DeptScoreGroupRepository;
-import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
@@ -54,26 +54,24 @@ class ScoreMetaServiceTests extends TestsBase {
     }
 
     @Test
-    void concurrentInitializationIsIdempotentAndLocksEveryDefaultCode() throws Exception {
+    void concurrentInitializationWithCallerLockIsIdempotent() throws Exception {
         Supplier<Integer> initialize = () -> {
-            service.initDept(DEPT_ID);
+            initialize(service);
             return StatusCode.OK_VALUE;
         };
         assertThat(runContending(initialize, initialize))
             .containsExactly(StatusCode.OK_VALUE, StatusCode.OK_VALUE);
 
         List<DeptScoreGroup> initialized = activeGroups();
-        List<String> defaults = protoService.getConfig().getScore().getDefaultScoreGroupCodeList();
+        List<String> defaults = protoConfig.getConfig().getScore().getDefaultScoreGroupCodeList();
         assertThat(initialized).extracting(DeptScoreGroup::getScoreGroupCode)
             .containsExactlyElementsOf(defaults);
         for (int i = 0; i < initialized.size(); i++) {
             DeptScoreGroup group = initialized.get(i);
             assertThat(group.getDisplayOrder()).isEqualTo(i + 1);
-            assertThat(group.getModifiedBy()).isEqualTo("System");
-            assertThat(lockCount(LockKeys.deptScoreGroup(DEPT_ID, group.getScoreGroupCode())))
-                .isEqualTo(1);
+            assertThat(group.getModifiedBy()).isEqualTo(UserQuery.SYSTEM_ACCOUNT_ID);
         }
-        service.initDept(DEPT_ID);
+        initialize(service);
         assertThat(activeGroups()).extracting(DeptScoreGroup::getId)
             .containsExactlyElementsOf(initialized.stream().map(DeptScoreGroup::getId).toList());
     }
@@ -82,7 +80,7 @@ class ScoreMetaServiceTests extends TestsBase {
     void initializationSkipsExistingGroupAndRecreatesDefaultsAfterAllGroupsAreDeleted() {
         AddDeptScoreGroupResp added = addGroup(SECOND_CODE);
         assertThat(added.getRt().getCode()).isEqualTo(StatusCode.OK_VALUE);
-        service.initDept(DEPT_ID);
+        initialize(service);
         assertThat(activeGroups()).extracting(DeptScoreGroup::getScoreGroupCode)
             .containsExactly(SECOND_CODE);
 
@@ -95,24 +93,24 @@ class ScoreMetaServiceTests extends TestsBase {
         assertThat(deleted.getDeletedAt()).isNotNull();
         assertThat(deleted.getDeletedBy()).isNotBlank();
 
-        service.initDept(DEPT_ID);
+        initialize(service);
         assertThat(activeGroups()).extracting(DeptScoreGroup::getScoreGroupCode)
             .containsExactlyElementsOf(
-                protoService.getConfig().getScore().getDefaultScoreGroupCodeList());
+                protoConfig.getConfig().getScore().getDefaultScoreGroupCodeList());
         assertThat(repository.findById(added.getId()).orElseThrow()).isEqualTo(deleted);
     }
 
     @Test
     void invalidInitializationConfigurationRollsBackAndPropagatesFailure() {
-        ConfigProtoService invalidConfig = mock(ConfigProtoService.class);
-        when(invalidConfig.getConfig()).thenReturn(protoService.getConfig().toBuilder()
-            .setScore(protoService.getConfig().getScore().toBuilder()
+        ProtoConfig invalidConfig = mock(ProtoConfig.class);
+        when(invalidConfig.getConfig()).thenReturn(protoConfig.getConfig().toBuilder()
+            .setScore(protoConfig.getConfig().getScore().toBuilder()
                 .clearDefaultScoreGroupCode().addDefaultScoreGroupCode(FIRST_CODE)
                 .addDefaultScoreGroupCode("missing-default-code")).build());
         ScoreMetaService invalidService = new ScoreMetaService(invalidConfig,
             mock(UserQuery.class), repository, executor, jdbcTemplate);
 
-        assertThatIllegalStateException().isThrownBy(() -> invalidService.initDept(DEPT_ID));
+        assertThatIllegalStateException().isThrownBy(() -> initialize(invalidService));
 
         assertThat(activeGroups()).isEmpty();
         assertThat(lockCount(LockKeys.deptScoreGroup(DEPT_ID))).isZero();
@@ -125,7 +123,7 @@ class ScoreMetaServiceTests extends TestsBase {
             GetScoreGroupMetaReq.getDefaultInstance()));
         assertThat(global.getRt().getCode()).isEqualTo(StatusCode.OK_VALUE);
         assertThat(global.getScoreGroupMetaList()).extracting(ScoreGroupMetaPB::getCode)
-            .containsExactlyElementsOf(protoService.getConfig().getScore().getGroupList()
+            .containsExactlyElementsOf(protoConfig.getConfig().getScore().getGroupList()
                 .stream().map(ScoreGroupMetaPB::getCode).toList());
         assertThat(readMeta(FIRST_CODE).getCode()).isEqualTo(FIRST_CODE);
         assertThat(activeGroups()).isEmpty();
@@ -403,6 +401,13 @@ class ScoreMetaServiceTests extends TestsBase {
         assertThat(activeGroups()).isEmpty();
     }
 
+    private void initialize(ScoreMetaService target) {
+        executor.execute(List.of(LockKeys.deptScoreGroup(DEPT_ID)), () -> {
+            target.initDept(DEPT_ID);
+            return null;
+        });
+    }
+
     private AddDeptScoreGroupResp addGroup(String code) {
         return service.addDeptScoreGroup(ProtoUtils.protoToJson(AddDeptScoreGroupReq.newBuilder()
             .setDeptId(DEPT_ID).setScoreGroupCode(code).setDisplayOrder(99).build()));
@@ -527,7 +532,7 @@ class ScoreMetaServiceTests extends TestsBase {
     private static final String THIRD_CODE = "test_score_3";
 
     @Autowired private ScoreMetaService service;
-    @Autowired private ConfigProtoService protoService;
+    @Autowired private ProtoConfig protoConfig;
     @Autowired private DeptScoreGroupRepository repository;
     @Autowired private LockExecutor executor;
     @Autowired private JdbcTemplate jdbcTemplate;

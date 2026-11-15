@@ -13,23 +13,28 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
+
+import lombok.extern.slf4j.Slf4j;
 
 import com.jingyicare.jingyi_icis_engine.entity.scores.DeptScoreGroup;
 import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
+import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingScore.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
 import com.jingyicare.jingyi_icis_engine.repository.scores.DeptScoreGroupJdbc;
 import com.jingyicare.jingyi_icis_engine.repository.scores.DeptScoreGroupJdbc.DeptScoreGroupKey;
 import com.jingyicare.jingyi_icis_engine.repository.scores.DeptScoreGroupRepository;
-import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
+import com.jingyicare.jingyi_icis_engine.utils.ReturnCodeUtils;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
@@ -37,18 +42,19 @@ import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 @Slf4j
 public class ScoreMetaService {
     public ScoreMetaService(
-        ConfigProtoService protoService,
+        ProtoConfig protoConfig,
         UserQuery userQuery,
         DeptScoreGroupRepository deptScoreGroupRepo,
         LockExecutor lockExecutor,
         JdbcTemplate jdbcTemplate
     ) {
-        this.protoService = protoService;
+        Config config = protoConfig.getConfig();
+        this.statusCodeMsgList = config.getText().getStatusCodeMsgList();
         this.userQuery = userQuery;
         this.deptScoreGroupRepo = deptScoreGroupRepo;
         this.lockExecutor = lockExecutor;
         this.jdbcTemplate = jdbcTemplate;
-        ScorePB scorePb = protoService.getConfig().getScore();
+        ScorePB scorePb = config.getScore();
         this.defaultScoreGroupCodes = List.copyOf(scorePb.getDefaultScoreGroupCodeList());
         this.configuredScoreGroupMetas = scorePb.getGroupList().stream()
             .map(meta -> meta.toBuilder().setOrigName(meta.getName()).build())
@@ -61,36 +67,32 @@ public class ScoreMetaService {
         return configuredScoreGroupMetaByCode.get(code);
     }
 
+    // 由 DepartmentCommand.initDept 统一持锁并提供事务。
+    @Transactional(propagation = Propagation.MANDATORY)
     public void initDept(String deptId) {
-        StrUtils.requireNonBlank(deptId, "deptId");
-        lockExecutor.execute(deptScoreGroupLockKeys(deptId, defaultScoreGroupCodes), () -> {
-            // 外层筛选与本次加锁之间可能有其他实例或接口完成初始化。
-            if (!deptScoreGroupRepo.findByDeptIdAndIsDeletedFalse(deptId).isEmpty()) {
-                return null;
+        if (!deptScoreGroupRepo.findByDeptIdAndIsDeletedFalse(deptId).isEmpty()) return;
+
+        Set<String> codes = new HashSet<>();
+        for (String code : defaultScoreGroupCodes) {
+            if (!codes.add(code) || !configuredScoreGroupMetaByCode.containsKey(code)) {
+                throw new IllegalStateException("默认评分组配置无效：" + code);
             }
-            Set<String> codes = new HashSet<>();
-            for (String code : defaultScoreGroupCodes) {
-                if (!codes.add(code) || !configuredScoreGroupMetaByCode.containsKey(code)) {
-                    throw new IllegalStateException("默认评分组配置无效：" + code);
-                }
-            }
-            LocalDateTime nowUtc = TimeUtils.getNowUtc();
-            for (int i = 0; i < defaultScoreGroupCodes.size(); i++) {
-                String code = defaultScoreGroupCodes.get(i);
-                DeptScoreGroup group = DeptScoreGroup.builder()
-                    .deptId(deptId)
-                    .scoreGroupCode(code)
-                    .scoreGroupMeta(ProtoUtils.encodeScoreGroupMetaPB(
-                        configuredScoreGroupMetaByCode.get(code)))
-                    .displayOrder(i + 1)
-                    .isDeleted(false)
-                    .modifiedBy("System")
-                    .modifiedAt(nowUtc)
-                    .build();
-                deptScoreGroupRepo.save(group);
-            }
-            return null;
-        });
+        }
+        LocalDateTime nowUtc = TimeUtils.getNowUtc();
+        for (int i = 0; i < defaultScoreGroupCodes.size(); i++) {
+            String code = defaultScoreGroupCodes.get(i);
+            DeptScoreGroup group = DeptScoreGroup.builder()
+                .deptId(deptId)
+                .scoreGroupCode(code)
+                .scoreGroupMeta(ProtoUtils.encodeScoreGroupMetaPB(
+                    configuredScoreGroupMetaByCode.get(code)))
+                .displayOrder(i + 1)
+                .isDeleted(false)
+                .modifiedBy(UserQuery.SYSTEM_ACCOUNT_ID)
+                .modifiedAt(nowUtc)
+                .build();
+            deptScoreGroupRepo.save(group);
+        }
     }
 
     public GetScoreGroupMetaResp getScoreGroupMeta(String reqJson) {
@@ -100,11 +102,12 @@ public class ScoreMetaService {
         } catch (Exception e) {
             log.error("评分元数据请求解析失败", e);
             return GetScoreGroupMetaResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED)).build();
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED)).build();
         }
         if (StrUtils.isBlank(req.getDeptId())) {
             return GetScoreGroupMetaResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.OK))
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
                 .addAllScoreGroupMeta(configuredScoreGroupMetas).build();
         }
         List<ScoreGroupMetaPB> metas = new ArrayList<>();
@@ -114,7 +117,8 @@ public class ScoreMetaService {
             ScoreGroupMetaPB meta = resolveScoreGroupMeta(group, group.getScoreGroupCode());
             if (meta == null) {
                 return GetScoreGroupMetaResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.DEPT_SCORE_GROUP_NOT_FOUND))
+                    .setRt(ReturnCodeUtils.getReturnCode(
+                        statusCodeMsgList, StatusCode.DEPT_SCORE_GROUP_NOT_FOUND))
                     .build();
             }
             metas.add(meta.toBuilder().setId(group.getId())
@@ -123,7 +127,8 @@ public class ScoreMetaService {
         metas.sort(Comparator.comparing(ScoreGroupMetaPB::getDisplayOrder)
             .thenComparing(ScoreGroupMetaPB::getId));
         return GetScoreGroupMetaResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK)).addAllScoreGroupMeta(metas).build();
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
+            .addAllScoreGroupMeta(metas).build();
     }
 
     public AddDeptScoreGroupResp addDeptScoreGroup(String reqJson) {
@@ -153,7 +158,8 @@ public class ScoreMetaService {
                 Integer id = saveDeptScoreGroup(null, req.getDeptId(), req.getScoreGroupCode(),
                     meta, account.autoAcctId(), TimeUtils.getNowUtc());
                 return AddDeptScoreGroupResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.OK)).setId(id).build();
+                    .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
+                    .setId(id).build();
             });
     }
 
@@ -199,7 +205,8 @@ public class ScoreMetaService {
                     configuredScoreGroupMetaByCode.get(code), account.autoAcctId(), nowUtc));
             }
             return AddDeptScoreGroupsResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.OK)).addAllId(ids).build();
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
+                .addAllId(ids).build();
         });
     }
 
@@ -294,17 +301,20 @@ public class ScoreMetaService {
         } catch (Exception e) {
             log.error("评分元数据请求解析失败", e);
             return GetOneScoreGroupMetaResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED)).build();
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED)).build();
         }
         DeptScoreGroup group = deptScoreGroupRepo.findByDeptIdAndScoreGroupCodeAndIsDeletedFalse(
             req.getDeptId(), req.getCode()).orElse(null);
         ScoreGroupMetaPB meta = resolveScoreGroupMeta(group, req.getCode());
         if (meta == null) {
             return GetOneScoreGroupMetaResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.SCORE_GROUP_NOT_FOUND)).build();
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.SCORE_GROUP_NOT_FOUND)).build();
         }
         return GetOneScoreGroupMetaResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK)).setScoreGroupMeta(meta).build();
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
+            .setScoreGroupMeta(meta).build();
     }
 
     public GenericResp updateScoreGroupMeta(String reqJson) {
@@ -503,21 +513,23 @@ public class ScoreMetaService {
     }
 
     private GenericResp response(StatusCode status) {
-        return GenericResp.newBuilder().setRt(protoService.getReturnCode(status)).build();
+        return ReturnCodeUtils.genericResponse(
+            ReturnCodeUtils.getReturnCode(statusCodeMsgList, status));
     }
 
     private AddDeptScoreGroupResp addGroupResponse(StatusCode status) {
-        return AddDeptScoreGroupResp.newBuilder().setRt(protoService.getReturnCode(status)).build();
+        return AddDeptScoreGroupResp.newBuilder()
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, status)).build();
     }
 
     private AddDeptScoreGroupsResp addGroupsResponse(StatusCode status) {
         return AddDeptScoreGroupsResp.newBuilder()
-            .setRt(protoService.getReturnCode(status)).build();
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, status)).build();
     }
 
     private record ScoreGroupMetaUpdate(StatusCode status, ScoreGroupMetaPB meta) {}
 
-    private final ConfigProtoService protoService;
+    private final List<String> statusCodeMsgList;
     private final UserQuery userQuery;
     private final DeptScoreGroupRepository deptScoreGroupRepo;
     private final LockExecutor lockExecutor;

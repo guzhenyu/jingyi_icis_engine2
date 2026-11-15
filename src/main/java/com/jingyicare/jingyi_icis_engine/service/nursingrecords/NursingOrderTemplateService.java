@@ -10,18 +10,18 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import lombok.extern.slf4j.Slf4j;
 
 import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.NursingRecordTemplate;
 import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.NursingRecordTemplateGroup;
 import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
-import com.jingyicare.jingyi_icis_engine.entity.users.RbacDepartment;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingRecord.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
 import com.jingyicare.jingyi_icis_engine.repository.nursingrecords.*;
-import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
@@ -41,35 +41,76 @@ public class NursingOrderTemplateService {
         @Autowired UserQuery userQuery,
         @Autowired NursingRecordTemplateGroupRepository templateGroupRepo,
         @Autowired NursingRecordTemplateRepository templateRepo,
-        @Autowired RbacDepartmentRepository deptRepo,
         @Autowired LockExecutor lockExecutor
     ) {
         this.protoService = protoService;
         this.userQuery = userQuery;
         this.templateGroupRepo = templateGroupRepo;
         this.templateRepo = templateRepo;
-        this.deptRepo = deptRepo;
         this.lockExecutor = lockExecutor;
+
+        defaultGroups = protoService.getConfig().getNursingRecord().getDefaultDeptGroupList();
     }
 
-    public void initDeptTemplateGroups() {
-        List<NursingRecordTemplateGroupPB> defaultGroups = protoService.getConfig()
-            .getNursingRecord().getDefaultDeptGroupList();
+    public List<String> getInitDeptLockKeys(String deptId) {
+        List<String> keys = new ArrayList<>();
+        for (NursingRecordTemplateGroupPB group : defaultGroups) {
+            keys.add(LockKeys.nursingRecordTemplateGroup(
+                ENTITY_TYPE_DEPT, deptId, group.getName()));
+            for (NursingRecordTemplatePB template : group.getNursingRecordTemplateList()) {
+                keys.add(LockKeys.nursingRecordTemplate(
+                    ENTITY_TYPE_DEPT, deptId, template.getName()));
+            }
+        }
+        return keys;
+    }
+
+    // 由 DepartmentCommand.initDept 统一持锁并提供事务。
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void initDept(String deptId) {
         if (defaultGroups.isEmpty()) return;
 
-        // 获取所有需要初始化的科室 ID, 创建资源锁
-        Set<String> deptToInitialize = getDeptIdsToInitialize();
-        List<String> resourceKeys = deptToInitialize.stream()
-            .flatMap(deptId -> defaultGroups.stream().map(group ->
-                LockKeys.nursingRecordTemplateGroup(ENTITY_TYPE_DEPT, deptId, group.getName())))
-            .toList();
-        if (resourceKeys.isEmpty()) return;
+        if (!templateGroupRepo.findByEntityTypeAndEntityIdAndIsDeletedFalse(
+            ENTITY_TYPE_DEPT, deptId).isEmpty()
+        ) {
+            log.info("Nursing record templates already initialized for deptId: {}", deptId);
+            return;
+        }
 
-        lockExecutor.execute(resourceKeys, () -> {
-            createDeptTemplateGroups(deptToInitialize, defaultGroups);
-            return null;
-        });
-        log.info("Department nursing record templates initialization completed.");
+        // 初始化护理记录模板
+        LocalDateTime nowUtc = TimeUtils.getNowUtc();
+        for (int groupIndex = 0; groupIndex < defaultGroups.size(); groupIndex++) {
+            NursingRecordTemplateGroupPB groupPB = defaultGroups.get(groupIndex);
+            NursingRecordTemplateGroup group = templateGroupRepo.save(
+                NursingRecordTemplateGroup.builder()
+                    .entityType(ENTITY_TYPE_DEPT)
+                    .entityId(deptId)
+                    .name(groupPB.getName())
+                    .displayOrder(groupIndex)
+                    .isDeleted(false)
+                    .modifiedBy(UserQuery.SYSTEM_ACCOUNT_ID)
+                    .modifiedAt(nowUtc)
+                    .build());
+
+            List<NursingRecordTemplate> templates = new ArrayList<>();
+            for (int index = 0; index < groupPB.getNursingRecordTemplateCount(); index++) {
+                NursingRecordTemplatePB templatePB = groupPB.getNursingRecordTemplate(index);
+                templates.add(NursingRecordTemplate.builder()
+                    .entityType(ENTITY_TYPE_DEPT)
+                    .entityId(deptId)
+                    .name(templatePB.getName())
+                    .content(templatePB.getContent())
+                    .displayOrder(index)
+                    .isCommon(templatePB.getIsCommon())
+                    .groupId(group.getId())
+                    .isDeleted(false)
+                    .modifiedBy(UserQuery.SYSTEM_ACCOUNT_ID)
+                    .modifiedAt(nowUtc)
+                    .build());
+            }
+            templateRepo.saveAll(templates);
+        }
+        log.info("nursing record department templates are initialized for deptId: {}", deptId);
     }
 
     public GetNursingRecordTemplatesResp getNursingRecordTemplates(String reqJson) {
@@ -493,67 +534,11 @@ public class NursingOrderTemplateService {
         return GenericResp.newBuilder().setRt(protoService.getReturnCode(code)).build();
     }
 
-    private Set<String> getDeptIdsToInitialize() {
-        Set<String> deptToInitialize = deptRepo.findAll().stream()
-            .map(RbacDepartment::getDeptId).collect(Collectors.toSet());
-        deptToInitialize.removeAll(
-            templateGroupRepo.findByEntityTypeAndIsDeletedFalse(ENTITY_TYPE_DEPT).stream()
-                .map(NursingRecordTemplateGroup::getEntityId).collect(Collectors.toSet())
-        );
-        return deptToInitialize;
-    }
-
-    private void createDeptTemplateGroups(
-        Set<String> deptIds, List<NursingRecordTemplateGroupPB> defaultGroups
-    ) {
-        // 检查锁定的资源 和 当前状态是否相符
-        Set<String> curDeptIdsToInitialize = getDeptIdsToInitialize();
-        if (!curDeptIdsToInitialize.containsAll(deptIds)) {
-            log.warn("inconsistent state detected, skipping initialization: \n"
-                + "deptIds {} \ncurDeptIdsToInitialize {}", deptIds, curDeptIdsToInitialize);
-            return;
-        }
-
-        // 初始化护理记录模板
-        LocalDateTime nowUtc = TimeUtils.getNowUtc();
-        for (String deptId : deptIds) {
-            log.info("Initializing nursing record department templates for deptId: {}", deptId);
-            for (int groupIndex = 0; groupIndex < defaultGroups.size(); groupIndex++) {
-                NursingRecordTemplateGroupPB groupPB = defaultGroups.get(groupIndex);
-                NursingRecordTemplateGroup group = templateGroupRepo.save(
-                    NursingRecordTemplateGroup.builder()
-                        .entityType(ENTITY_TYPE_DEPT)
-                        .entityId(deptId)
-                        .name(groupPB.getName())
-                        .displayOrder(groupIndex)
-                        .isDeleted(false)
-                        .modifiedBy("system")
-                        .modifiedAt(nowUtc)
-                        .build());
-
-                for (int index = 0; index < groupPB.getNursingRecordTemplateCount(); index++) {
-                    NursingRecordTemplatePB templatePB = groupPB.getNursingRecordTemplate(index);
-                    templateRepo.save(NursingRecordTemplate.builder()
-                        .entityType(ENTITY_TYPE_DEPT)
-                        .entityId(deptId)
-                        .name(templatePB.getName())
-                        .content(templatePB.getContent())
-                        .displayOrder(index)
-                        .isCommon(templatePB.getIsCommon())
-                        .groupId(group.getId())
-                        .isDeleted(false)
-                        .modifiedBy("system")
-                        .modifiedAt(nowUtc)
-                        .build());
-                }
-            }
-        }
-    }
+    private final List<NursingRecordTemplateGroupPB> defaultGroups;
 
     private final ConfigProtoService protoService;
     private final UserQuery userQuery;
     private final NursingRecordTemplateGroupRepository templateGroupRepo;
     private final NursingRecordTemplateRepository templateRepo;
-    private final RbacDepartmentRepository deptRepo;
     private final LockExecutor lockExecutor;
 }

@@ -237,7 +237,7 @@ class NursingTemplateGroupServiceTests extends TestsBase {
 
     private NursingOrderTemplateService newService(LockExecutor executor) {
         return new NursingOrderTemplateService(protoService, userQuery,
-            templateGroupRepo, templateRepo, deptRepo, executor);
+            templateGroupRepo, templateRepo, executor);
     }
 
     private void awaitPlans(CountDownLatch planned) {

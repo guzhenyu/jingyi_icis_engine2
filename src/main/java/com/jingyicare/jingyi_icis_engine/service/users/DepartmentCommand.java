@@ -1,5 +1,6 @@
 package com.jingyicare.jingyi_icis_engine.service.users;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -17,6 +18,8 @@ import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentReposito
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.BgaMetaService;
+import com.jingyicare.jingyi_icis_engine.service.nursingrecords.NursingOrderTemplateService;
+import com.jingyicare.jingyi_icis_engine.service.scores.ScoreMetaService;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
 @Service
@@ -28,6 +31,8 @@ public class DepartmentCommand {
         RbacDepartmentAccountRepository rbacDeptAcctRepo,
         DepartmentAccountRepository deptAcctRepo,
         BgaMetaService bgaMetaService,
+        ScoreMetaService scoreMetaService,
+        NursingOrderTemplateService nursingOrderTemplateService,
         LockExecutor lockExecutor
     ) {
         this.deptRepo = deptRepo;
@@ -35,6 +40,8 @@ public class DepartmentCommand {
         this.rbacDeptAcctRepo = rbacDeptAcctRepo;
         this.deptAcctRepo = deptAcctRepo;
         this.bgaMetaService = bgaMetaService;
+        this.scoreMetaService = scoreMetaService;
+        this.nursingOrderTemplateService = nursingOrderTemplateService;
         this.lockExecutor = lockExecutor;
     }
 
@@ -76,10 +83,30 @@ public class DepartmentCommand {
                 dept = deptRepo.save(dept);
                 rbacDeptRepo.save(new RbacDepartment(deptId, deptName));
                 log.info("Department added: {}, by {}", dept, modifiedByAutoAcctId);
+
                 return StatusCode.OK;
             });
-        if (statusCode == StatusCode.OK) bgaMetaService.initBgaParams(deptId);
-        return statusCode;
+        if (statusCode != StatusCode.OK) return statusCode;
+        // 科室已提交；默认数据初始化失败时保留科室，可通过 initDept 单独重试。
+        return initDept(deptId, modifiedByAutoAcctId);
+    }
+
+    public StatusCode initDept(String deptId, String modifiedByAutoAcctId) {
+        if (deptId == null || deptId.isBlank()) return StatusCode.DEPT_IS_EMPTY;
+        List<String> lockKeys = new ArrayList<>(List.of(
+            LockKeys.department(deptId), LockKeys.bgaParam(deptId),
+            LockKeys.deptScoreGroup(deptId)));
+        lockKeys.addAll(nursingOrderTemplateService.getInitDeptLockKeys(deptId));
+        return lockExecutor.execute(lockKeys, () -> {
+            Department dept = deptRepo.findByDeptIdAndIsDeletedFalse(deptId).orElse(null);
+            if (dept == null) return StatusCode.DEPARTMENT_NOT_FOUND;
+
+            bgaMetaService.initDept(deptId);
+            scoreMetaService.initDept(deptId);
+            nursingOrderTemplateService.initDept(deptId);
+            log.info("Department initialized: {}, by {}", dept, modifiedByAutoAcctId);
+            return StatusCode.OK;
+        });
     }
 
     public StatusCode updateDepartment(
@@ -156,5 +183,7 @@ public class DepartmentCommand {
     private final RbacDepartmentAccountRepository rbacDeptAcctRepo;
     private final DepartmentAccountRepository deptAcctRepo;
     private final BgaMetaService bgaMetaService;
+    private final ScoreMetaService scoreMetaService;
+    private final NursingOrderTemplateService nursingOrderTemplateService;
     private final LockExecutor lockExecutor;
 }

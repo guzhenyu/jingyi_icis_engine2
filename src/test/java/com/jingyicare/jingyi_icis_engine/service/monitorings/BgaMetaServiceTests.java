@@ -1,22 +1,17 @@
 package com.jingyicare.jingyi_icis_engine.service.monitorings;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.AdditionalAnswers.delegatesTo;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 
-import jakarta.persistence.EntityManagerFactory;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -25,8 +20,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 
-import org.hibernate.SessionFactory;
-import org.hibernate.stat.Statistics;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,22 +27,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.BgaParam;
-import com.jingyicare.jingyi_icis_engine.entity.users.Department;
 import com.jingyicare.jingyi_icis_engine.entity.users.RbacDepartment;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringParamPB;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.DepartmentPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.BgaParamRepository;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.MonitoringParamRepository;
-import com.jingyicare.jingyi_icis_engine.repository.users.DepartmentAccountRepository;
-import com.jingyicare.jingyi_icis_engine.repository.users.DepartmentRepository;
-import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentAccountRepository;
 import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
-import com.jingyicare.jingyi_icis_engine.service.users.DepartmentCommand;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
@@ -70,7 +57,6 @@ class BgaMetaServiceTests extends TestsBase {
                 10000));
         }
         trackedRepository = mock(BgaParamRepository.class, delegatesTo(repository));
-        trackedExecutor = spy(executor);
         service = configuredService(List.of(FIRST_CODE, SECOND_CODE, FIRST_CODE));
     }
 
@@ -80,11 +66,11 @@ class BgaMetaServiceTests extends TestsBase {
     }
 
     @Test
-    void missingDefaultsAreAppendedAndRepeatedInitializationDoesNotLockOrWrite() {
+    void missingDefaultsAreAppendedAndRepeatedInitializationDoesNotWrite() {
         BgaParam existing = repository.saveAndFlush(paramBuilder(FIRST_CODE, 4)
             .enabled(true).lisResultCode("existing-lis").modifiedBy("existing-user").build());
 
-        service.initBgaParams(DEPT_ID);
+        initialize();
         List<BgaParam> initialized = repository
             .findByDeptIdAndIsDeletedFalseOrderByDisplayOrder(DEPT_ID);
 
@@ -98,30 +84,19 @@ class BgaMetaServiceTests extends TestsBase {
         assertThat(initialized.getLast().getEnabled()).isFalse();
         assertThat(initialized.getLast().getLisResultCode()).isNull();
         assertThat(initialized.getLast().getModifiedBy()).isEqualTo("system");
-        verify(trackedRepository, times(2))
+        verify(trackedRepository)
             .findByDeptIdAndIsDeletedFalseOrderByDisplayOrder(DEPT_ID);
         verify(trackedRepository).saveAll(any());
         verifyNoMoreInteractions(trackedRepository);
-        verify(trackedExecutor).execute(eq(List.of(LockKeys.bgaParam(DEPT_ID))), any());
 
-        clearInvocations(trackedRepository, trackedExecutor);
-        Statistics statistics = entityManagerFactory.unwrap(SessionFactory.class).getStatistics();
-        boolean statisticsEnabled = statistics.isStatisticsEnabled();
-        statistics.setStatisticsEnabled(true);
-        try {
-            long previousStatements = statistics.getPrepareStatementCount();
-            service.initBgaParams(DEPT_ID);
-            assertThat(statistics.getPrepareStatementCount() - previousStatements).isEqualTo(1);
-        } finally {
-            statistics.setStatisticsEnabled(statisticsEnabled);
-        }
+        clearInvocations(trackedRepository);
+        initialize();
         List<BgaParam> reread = repository
             .findByDeptIdAndIsDeletedFalseOrderByDisplayOrder(DEPT_ID);
         assertThat(reread).extracting(BgaParam::getId)
             .containsExactlyElementsOf(initialized.stream().map(BgaParam::getId).toList());
         verify(trackedRepository).findByDeptIdAndIsDeletedFalseOrderByDisplayOrder(DEPT_ID);
         verifyNoMoreInteractions(trackedRepository);
-        verifyNoInteractions(trackedExecutor);
     }
 
     @Test
@@ -130,7 +105,7 @@ class BgaMetaServiceTests extends TestsBase {
             .enabled(true).lisResultCode("old-lis").isDeleted(true)
             .deletedBy("old-user").deletedAt(TimeUtils.getNowUtc()).build());
 
-        service.initBgaParams(DEPT_ID);
+        initialize();
         List<BgaParam> params = repository
             .findByDeptIdAndIsDeletedFalseOrderByDisplayOrder(DEPT_ID);
 
@@ -154,7 +129,7 @@ class BgaMetaServiceTests extends TestsBase {
     @Test
     void concurrentInitializationRechecksMissingCodesAndWritesOnlyOneBatch() throws Exception {
         Supplier<Integer> initialize = () -> {
-            service.initBgaParams(DEPT_ID);
+            initialize();
             return StatusCode.OK_VALUE;
         };
         assertThat(runContending(initialize, initialize))
@@ -165,78 +140,17 @@ class BgaMetaServiceTests extends TestsBase {
         assertThat(params).extracting(BgaParam::getMonitoringParamCode)
             .containsExactly(FIRST_CODE, SECOND_CODE);
         assertThat(params).extracting(BgaParam::getDisplayOrder).containsExactly(1, 2);
-        verify(trackedRepository, times(4))
+        verify(trackedRepository, times(2))
             .findByDeptIdAndIsDeletedFalseOrderByDisplayOrder(DEPT_ID);
         verify(trackedRepository).saveAll(any());
         verifyNoMoreInteractions(trackedRepository);
-        verify(trackedExecutor, times(2))
-            .execute(eq(List.of(LockKeys.bgaParam(DEPT_ID))), any());
     }
 
-    @Test
-    void bgaFailureRollsBackOnlyInitializationAndAllowsIndependentRetry() {
-        DepartmentCommand operator = departmentOperator(departmentInfoRepository);
-        doAnswer(invocation -> {
-            Iterable<BgaParam> params = invocation.getArgument(0);
-            repository.saveAllAndFlush(params);
-            throw new IllegalStateException("模拟血气初始化失败");
-        }).when(trackedRepository).saveAll(any());
-
-        assertThatThrownBy(() -> operator.addDepartment(rollbackDepartment(), "test-user"))
-            .isInstanceOf(IllegalStateException.class).hasMessage("模拟血气初始化失败");
-
-        assertThat(departmentInfoRepository.findByDeptIdAndIsDeletedFalse(ROLLBACK_DEPT_ID))
-            .hasValueSatisfying(department ->
-                assertThat(department.getModifiedBy()).isEqualTo("test-user"));
-        assertThat(departmentRepository.findByDeptId(ROLLBACK_DEPT_ID)).isPresent();
-        assertThat(repository.findByDeptIdAndIsDeletedFalseOrderByDisplayOrder(ROLLBACK_DEPT_ID))
-            .isEmpty();
-        verify(trackedExecutor).execute(eq(List.of(
-            LockKeys.departments(), LockKeys.department(ROLLBACK_DEPT_ID))), any());
-        verify(trackedExecutor).execute(eq(List.of(LockKeys.bgaParam(ROLLBACK_DEPT_ID))), any());
-
-        doAnswer(invocation -> {
-            Iterable<BgaParam> params = invocation.getArgument(0);
-            return repository.saveAll(params);
-        }).when(trackedRepository).saveAll(any());
-        service.initBgaParams(ROLLBACK_DEPT_ID);
-        assertThat(repository.findByDeptIdAndIsDeletedFalseOrderByDisplayOrder(ROLLBACK_DEPT_ID))
-            .hasSize(2);
-    }
-
-    @Test
-    void departmentFailureRollsBackAndDoesNotStartBgaInitialization() {
-        DepartmentRepository failingRepository =
-            mock(DepartmentRepository.class, delegatesTo(departmentInfoRepository));
-        doAnswer(invocation -> {
-            Department department = invocation.getArgument(0);
-            departmentInfoRepository.saveAndFlush(department);
-            throw new IllegalStateException("模拟科室保存失败");
-        }).when(failingRepository).save(any(Department.class));
-        DepartmentCommand operator = departmentOperator(failingRepository);
-
-        assertThatThrownBy(() -> operator.addDepartment(rollbackDepartment(), "test-user"))
-            .isInstanceOf(IllegalStateException.class).hasMessage("模拟科室保存失败");
-
-        assertThat(departmentInfoRepository.findByDeptIdAndIsDeletedFalse(ROLLBACK_DEPT_ID))
-            .isEmpty();
-        assertThat(departmentRepository.findByDeptId(ROLLBACK_DEPT_ID)).isEmpty();
-        verifyNoInteractions(trackedRepository);
-        verify(trackedExecutor).execute(eq(List.of(
-            LockKeys.departments(), LockKeys.department(ROLLBACK_DEPT_ID))), any());
-        verifyNoMoreInteractions(trackedExecutor);
-    }
-
-    private DepartmentPB rollbackDepartment() {
-        return DepartmentPB.newBuilder()
-            .setDeptId(ROLLBACK_DEPT_ID).setDeptName("血气事务边界测试").setAbbreviation("血气")
-            .setHospitalName("测试医院").build();
-    }
-
-    private DepartmentCommand departmentOperator(DepartmentRepository infoRepository) {
-        return new DepartmentCommand(infoRepository, departmentRepository,
-            mock(RbacDepartmentAccountRepository.class), mock(DepartmentAccountRepository.class),
-            service, trackedExecutor);
+    private void initialize() {
+        executor.execute(List.of(LockKeys.bgaParam(DEPT_ID)), () -> {
+            service.initDept(DEPT_ID);
+            return null;
+        });
     }
 
     private BgaMetaService configuredService(List<String> codes) {
@@ -245,7 +159,7 @@ class BgaMetaServiceTests extends TestsBase {
             protoService.getConfig().getBga().toBuilder()
                 .clearBgaParamCode().addAllBgaParamCode(codes)).build())
             .when(configured).getConfig();
-        return new BgaMetaService(configured, trackedRepository, trackedExecutor);
+        return new BgaMetaService(configured, trackedRepository);
     }
 
     private BgaParam.BgaParamBuilder paramBuilder(String code, int displayOrder) {
@@ -320,13 +234,10 @@ class BgaMetaServiceTests extends TestsBase {
 
     private BgaMetaService service;
     private BgaParamRepository trackedRepository;
-    private LockExecutor trackedExecutor;
     @Autowired private ConfigProtoService protoService;
     @Autowired private BgaParamRepository repository;
     @Autowired private MonitoringParamRepository monitoringParamRepository;
     @Autowired private RbacDepartmentRepository departmentRepository;
-    @Autowired private DepartmentRepository departmentInfoRepository;
     @Autowired private LockExecutor executor;
     @Autowired private JdbcTemplate jdbcTemplate;
-    @Autowired private EntityManagerFactory entityManagerFactory;
 }

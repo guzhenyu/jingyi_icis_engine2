@@ -12,17 +12,18 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import com.jingyicare.jingyi_icis_engine.entity.patients.*;
+import com.jingyicare.jingyi_icis_engine.entity.users.RbacDepartment;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingScore.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
-
-import com.jingyicare.jingyi_icis_engine.entity.patients.*;
-import com.jingyicare.jingyi_icis_engine.entity.users.RbacDepartment;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.scores.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
+import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.testutils.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -31,6 +32,7 @@ public class ScoreServiceTests extends TestsBase {
         @Autowired ConfigProtoService protoService,
         @Autowired ScoreService scoreService,
         @Autowired ScoreMetaService scoreMetaService,
+        @Autowired LockExecutor lockExecutor,
         @Autowired PatientScoreRepository patientScoreRepo,
         @Autowired RbacDepartmentRepository rbacDepartmentRepo,
         @Autowired PatientRecordRepository patientRepo
@@ -42,6 +44,7 @@ public class ScoreServiceTests extends TestsBase {
         this.protoService = protoService;
         this.scoreService = scoreService;
         this.scoreMetaService = scoreMetaService;
+        this.lockExecutor = lockExecutor;
         this.patientScoreRepo = patientScoreRepo;
         this.rbacDepartmentRepo = rbacDepartmentRepo;
         this.patientRepo = patientRepo;
@@ -431,8 +434,12 @@ public class ScoreServiceTests extends TestsBase {
         dept2.setDeptName("dept-2");
         rbacDepartmentRepo.save(dept2);
 
-        scoreMetaService.initDept(deptId);
-        scoreMetaService.initDept(deptId2);
+        for (String code : List.of(deptId, deptId2)) {
+            lockExecutor.execute(List.of(LockKeys.deptScoreGroup(code)), () -> {
+                scoreMetaService.initDept(code);
+                return null;
+            });
+        }
     }
 
     private void initPatient() {
@@ -451,6 +458,7 @@ public class ScoreServiceTests extends TestsBase {
     private final String deptId2;
     private Long pid;
 
+    private final LockExecutor lockExecutor;
     private final ConfigProtoService protoService;
     private final ScoreService scoreService;
     private final ScoreMetaService scoreMetaService;

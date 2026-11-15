@@ -41,6 +41,8 @@ import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentReposito
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.BgaMetaService;
+import com.jingyicare.jingyi_icis_engine.service.nursingrecords.NursingOrderTemplateService;
+import com.jingyicare.jingyi_icis_engine.service.scores.ScoreMetaService;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 
 @SpringBootTest(properties = "jingyi.test.postgresql.database-name=department_command_test")
@@ -174,7 +176,8 @@ class DepartmentCommandTests extends TestsBase {
             throw new IllegalStateException("模拟RBAC保存失败");
         }).when(failing).save(any(RbacDepartment.class));
         DepartmentCommand command = new DepartmentCommand(
-            deptRepo, failing, membershipRepo, businessMembershipRepo, bgaMetaService, locks);
+            deptRepo, failing, membershipRepo, businessMembershipRepo, bgaMetaService,
+            scoreMetaService, nursingTemplateService, locks);
 
         assertThatThrownBy(() -> command.updateDepartment(firstId(), FIRST, UPDATED_NAME,
             "新简称", "", "", "测试医院", OPERATOR)).hasMessage("模拟RBAC保存失败");
@@ -192,7 +195,8 @@ class DepartmentCommandTests extends TestsBase {
             throw new IllegalStateException("模拟RBAC删除失败");
         }).when(failing).deleteById(FIRST);
         DepartmentCommand command = new DepartmentCommand(
-            deptRepo, failing, membershipRepo, businessMembershipRepo, bgaMetaService, locks);
+            deptRepo, failing, membershipRepo, businessMembershipRepo, bgaMetaService,
+            scoreMetaService, nursingTemplateService, locks);
 
         assertThatThrownBy(() -> command.deleteDepartment(FIRST, OPERATOR))
             .hasMessage("模拟RBAC删除失败");
@@ -232,7 +236,7 @@ class DepartmentCommandTests extends TestsBase {
             () -> commands.addDepartment(department(THIRD), OPERATOR),
             () -> commands.addDepartment(department(FOURTH), OPERATOR)), () -> {}))
             .containsExactlyInAnyOrder(StatusCode.OK, StatusCode.DEPARTMENT_ALREADY_EXISTS);
-        verify(bgaMetaService, times(1)).initBgaParams(anyString());
+        verify(bgaMetaService, times(1)).initDept(anyString());
     }
 
     private List<StatusCode> runBlocked(
@@ -345,4 +349,6 @@ class DepartmentCommandTests extends TestsBase {
     @Autowired private JdbcTemplate jdbc;
     @Autowired private LockExecutor locks;
     @MockBean private BgaMetaService bgaMetaService;
+    @MockBean private ScoreMetaService scoreMetaService;
+    @MockBean private NursingOrderTemplateService nursingTemplateService;
 }
