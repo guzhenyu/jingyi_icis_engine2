@@ -1,6 +1,6 @@
 package com.jingyicare.jingyi_icis_engine.service.patients;
 
-import static com.jingyicare.jingyi_icis_engine.service.patients.DeviceEnums.*;
+import static com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceEnums.*;
 
 import java.time.LocalDateTime;
 import java.util.*;
@@ -56,12 +56,6 @@ public class PatientDeviceService {
         Config config = protoConfig.getConfig();
         this.statusCodeMsgList = config.getText().getStatusCodeMsgList();
         this.ZONE_ID = config.getZoneId();
-        this.CENTRAL_STATION_DEVICE_TYPE = config.getDevice().getDeviceCascade().getEntryList()
-            .stream()
-            .filter(entry -> entry.getDeviceTypeName().equals("中央站"))
-            .map(DeviceTypeEntryPB::getDeviceTypeId)
-            .findFirst()
-            .orElse(0);
 
         this.patientConfig = patientConfig;
         this.userQuery = userQuery;
@@ -1266,7 +1260,7 @@ public class PatientDeviceService {
             log.error("Upstream device must be a direct source: {}", upstreamDeviceId);
             return StatusCode.DEVICE_SOURCE_CONFIG_INVALID;
         }
-        if (!Objects.equals(upstreamDevice.getDeviceType(), CENTRAL_STATION_DEVICE_TYPE)) {
+        if (!Objects.equals(upstreamDevice.getDeviceType(), DEVICE_TYPE_CENTRAL_STATION)) {
             log.error("Upstream device is not a central station: {}", upstreamDeviceId);
             return StatusCode.DEVICE_SOURCE_CONFIG_INVALID;
         }
@@ -1274,7 +1268,6 @@ public class PatientDeviceService {
     }
 
     private final String ZONE_ID;
-    private final Integer CENTRAL_STATION_DEVICE_TYPE;
 
     private final List<String> statusCodeMsgList;
     private final PatientConfig patientConfig;

@@ -82,7 +82,7 @@ message DeviceDriverPB {
 
 // 设备类型及其驱动列表
 message DeviceTypeEntryPB {
-  int32 device_type_id = 1;  // 设备类型
+  int32 device_type_id = 1;  // 设备类型 ID，必须取自 DeviceEnums 中定义的 DEVICE_TYPE_* 常量
   string device_type_name = 2;  // 设备类型名称
   repeated DeviceDriverPB driver = 3; // 该类型下的所有驱动
 }

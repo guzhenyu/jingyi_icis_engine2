@@ -1,6 +1,7 @@
 package com.jingyicare.jingyi_icis_engine.service.patients;
 
 import static com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums.*;
+import static com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceEnums.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.*;
@@ -19,7 +20,6 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
-import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.service.certs.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.testutils.*;
@@ -27,7 +27,6 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 
 public class PatientDeviceServiceTests extends TestsBase {
     public PatientDeviceServiceTests(
-        @Autowired ConfigProtoService protoService,
         @Autowired PatientService patientService,
         @Autowired PatientDeviceService patientDeviceService,
         @Autowired PatientConfig patientConfig,
@@ -46,16 +45,7 @@ public class PatientDeviceServiceTests extends TestsBase {
 
         this.BED_TYPE_FIXED = 1;
         this.BED_TYPE_TEMP = 2;
-        this.MONITOR_DEVICE_TYPE = 1;
-        this.VENTILATOR_DEVICE_TYPE = 2;
-        this.CENTRAL_STATION_DEVICE_TYPE = protoService.getConfig().getDevice().getDeviceCascade().getEntryList()
-            .stream()
-            .filter(entry -> entry.getDeviceTypeName().equals("中央站"))
-            .map(DeviceTypeEntryPB::getDeviceTypeId)
-            .findFirst()
-            .orElse(0);
 
-        this.protoService = protoService;
         this.patientService = patientService;
         this.patientDeviceService = patientDeviceService;
         this.patientConfig = patientConfig;
@@ -274,12 +264,12 @@ public class PatientDeviceServiceTests extends TestsBase {
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         // 添加设备信息
-        DeviceInfoPB devInfoPB1 = newDevInfoPB(devDeptId1, 101, MONITOR_DEVICE_TYPE);
-        DeviceInfoPB devInfoPB2 = newDevInfoPB(devDeptId1, 102, MONITOR_DEVICE_TYPE);
+        DeviceInfoPB devInfoPB1 = newDevInfoPB(devDeptId1, 101, DEVICE_TYPE_MONITOR);
+        DeviceInfoPB devInfoPB2 = newDevInfoPB(devDeptId1, 102, DEVICE_TYPE_MONITOR);
         devInfoPB2 = devInfoPB2.toBuilder().setDeviceBedNumber("devBedNumber1401").build();  // name to be updated
-        DeviceInfoPB devInfoPB3 = newDevInfoPB(devDeptId1, 103, VENTILATOR_DEVICE_TYPE);
-        DeviceInfoPB devInfoPB4 = newDevInfoPB(devDeptId2, 104, MONITOR_DEVICE_TYPE);
-        DeviceInfoPB devInfoPB5 = newDevInfoPB(devDeptId2, 105, MONITOR_DEVICE_TYPE);  // to be deleted
+        DeviceInfoPB devInfoPB3 = newDevInfoPB(devDeptId1, 103, DEVICE_TYPE_VENTILATOR);
+        DeviceInfoPB devInfoPB4 = newDevInfoPB(devDeptId2, 104, DEVICE_TYPE_MONITOR);
+        DeviceInfoPB devInfoPB5 = newDevInfoPB(devDeptId2, 105, DEVICE_TYPE_MONITOR);  // 待删除
 
         List<Integer> devIds = new ArrayList<>();
         for (DeviceInfoPB devInfo : List.of(devInfoPB1, devInfoPB2, devInfoPB3, devInfoPB4, devInfoPB5)) {
@@ -350,7 +340,8 @@ public class PatientDeviceServiceTests extends TestsBase {
         assertThat(getDevResp.getInlineDevList().get(0).getDevice().getDeviceName()).isEqualTo("device-name-104");
 
         // 查询设备信息 - 按类型
-        getDevReq = GetDeviceInfoReq.newBuilder().setDeptId(devDeptId1).setDeviceType(MONITOR_DEVICE_TYPE).build();
+        getDevReq = GetDeviceInfoReq.newBuilder()
+            .setDeptId(devDeptId1).setDeviceType(DEVICE_TYPE_MONITOR).build();
         getDevReqJson = ProtoUtils.protoToJson(getDevReq);
         getDevResp = patientDeviceService.getDeviceInfo(getDevReqJson);
         assertThat(getDevResp.getRt().getCode()).isEqualTo(0);
@@ -380,8 +371,8 @@ public class PatientDeviceServiceTests extends TestsBase {
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         // 添加设备信息
-        DeviceInfoPB devInfoPB1 = newDevInfoPB(devDeptId3, 201, MONITOR_DEVICE_TYPE);
-        DeviceInfoPB devInfoPB2 = newDevInfoPB(devDeptId3, 202, VENTILATOR_DEVICE_TYPE);
+        DeviceInfoPB devInfoPB1 = newDevInfoPB(devDeptId3, 201, DEVICE_TYPE_MONITOR);
+        DeviceInfoPB devInfoPB2 = newDevInfoPB(devDeptId3, 202, DEVICE_TYPE_VENTILATOR);
         List<Integer> devIds = new ArrayList<>();
         for (DeviceInfoPB devInfo : List.of(devInfoPB1, devInfoPB2)) {
             AddDeviceInfoReq addDevReq = AddDeviceInfoReq.newBuilder().setDeviceInfo(devInfo).build();
@@ -536,8 +527,8 @@ public class PatientDeviceServiceTests extends TestsBase {
         SecurityContextHolder.getContext().setAuthentication(authentication);
         final String upstreamRuleDeptId = "10099";
 
-        DeviceInfoPB directCentral = newDevInfoPB(upstreamRuleDeptId, 301, CENTRAL_STATION_DEVICE_TYPE)
-            .toBuilder()
+        DeviceInfoPB directCentral = newDevInfoPB(
+            upstreamRuleDeptId, 301, DEVICE_TYPE_CENTRAL_STATION).toBuilder()
             .setSourceMode(1)
             .setSourceTopology(2)
             .setUpstreamDeviceId(0)
@@ -548,8 +539,8 @@ public class PatientDeviceServiceTests extends TestsBase {
         assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         int directCentralId = addResp.getId();
 
-        DeviceInfoPB indirectCentral = newDevInfoPB(upstreamRuleDeptId, 302, CENTRAL_STATION_DEVICE_TYPE)
-            .toBuilder()
+        DeviceInfoPB indirectCentral = newDevInfoPB(
+            upstreamRuleDeptId, 302, DEVICE_TYPE_CENTRAL_STATION).toBuilder()
             .setSourceMode(3)
             .setSourceTopology(2)
             .setUpstreamDeviceId(directCentralId)
@@ -560,7 +551,7 @@ public class PatientDeviceServiceTests extends TestsBase {
         assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         int indirectCentralId = addResp.getId();
 
-        DeviceInfoPB downstreamDevice = newDevInfoPB(upstreamRuleDeptId, 303, MONITOR_DEVICE_TYPE)
+        DeviceInfoPB downstreamDevice = newDevInfoPB(upstreamRuleDeptId, 303, DEVICE_TYPE_MONITOR)
             .toBuilder()
             .setSourceMode(3)
             .setSourceTopology(2)
@@ -571,7 +562,7 @@ public class PatientDeviceServiceTests extends TestsBase {
         );
         assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
-        DeviceInfoPB directWithUpstream = newDevInfoPB(upstreamRuleDeptId, 304, MONITOR_DEVICE_TYPE)
+        DeviceInfoPB directWithUpstream = newDevInfoPB(upstreamRuleDeptId, 304, DEVICE_TYPE_MONITOR)
             .toBuilder()
             .setSourceMode(1)
             .setSourceTopology(1)
@@ -582,7 +573,7 @@ public class PatientDeviceServiceTests extends TestsBase {
         );
         assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.DEVICE_SOURCE_CONFIG_INVALID.ordinal());
 
-        DeviceInfoPB upstreamNotSource = newDevInfoPB(upstreamRuleDeptId, 305, MONITOR_DEVICE_TYPE)
+        DeviceInfoPB upstreamNotSource = newDevInfoPB(upstreamRuleDeptId, 305, DEVICE_TYPE_MONITOR)
             .toBuilder()
             .setSourceMode(3)
             .setSourceTopology(2)
@@ -630,11 +621,7 @@ public class PatientDeviceServiceTests extends TestsBase {
 
     private final Integer BED_TYPE_FIXED;
     private final Integer BED_TYPE_TEMP;
-    private final Integer MONITOR_DEVICE_TYPE;
-    private final Integer VENTILATOR_DEVICE_TYPE;
-    private final Integer CENTRAL_STATION_DEVICE_TYPE;
 
-    private final ConfigProtoService protoService;
     private final PatientService patientService;
     private final PatientDeviceService patientDeviceService;
     private final PatientConfig patientConfig;

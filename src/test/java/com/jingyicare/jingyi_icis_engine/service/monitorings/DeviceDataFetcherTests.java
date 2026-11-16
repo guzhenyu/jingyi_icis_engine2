@@ -19,6 +19,7 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
+import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceEnums;
 import com.jingyicare.jingyi_icis_engine.testutils.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -176,7 +177,7 @@ public class DeviceDataFetcherTests extends TestsBase {
         DeviceInfo devInfoA = DeviceInfo.builder()
             .departmentId(deptId)
             .deviceSn("deviceSn-A")
-            .deviceType(2)  // 呼吸机
+            .deviceType(DeviceEnums.DEVICE_TYPE_VENTILATOR)
             .deviceName("Device A")
             .isDeleted(false)
             .build();
@@ -185,7 +186,7 @@ public class DeviceDataFetcherTests extends TestsBase {
         DeviceInfo devInfoB = DeviceInfo.builder()
             .departmentId(deptId)
             .deviceSn("deviceSn-B")
-            .deviceType(2)  // 呼吸机
+            .deviceType(DeviceEnums.DEVICE_TYPE_VENTILATOR)
             .deviceName("Device B")
             .isDeleted(false)
             .build();
@@ -315,15 +316,15 @@ public class DeviceDataFetcherTests extends TestsBase {
 
         // 2) 非近似参数保持原样
         deviceDataList.add(new DeviceData(
-            null, deptId, null, 1, "hisBedNumber2204", "code1",
+            null, deptId, null, DeviceEnums.DEVICE_TYPE_MONITOR, "hisBedNumber2204", "code1",
             TimeUtils.getLocalTime(2025, 8, 6, 0, 10), "code1-val1", ""
         ));
         deviceDataList.add(new DeviceData(
-            null, deptId, null, 1, "hisBedNumber2204", "code1",
+            null, deptId, null, DeviceEnums.DEVICE_TYPE_MONITOR, "hisBedNumber2204", "code1",
             TimeUtils.getLocalTime(2025, 8, 6, 2, 0), "code1-val2", ""
         ));
         deviceDataList.add(new DeviceData(
-            null, deptId, null, 1, "hisBedNumber2204", "code2",
+            null, deptId, null, DeviceEnums.DEVICE_TYPE_MONITOR, "hisBedNumber2204", "code2",
             TimeUtils.getLocalTime(2025, 8, 6, 3, 0), "code2-val1", ""
         ));
         result = fetcher.getMergedDeviceData(ctx, deviceDataList);
@@ -339,19 +340,19 @@ public class DeviceDataFetcherTests extends TestsBase {
         // 3) 高优覆盖(Notes优先)：code1 和 code2 同时有值时，code1的值覆盖code2的值
         deviceDataList = new ArrayList<>();
         deviceDataList.add(new DeviceData(
-            null, deptId, null, 1, "hisBedNumber2204", "code1",
+            null, deptId, null, DeviceEnums.DEVICE_TYPE_MONITOR, "hisBedNumber2204", "code1",
             TimeUtils.getLocalTime(2025, 8, 6, 0, 10), "code1-val1", ""
         ));
         deviceDataList.add(new DeviceData(
-            null, deptId, null, 1, "hisBedNumber2204", "code1",
+            null, deptId, null, DeviceEnums.DEVICE_TYPE_MONITOR, "hisBedNumber2204", "code1",
             TimeUtils.getLocalTime(2025, 8, 6, 2, 0), "code1-val2", ""
         ));
         deviceDataList.add(new DeviceData(
-            null, deptId, null, 1, "hisBedNumber2204", "code2",
+            null, deptId, null, DeviceEnums.DEVICE_TYPE_MONITOR, "hisBedNumber2204", "code2",
             TimeUtils.getLocalTime(2025, 8, 6, 2, 0), "code2-val1", ""
         ));
         deviceDataList.add(new DeviceData(
-            null, deptId, null, 1, "hisBedNumber2204", "code2",
+            null, deptId, null, DeviceEnums.DEVICE_TYPE_MONITOR, "hisBedNumber2204", "code2",
             TimeUtils.getLocalTime(2025, 8, 6, 3, 0), "code2-val2", ""
         ));
         fetcher.resetAliasCodeMapForTesting(Collections.singletonMap("code1", Arrays.asList("code2")));
@@ -374,7 +375,7 @@ public class DeviceDataFetcherTests extends TestsBase {
         fetcher.resetApproxSecondsForTesting(30);
         deviceDataList = new ArrayList<>();
         deviceDataList.add(new DeviceData(
-            null, deptId, null, 1, "hisBedNumber2204", "approxCode1",
+            null, deptId, null, DeviceEnums.DEVICE_TYPE_MONITOR, "hisBedNumber2204", "approxCode1",
             TimeUtils.getLocalTime(2025, 8, 6, 0, 10), "approxCode1-val1", ""
         ));
         result = fetcher.getMergedDeviceData(ctx, deviceDataList);
@@ -387,11 +388,11 @@ public class DeviceDataFetcherTests extends TestsBase {
         fetcher.resetApproxSecondsForTesting(30);
         deviceDataList = new ArrayList<>();
         deviceDataList.add(new DeviceData(
-            null, deptId, null, 1, "hisBedNumber2204", "approxCode1",
+            null, deptId, null, DeviceEnums.DEVICE_TYPE_MONITOR, "hisBedNumber2204", "approxCode1",
             TimeUtils.getLocalTime(2025, 8, 6, 0, 9).withSecond(50), "approxCode1-val1", ""
         ));
         deviceDataList.add(new DeviceData(
-            null, deptId, null, 1, "hisBedNumber2204", "approxCode1",
+            null, deptId, null, DeviceEnums.DEVICE_TYPE_MONITOR, "hisBedNumber2204", "approxCode1",
             TimeUtils.getLocalTime(2025, 8, 6, 0, 10).withSecond(5), "approxCode1-val2", ""
         ));
         result = fetcher.getMergedDeviceData(ctx, deviceDataList);
@@ -402,11 +403,11 @@ public class DeviceDataFetcherTests extends TestsBase {
 
         deviceDataList = new ArrayList<>();
         deviceDataList.add(new DeviceData(
-            null, deptId, null, 1, "hisBedNumber2204", "approxCode1",
+            null, deptId, null, DeviceEnums.DEVICE_TYPE_MONITOR, "hisBedNumber2204", "approxCode1",
             TimeUtils.getLocalTime(2025, 8, 6, 0, 9).withSecond(50), "approxCode1-val1", ""
         ));
         deviceDataList.add(new DeviceData(
-            null, deptId, null, 1, "hisBedNumber2204", "approxCode1",
+            null, deptId, null, DeviceEnums.DEVICE_TYPE_MONITOR, "hisBedNumber2204", "approxCode1",
             TimeUtils.getLocalTime(2025, 8, 6, 0, 10).withSecond(15), "approxCode1-val2", ""
         ));
         result = fetcher.getMergedDeviceData(ctx, deviceDataList);
@@ -418,11 +419,11 @@ public class DeviceDataFetcherTests extends TestsBase {
         // 6) 近似：等距偏左
         deviceDataList = new ArrayList<>();
         deviceDataList.add(new DeviceData(
-            null, deptId, null, 1, "hisBedNumber2204", "approxCode1",
+            null, deptId, null, DeviceEnums.DEVICE_TYPE_MONITOR, "hisBedNumber2204", "approxCode1",
             TimeUtils.getLocalTime(2025, 8, 6, 0, 9).withSecond(50), "approxCode1-val3", ""
         ));
         deviceDataList.add(new DeviceData(
-            null, deptId, null, 1, "hisBedNumber2204", "approxCode1",
+            null, deptId, null, DeviceEnums.DEVICE_TYPE_MONITOR, "hisBedNumber2204", "approxCode1",
             TimeUtils.getLocalTime(2025, 8, 6, 0, 10).withSecond(10), "approxCode1-val4", ""
         ));
         result = fetcher.getMergedDeviceData(ctx, deviceDataList);
@@ -434,11 +435,11 @@ public class DeviceDataFetcherTests extends TestsBase {
         // 7) 近似：窗口外不生成
         deviceDataList = new ArrayList<>();
         deviceDataList.add(new DeviceData(
-            null, deptId, null, 1, "hisBedNumber2204", "approxCode1",
+            null, deptId, null, DeviceEnums.DEVICE_TYPE_MONITOR, "hisBedNumber2204", "approxCode1",
             TimeUtils.getLocalTime(2025, 8, 6, 0, 9).withSecond(20), "approxCode1-val1", ""
         ));
         deviceDataList.add(new DeviceData(
-            null, deptId, null, 1, "hisBedNumber2204", "approxCode1",
+            null, deptId, null, DeviceEnums.DEVICE_TYPE_MONITOR, "hisBedNumber2204", "approxCode1",
             TimeUtils.getLocalTime(2025, 8, 6, 0, 10).withSecond(35), "approxCode1-val2", ""
         ));
         result = fetcher.getMergedDeviceData(ctx, deviceDataList);
@@ -449,7 +450,7 @@ public class DeviceDataFetcherTests extends TestsBase {
         // 8) 近似：j==last 分支（最后一条在右侧/左侧）
         deviceDataList = new ArrayList<>();
         deviceDataList.add(new DeviceData(
-            null, deptId, null, 1, "hisBedNumber2204", "approxCode1",
+            null, deptId, null, DeviceEnums.DEVICE_TYPE_MONITOR, "hisBedNumber2204", "approxCode1",
             TimeUtils.getLocalTime(2025, 8, 6, 0, 9).withSecond(40), "approxCode1-val1", ""
         ));
         result = fetcher.getMergedDeviceData(ctx, deviceDataList);
@@ -465,11 +466,11 @@ public class DeviceDataFetcherTests extends TestsBase {
         fetcher.resetApproxSecondsForTesting(3600);
         deviceDataList = new ArrayList<>();
         deviceDataList.add(new DeviceData(
-            null, deptId, null, 1, "hisBedNumber2204", "approxCode1",
+            null, deptId, null, DeviceEnums.DEVICE_TYPE_MONITOR, "hisBedNumber2204", "approxCode1",
             TimeUtils.getLocalTime(2025, 8, 6, 1, 0), "approxCode1-val1", ""
         ));
         deviceDataList.add(new DeviceData(
-            null, deptId, null, 1, "hisBedNumber2204", "approxCode1",
+            null, deptId, null, DeviceEnums.DEVICE_TYPE_MONITOR, "hisBedNumber2204", "approxCode1",
             TimeUtils.getLocalTime(2025, 8, 6, 2, 0), "approxCode1-val2", ""
         ));
         result = fetcher.getMergedDeviceData(ctx, deviceDataList);
@@ -487,7 +488,7 @@ public class DeviceDataFetcherTests extends TestsBase {
         fetcher.resetAliasCodeMapForTesting(Collections.singletonMap("code1", Arrays.asList("code2", "code3")));
         deviceDataList = new ArrayList<>();
         deviceDataList.add(new DeviceData(
-            null, deptId, null, 1, "hisBedNumber2204", "code1",
+            null, deptId, null, DeviceEnums.DEVICE_TYPE_MONITOR, "hisBedNumber2204", "code1",
             TimeUtils.getLocalTime(2025, 8, 6, 1, 0), "code1-val1", ""
         ));
         result = fetcher.getMergedDeviceData(ctx, deviceDataList);
@@ -508,19 +509,19 @@ public class DeviceDataFetcherTests extends TestsBase {
         ctx.allTimes.add(TimeUtils.getLocalTime(2025, 8, 6, 2, 0));
         deviceDataList = new ArrayList<>();
         deviceDataList.add(new DeviceData(
-            null, deptId, null, 1, "hisBedNumber2204", "code1",
+            null, deptId, null, DeviceEnums.DEVICE_TYPE_MONITOR, "hisBedNumber2204", "code1",
             TimeUtils.getLocalTime(2025, 8, 6, 1, 0), "code1-val1", ""
         ));
         deviceDataList.add(new DeviceData(
-            null, deptId, null, 1, "hisBedNumber2204", "code1",
+            null, deptId, null, DeviceEnums.DEVICE_TYPE_MONITOR, "hisBedNumber2204", "code1",
             TimeUtils.getLocalTime(2025, 8, 6, 2, 0), "code1-val2", ""
         ));
         deviceDataList.add(new DeviceData(
-            null, deptId, null, 1, "hisBedNumber2204", "approxCode1",
+            null, deptId, null, DeviceEnums.DEVICE_TYPE_MONITOR, "hisBedNumber2204", "approxCode1",
             TimeUtils.getLocalTime(2025, 8, 6, 1, 50), "approxCode1-val1", ""
         ));
         deviceDataList.add(new DeviceData(
-            null, deptId, null, 1, "hisBedNumber2204", "approxCode1",
+            null, deptId, null, DeviceEnums.DEVICE_TYPE_MONITOR, "hisBedNumber2204", "approxCode1",
             TimeUtils.getLocalTime(2025, 8, 6, 2, 5), "approxCode1-val2", ""
         ));
         result = fetcher.getMergedDeviceData(ctx, deviceDataList);
@@ -604,7 +605,7 @@ public class DeviceDataFetcherTests extends TestsBase {
         DeviceInfo devInfoA = DeviceInfo.builder()
             .departmentId(deptId)
             .deviceSn("deviceSn-A")
-            .deviceType(2)  // 呼吸机
+            .deviceType(DeviceEnums.DEVICE_TYPE_VENTILATOR)
             .deviceName("Device A")
             .isDeleted(false)
             .build();
@@ -645,7 +646,7 @@ public class DeviceDataFetcherTests extends TestsBase {
         deviceDataList.add(DeviceData.builder()
             .departmentId(deptId)
             .deviceId(null)
-            .deviceType(1)
+            .deviceType(DeviceEnums.DEVICE_TYPE_MONITOR)
             .deviceBedNumber("deviceBedNumber" + hisPid)
             .paramCode("code1")
             .recordedAt(TimeUtils.getLocalTime(2025, 8, 6, 1, 0))
@@ -654,7 +655,7 @@ public class DeviceDataFetcherTests extends TestsBase {
         deviceDataList.add(DeviceData.builder()
             .departmentId(deptId)
             .deviceId(null)
-            .deviceType(1)
+            .deviceType(DeviceEnums.DEVICE_TYPE_MONITOR)
             .deviceBedNumber("deviceBedNumber" + hisPid)
             .paramCode("code1")
             .recordedAt(TimeUtils.getLocalTime(2025, 8, 6, 3, 55))
@@ -666,7 +667,7 @@ public class DeviceDataFetcherTests extends TestsBase {
         deviceDataHourlyList.add(DeviceDataHourly.builder()
             .departmentId(deptId)
             .deviceId(null)
-            .deviceType(1)
+            .deviceType(DeviceEnums.DEVICE_TYPE_MONITOR)
             .deviceBedNumber("deviceBedNumber" + hisPid)
             .paramCode("code1")
             .recordedAt(TimeUtils.getLocalTime(2025, 8, 6, 0, 0))
@@ -675,7 +676,7 @@ public class DeviceDataFetcherTests extends TestsBase {
         deviceDataHourlyList.add(DeviceDataHourly.builder()
             .departmentId(deptId)
             .deviceId(null)
-            .deviceType(1)
+            .deviceType(DeviceEnums.DEVICE_TYPE_MONITOR)
             .deviceBedNumber("deviceBedNumber" + hisPid)
             .paramCode("code1")
             .recordedAt(TimeUtils.getLocalTime(2025, 8, 6, 1, 0))
@@ -684,7 +685,7 @@ public class DeviceDataFetcherTests extends TestsBase {
         deviceDataHourlyList.add(DeviceDataHourly.builder()
             .departmentId(deptId)
             .deviceId(null)
-            .deviceType(1)
+            .deviceType(DeviceEnums.DEVICE_TYPE_MONITOR)
             .deviceBedNumber("deviceBedNumber" + hisPid)
             .paramCode("code1")
             .recordedAt(TimeUtils.getLocalTime(2025, 8, 6, 2, 0))
@@ -693,7 +694,7 @@ public class DeviceDataFetcherTests extends TestsBase {
         deviceDataHourlyList.add(DeviceDataHourly.builder()
             .departmentId(deptId)
             .deviceId(null)
-            .deviceType(1)
+            .deviceType(DeviceEnums.DEVICE_TYPE_MONITOR)
             .deviceBedNumber("deviceBedNumber" + hisPid)
             .paramCode("code1")
             .recordedAt(TimeUtils.getLocalTime(2025, 8, 6, 3, 0))
@@ -702,7 +703,7 @@ public class DeviceDataFetcherTests extends TestsBase {
         deviceDataHourlyList.add(DeviceDataHourly.builder()
             .departmentId(deptId)
             .deviceId(null)
-            .deviceType(1)
+            .deviceType(DeviceEnums.DEVICE_TYPE_MONITOR)
             .deviceBedNumber("deviceBedNumber" + hisPid)
             .paramCode("code1")
             .recordedAt(TimeUtils.getLocalTime(2025, 8, 6, 4, 0))
@@ -714,7 +715,7 @@ public class DeviceDataFetcherTests extends TestsBase {
         deviceDataHourlyApproxList.add(DeviceDataHourlyApprox.builder()
             .departmentId(deptId)
             .deviceId(devAId)
-            .deviceType(2)
+            .deviceType(DeviceEnums.DEVICE_TYPE_VENTILATOR)
             .deviceBedNumber(null)
             .paramCode("approxCode1")
             .recordedAt(TimeUtils.getLocalTime(2025, 8, 6, 1, 55))
@@ -723,7 +724,7 @@ public class DeviceDataFetcherTests extends TestsBase {
         deviceDataHourlyApproxList.add(DeviceDataHourlyApprox.builder()
             .departmentId(deptId)
             .deviceId(devAId)
-            .deviceType(2)
+            .deviceType(DeviceEnums.DEVICE_TYPE_VENTILATOR)
             .deviceBedNumber(null)
             .paramCode("approxCode1")
             .recordedAt(TimeUtils.getLocalTime(2025, 8, 6, 2, 55))
@@ -732,7 +733,7 @@ public class DeviceDataFetcherTests extends TestsBase {
         deviceDataHourlyApproxList.add(DeviceDataHourlyApprox.builder()
             .departmentId(deptId)
             .deviceId(devAId)
-            .deviceType(2)
+            .deviceType(DeviceEnums.DEVICE_TYPE_VENTILATOR)
             .deviceBedNumber(null)
             .paramCode("approxCode1")
             .recordedAt(TimeUtils.getLocalTime(2025, 8, 6, 3, 10))
@@ -741,7 +742,7 @@ public class DeviceDataFetcherTests extends TestsBase {
         deviceDataHourlyApproxList.add(DeviceDataHourlyApprox.builder()
             .departmentId(deptId)
             .deviceId(devAId)
-            .deviceType(2)
+            .deviceType(DeviceEnums.DEVICE_TYPE_VENTILATOR)
             .deviceBedNumber(null)
             .paramCode("approxCode1")
             .recordedAt(TimeUtils.getLocalTime(2025, 8, 6, 4, 10))
@@ -809,7 +810,7 @@ public class DeviceDataFetcherTests extends TestsBase {
         devDataHourlyRepo.save(DeviceDataHourly.builder()
             .departmentId(deptId)
             .deviceId(null)
-            .deviceType(1)
+            .deviceType(DeviceEnums.DEVICE_TYPE_MONITOR)
             .deviceBedNumber("deviceBedNumber" + hisPid)
             .paramCode("code1")
             .recordedAt(TimeUtils.getLocalTime(2025, 8, 6, 1, 0))
@@ -819,7 +820,7 @@ public class DeviceDataFetcherTests extends TestsBase {
         devDataRepo.save(DeviceData.builder()
             .departmentId(deptId)
             .deviceId(null)
-            .deviceType(1)
+            .deviceType(DeviceEnums.DEVICE_TYPE_MONITOR)
             .deviceBedNumber("deviceBedNumber" + hisPid)
             .paramCode("code1")
             .recordedAt(TimeUtils.getLocalTime(2025, 8, 6, 1, 55))
@@ -828,7 +829,7 @@ public class DeviceDataFetcherTests extends TestsBase {
         devDataRepo.save(DeviceData.builder()
             .departmentId(deptId)
             .deviceId(null)
-            .deviceType(1)
+            .deviceType(DeviceEnums.DEVICE_TYPE_MONITOR)
             .deviceBedNumber("deviceBedNumber" + hisPid)
             .paramCode("code1")
             .recordedAt(TimeUtils.getLocalTime(2025, 8, 6, 2, 5))
@@ -898,7 +899,7 @@ public class DeviceDataFetcherTests extends TestsBase {
         devDataRepo.save(DeviceData.builder()
             .departmentId(deptId)
             .deviceId(null)
-            .deviceType(1)
+            .deviceType(DeviceEnums.DEVICE_TYPE_MONITOR)
             .deviceBedNumber("deviceBedNumber" + hisPid)
             .paramCode("code1")
             .recordedAt(TimeUtils.getLocalTime(2025, 8, 6, 1, 55))
@@ -956,7 +957,7 @@ public class DeviceDataFetcherTests extends TestsBase {
             DeviceData.builder()
                 .id(100401L)
                 .departmentId(deptId)
-                .deviceType(101)
+                .deviceType(DeviceEnums.DEVICE_TYPE_GENERIC_COLLECTOR)
                 .paramCode("float_code")
                 .recordedAt(TimeUtils.getLocalTime(2025, 8, 6, 1, 0))
                 .recordedStr("-----")
@@ -964,7 +965,7 @@ public class DeviceDataFetcherTests extends TestsBase {
             DeviceData.builder()
                 .id(100402L)
                 .departmentId(deptId)
-                .deviceType(101)
+                .deviceType(DeviceEnums.DEVICE_TYPE_GENERIC_COLLECTOR)
                 .paramCode("float_code")
                 .recordedAt(TimeUtils.getLocalTime(2025, 8, 6, 1, 30))
                 .recordedStr("12.34")

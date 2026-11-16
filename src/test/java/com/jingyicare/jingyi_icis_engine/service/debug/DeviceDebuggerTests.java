@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import com.jingyicare.jingyi_icis_engine.entity.patients.DeviceData;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceInfoPB;
+import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceEnums;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
 class DeviceDebuggerTests {
@@ -30,7 +31,7 @@ class DeviceDebuggerTests {
         DeviceData deviceData = DeviceData.builder()
             .departmentId("ICU")
             .deviceId(18)
-            .deviceType(2)
+            .deviceType(DeviceEnums.DEVICE_TYPE_VENTILATOR)
             .deviceBedNumber("08")
             .paramCode("HR")
             .recordedAt(recordedAt)

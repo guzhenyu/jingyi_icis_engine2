@@ -2326,7 +2326,7 @@ device {
         }
         entry {
             device_type_id: 9
-            device_type_name: "中央站"
+            device_type_name: "测试中央站"
             driver {
                 driver_code: "JY_cms_mindray_egateway"
                 driver_name: "eGateWay"

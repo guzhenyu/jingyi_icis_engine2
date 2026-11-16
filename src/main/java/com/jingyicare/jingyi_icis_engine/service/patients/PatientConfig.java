@@ -28,6 +28,7 @@ import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.settings.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceEnums;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Service
@@ -116,7 +117,7 @@ public class PatientConfig {
 
     @Transactional
     public void checkIntegrity() {
-        if (!checkSystemSettings()) {
+        if (!checkSystemSettings() || !checkDeviceCascade()) {
             log.error("Patient config integrity check failed. Exiting...");
             LogUtils.flushAndQuit(context);
         }
@@ -473,6 +474,18 @@ public class PatientConfig {
     }
 
     private boolean checkSystemSettings() {
+        return true;
+    }
+
+    private boolean checkDeviceCascade() {
+        DeviceCascadePB cascade = protoService.getConfig().getDevice().getDeviceCascade();
+        for (DeviceTypeEntryPB entry : cascade.getEntryList()) {
+            if (!DeviceEnums.isValidDeviceTypeId(entry.getDeviceTypeId())) {
+                log.error("Unknown device_cascade device_type_id {} for '{}'",
+                    entry.getDeviceTypeId(), entry.getDeviceTypeName());
+                return false;
+            }
+        }
         return true;
     }
 

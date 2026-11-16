@@ -1,6 +1,9 @@
 package com.jingyicare.jingyi_icis_engine.service;
 
+import static com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceEnums.*;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
@@ -11,6 +14,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.MockedStatic;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.core.io.ClassPathResource;
 
 import com.google.gson.JsonObject;
@@ -21,6 +26,8 @@ import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceConfigPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceDriverPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceTypeEntryPB;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientConfig;
+import com.jingyicare.jingyi_icis_engine.utils.LogUtils;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
 class ConfigProtoServiceDeviceTests {
@@ -45,20 +52,39 @@ class ConfigProtoServiceDeviceTests {
         assertThat(device.getParamCodeToApproxList()).containsExactly("nibp_s", "nibp_d", "nibp_m");
         assertThat(device.getDeviceCascade().getEntryList())
             .extracting(DeviceTypeEntryPB::getDeviceTypeId)
-            .containsExactly(1, 2, 3, 4, 5, 6, 7, 8, 9, 101);
+            .containsExactly(DEVICE_TYPE_MONITOR, DEVICE_TYPE_VENTILATOR,
+                DEVICE_TYPE_BLOOD_GAS_ANALYZER, DEVICE_TYPE_PICCO, DEVICE_TYPE_ECMO,
+                DEVICE_TYPE_CRRT, DEVICE_TYPE_IMMUNOASSAY_ANALYZER, DEVICE_TYPE_URINE_ANALYZER,
+                DEVICE_TYPE_CENTRAL_STATION, DEVICE_TYPE_GENERIC_COLLECTOR);
         assertThat(device.getDeviceCascade().getEntryList().stream()
             .flatMap(entry -> entry.getDriverList().stream())
             .map(DeviceDriverPB::getDriverCode)
             .toList()).doesNotHaveDuplicates();
 
         DeviceTypeEntryPB centralStation = device.getDeviceCascade().getEntryList().stream()
-            .filter(entry -> entry.getDeviceTypeId() == 9)
+            .filter(entry -> entry.getDeviceTypeId() == DEVICE_TYPE_CENTRAL_STATION)
             .findFirst().orElseThrow();
         assertThat(centralStation.getDriverList()).extracting(DeviceDriverPB::getDriverCode)
             .containsExactly("jd_cms_mindray_egateway", "jd_cms_mindray_pds_realtime",
                 "jd_cms_philips_intellivue", "JY_cms_comen_hl7");
         assertThat(centralStation.getDriverList()).extracting(DeviceDriverPB::getDriverName)
             .containsExactly("eGateway(HL7推送)", "PDS Realtime", "IntelliVue", "科曼中央站");
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 10})
+    void shouldRejectUndefinedCascadeDeviceTypeAtStartup(int deviceTypeId) {
+        Config.Builder config = loadConfig(DEFAULT_CONFIG_PATH, "").toBuilder();
+        config.getDeviceBuilder().getDeviceCascadeBuilder().addEntryBuilder()
+            .setDeviceTypeId(deviceTypeId).setDeviceTypeName("测试设备");
+        ConfigurableApplicationContext context = mock(ConfigurableApplicationContext.class);
+        PatientConfig patientConfig = new PatientConfig(context,
+            new ConfigProtoService(config.build(), null, null), null, null, null, null, null, null);
+
+        try (MockedStatic<LogUtils> logUtils = mockStatic(LogUtils.class)) {
+            patientConfig.checkIntegrity();
+            logUtils.verify(() -> LogUtils.flushAndQuit(context));
+        }
     }
 
     @Test
