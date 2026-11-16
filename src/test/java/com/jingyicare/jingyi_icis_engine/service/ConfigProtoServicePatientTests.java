@@ -20,6 +20,7 @@ import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.protobuf.TextFormat;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
@@ -27,7 +28,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.Patient;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisText.EnumTextPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisText.Text;
 import com.jingyicare.jingyi_icis_engine.repository.medications.IntakeTypeRepository;
-import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnumConverter;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
 class ConfigProtoServicePatientTests {
@@ -45,10 +46,11 @@ class ConfigProtoServicePatientTests {
         }
         assertThat(raw.getPatient().getEnumsV2().getBloodTypeList()).isEmpty();
         assertThat(raw.getPatient().getEnumsV2().getBloodRhList()).isEmpty();
-        ConfigProtoService service = loadConfig(path, "");
-        assertThat(withoutBloodEnums(service.getConfig().getPatient())).isEqualTo(raw.getPatient());
-        assertPublicBloodEnums(service);
-        assertDefaultRhAliases(service.getConfig().getText().getEnumText());
+        ProtoConfig protoConfig = loadConfig(path, "");
+        assertThat(withoutBloodEnums(protoConfig.getConfig().getPatient()))
+            .isEqualTo(raw.getPatient());
+        assertPublicBloodEnums(protoConfig);
+        assertDefaultRhAliases(protoConfig.getConfig().getText().getEnumText());
     }
 
     @Test
@@ -63,11 +65,11 @@ class ConfigProtoServicePatientTests {
             """, external);
         Path file = tempDir.resolve("external.pb.txt");
         Files.writeString(file, external.build().toString(), StandardCharsets.UTF_8);
-        ConfigProtoService service = loadConfig(DEFAULT_CONFIG, file.toString());
-        assertThat(service.getConfig().getZoneId()).isEqualTo("UTC");
-        assertThat(withoutBloodEnums(service.getConfig().getPatient()))
+        ProtoConfig protoConfig = loadConfig(DEFAULT_CONFIG, file.toString());
+        assertThat(protoConfig.getConfig().getZoneId()).isEqualTo("UTC");
+        assertThat(withoutBloodEnums(protoConfig.getConfig().getPatient()))
             .isEqualTo(withoutBloodEnums(external.getPatient()));
-        assertPublicBloodEnums(service);
+        assertPublicBloodEnums(protoConfig);
     }
 
     @Test
@@ -75,11 +77,11 @@ class ConfigProtoServicePatientTests {
         throws Exception {
         Path file = tempDir.resolve("external.pb.txt");
         Files.writeString(file, "zone_id: \"UTC\"\n", StandardCharsets.UTF_8);
-        ConfigProtoService service = loadConfig(DEFAULT_CONFIG, file.toString());
-        assertThat(service.getConfig().getZoneId()).isEqualTo("UTC");
-        assertThat(withoutBloodEnums(service.getConfig().getPatient()))
+        ProtoConfig protoConfig = loadConfig(DEFAULT_CONFIG, file.toString());
+        assertThat(protoConfig.getConfig().getZoneId()).isEqualTo("UTC");
+        assertThat(withoutBloodEnums(protoConfig.getConfig().getPatient()))
             .isEqualTo(withoutBloodEnums(Patient.getDefaultInstance()));
-        assertPublicBloodEnums(service);
+        assertPublicBloodEnums(protoConfig);
     }
 
     @Test
@@ -118,8 +120,8 @@ class ConfigProtoServicePatientTests {
         Files.writeString(file, Config.newBuilder().setText(text).build().toString(),
             StandardCharsets.UTF_8);
 
-        ConfigProtoService service = loadConfig(DEFAULT_CONFIG, file.toString());
-        Text loaded = service.getConfig().getText();
+        ProtoConfig protoConfig = loadConfig(DEFAULT_CONFIG, file.toString());
+        Text loaded = protoConfig.getConfig().getText();
         EnumTextPB loadedAliases = loaded.getEnumText();
         assertThat(loadedAliases.getBloodRhNegativeStrList())
             .containsExactlyElementsOf(hasNegative ? List.of("阴性", "Rh阴") : List.of("RH阴性"));
@@ -131,10 +133,10 @@ class ConfigProtoServicePatientTests {
         } else {
             assertThat(loaded.getStatusCodeMsgList()).startsWith("ok");
         }
-        PatientEnumConverter converter = new PatientEnumConverter(service);
+        PatientEnums converter = new PatientEnums(protoConfig);
         assertThat(converter.getBloodRhName(converter.getBloodRhId(hasNegative ? "阴性" : "阳性")))
             .isEqualTo(hasNegative ? "RH-" : "RH+");
-        assertPublicBloodEnums(service);
+        assertPublicBloodEnums(protoConfig);
     }
 
     @ParameterizedTest
@@ -184,9 +186,9 @@ class ConfigProtoServicePatientTests {
                 enum_text { blood_rh_positive_str: "RH阴性" }
             }
             """, StandardCharsets.UTF_8);
-        ConfigProtoService service = loadConfig(DEFAULT_CONFIG, file.toString());
+        ProtoConfig protoConfig = loadConfig(DEFAULT_CONFIG, file.toString());
 
-        assertThatThrownBy(() -> new PatientEnumConverter(service))
+        assertThatThrownBy(() -> new PatientEnums(protoConfig))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessage("Rh 别名冲突: RH阴性");
     }
@@ -196,17 +198,14 @@ class ConfigProtoServicePatientTests {
         assertThat(aliases.getBloodRhPositiveStrList()).containsExactly("RH阳性");
     }
 
-    private ConfigProtoService loadConfig(String path, String externalPath) {
+    private ProtoConfig loadConfig(String path, String externalPath) {
         return loadConfig(path, externalPath,
             new ClassPathResource("config/pbtxt/common_text.pb.txt"));
     }
 
-    private ConfigProtoService loadConfig(String path, String externalPath, Resource commonText) {
-        IntakeTypeRepository intakeTypes = mock(IntakeTypeRepository.class);
-        when(intakeTypes.findAll()).thenReturn(List.of());
-        ProtoConfig config = new ProtoConfig(null, externalPath, new ClassPathResource(path),
+    private ProtoConfig loadConfig(String path, String externalPath, Resource commonText) {
+        return new ProtoConfig(null, externalPath, new ClassPathResource(path),
             commonText, null, null, null, null, null, StandardCharsets.UTF_8.name());
-        return new ConfigProtoService(config.getConfig(), null, intakeTypes);
     }
 
     private Patient withoutBloodEnums(Patient patient) {
@@ -215,10 +214,15 @@ class ConfigProtoServicePatientTests {
         return builder.build();
     }
 
-    private void assertPublicBloodEnums(ConfigProtoService service) {
+    private void assertPublicBloodEnums(ProtoConfig protoConfig) {
+        IntakeTypeRepository intakeTypes = mock(IntakeTypeRepository.class);
+        when(intakeTypes.findAll()).thenReturn(List.of());
+        ConfigProtoService service = new ConfigProtoService(
+            protoConfig.getConfig(), null, intakeTypes);
         String json = ProtoUtils.protoToJson(service.getWebApiConfig());
         assertThat(json).isNotNull();
-        var enums = JsonParser.parseString(json).getAsJsonObject().getAsJsonObject("patientEnums");
+        JsonObject enums = JsonParser.parseString(json).getAsJsonObject()
+            .getAsJsonObject("patientEnums");
         assertThat(enums.get("bloodType")).isEqualTo(JsonParser.parseString("""
             [{"id":1,"name":"A"},{"id":2,"name":"B"},{"id":3,"name":"O"},{"id":4,"name":"AB"}]
             """));

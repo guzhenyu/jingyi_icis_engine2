@@ -45,7 +45,7 @@ public class PatientService {
     public PatientService(
         ConfigurableApplicationContext context,
         @Autowired ConfigProtoService protoService,
-        @Autowired PatientEnumConverter patientEnumConverter,
+        @Autowired PatientEnums patientEnums,
         @Autowired ConfigShiftUtils shiftUtils,
         @Autowired PatientConfig patientConfig,
         @Autowired PatientSyncService patientSyncService,
@@ -117,7 +117,7 @@ public class PatientService {
         this.DISCHARGE_TYPE_EXIT_HOSPITAL_ID = dischargeType.getId();
 
         this.protoService = protoService;
-        this.patientEnumConverter = patientEnumConverter;
+        this.patientEnums = patientEnums;
         this.statusCodeMsgs = protoService.getConfig().getText().getStatusCodeMsgList();
         this.shiftUtils = shiftUtils;
         this.patientConfig = patientConfig;
@@ -1886,8 +1886,8 @@ public class PatientService {
             builder.setBmi(String.format("%.1f", bmi));
         }
 
-        builder.setBloodType(patientEnumConverter.getBloodTypeId(patient.getBloodType()));
-        builder.setBloodRh(patientEnumConverter.getBloodRhId(patient.getBloodRh()));
+        builder.setBloodType(patientEnums.getBloodTypeId(patient.getBloodType()));
+        builder.setBloodRh(patientEnums.getBloodRhId(patient.getBloodRh()));
         builder.setBsa(patient.getBsa());
         builder.setPastMedicalHistory(patient.getPastMedicalHistory());
         builder.setAllergies(patient.getAllergies());
@@ -1980,8 +1980,8 @@ public class PatientService {
         patient.setWeightType(patientInfo.getWeightType().isEmpty() ? null : patientInfo.getWeightType());
         patient.setWeightIbw(patientInfo.getWeightIbw().isEmpty() ? null : patientInfo.getWeightIbw());
 
-        patient.setBloodType(patientEnumConverter.getBloodTypeName(patientInfo.getBloodType()));
-        patient.setBloodRh(patientEnumConverter.getBloodRhName(patientInfo.getBloodRh()));
+        patient.setBloodType(patientEnums.getBloodTypeName(patientInfo.getBloodType()));
+        patient.setBloodRh(patientEnums.getBloodRhName(patientInfo.getBloodRh()));
         patient.setBsa(patientInfo.getBsa() != 0.0f ? patientInfo.getBsa() : null);
         patient.setPastMedicalHistory(patientInfo.getPastMedicalHistory().isEmpty() 
             ? null : patientInfo.getPastMedicalHistory());
@@ -2188,7 +2188,7 @@ public class PatientService {
     private PatientSyncService patientSyncService;
     private PatientReadmissionService patientReadmissionService;
     private PatientDeviceService patientDeviceService;
-    private final PatientEnumConverter patientEnumConverter;
+    private final PatientEnums patientEnums;
     private PatientRecordRepository patientRecordRepository;
     private BedConfigRepository bedConfigRepository;
     private DiagnosisHistoryRepository diagnosisHistoryRepository;

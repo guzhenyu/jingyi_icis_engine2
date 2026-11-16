@@ -18,7 +18,6 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingScore.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
 
-import com.jingyicare.jingyi_icis_engine.consts.PatientConsts;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.entity.scores.*;
@@ -504,16 +503,16 @@ public class ScoreService {
             log.error("Failed to parse effective time: {}", sgPb.getRecordedAtIso8601());
             return new Pair<>(StatusCode.INVALID_SCORE_RECORD_TIME, null);
         }
-        if ((Objects.equals(admissionStatus, PatientConsts.ADMISSION_STATUS_PRE_ADMISSION) ||
-             Objects.equals(admissionStatus, PatientConsts.ADMISSION_STATUS_ADMITTED)) &&
+        if ((Objects.equals(admissionStatus, PatientEnums.ADMISSION_STATUS_PRE_ADMISSION) ||
+             Objects.equals(admissionStatus, PatientEnums.ADMISSION_STATUS_ADMITTED)) &&
             pr.getAdmissionTime() != null && effectiveTime.isBefore(pr.getAdmissionTime())
         ) {
             log.error("Effective time is before admission time: {}, {}",
                 effectiveTime, pr.getAdmissionTime());
             return new Pair<>(StatusCode.SCORE_RECORD_TIME_IS_BEFORE_ADMISSION_TIME, null);
         }
-        if ((Objects.equals(admissionStatus, PatientConsts.ADMISSION_STATUS_PRE_DISCHARGE) ||
-            Objects.equals(admissionStatus, PatientConsts.ADMISSION_STATUS_DISCHARGED)) &&
+        if ((Objects.equals(admissionStatus, PatientEnums.ADMISSION_STATUS_PRE_DISCHARGE) ||
+            Objects.equals(admissionStatus, PatientEnums.ADMISSION_STATUS_DISCHARGED)) &&
             pr.getDischargeTime() != null && effectiveTime.isAfter(pr.getDischargeTime())
         ) {
             log.error("Effective time is after discharge time: {}, {}",

@@ -15,7 +15,7 @@ import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Component;
 
 import com.google.protobuf.TextFormat;
-import com.jingyicare.jingyi_icis_engine.consts.PatientConsts;
+
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisCustomHospital.CustomHospitalPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceConfigPB;
@@ -25,6 +25,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisCommon.IcisCommonPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisText.EnumTextPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisText.Text;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.UserConfigPB;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
 import com.jingyicare.jingyi_icis_engine.utils.LogUtils;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 
@@ -62,8 +63,8 @@ public class ProtoConfig {
             TextFormat.getParser().merge(reader, builder);
             // 血型字典由固定常量生成；外部旧配置中的同名字段不再作为定义来源
             builder.getPatientBuilder().getEnumsV2Builder()
-                .clearBloodType().addAllBloodType(PatientConsts.BLOOD_TYPES)
-                .clearBloodRh().addAllBloodRh(PatientConsts.BLOOD_RHS);
+                .clearBloodType().addAllBloodType(PatientEnums.BLOOD_TYPES)
+                .clearBloodRh().addAllBloodRh(PatientEnums.BLOOD_RHS);
             this.config = builder.build();
             reader.close();
             log.info("Config loaded successfully");

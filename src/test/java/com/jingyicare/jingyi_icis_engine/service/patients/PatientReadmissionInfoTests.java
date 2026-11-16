@@ -21,6 +21,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.PatientEnumsV2
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.EnumValue;
 import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
 class PatientReadmissionInfoTests {
@@ -50,9 +51,12 @@ class PatientReadmissionInfoTests {
                     .addDischargeType(enumValue(2, "死亡"))
                     .addDischargeType(enumValue(3, "出院"))))
             .build());
+        ProtoConfig protoConfig = mock(ProtoConfig.class);
+        Config config = protoService.getConfig();
+        when(protoConfig.getConfig()).thenReturn(config);
         patientRepo = mock(PatientRecordRepository.class);
         patientService = new PatientService(
-            null, protoService, new PatientEnumConverter(protoService),
+            null, protoService, new PatientEnums(protoConfig),
             null, null, null, null, null, null, null, null,
             patientRepo, null, null, null, null, null, null);
     }
