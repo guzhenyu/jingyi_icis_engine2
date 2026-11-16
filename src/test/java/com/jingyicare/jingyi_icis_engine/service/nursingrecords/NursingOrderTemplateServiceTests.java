@@ -19,7 +19,7 @@ import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.*;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingRecord.*;
 import com.jingyicare.jingyi_icis_engine.repository.nursingrecords.*;
-import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
@@ -33,8 +33,8 @@ class NursingOrderTemplateServiceTests extends TestsBase {
             jdbcTemplate.update(
                 "INSERT INTO rbac_departments(dept_id, dept_name) VALUES (?, ?)", deptId, deptId);
         }
-        protoService = mock(ConfigProtoService.class);
-        when(protoService.getConfig()).thenReturn(Config.newBuilder()
+        protoConfig = mock(ProtoConfig.class);
+        when(protoConfig.getConfig()).thenReturn(Config.newBuilder()
             .setNursingRecord(NursingRecordConfigPB.newBuilder()
                 .addDefaultDeptGroup(NursingRecordTemplateGroupPB.newBuilder()
                     .setName("first-group").setDisplayOrder(9)
@@ -47,7 +47,7 @@ class NursingOrderTemplateServiceTests extends TestsBase {
                     .setName("empty-group")))
             .build());
         service = new NursingOrderTemplateService(
-            protoService, userQuery, templateGroupRepo, templateRepo, lockExecutor);
+            protoConfig, userQuery, templateGroupRepo, templateRepo, lockExecutor);
     }
 
     @AfterEach
@@ -134,9 +134,9 @@ class NursingOrderTemplateServiceTests extends TestsBase {
 
     @Test
     void shouldDoNothingWithoutDefaultGroups() {
-        when(protoService.getConfig()).thenReturn(Config.getDefaultInstance());
+        when(protoConfig.getConfig()).thenReturn(Config.getDefaultInstance());
         service = new NursingOrderTemplateService(
-            protoService, userQuery, templateGroupRepo, templateRepo, lockExecutor);
+            protoConfig, userQuery, templateGroupRepo, templateRepo, lockExecutor);
 
         initialize();
 
@@ -155,7 +155,7 @@ class NursingOrderTemplateServiceTests extends TestsBase {
             throw new IllegalStateException("保存模板失败");
         });
         service = new NursingOrderTemplateService(
-            protoService, userQuery, templateGroupRepo, failingRepo, lockExecutor);
+            protoConfig, userQuery, templateGroupRepo, failingRepo, lockExecutor);
 
         assertThrows(IllegalStateException.class, this::initialize);
 
@@ -199,7 +199,7 @@ class NursingOrderTemplateServiceTests extends TestsBase {
     private static final List<String> DEPT_IDS = List.of(
         "nursing-template-init-tests-1", "nursing-template-init-tests-2");
 
-    private ConfigProtoService protoService;
+    private ProtoConfig protoConfig;
     private NursingOrderTemplateService service;
 
     @Autowired

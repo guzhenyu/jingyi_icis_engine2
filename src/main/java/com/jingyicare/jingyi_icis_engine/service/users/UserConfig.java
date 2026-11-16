@@ -287,7 +287,7 @@ public class UserConfig {
         return true;
     }
 
-    public Boolean checkRoleCircles(
+    private Boolean checkRoleCircles(
         Map<Integer, String> roleMap,
         List<Map.Entry<Integer, Integer>> parentChildRoles
     ) {

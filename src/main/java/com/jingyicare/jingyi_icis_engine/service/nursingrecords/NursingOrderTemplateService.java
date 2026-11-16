@@ -18,15 +18,17 @@ import lombok.extern.slf4j.Slf4j;
 import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.NursingRecordTemplate;
 import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.NursingRecordTemplateGroup;
 import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
+import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingRecord.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
 import com.jingyicare.jingyi_icis_engine.repository.nursingrecords.*;
-import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
+import com.jingyicare.jingyi_icis_engine.utils.ReturnCodeUtils;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
@@ -37,19 +39,20 @@ public class NursingOrderTemplateService {
     public static final Integer ENTITY_TYPE_DEPT = 1;
 
     public NursingOrderTemplateService(
-        @Autowired ConfigProtoService protoService,
+        @Autowired ProtoConfig protoConfig,
         @Autowired UserQuery userQuery,
         @Autowired NursingRecordTemplateGroupRepository templateGroupRepo,
         @Autowired NursingRecordTemplateRepository templateRepo,
         @Autowired LockExecutor lockExecutor
     ) {
-        this.protoService = protoService;
+        Config config = protoConfig.getConfig();
+        this.statusCodeMsgList = config.getText().getStatusCodeMsgList();
         this.userQuery = userQuery;
         this.templateGroupRepo = templateGroupRepo;
         this.templateRepo = templateRepo;
         this.lockExecutor = lockExecutor;
 
-        defaultGroups = protoService.getConfig().getNursingRecord().getDefaultDeptGroupList();
+        this.defaultGroups = config.getNursingRecord().getDefaultDeptGroupList();
     }
 
     public List<String> getInitDeptLockKeys(String deptId) {
@@ -120,7 +123,8 @@ public class NursingOrderTemplateService {
         } catch (Exception e) {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
             return GetNursingRecordTemplatesResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
@@ -137,7 +141,8 @@ public class NursingOrderTemplateService {
             respBuilder.addAllAccountTemplate(getTemplates(ENTITY_TYPE_ACCOUNT, accountId));
         }
 
-        return respBuilder.setRt(protoService.getReturnCode(StatusCode.OK)).build();
+        return respBuilder
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK)).build();
     }
 
     private List<NursingRecordTemplateGroupPB> getTemplates(Integer entityType, String entityId) {
@@ -180,13 +185,15 @@ public class NursingOrderTemplateService {
         } catch (Exception e) {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
             return AddNursingRecordTemplateGroupResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED)).build();
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED)).build();
         }
 
         CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return AddNursingRecordTemplateGroupResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND)).build();
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND)).build();
         }
         Integer entityType = StrUtils.isBlank(req.getDeptId())
             ? ENTITY_TYPE_ACCOUNT : ENTITY_TYPE_DEPT;
@@ -195,7 +202,8 @@ public class NursingOrderTemplateService {
         String groupName = req.getGroup().getName();
         if (StrUtils.isBlank(groupName)) {
             return AddNursingRecordTemplateGroupResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.INVALID_PARAM_VALUE)).build();
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.INVALID_PARAM_VALUE)).build();
         }
 
         String resourceKey = LockKeys.nursingRecordTemplateGroup(entityType, entityId, groupName);
@@ -204,7 +212,7 @@ public class NursingOrderTemplateService {
                 entityType, entityId, groupName)
             ) {
                 return AddNursingRecordTemplateGroupResp.newBuilder()
-                    .setRt(protoService.getReturnCode(
+                    .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList,
                         StatusCode.NURSING_RECORD_TEMPLATE_GROUP_ALREADY_EXISTS)).build();
             }
             NursingRecordTemplateGroup group = templateGroupRepo.save(
@@ -213,7 +221,8 @@ public class NursingOrderTemplateService {
                     .displayOrder(req.getGroup().getDisplayOrder()).isDeleted(false)
                     .modifiedBy(account.autoAcctId()).modifiedAt(TimeUtils.getNowUtc()).build());
             return AddNursingRecordTemplateGroupResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.OK)).setId(group.getId()).build();
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
+                .setId(group.getId()).build();
         });
     }
 
@@ -371,7 +380,8 @@ public class NursingOrderTemplateService {
             .displayOrder(templatePB.getDisplayOrder()).isCommon(templatePB.getIsCommon())
             .isDeleted(false).modifiedBy(accountId).modifiedAt(TimeUtils.getNowUtc()).build());
         return AddNursingRecordTemplateResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK)).setId(template.getId()).build();
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
+            .setId(template.getId()).build();
     }
 
     private GenericResp updateTemplate(
@@ -444,7 +454,7 @@ public class NursingOrderTemplateService {
 
     private AddNursingRecordTemplateResp templateResponse(StatusCode code) {
         return AddNursingRecordTemplateResp.newBuilder()
-            .setRt(protoService.getReturnCode(code)).build();
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, code)).build();
     }
 
     private GenericResp updateTemplateGroups(
@@ -531,12 +541,13 @@ public class NursingOrderTemplateService {
     }
 
     private GenericResp genericResponse(StatusCode code) {
-        return GenericResp.newBuilder().setRt(protoService.getReturnCode(code)).build();
+        return ReturnCodeUtils.genericResponse(
+            ReturnCodeUtils.getReturnCode(statusCodeMsgList, code));
     }
 
     private final List<NursingRecordTemplateGroupPB> defaultGroups;
 
-    private final ConfigProtoService protoService;
+    private final List<String> statusCodeMsgList;
     private final UserQuery userQuery;
     private final NursingRecordTemplateGroupRepository templateGroupRepo;
     private final NursingRecordTemplateRepository templateRepo;

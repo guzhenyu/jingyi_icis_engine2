@@ -30,7 +30,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingRecord.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.DepartmentPB;
 import com.jingyicare.jingyi_icis_engine.repository.nursingrecords.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
-import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.BgaMetaService;
@@ -246,7 +246,7 @@ class DepartmentInitializationTests extends TestsBase {
     @Autowired private RbacDepartmentRepository rbacDeptRepo;
     @Autowired private RbacDepartmentAccountRepository rbacDeptAcctRepo;
     @Autowired private DepartmentAccountRepository deptAcctRepo;
-    @Autowired private ConfigProtoService config;
+    @Autowired private ProtoConfig config;
     @Autowired private UserQuery userQuery;
     @Autowired private BgaMetaService bga;
     @Autowired private ScoreMetaService scores;
