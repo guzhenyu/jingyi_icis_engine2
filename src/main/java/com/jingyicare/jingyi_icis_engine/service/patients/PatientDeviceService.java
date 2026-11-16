@@ -14,13 +14,14 @@ import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
 import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
+import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 
 import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
-import com.jingyicare.jingyi_icis_engine.service.*;
+import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 import com.jingyicare.jingyi_icis_engine.service.certs.*;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -48,7 +49,7 @@ public class PatientDeviceService {
     }
 
     public PatientDeviceService(
-        @Autowired ConfigProtoService protoService,
+        @Autowired ProtoConfig protoConfig,
         @Autowired PatientConfig patientConfig,
         @Autowired UserQuery userQuery,
         @Autowired CertificateService certificateService,
@@ -59,25 +60,20 @@ public class PatientDeviceService {
         @Autowired DeviceInfoRepository devRepo,
         @Autowired PatientDeviceRepository patientDevRepo
     ) {
-        this.ZONE_ID = protoService.getConfig().getZoneId();
-        this.IN_ICU_VAL = protoService.getConfig().getPatient().getEnumsV2()
-            .getAdmissionStatusList().stream()
-            .filter(e -> e.getName().equals(protoService.getConfig().getPatient().getInIcuName()))
-            .findFirst()
-            .get()
-            .getId();
-        DeviceEnums devEnums = protoService.getConfig().getDevice().getEnums();
+        Config config = protoConfig.getConfig();
+        this.statusCodeMsgList = config.getText().getStatusCodeMsgList();
+        this.ZONE_ID = config.getZoneId();
+        DeviceEnums devEnums = config.getDevice().getEnums();
         this.SWITCH_TYPE_NORMAL = devEnums.getSwitchTypeNormal().getId();
         this.SWITCH_TYPE_READMISSION_DISCHARGE = devEnums.getSwitchTypeReadmissionDischarge().getId();
         this.SWITCH_TYPE_READMISSION_ADMIT = devEnums.getSwitchTypeReadmissionAdmit().getId();
-        this.CENTRAL_STATION_DEVICE_TYPE = protoService.getConfig().getDevice().getDeviceCascade().getEntryList()
+        this.CENTRAL_STATION_DEVICE_TYPE = config.getDevice().getDeviceCascade().getEntryList()
             .stream()
             .filter(entry -> entry.getDeviceTypeName().equals("中央站"))
             .map(DeviceTypeEntryPB::getDeviceTypeId)
             .findFirst()
             .orElse(0);
 
-        this.protoService = protoService;
         this.patientConfig = patientConfig;
         this.userQuery = userQuery;
         this.certificateService = certificateService;
@@ -109,14 +105,16 @@ public class PatientDeviceService {
         } catch (Exception e) {
             log.error("Failed to convert string to proto: {}", e);
             return GetBedConfigResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
         final String deptId = req.getDeptId();
 
         // 查找在线病人
         Map<String/*his_bed_number*/, PatientRecord> patientMap = new HashMap<>();
-        for (PatientRecord patient : patientRepo.findByDeptIdAndAdmissionStatus(deptId, IN_ICU_VAL)) {
+        for (PatientRecord patient : patientRepo.findByDeptIdAndAdmissionStatus(
+            deptId, PatientEnums.ADMISSION_STATUS_ADMITTED)) {
             if (patientMap.containsKey(patient.getHisBedNumber())) {
                 log.error("Duplicate his bed number found for patients: {}, {}",
                     patientMap.get(patient.getHisBedNumber()).getId(), patient.getId()
@@ -134,7 +132,7 @@ public class PatientDeviceService {
         
         // 构建返回
         GetBedConfigResp.Builder respBuilder = GetBedConfigResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK));
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK));
         for (BedConfig bedConfig : bedConfigs) {
             final PatientRecord patient = patientMap.get(bedConfig.getHisBedNumber());
             BedConfigPB bedConfigPB = patientConfig.getBedConfigPB(bedConfig, patient);
@@ -151,7 +149,8 @@ public class PatientDeviceService {
         } catch (Exception e) {
             log.error("Failed to convert string to proto: {}", e);
             return AddBedConfigResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
         final String deptId = req.getBedConfig().getDepartmentId();
@@ -162,7 +161,8 @@ public class PatientDeviceService {
         if (account == null) {
             log.error("Account not found");
             return AddBedConfigResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
 
@@ -174,7 +174,8 @@ public class PatientDeviceService {
         if (!bedConfigs.isEmpty()) {
             log.error("BedConfig already exists: {}", bedConfigs.get(0));
             return AddBedConfigResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.BED_CONFIG_ALREADY_EXISTS))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.BED_CONFIG_ALREADY_EXISTS))
                 .build();
         }
         BedConfig bedConfig = bedConfigRepo.findByDepartmentIdAndDisplayBedNumberAndIsDeletedFalse(
@@ -183,7 +184,8 @@ public class PatientDeviceService {
         if (bedConfig != null) {
             log.error("BedConfig already exists: {}", bedConfig);
             return AddBedConfigResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.BED_CONFIG_DISPLAY_NAME_ALREADY_EXISTS))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.BED_CONFIG_DISPLAY_NAME_ALREADY_EXISTS))
                 .build();
         }
         bedConfig = bedConfigRepo.findByDepartmentIdAndDeviceBedNumberAndIsDeletedFalse(
@@ -192,14 +194,16 @@ public class PatientDeviceService {
         if (bedConfig != null) {
             log.error("BedConfig already exists: {}", bedConfig);
             return AddBedConfigResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.BED_CONFIG_DEVICE_NAME_ALREADY_EXISTS))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.BED_CONFIG_DEVICE_NAME_ALREADY_EXISTS))
                 .build();
         }
 
         // 新增或恢复已删除床位时，只占用其对应床位类型的一份授权
         if (!certificateService.checkBedAvailable(deptId, req.getBedConfig().getBedType(), 1)) {
             return AddBedConfigResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.BED_CONFIG_BED_NUMBER_LIMIT_EXCEEDED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.BED_CONFIG_BED_NUMBER_LIMIT_EXCEEDED))
                 .build();
         }
 
@@ -209,7 +213,7 @@ public class PatientDeviceService {
         log.info("BedConfig added: {}, by {}", bedConfig, account.acctName());
 
         return AddBedConfigResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .setId(bedConfig.getId())
             .build();
     }
@@ -222,7 +226,8 @@ public class PatientDeviceService {
         } catch (Exception e) {
             log.error("Failed to convert string to proto: {}", e);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
@@ -231,7 +236,8 @@ public class PatientDeviceService {
         if (account == null) {
             log.error("Account not found");
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
 
@@ -241,7 +247,8 @@ public class PatientDeviceService {
         if (bedConfig == null) {
             log.error("BedConfig not found: {}", req.getBedConfig().getId());
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.BED_CONFIG_NOT_EXISTS))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.BED_CONFIG_NOT_EXISTS))
                 .build();
         }
 
@@ -252,7 +259,8 @@ public class PatientDeviceService {
         if (bedConfigWithSameName != null && bedConfigWithSameName.getId() != bedConfig.getId()) {
             log.error("BedConfig already exists: {}", bedConfigWithSameName);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.BED_CONFIG_DISPLAY_NAME_ALREADY_EXISTS))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.BED_CONFIG_DISPLAY_NAME_ALREADY_EXISTS))
                 .build();
         }
         bedConfigWithSameName = bedConfigRepo.findByDepartmentIdAndDeviceBedNumberAndIsDeletedFalse(
@@ -261,7 +269,8 @@ public class PatientDeviceService {
         if (bedConfigWithSameName != null && bedConfigWithSameName.getId() != bedConfig.getId()) {
             log.error("BedConfig already exists: {}", bedConfigWithSameName);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.BED_CONFIG_DEVICE_NAME_ALREADY_EXISTS))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.BED_CONFIG_DEVICE_NAME_ALREADY_EXISTS))
                 .build();
         }
 
@@ -271,7 +280,8 @@ public class PatientDeviceService {
             || !Objects.equals(bedConfig.getBedType(), targetBedType))
             && !certificateService.checkBedAvailable(targetDeptId, targetBedType, 1)) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.BED_CONFIG_BED_NUMBER_LIMIT_EXCEEDED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.BED_CONFIG_BED_NUMBER_LIMIT_EXCEEDED))
                 .build();
         }
 
@@ -281,7 +291,7 @@ public class PatientDeviceService {
         log.info("BedConfig updated: {}, by {}", bedConfig, account.acctName());
 
         return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .build();
     }
 
@@ -293,7 +303,8 @@ public class PatientDeviceService {
         } catch (Exception e) {
             log.error("Failed to convert string to proto: {}", e);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
@@ -301,7 +312,8 @@ public class PatientDeviceService {
         CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
 
@@ -310,7 +322,7 @@ public class PatientDeviceService {
             .findByIdAndIsDeletedFalse(req.getId()).orElse(null);
         if (bedConfig == null) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.OK))
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
                 .build();
         }
 
@@ -322,7 +334,7 @@ public class PatientDeviceService {
         log.info("BedConfig deleted: {}, by {}", bedConfig, account.acctName());
 
         return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .build();
     }
 
@@ -334,7 +346,8 @@ public class PatientDeviceService {
         } catch (Exception e) {
             log.error("Failed to convert string to proto: {}", e);
             return GetBedCountsResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
@@ -356,7 +369,7 @@ public class PatientDeviceService {
             .toList();
 
         return GetBedCountsResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .addAllBedCount(bedCountPbs)
             .build();
     }
@@ -369,7 +382,8 @@ public class PatientDeviceService {
         } catch (Exception e) {
             log.error("Failed to convert string to proto: {}", e);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
@@ -378,7 +392,8 @@ public class PatientDeviceService {
         if (account == null) {
             log.error("Account not found");
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
 
@@ -389,7 +404,8 @@ public class PatientDeviceService {
         if (effectiveTime == null) {
             log.error("Invalid date format: {}", bedCountPB.getDateIso8601());
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.INVALID_TIME_FORMAT))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.INVALID_TIME_FORMAT))
                 .build();
         }
         Integer count = bedCountPB.getCount();
@@ -400,7 +416,8 @@ public class PatientDeviceService {
         if (existingBedCount.isPresent()) {
             log.error("BedCount already exists for date: {}", bedCountPB.getDateIso8601());
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.BED_COUNT_ALREADY_EXISTS))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.BED_COUNT_ALREADY_EXISTS))
                 .build();
         }
 
@@ -418,7 +435,7 @@ public class PatientDeviceService {
         log.info("BedCount added: {}, by {}", bedCount, account.acctName());
 
         return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .build();
     }
 
@@ -430,7 +447,8 @@ public class PatientDeviceService {
         } catch (Exception e) {
             log.error("Failed to convert string to proto: {}", e);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
@@ -438,7 +456,8 @@ public class PatientDeviceService {
         CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
 
@@ -446,7 +465,7 @@ public class PatientDeviceService {
         BedCount bedCount = bedCountRepo.findByIdAndIsDeletedFalse(req.getId()).orElse(null);
         if (bedCount == null) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.OK))
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
                 .build();
         }
 
@@ -458,7 +477,7 @@ public class PatientDeviceService {
         log.info("BedCount deleted: {}, by {}", bedCount, account.acctName());
 
         return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .build();
     }
 
@@ -470,7 +489,8 @@ public class PatientDeviceService {
         } catch (Exception e) {
             log.error("Failed to convert string to proto: {}", e);
             return GetDeviceInfoResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
@@ -481,7 +501,7 @@ public class PatientDeviceService {
             patientConfig.getBindedDevices();
         if (bindingResult.getFirst() != StatusCode.OK) {
             return GetDeviceInfoResp.newBuilder()
-                .setRt(protoService.getReturnCode(bindingResult.getFirst()))
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, bindingResult.getFirst()))
                 .build();
         }
         Map<Integer/*device_id*/, DeviceBindingPB> bindingMap = bindingResult.getSecond();
@@ -513,7 +533,7 @@ public class PatientDeviceService {
             .collect(Collectors.toList());
 
         return GetDeviceInfoResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .addAllInlineDev(inlineDevList)
             .build();
     }
@@ -526,7 +546,8 @@ public class PatientDeviceService {
         } catch (Exception e) {
             log.error("Failed to convert string to proto: {}", e);
             return GetDeviceBindingHistoryResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
         
@@ -536,12 +557,12 @@ public class PatientDeviceService {
             req.getDeviceId(), from, to);
         if (bindingResult.getFirst() != StatusCode.OK) {
             return GetDeviceBindingHistoryResp.newBuilder()
-                .setRt(protoService.getReturnCode(bindingResult.getFirst()))
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, bindingResult.getFirst()))
                 .build();
         }
         Pair<List<DeviceBindingPB>, Boolean> bindingInfo = bindingResult.getSecond();
         return GetDeviceBindingHistoryResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .setIsBinding(bindingInfo.getSecond())
             .addAllBinding(bindingInfo.getFirst())
             .build();
@@ -555,21 +576,23 @@ public class PatientDeviceService {
         } catch (Exception e) {
             log.error("Failed to convert string to proto: {}", e);
             return GetPatientDeviceBindingHistoryResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
         PatientRecord patient = patientRepo.findById(req.getPid()).orElse(null);
         if (patient == null) {
             return GetPatientDeviceBindingHistoryResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PATIENT_NOT_FOUND))
                 .build();
         }
 
         LocalDateTime from = TimeUtils.fromIso8601String(req.getQueryStartIso8601(), "UTC");
         LocalDateTime to = TimeUtils.fromIso8601String(req.getQueryEndIso8601(), "UTC");
         return GetPatientDeviceBindingHistoryResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .addAllBinding(patientConfig.getPatientDeviceBindingHistory(
                 patient.getId(), patient.getIcuName(), req.getDeviceType(), from, to
             ))
@@ -584,7 +607,8 @@ public class PatientDeviceService {
         } catch (Exception e) {
             log.error("Failed to convert string to proto: {}", e);
             return AddDeviceInfoResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
@@ -592,7 +616,8 @@ public class PatientDeviceService {
         CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return AddDeviceInfoResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
 
@@ -605,7 +630,8 @@ public class PatientDeviceService {
         if (devInfo != null) {
             log.error("DeviceInfo already exists: {}", devInfo);
             return AddDeviceInfoResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.DEVICE_INFO_ALREADY_EXISTS))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.DEVICE_INFO_ALREADY_EXISTS))
                 .build();
         }
 
@@ -614,13 +640,14 @@ public class PatientDeviceService {
         if (!devInfoList.isEmpty()) {
             log.error("DeviceInfo already exists: {}", devInfoList.get(0));
             return AddDeviceInfoResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.DEVICE_IP_ALREADY_USED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.DEVICE_IP_ALREADY_USED))
                 .build();
         }
         StatusCode sourceConfigStatus = validateDeviceSourceConfig(deviceInfoPB, null);
         if (sourceConfigStatus != StatusCode.OK) {
             return AddDeviceInfoResp.newBuilder()
-                .setRt(protoService.getReturnCode(sourceConfigStatus))
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, sourceConfigStatus))
                 .build();
         }
 
@@ -633,7 +660,7 @@ public class PatientDeviceService {
         log.info("DeviceInfo added: {}, by {}", devInfo, account.acctName());
 
         return AddDeviceInfoResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .setId(devInfo.getId())
             .build();
     }
@@ -646,14 +673,16 @@ public class PatientDeviceService {
         } catch (Exception e) {
             log.error("Failed to convert string to proto: {}", e);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
         CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
 
@@ -663,7 +692,8 @@ public class PatientDeviceService {
         DeviceInfo devInfo = devRepo.findById(deviceInfoPB.getId()).orElse(null);
         if (devInfo == null) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.DEVICE_INFO_NOT_EXISTS))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.DEVICE_INFO_NOT_EXISTS))
                 .build();
         }
 
@@ -673,7 +703,8 @@ public class PatientDeviceService {
         ).orElse(null);
         if (devInfoWithSameName != null && devInfoWithSameName.getId() != devInfo.getId()) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.DEVICE_INFO_ALREADY_EXISTS))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.DEVICE_INFO_ALREADY_EXISTS))
                 .build();
         }
         List<DeviceInfo> devInfoWithSameIp = devRepo.findByDeviceIpAndIsDeletedFalseAndIdNot(
@@ -681,13 +712,14 @@ public class PatientDeviceService {
         );
         if (!devInfoWithSameIp.isEmpty()) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.DEVICE_IP_ALREADY_USED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.DEVICE_IP_ALREADY_USED))
                 .build();
         }
         StatusCode sourceConfigStatus = validateDeviceSourceConfig(deviceInfoPB, devInfo.getId());
         if (sourceConfigStatus != StatusCode.OK) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(sourceConfigStatus))
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, sourceConfigStatus))
                 .build();
         }
 
@@ -701,7 +733,7 @@ public class PatientDeviceService {
         log.info("DeviceInfo updated: {}, by {}", devInfo, account.acctName());
 
         return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .build();
     }
 
@@ -713,14 +745,16 @@ public class PatientDeviceService {
         } catch (Exception e) {
             log.error("Failed to convert string to proto: {}", e);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
         CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
 
@@ -728,7 +762,7 @@ public class PatientDeviceService {
         DeviceInfo devInfo = devRepo.findById(req.getId()).orElse(null);
         if (devInfo == null) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.OK))
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
                 .build();
         }
 
@@ -736,7 +770,8 @@ public class PatientDeviceService {
         List<PatientDevice> patientDevList = patientDevRepo.findByDeviceIdAndUnbindingTimeIsNullAndIsDeletedFalse(req.getId());
         if (!patientDevList.isEmpty()) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.DEVICE_ALREADY_BINDED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.DEVICE_ALREADY_BINDED))
                 .build();
         }
 
@@ -752,7 +787,7 @@ public class PatientDeviceService {
         log.info("DeviceInfo deleted: {}, by {}", devInfo, account.acctName());
 
         return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .build();
     }
 
@@ -764,7 +799,8 @@ public class PatientDeviceService {
         } catch (Exception e) {
             log.error("Failed to convert string to proto: {}", e);
             return BindPatientDeviceResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
@@ -772,7 +808,8 @@ public class PatientDeviceService {
         CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             return BindPatientDeviceResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
                 .build();
         }
         final Integer deviceId = req.getDeviceId();
@@ -787,21 +824,23 @@ public class PatientDeviceService {
             if (patientDevs.size() > 1) {
                 log.error("Device already binded: {}", deviceId);
                 return BindPatientDeviceResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.DEVICE_HAS_MULTIPLE_BINDINGS))
+                    .setRt(ReturnCodeUtils.getReturnCode(
+                        statusCodeMsgList, StatusCode.DEVICE_HAS_MULTIPLE_BINDINGS))
                     .build();
             } else if (patientDevs.size() == 1) {
                 patientDev = patientDevs.get(0);
                 if (patientDev.getPatientId() == req.getPid()) {
                     // 设备已经绑定到当前病人
                     return BindPatientDeviceResp.newBuilder()
-                        .setRt(protoService.getReturnCode(StatusCode.OK))
+                        .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
                         .build();
                 } else {
                     // 设备已经绑定到其他病人，解绑
                     if (patientDev.getBindingTime().isAfter(bindingTime)) {
                         log.error("Binding time is earlier than the current binding time: {}", bindingTime);
                         return BindPatientDeviceResp.newBuilder()
-                            .setRt(protoService.getReturnCode(StatusCode.BINDING_TIME_CONFLICT))
+                            .setRt(ReturnCodeUtils.getReturnCode(
+                                statusCodeMsgList, StatusCode.BINDING_TIME_CONFLICT))
                             .build();
                     }
                     patientDev.setUnbindingTime(bindingTime);
@@ -817,14 +856,16 @@ public class PatientDeviceService {
             if (deviceInfo == null) {
                 log.error("Device not found: {}", deviceId);
                 return BindPatientDeviceResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.DEVICE_INFO_NOT_EXISTS))
+                    .setRt(ReturnCodeUtils.getReturnCode(
+                        statusCodeMsgList, StatusCode.DEVICE_INFO_NOT_EXISTS))
                     .build();
             }
             List<DeviceInfo> deviceWithSameType = patientConfig.getCurrentBindedDevices(req.getPid(), deviceInfo.getDeviceType());
             if (!deviceWithSameType.isEmpty()) {
                 log.error("Patient already binded to a device with the same type: {}", deviceWithSameType.get(0));
                 return BindPatientDeviceResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.PATIENT_ALREADY_BINDED_TO_SAME_TYPE_DEVICE))
+                    .setRt(ReturnCodeUtils.getReturnCode(
+                        statusCodeMsgList, StatusCode.PATIENT_ALREADY_BINDED_TO_SAME_TYPE_DEVICE))
                     .build();
             }
 
@@ -833,7 +874,9 @@ public class PatientDeviceService {
             if (latestUnbindedTime != null && latestUnbindedTime.isAfter(bindingTime)) {
                 log.error("Binding time is earlier than the latest unbinding time: {}", bindingTime);
                 return BindPatientDeviceResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.BINDING_TIME_BEFORE_UNBINDING_TIME_FOR_SAME_TYPE_DEVICE))
+                    .setRt(ReturnCodeUtils.getReturnCode(
+                        statusCodeMsgList,
+                        StatusCode.BINDING_TIME_BEFORE_UNBINDING_TIME_FOR_SAME_TYPE_DEVICE))
                     .build();
             }
 
@@ -851,7 +894,7 @@ public class PatientDeviceService {
             log.info("PatientDevice binded: {}, by {}", patientDev, account.acctName());
 
             return BindPatientDeviceResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.OK))
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
                 .setId(patientDev.getId())
                 .build();
         } else if (!StrUtils.isBlank(req.getUnbindingTimeIso8601())) {
@@ -864,14 +907,16 @@ public class PatientDeviceService {
             if (deviceInfo == null) {
                 log.error("Device not found: {}", req.getDeviceId());
                 return BindPatientDeviceResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.DEVICE_INFO_NOT_EXISTS))
+                    .setRt(ReturnCodeUtils.getReturnCode(
+                        statusCodeMsgList, StatusCode.DEVICE_INFO_NOT_EXISTS))
                     .build();
             }
             if (!StrUtils.isBlank(deviceInfo.getDeviceBedNumber())) {
                 // 处理固定设备的逻辑
                 log.error("Cannot unbind a fixed device: {}", deviceInfo);
                 return BindPatientDeviceResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.CANNOT_UNBIND_FIXED_DEVICE))
+                    .setRt(ReturnCodeUtils.getReturnCode(
+                        statusCodeMsgList, StatusCode.CANNOT_UNBIND_FIXED_DEVICE))
                     .build();
             }
 
@@ -881,7 +926,7 @@ public class PatientDeviceService {
             ).orElse(null);
             if (patientDev == null) {
                 return BindPatientDeviceResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.OK))
+                    .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
                     .build();
             }
             StatusCode statusCode = PatientDevUtils.unbindDevice(
@@ -890,14 +935,15 @@ public class PatientDeviceService {
             );
             if (statusCode != StatusCode.OK) {
                 log.error("Failed to unbind device: {}", statusCode);
-                return BindPatientDeviceResp.newBuilder().setRt(protoService.getReturnCode(statusCode)).build();
+                return BindPatientDeviceResp.newBuilder()
+                    .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, statusCode)).build();
             }
             patientDevRepo.save(patientDev);
             log.info("PatientDevice unbinded: {}, by {}", patientDev, account.acctName());
         }
 
         return BindPatientDeviceResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .build();
     }
 
@@ -913,13 +959,15 @@ public class PatientDeviceService {
         PatientRecord patient = patientRepo.findById(pid).orElse(null);
         if (patient == null) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PATIENT_NOT_FOUND))
                 .build();
         }
-        if (patient.getAdmissionStatus() != IN_ICU_VAL) {
+        if (patient.getAdmissionStatus() != PatientEnums.ADMISSION_STATUS_ADMITTED) {
             log.error("Patient not in ICU: {}", patient);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_IN_ICU))
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PATIENT_NOT_IN_ICU))
                 .build();
         }
 
@@ -928,19 +976,19 @@ public class PatientDeviceService {
         if (toHisBedNumber.equals(fromHisBedNumber)) {
             log.info("Bed switch not needed: {}", fromHisBedNumber);
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.OK))
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
                 .build();
         }
 
         StatusCode statusCode = switchBedImpl(patient, toHisBedNumber, switchTime, false, "his", "his");
         if (statusCode != StatusCode.OK) {
             return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(statusCode))
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, statusCode))
                 .build();
         }
 
         return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .build();
     }
 
@@ -1249,13 +1297,12 @@ public class PatientDeviceService {
     }
 
     private final String ZONE_ID;
-    private final Integer IN_ICU_VAL;
     private final Integer SWITCH_TYPE_NORMAL;
     private final Integer SWITCH_TYPE_READMISSION_DISCHARGE;
     private final Integer SWITCH_TYPE_READMISSION_ADMIT;
     private final Integer CENTRAL_STATION_DEVICE_TYPE;
 
-    private final ConfigProtoService protoService;
+    private final List<String> statusCodeMsgList;
     private final PatientConfig patientConfig;
     private final UserQuery userQuery;
     private final CertificateService certificateService;
