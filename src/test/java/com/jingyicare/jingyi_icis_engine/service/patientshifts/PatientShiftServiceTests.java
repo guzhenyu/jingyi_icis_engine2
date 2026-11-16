@@ -3,7 +3,6 @@ package com.jingyicare.jingyi_icis_engine.service.patientshifts;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -13,17 +12,17 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
+import com.jingyicare.jingyi_icis_engine.entity.patientshifts.*;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
-
-import com.jingyicare.jingyi_icis_engine.entity.patientshifts.*;
-import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
-import com.jingyicare.jingyi_icis_engine.repository.patientshifts.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordRepository;
+import com.jingyicare.jingyi_icis_engine.repository.patientshifts.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
-import com.jingyicare.jingyi_icis_engine.testutils.PatientTestUtils;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
 import com.jingyicare.jingyi_icis_engine.testutils.*;
+import com.jingyicare.jingyi_icis_engine.testutils.PatientTestUtils;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 public class PatientShiftServiceTests extends TestsBase {
@@ -44,7 +43,7 @@ public class PatientShiftServiceTests extends TestsBase {
             TimeUtils.getLocalTime(2025, 2, 6, 8, 0), ZONE_ID);
         PatientTestUtils patientTestUtils = new PatientTestUtils();
         PatientRecord patient = patientTestUtils.newPatientRecord(
-            1101L, patientService.getAdmissionStatusInIcuId(), deptId
+            1101L, PatientEnums.ADMISSION_STATUS_ADMITTED, deptId
         );
         patient.setHisAdmissionTime(admissionTime);
         patient.setAdmissionTime(admissionTime);

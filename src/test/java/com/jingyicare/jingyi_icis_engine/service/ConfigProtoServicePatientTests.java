@@ -23,6 +23,7 @@ import org.springframework.core.io.Resource;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.protobuf.TextFormat;
+
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.Patient;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisText.EnumTextPB;
@@ -59,8 +60,9 @@ class ConfigProtoServicePatientTests {
         Config.Builder external = Config.newBuilder();
         TextFormat.getParser().merge("""
             zone_id: "UTC"
-            patient { pending_admission_name: "外部待入科" grace_period_hours_to_readmit: 17
-              enums_v2 { admission_status { id: 77 name: "外部待入科" }
+            patient { grace_period_hours_to_readmit: 17
+              enums_v2 { pending_admission_name: "外部待入科"
+                admission_type { id: 77 name: "外部入院方式" }
                 blood_type { id: 99 name: "A型" } blood_rh { id: 8 name: "RH阳性" } } }
             """, external);
         Path file = tempDir.resolve("external.pb.txt");
@@ -215,19 +217,33 @@ class ConfigProtoServicePatientTests {
     }
 
     private void assertPublicBloodEnums(ProtoConfig protoConfig) {
-        IntakeTypeRepository intakeTypes = mock(IntakeTypeRepository.class);
-        when(intakeTypes.findAll()).thenReturn(List.of());
-        ConfigProtoService service = new ConfigProtoService(
-            protoConfig.getConfig(), null, intakeTypes);
-        String json = ProtoUtils.protoToJson(service.getWebApiConfig());
-        assertThat(json).isNotNull();
-        JsonObject enums = JsonParser.parseString(json).getAsJsonObject()
-            .getAsJsonObject("patientEnums");
+        JsonObject enums = getPublicPatientEnums(protoConfig);
         assertThat(enums.get("bloodType")).isEqualTo(JsonParser.parseString("""
             [{"id":1,"name":"A"},{"id":2,"name":"B"},{"id":3,"name":"O"},{"id":4,"name":"AB"}]
             """));
         assertThat(enums.get("bloodRh")).isEqualTo(JsonParser.parseString("""
             [{"id":1,"name":"RH-"},{"id":2,"name":"RH+"}]
             """));
+    }
+
+    @Test
+    void shouldExposeAdmissionNamesInsteadOfTheOldStatusDictionary() {
+        JsonObject enums = getPublicPatientEnums(loadConfig(DEFAULT_CONFIG, ""));
+        assertThat(enums.has("admissionStatus")).isFalse();
+        assertThat(enums.get("pendingAdmissionName").getAsString()).isEqualTo("待入科");
+        assertThat(enums.get("inIcuName").getAsString()).isEqualTo("在科");
+        assertThat(enums.get("pendingDischargedName").getAsString()).isEqualTo("待出科");
+        assertThat(enums.get("dischargedName").getAsString()).isEqualTo("已出科");
+    }
+
+    private JsonObject getPublicPatientEnums(ProtoConfig protoConfig) {
+        IntakeTypeRepository intakeTypes = mock(IntakeTypeRepository.class);
+        when(intakeTypes.findAll()).thenReturn(List.of());
+        ConfigProtoService service = new ConfigProtoService(
+            protoConfig.getConfig(), null, intakeTypes);
+        String json = ProtoUtils.protoToJson(service.getWebApiConfig());
+        assertThat(json).isNotNull();
+        return JsonParser.parseString(json).getAsJsonObject()
+            .getAsJsonObject("patientEnums");
     }
 }

@@ -6,7 +6,8 @@ import "shared/shared.proto";
 package com.jingyicare.jingyi_icis_engine.proto.config;
 
 message PatientEnumsV2 {
-    repeated shared.EnumValue admission_status = 1;
+    reserved 1;
+    reserved "admission_status";
     repeated shared.EnumValue admission_type = 2;
     repeated shared.EnumValue discharge_type = 3;
     repeated shared.EnumValue payment_method = 4;
@@ -21,6 +22,12 @@ message PatientEnumsV2 {
     repeated shared.EnumValue id_type = 13;
     repeated shared.EnumValue diet_type = 14;
     repeated shared.EnumValue education_level = 15;
+
+    // admission_status
+    string pending_admission_name = 16; // 待入科的显示名称
+    string in_icu_name = 17; // 在科的显示名称
+    string pending_discharged_name = 18; // 待出科的显示名称
+    string discharged_name = 19; // 已出科的显示名称
 }
 
 message DisplayFieldSettingsPB {
@@ -132,10 +139,8 @@ message PatientInfoPB {
 message Patient {
     PatientEnumsV2 enums_v2 = 1;
     repeated DisplayFieldSettingsPB default_display_field_settings = 2;
-    string pending_admission_name = 3;
-    string in_icu_name = 4;
-    string pending_discharged_name = 5;
-    string discharged_name = 6;
+    reserved 3 to 6;
+    reserved "pending_admission_name", "in_icu_name", "pending_discharged_name", "discharged_name";
     int32 grace_period_hours_to_readmit = 7; // 48小时内可以重新入科的时间间隔，单位：小时
 }
 

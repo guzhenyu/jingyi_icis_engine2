@@ -1,5 +1,7 @@
 package com.jingyicare.jingyi_icis_engine.service.patients;
 
+import static com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums.*;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -15,21 +17,20 @@ import com.google.protobuf.util.JsonFormat;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSepticShock.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisShift.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
-
-import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
+import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.service.certs.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
 import com.jingyicare.jingyi_icis_engine.service.therapies.SepsisAndSepticShockBundleService;
 import com.jingyicare.jingyi_icis_engine.service.users.*;
-import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Service
@@ -64,26 +65,6 @@ public class PatientService {
     ) {
         this.enumsV2 = protoService.getConfig().getPatient().getEnumsV2();
         this.ZONE_ID = protoService.getConfig().getZoneId();
-        this.PENDING_ADMISSION_VAL = enumsV2.getAdmissionStatusList().stream()
-            .filter(e -> e.getName().equals(protoService.getConfig().getPatient().getPendingAdmissionName()))
-            .findFirst()
-            .get()
-            .getId();
-        this.IN_ICU_VAL = enumsV2.getAdmissionStatusList().stream()
-            .filter(e -> e.getName().equals(protoService.getConfig().getPatient().getInIcuName()))
-            .findFirst()
-            .get()
-            .getId();
-        this.PENDING_DISCHARGED_VAL = enumsV2.getAdmissionStatusList().stream()
-            .filter(e -> e.getName().equals(protoService.getConfig().getPatient().getPendingDischargedName()))
-            .findFirst()
-            .get()
-            .getId();
-        this.DISCHARGED_VAL = enumsV2.getAdmissionStatusList().stream()
-            .filter(e -> e.getName().equals(protoService.getConfig().getPatient().getDischargedName()))
-            .findFirst()
-            .get()
-            .getId();
         this.GRACE_PERIOD_HOURS_TO_READMIT = protoService.getConfig().getPatient().getGracePeriodHoursToReadmit();
 
         EnumValue dischargeType = enumsV2.getDischargeTypeList().stream()
@@ -154,11 +135,14 @@ public class PatientService {
 
         // Simplify by calling a common method for each patient status
         addPatientTableForStatus(
-            deptId, IN_ICU_VAL, patientConfig.getPatientSettingsPB(deptId, 1), bedConfigMap, builder);
+            deptId, ADMISSION_STATUS_ADMITTED, patientConfig.getPatientSettingsPB(deptId, 1),
+            bedConfigMap, builder);
         addPatientTableForStatus(
-            deptId, PENDING_ADMISSION_VAL, patientConfig.getPatientSettingsPB(deptId, 2), bedConfigMap, builder);
+            deptId, ADMISSION_STATUS_PRE_ADMISSION, patientConfig.getPatientSettingsPB(deptId, 2),
+            bedConfigMap, builder);
         addPatientTableForStatus(
-            deptId, PENDING_DISCHARGED_VAL, patientConfig.getPatientSettingsPB(deptId, 3), bedConfigMap, builder);
+            deptId, ADMISSION_STATUS_PRE_DISCHARGE, patientConfig.getPatientSettingsPB(deptId, 3),
+            bedConfigMap, builder);
 
         appendSepticShockAlarms(builder);
 
@@ -205,15 +189,15 @@ public class PatientService {
         addPatientBasics(patients, patientTableBuilder, bedConfigMap);
 
         // 根据状态设置响应
-        if (IN_ICU_VAL.equals(admissionStatus)) {
+        if (ADMISSION_STATUS_ADMITTED.equals(admissionStatus)) {
             builder.setInIcu(patientTableBuilder.build());
-        } else if (PENDING_ADMISSION_VAL.equals(admissionStatus)) {
+        } else if (ADMISSION_STATUS_PRE_ADMISSION.equals(admissionStatus)) {
             // 查找对应的48h内出科记录
             PatientTablePB pendingAdmissionTable = patientTableBuilder.build();
             pendingAdmissionTable = appendReadmissionInfo(pendingAdmissionTable);
             // 填充结果
             builder.setPendingAdmission(pendingAdmissionTable);
-        } else if (PENDING_DISCHARGED_VAL.equals(admissionStatus)) {
+        } else if (ADMISSION_STATUS_PRE_DISCHARGE.equals(admissionStatus)) {
             builder.setPendingDischarged(patientTableBuilder.build());
         }
     }
@@ -247,7 +231,7 @@ public class PatientService {
         List<PatientRecord> patients = patientRecordRepository
             .findAll(
                 Specification.where(PatientRecordSpecification.hasDeptId(req.getDeptId()))
-                    .and(PatientRecordSpecification.hasAdmissionStatus(DISCHARGED_VAL))
+                    .and(PatientRecordSpecification.hasAdmissionStatus(ADMISSION_STATUS_DISCHARGED))
                     .and(PatientRecordSpecification.hasDischargeQueryStart(queryStart))
                     .and(PatientRecordSpecification.hasDischargeQueryEnd(queryEnd))
                     .and(PatientRecordSpecification.hasHisMrn(req.getHisMrn()))
@@ -406,7 +390,7 @@ public class PatientService {
 
         // 根据mrn查找是否已经存在该病人
         List<PatientRecord> patients = patientRecordRepository.findByMrnAndAdmissionStatusNotEquals(
-            req.getDeptId(), req.getHisMrn(), DISCHARGED_VAL);
+            req.getDeptId(), req.getHisMrn(), ADMISSION_STATUS_DISCHARGED);
         // 如果病人已存在，且状态不是DISCHARGED(已出科)，返回错误码
         if (!patients.isEmpty()) {
             return GenericResp.newBuilder()
@@ -442,7 +426,7 @@ public class PatientService {
         record.setDiagnosis(req.getDiagnosis());
         record.setHisPatientId(req.getHisPid());
         record.setDeptId(req.getDeptId());
-        record.setAdmissionStatus(IN_ICU_VAL);
+        record.setAdmissionStatus(ADMISSION_STATUS_ADMITTED);
         record.setCreatedAt(LocalDateTime.now());
         patientRecordRepository.save(record);
 
@@ -480,7 +464,7 @@ public class PatientService {
 
         // 根据his_mrn查找病人
         List<PatientRecord> patients = patientRecordRepository.findByMrnAndAdmissionStatus(
-            req.getDeptId(), req.getHisMrn(), PENDING_ADMISSION_VAL);
+            req.getDeptId(), req.getHisMrn(), ADMISSION_STATUS_PRE_ADMISSION);
         if (patients.isEmpty()) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
@@ -564,7 +548,7 @@ public class PatientService {
             patient.setPrimaryCareDoctorId(req.getPrimaryCareDoctorId());
             patient.setIsPlannedAdmission(req.getIsPlannedAdmission() > 0);
             patient.setUnplannedAdmissionReason(req.getUnplannedAdmissionReason());
-            patient.setAdmissionStatus(IN_ICU_VAL);
+            patient.setAdmissionStatus(ADMISSION_STATUS_ADMITTED);
             patientRecordRepository.save(patient);
 
             // 初始化观察项(部门+病人)
@@ -610,7 +594,7 @@ public class PatientService {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
                 .build();
-        } else if (patient.getAdmissionStatus() != PENDING_DISCHARGED_VAL) {
+        } else if (patient.getAdmissionStatus() != ADMISSION_STATUS_PRE_DISCHARGE) {
             log.error("Invalid patient admission status: {}, id {}", patient.getAdmissionStatus(), patient.getId());
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.INTERNAL_EXCEPTION))
@@ -665,7 +649,7 @@ public class PatientService {
                 .build();
         }
 
-        patient.setAdmissionStatus(DISCHARGED_VAL);
+        patient.setAdmissionStatus(ADMISSION_STATUS_DISCHARGED);
         patientRecordRepository.save(patient);
 
         // 解绑所有已经绑定设备
@@ -715,9 +699,11 @@ public class PatientService {
         String allergies = patient.getAllergies();
         Integer admissionStatus = patient.getAdmissionStatus();
         String admissionStatusStr = admissionStatus == null ? "未知" :
-            ((admissionStatus == IN_ICU_VAL || admissionStatus == PENDING_ADMISSION_VAL) ?
+            ((admissionStatus == ADMISSION_STATUS_ADMITTED ||
+                admissionStatus == ADMISSION_STATUS_PRE_ADMISSION) ?
                 "在科" :
-                ((admissionStatus == PENDING_DISCHARGED_VAL || admissionStatus == DISCHARGED_VAL) ?
+                ((admissionStatus == ADMISSION_STATUS_PRE_DISCHARGE ||
+                    admissionStatus == ADMISSION_STATUS_DISCHARGED) ?
                     "已出科" :
                     "未知")
             );
@@ -770,7 +756,7 @@ public class PatientService {
                 .build();
         }
 
-        if (patient.getAdmissionStatus() != DISCHARGED_VAL &&
+        if (patient.getAdmissionStatus() != ADMISSION_STATUS_DISCHARGED &&
             (!StrUtils.isBlank(req.getDischargeTime()) ||
              req.getDischargeType() > 0 ||
              !StrUtils.isBlank(req.getToDeptName()) ||
@@ -786,7 +772,7 @@ public class PatientService {
         patient.setIsPlannedAdmission(req.getIsPlannedAdmission() > 0);
         patient.setUnplannedAdmissionReason(req.getUnplannedAdmissionReason());
 
-        if (patient.getAdmissionStatus() != DISCHARGED_VAL) {
+        if (patient.getAdmissionStatus() != ADMISSION_STATUS_DISCHARGED) {
             patient.setDischargeTime(null);
             patient.setDischargeType(null);
             patient.setToDeptName("");
@@ -857,7 +843,7 @@ public class PatientService {
 
         updatePatientRecord(patient, req.getPatientInfo());
 
-        if (!patient.getAdmissionStatus().equals(DISCHARGED_VAL) &&
+        if (!patient.getAdmissionStatus().equals(ADMISSION_STATUS_DISCHARGED) &&
             (patient.getDischargeTime() != null ||
              !StrUtils.isBlank(patient.getToDeptName()) ||
              patient.getDeathTime() != null)
@@ -1344,7 +1330,7 @@ public class PatientService {
         }
 
         PatientRecord patient = optPatient.get();
-        if (patient.getAdmissionStatus() != IN_ICU_VAL) {
+        if (patient.getAdmissionStatus() != ADMISSION_STATUS_ADMITTED) {
             log.error("Patient is not in ICU for patientId: {}", patientId);
             return null;
         }
@@ -1365,7 +1351,7 @@ public class PatientService {
     @Transactional
     public List<PatientRecord> getAllPatientsInIcu(String deptId) {
         List<PatientRecord> patients = patientRecordRepository.findByDeptIdAndAdmissionStatus(
-            deptId, IN_ICU_VAL);
+            deptId, ADMISSION_STATUS_ADMITTED);
         if (patients.isEmpty()) {
             log.warn("No patients found in ICU");
         }
@@ -1399,10 +1385,11 @@ public class PatientService {
         // 查找条件
         // - 科室ID
         // - 科室状态
-        //      - 在科 / 待出科 && 入科时间在queryEndUtc之前
+        //      - 在科 / 待入科 && 入科时间在queryEndUtc之前
         //      - 出科 && （出科时间大于等于查询开始时间，且入科时间小于等于查询结束时间）
         List<PatientRecord> inIcuPatients = patientRecordRepository.findByDeptIdAndAdmissionStatusInAndAdmissionTimeBefore(
-            deptId, Arrays.asList(IN_ICU_VAL, PENDING_ADMISSION_VAL), queryEndUtc
+            deptId, Arrays.asList(ADMISSION_STATUS_ADMITTED, ADMISSION_STATUS_PRE_ADMISSION),
+            queryEndUtc
         );
         List<PatientRecord> dischargedPatients = patientRecordRepository.findDischargedPatients(
             deptId, queryEndUtc, queryStartUtc
@@ -1411,18 +1398,6 @@ public class PatientService {
         // 合并两组病人记录并返回
         inIcuPatients.addAll(dischargedPatients);
         return inIcuPatients;
-    }
-
-    public Integer getAdmissionStatusInIcuId() {
-        return IN_ICU_VAL;
-    }
-
-    public Integer getAdmissionStatusPendingDischargedId() {
-        return PENDING_DISCHARGED_VAL;
-    }
-
-    public Integer getAdmissionStatusDischargedId() {
-        return DISCHARGED_VAL;
     }
 
     public StatusCode validateTimeRange(
@@ -1754,7 +1729,7 @@ public class PatientService {
 
             case "admission_status":
                 if (patientRec.getAdmissionStatus() == null) return "";
-                return patientConfig.getAdmissionStatusStr(patientRec.getAdmissionStatus());
+                return patientEnums.getAdmissionStatusName(patientRec.getAdmissionStatus());
 
             case "admission_time":
                 if (patientRec.getAdmissionTime() == null) return "";
@@ -2120,7 +2095,8 @@ public class PatientService {
         // 查找对应的48h内出科记录
         Map<String/*hisMrn*/, Pair<Long/*pid*/, LocalDateTime/*dischargeTime*/>> pendingAdmissionTable = new HashMap<>();
         List<String> hisMrns = pendingPatients.stream().map(PatientBasicsPB::getHisMrn).toList();
-        List<Integer> dischargedStatuses = List.of(PENDING_DISCHARGED_VAL, DISCHARGED_VAL);
+        List<Integer> dischargedStatuses = List.of(
+            ADMISSION_STATUS_PRE_DISCHARGE, ADMISSION_STATUS_DISCHARGED);
         for (PatientRecord patient : patientRecordRepository.findByHisMrnInAndAdmissionStatusIn(hisMrns, dischargedStatuses)) {
             LocalDateTime dischargeTime = patient.getDischargeTime();
             // 出科时间缺失时无法判断再入科窗口，也不能参与最新出科时间的比较。
@@ -2167,10 +2143,6 @@ public class PatientService {
     }
 
     private final String ZONE_ID;
-    private final Integer PENDING_ADMISSION_VAL;
-    private final Integer IN_ICU_VAL;
-    private final Integer PENDING_DISCHARGED_VAL;
-    private final Integer DISCHARGED_VAL;
     private final Integer DISCHARGE_TYPE_TRANSFER_ID;
     private final Integer DISCHARGE_TYPE_DEATH_ID;
     private final Integer DISCHARGE_TYPE_EXIT_HOSPITAL_ID;

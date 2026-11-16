@@ -2,24 +2,21 @@ package com.jingyicare.jingyi_icis_engine.service.patients;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.google.protobuf.util.JsonFormat;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
-
-import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 import com.jingyicare.jingyi_icis_engine.service.certs.*;
@@ -1047,8 +1044,8 @@ public class PatientDeviceService {
         // 换床
         if (!readmission) {  // 普通换床
             // 检查合法性
-            if (!patient.getAdmissionStatus().equals(patientConfig.getPendingAdmissionId()) &&
-                !patient.getAdmissionStatus().equals(patientConfig.getInIcuId())
+            if (!patient.getAdmissionStatus().equals(PatientEnums.ADMISSION_STATUS_PRE_ADMISSION) &&
+                !patient.getAdmissionStatus().equals(PatientEnums.ADMISSION_STATUS_ADMITTED)
             ) {
                 log.error("Invalid admission status for bed switch: {}, pid {}",
                     patient.getAdmissionStatus(), patient.getId()
@@ -1092,7 +1089,7 @@ public class PatientDeviceService {
             );
         } else {  // 病人重返
             // 检查合法性
-            if (!patient.getAdmissionStatus().equals(patientConfig.getDischargedId())) {
+            if (!patient.getAdmissionStatus().equals(PatientEnums.ADMISSION_STATUS_DISCHARGED)) {
                 log.error("Invalid admission status for bed switch: {}, pid {}",
                     patient.getAdmissionStatus(), patient.getId()
                 );
@@ -1140,7 +1137,7 @@ public class PatientDeviceService {
 
         patient.setHisBedNumber(toHisBedNumber);
         if (readmission) {
-            patient.setAdmissionStatus(patientConfig.getInIcuId());
+            patient.setAdmissionStatus(PatientEnums.ADMISSION_STATUS_ADMITTED);
             patientConfig.clearDischargeFields(patient);
         }
         patientRepo.save(patient);

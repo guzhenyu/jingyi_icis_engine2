@@ -1,5 +1,7 @@
 package com.jingyicare.jingyi_icis_engine.service.patients;
 
+import static com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums.*;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -14,9 +16,7 @@ import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
 import com.jingyicare.jingyi_icis_engine.entity.patients.SurgeryHistory;
 import com.jingyicare.jingyi_icis_engine.entity.users.Account;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.PatientEnumsV2;
 import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
-import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
@@ -34,27 +34,9 @@ public class PatientSyncUtils {
     }
 
     public PatientSyncUtils(
-        ConfigProtoService protoService,
         PatientDeviceService patientDeviceService,
         AccountRepository accountRepo
     ) {
-        PatientEnumsV2 enumsV2 = protoService.getConfig().getPatient().getEnumsV2();
-        this.PENDING_ADMISSION_VAL = enumsV2.getAdmissionStatusList().stream()
-            .filter(e -> e.getName().equals(protoService.getConfig().getPatient().getPendingAdmissionName()))
-            .findFirst()
-            .get()
-            .getId();
-        this.IN_ICU_VAL = enumsV2.getAdmissionStatusList().stream()
-            .filter(e -> e.getName().equals(protoService.getConfig().getPatient().getInIcuName()))
-            .findFirst()
-            .get()
-            .getId();
-        this.PENDING_DISCHARGED_VAL = enumsV2.getAdmissionStatusList().stream()
-            .filter(e -> e.getName().equals(protoService.getConfig().getPatient().getPendingDischargedName()))
-            .findFirst()
-            .get()
-            .getId();
-
         this.patientDeviceService = patientDeviceService;
         this.accountRepo = accountRepo;
     }
@@ -297,17 +279,17 @@ public class PatientSyncUtils {
         // his(入科) v.s. icu(待入科) 不处理
         // his(入科) v.s. icu(入科) 不处理
         Integer currentAdmissionStatus = patientRecord.getAdmissionStatus();
-        if (!Objects.equals(currentAdmissionStatus, PENDING_ADMISSION_VAL) &&
-            !Objects.equals(currentAdmissionStatus, IN_ICU_VAL)
+        if (!Objects.equals(currentAdmissionStatus, ADMISSION_STATUS_PRE_ADMISSION) &&
+            !Objects.equals(currentAdmissionStatus, ADMISSION_STATUS_ADMITTED)
         ) {
-            patientRecord.setAdmissionStatus(PENDING_ADMISSION_VAL);
+            patientRecord.setAdmissionStatus(ADMISSION_STATUS_PRE_ADMISSION);
             isUpdated = true;
         }
         if (!Objects.equals(patientRecord.getDeptId(), hisRecord.getDeptCode()) ||
             (!StrUtils.isBlank(patientRecord.getHisPatientId()) &&
                 !Objects.equals(patientRecord.getHisPatientId(), hisRecord.getPid()))
         ) {
-            patientRecord.setAdmissionStatus(PENDING_DISCHARGED_VAL);
+            patientRecord.setAdmissionStatus(ADMISSION_STATUS_PRE_DISCHARGE);
             patientRecord.setDischargeTime(TimeUtils.getNowUtc());
             isUpdated = true;
         }
@@ -381,10 +363,6 @@ public class PatientSyncUtils {
 
         return isUpdated;
     }
-
-    private final Integer PENDING_ADMISSION_VAL;
-    private final Integer IN_ICU_VAL;
-    private final Integer PENDING_DISCHARGED_VAL;
 
     private final PatientDeviceService patientDeviceService;
     private final AccountRepository accountRepo;

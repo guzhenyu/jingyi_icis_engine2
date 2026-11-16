@@ -1,7 +1,6 @@
 package com.jingyicare.jingyi_icis_engine.service.medications;
 
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -14,25 +13,25 @@ import com.google.protobuf.util.JsonFormat;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
-import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisShift.*;
-import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
-
 import com.jingyicare.jingyi_icis_engine.entity.medications.*;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.entity.nursingorders.*;
 import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.entity.settings.*;
 import com.jingyicare.jingyi_icis_engine.entity.users.*;
+import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisShift.*;
+import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.repository.medications.*;
 import com.jingyicare.jingyi_icis_engine.repository.nursingorders.*;
 import com.jingyicare.jingyi_icis_engine.repository.settings.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
+import com.jingyicare.jingyi_icis_engine.service.*;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
-import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Service
@@ -124,9 +123,9 @@ public class MedicationService {
                 .build();
         }
         final Boolean patientInIcu = (
-            patientRecord.getAdmissionStatus() == patientService.getAdmissionStatusInIcuId() ||
-            patientRecord.getAdmissionStatus() == patientService.getAdmissionStatusPendingDischargedId() ||
-            patientRecord.getAdmissionStatus() == patientService.getAdmissionStatusDischargedId()
+            patientRecord.getAdmissionStatus() == PatientEnums.ADMISSION_STATUS_ADMITTED ||
+            patientRecord.getAdmissionStatus() == PatientEnums.ADMISSION_STATUS_PRE_DISCHARGE ||
+            patientRecord.getAdmissionStatus() == PatientEnums.ADMISSION_STATUS_DISCHARGED
         );
         final String deptId = patientRecord.getDeptId();
         final ShiftSettingsPB shiftSettings = shiftUtils.getShiftByDeptId(deptId);
@@ -146,7 +145,7 @@ public class MedicationService {
         // 只有在科病人，且有明确的分解指令，才分解
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
         if (expandExeRecord) {
-            if (patientRecord.getAdmissionStatus() == patientService.getAdmissionStatusDischargedId() &&
+            if (patientRecord.getAdmissionStatus() == PatientEnums.ADMISSION_STATUS_DISCHARGED &&
                 patientRecord.getDischargeTime() != null && 
                 nowUtc.isAfter(patientRecord.getDischargeTime().plusHours(8))
             ) {
@@ -212,7 +211,8 @@ public class MedicationService {
                 .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
                 .build();
         }
-        final Boolean patientInIcu = (patientRecord.getAdmissionStatus() == patientService.getAdmissionStatusInIcuId());
+        final Boolean patientInIcu =
+            (patientRecord.getAdmissionStatus() == PatientEnums.ADMISSION_STATUS_ADMITTED);
         final String deptId = patientRecord.getDeptId();
         final ShiftSettingsPB shiftSettings = shiftUtils.getShiftByDeptId(deptId);
         final MedOrderGroupSettingsPB medOgSettings = medConfig.getMedOrderGroupSettings(deptId);
@@ -298,8 +298,8 @@ public class MedicationService {
         final MedOrderGroupSettingsPB medOgSettings = medConfig.getMedOrderGroupSettings(deptId);
 
         // 检查病人是否在ICU
-        if (patientRecord.getAdmissionStatus() == patientService.getAdmissionStatusDischargedId() ||
-             patientRecord.getAdmissionStatus() == patientService.getAdmissionStatusPendingDischargedId()
+        if (patientRecord.getAdmissionStatus() == PatientEnums.ADMISSION_STATUS_DISCHARGED ||
+             patientRecord.getAdmissionStatus() == PatientEnums.ADMISSION_STATUS_PRE_DISCHARGE
         ) {
             if (medOgSettings.getDenyDischargedOrders()) {
                 log.error("Patient is discharged: ", req.getPatientId());

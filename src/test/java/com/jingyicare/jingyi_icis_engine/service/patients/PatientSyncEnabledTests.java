@@ -20,8 +20,6 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceConfigPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceEnums;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.Patient;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.PatientEnumsV2;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.EnumValue;
 import com.jingyicare.jingyi_icis_engine.repository.patients.DiagnosisHistoryRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patients.HisPatientRecordRepository;
@@ -84,16 +82,6 @@ public class PatientSyncEnabledTests {
         Fixture(boolean enabled) {
             ConfigProtoService protoService = mock(ConfigProtoService.class);
             Config config = Config.newBuilder()
-                .setPatient(Patient.newBuilder()
-                    .setPendingAdmissionName("待入科")
-                    .setInIcuName("在科")
-                    .setPendingDischargedName("待出科")
-                    .setDischargedName("出科")
-                    .setEnumsV2(PatientEnumsV2.newBuilder()
-                        .addAdmissionStatus(enumValue(1, "待入科"))
-                        .addAdmissionStatus(enumValue(2, "在科"))
-                        .addAdmissionStatus(enumValue(3, "待出科"))
-                        .addAdmissionStatus(enumValue(4, "出科"))))
                 .setDevice(DeviceConfigPB.newBuilder()
                     .setEnums(DeviceEnums.newBuilder()
                         .addBedType(enumValue(1, "固定授权"))

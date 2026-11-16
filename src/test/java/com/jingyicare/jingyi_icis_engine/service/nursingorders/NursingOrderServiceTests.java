@@ -1,5 +1,6 @@
 package com.jingyicare.jingyi_icis_engine.service.nursingorders;
 
+import static com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDateTime;
@@ -13,15 +14,14 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingOrder.*;
-import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
-
 import com.jingyicare.jingyi_icis_engine.entity.medications.*;
 import com.jingyicare.jingyi_icis_engine.entity.nursingorders.*;
 import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.entity.users.RbacDepartment;
+import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingOrder.*;
+import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.repository.medications.*;
 import com.jingyicare.jingyi_icis_engine.repository.nursingorders.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
@@ -48,12 +48,6 @@ public class NursingOrderServiceTests extends TestsBase {
         this.accountId = "admin";
         this.deptId = "99999";
         this.deptId2 = "10018";
-        this.IN_ICU_VAL = protoService.getConfig().getPatient().getEnumsV2().getAdmissionStatusList()
-            .stream()
-            .filter(e -> e.getName().equals(protoService.getConfig().getPatient().getInIcuName()))
-            .findFirst()
-            .get()
-            .getId();
 
         this.protoService = protoService;
         this.configPb = protoService.getConfig().getNursingOrder();
@@ -165,7 +159,6 @@ public class NursingOrderServiceTests extends TestsBase {
         assertThat(getResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         assertThat(getResp.getGroup(2).getNursingOrderTemplate(0).getName()).isEqualTo("template-g3-1-updated");
 
-
         // 删除模板
         DeleteNursingOrderTemplateReq deleteTemplateReq = DeleteNursingOrderTemplateReq.newBuilder()
             .setId(addedTemplateId).build();
@@ -189,7 +182,8 @@ public class NursingOrderServiceTests extends TestsBase {
             new UsernamePasswordAuthenticationToken(accountId, null, authorities);
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        PatientRecord patient = patientTestUtils.newPatientRecord(1001L, IN_ICU_VAL, deptId2);
+        PatientRecord patient = patientTestUtils.newPatientRecord(
+            1001L, ADMISSION_STATUS_ADMITTED, deptId2);
         patient.setAdmissionTime(LocalDateTime.of(2024, 12, 23, 0, 0, 0));
         patient = patientRecordRepo.save(patient);
         final Long patientId = patient.getId();
@@ -437,7 +431,8 @@ public class NursingOrderServiceTests extends TestsBase {
             new UsernamePasswordAuthenticationToken(accountId, null, authorities);
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        PatientRecord patient = patientTestUtils.newPatientRecord(1002L, IN_ICU_VAL, deptId2);
+        PatientRecord patient = patientTestUtils.newPatientRecord(
+            1002L, ADMISSION_STATUS_ADMITTED, deptId2);
         patient.setAdmissionTime(LocalDateTime.of(2024, 12, 23, 0, 0, 0));
         patient = patientRecordRepo.save(patient);
         final Long patientId = patient.getId();
@@ -537,7 +532,8 @@ public class NursingOrderServiceTests extends TestsBase {
             new UsernamePasswordAuthenticationToken(accountId, null, authorities);
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        PatientRecord patient = patientTestUtils.newPatientRecord(1002L, IN_ICU_VAL, deptId2);
+        PatientRecord patient = patientTestUtils.newPatientRecord(
+            1002L, ADMISSION_STATUS_ADMITTED, deptId2);
         patient.setAdmissionTime(LocalDateTime.of(2024, 12, 23, 0, 0, 0));
         patient = patientRecordRepo.save(patient);
         final Long patientId = patient.getId();
@@ -643,7 +639,8 @@ public class NursingOrderServiceTests extends TestsBase {
             new UsernamePasswordAuthenticationToken(accountId, null, authorities);
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        PatientRecord patient = patientTestUtils.newPatientRecord(9001L, IN_ICU_VAL, deptId2);
+        PatientRecord patient = patientTestUtils.newPatientRecord(
+            9001L, ADMISSION_STATUS_ADMITTED, deptId2);
         patient.setAdmissionTime(LocalDateTime.of(2024, 12, 23, 0, 0, 0));
         patient = patientRecordRepo.save(patient);
         final Long patientId = patient.getId();
@@ -741,7 +738,8 @@ public class NursingOrderServiceTests extends TestsBase {
         unsupportedFreq.setIsDeleted(false);
         medFreqRepo.save(unsupportedFreq);
 
-        PatientRecord patient = patientTestUtils.newPatientRecord(9002L, IN_ICU_VAL, deptId2);
+        PatientRecord patient = patientTestUtils.newPatientRecord(
+            9002L, ADMISSION_STATUS_ADMITTED, deptId2);
         patient.setAdmissionTime(LocalDateTime.of(2024, 12, 23, 0, 0, 0));
         patient = patientRecordRepo.save(patient);
 
@@ -804,7 +802,6 @@ public class NursingOrderServiceTests extends TestsBase {
     private final String accountId;
     private final String deptId;
     private final String deptId2;
-    final private Integer IN_ICU_VAL;
 
     private final ConfigProtoService protoService;
     private final NursingOrderConfigPB configPb;

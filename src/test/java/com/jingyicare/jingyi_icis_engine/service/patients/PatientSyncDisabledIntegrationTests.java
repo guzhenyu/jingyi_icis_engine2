@@ -19,7 +19,6 @@ import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.SyncHisPatientReq;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.SyncHisPatientResp;
 import com.jingyicare.jingyi_icis_engine.repository.patients.HisPatientRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordRepository;
-import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.testutils.PatientTestUtils;
 import com.jingyicare.jingyi_icis_engine.testutils.PostgreSqlTestConfiguration;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
@@ -33,9 +32,6 @@ public class PatientSyncDisabledIntegrationTests {
 
     @Autowired
     private PatientReadmissionService patientReadmissionService;
-
-    @Autowired
-    private ConfigProtoService protoService;
 
     @Autowired
     private PatientRecordRepository patientRepo;
@@ -63,13 +59,9 @@ public class PatientSyncDisabledIntegrationTests {
 
     @Test
     public void testReadmissionStillWorksWhenSyncIsDisabled() {
-        int pendingAdmission = admissionStatus(
-            protoService.getConfig().getPatient().getPendingAdmissionName()
-        );
-        int inIcu = admissionStatus(protoService.getConfig().getPatient().getInIcuName());
-        int discharged = admissionStatus(
-            protoService.getConfig().getPatient().getDischargedName()
-        );
+        int pendingAdmission = PatientEnums.ADMISSION_STATUS_PRE_ADMISSION;
+        int inIcu = PatientEnums.ADMISSION_STATUS_ADMITTED;
+        int discharged = PatientEnums.ADMISSION_STATUS_DISCHARGED;
         long dischargedSeed = 29001L;
         long newPatientSeed = 29002L;
         String mrn = "sync-disabled-readmission-mrn";
@@ -109,12 +101,4 @@ public class PatientSyncDisabledIntegrationTests {
         assertThat(patientRepo.findById(newPatient.getId())).isEmpty();
     }
 
-    private int admissionStatus(String name) {
-        return protoService.getConfig().getPatient().getEnumsV2().getAdmissionStatusList()
-            .stream()
-            .filter(status -> status.getName().equals(name))
-            .findFirst()
-            .orElseThrow()
-            .getId();
-    }
 }

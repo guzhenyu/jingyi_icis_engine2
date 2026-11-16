@@ -2,14 +2,12 @@ package com.jingyicare.jingyi_icis_engine.service.nursingorders;
 
 import java.time.Duration;
 import java.time.LocalDateTime;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -17,25 +15,24 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.google.protobuf.util.JsonFormat;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
-
-import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingOrder.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisShift.*;
-import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 
 import com.jingyicare.jingyi_icis_engine.entity.medications.*;
 import com.jingyicare.jingyi_icis_engine.entity.nursingorders.*;
 import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
+import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingOrder.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisShift.*;
+import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.repository.medications.*;
 import com.jingyicare.jingyi_icis_engine.repository.nursingorders.*;
 import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.service.medications.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -748,7 +745,8 @@ public class NursingOrderService {
                 .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
                 .build();
         }
-        final Boolean patientInIcu = (patientRecord.getAdmissionStatus() == patientService.getAdmissionStatusInIcuId());
+        final Boolean patientInIcu =
+            (patientRecord.getAdmissionStatus() == PatientEnums.ADMISSION_STATUS_ADMITTED);
         final String deptId = patientRecord.getDeptId();
         final ShiftSettingsPB shiftSettings = shiftUtils.getShiftByDeptId(deptId);
 

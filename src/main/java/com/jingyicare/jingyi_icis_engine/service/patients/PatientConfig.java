@@ -1,9 +1,11 @@
 package com.jingyicare.jingyi_icis_engine.service.patients;
 
+import static com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums.*;
+
 import java.time.*;
 import java.util.*;
-import java.util.stream.Collectors;
 import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -13,16 +15,15 @@ import org.springframework.transaction.annotation.Transactional;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.entity.patients.*;
+import com.jingyicare.jingyi_icis_engine.entity.settings.*;
+import com.jingyicare.jingyi_icis_engine.entity.users.*;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisText.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
-
-import com.jingyicare.jingyi_icis_engine.entity.patients.*;
-import com.jingyicare.jingyi_icis_engine.entity.settings.*;
-import com.jingyicare.jingyi_icis_engine.entity.users.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.settings.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
@@ -66,26 +67,6 @@ public class PatientConfig {
         this.ZONE_ID = protoService.getConfig().getZoneId();
 
         PatientEnumsV2 enumsV2 = protoService.getConfig().getPatient().getEnumsV2();
-        this.PENDING_ADMISSION_VAL = enumsV2.getAdmissionStatusList().stream()
-            .filter(e -> e.getName().equals(protoService.getConfig().getPatient().getPendingAdmissionName()))
-            .findFirst()
-            .get()
-            .getId();
-        this.IN_ICU_VAL = enumsV2.getAdmissionStatusList().stream()
-            .filter(e -> e.getName().equals(protoService.getConfig().getPatient().getInIcuName()))
-            .findFirst()
-            .get()
-            .getId();
-        this.PENDING_DISCHARGED_VAL = enumsV2.getAdmissionStatusList().stream()
-            .filter(e -> e.getName().equals(protoService.getConfig().getPatient().getPendingDischargedName()))
-            .findFirst()
-            .get()
-            .getId();
-        this.DISCHARGED_VAL = enumsV2.getAdmissionStatusList().stream()
-            .filter(e -> e.getName().equals(protoService.getConfig().getPatient().getDischargedName()))
-            .findFirst()
-            .get()
-            .getId();
         this.ADMISSION_TYPE_SURGERY_VAL = enumsV2.getAdmissionTypeList().stream()
             .filter(e -> e.getName().equals("手术"))
             .findFirst()
@@ -105,22 +86,6 @@ public class PatientConfig {
         this.devRepo = devRepo;
         this.patientDevRepo = patientDevRepo;
         this.rbacDeptRepo = rbacDeptRepo;
-    }
-
-    public Integer getPendingAdmissionId() {
-        return PENDING_ADMISSION_VAL;
-    }
-
-    public Integer getInIcuId() {
-        return IN_ICU_VAL;
-    }
-
-    public Integer getPendingDischargedId() {
-        return PENDING_DISCHARGED_VAL;
-    }
-
-    public Integer getDischargedId() {
-        return DISCHARGED_VAL;
     }
 
     public Integer getAdmissionTypeSurgeryId() {
@@ -162,15 +127,6 @@ public class PatientConfig {
         refreshSystemSettings();
     }
 
-    public String getAdmissionStatusStr(Integer statusId) {
-        for (EnumValue enumVal : protoService.getConfig().getPatient().getEnumsV2().getAdmissionStatusList()) {
-            if (enumVal.getId() == statusId) {
-                return enumVal.getName();
-            }
-        }
-        return "";
-    }
-
     public String getAdmissionTypeStr(Integer typeId) {
         for (EnumValue enumVal : protoService.getConfig().getPatient().getEnumsV2().getAdmissionTypeList()) {
             if (enumVal.getId() == typeId) {
@@ -196,7 +152,8 @@ public class PatientConfig {
         if (bedConfig == null) return null;
 
         Map<String/*his_bed_number*/, List<PatientRecord>> patientMap = patientRepo
-            .findByDeptIdAndAdmissionStatusIn(deptId, List.of(PENDING_ADMISSION_VAL, IN_ICU_VAL))
+            .findByDeptIdAndAdmissionStatusIn(
+                deptId, List.of(ADMISSION_STATUS_PRE_ADMISSION, ADMISSION_STATUS_ADMITTED))
             .stream()
             .collect(Collectors.groupingBy(PatientRecord::getHisBedNumber));
         List<PatientRecord> patients = patientMap.get(hisBedNumber);
@@ -612,8 +569,8 @@ public class PatientConfig {
         Map<String, PatientRecord> activePatientByBed = new HashMap<>();
         for (PatientRecord patient : patientMap.values()) {
             if (StrUtils.isBlank(patient.getDeptId()) || StrUtils.isBlank(patient.getHisBedNumber())) continue;
-            if (!Objects.equals(patient.getAdmissionStatus(), PENDING_ADMISSION_VAL) &&
-                !Objects.equals(patient.getAdmissionStatus(), IN_ICU_VAL)
+            if (!Objects.equals(patient.getAdmissionStatus(), ADMISSION_STATUS_PRE_ADMISSION) &&
+                !Objects.equals(patient.getAdmissionStatus(), ADMISSION_STATUS_ADMITTED)
             ) continue;
 
             String bedKey = getBedNumberKey(patient.getDeptId(), patient.getHisBedNumber());
@@ -622,10 +579,12 @@ public class PatientConfig {
                 Objects.equals(existingPatient.getAdmissionStatus(), patient.getAdmissionStatus())
             ) continue;
 
-            PatientRecord inIcuPatient = Objects.equals(patient.getAdmissionStatus(), IN_ICU_VAL) ?
-                patient : existingPatient;
+            PatientRecord inIcuPatient = Objects.equals(
+                patient.getAdmissionStatus(), ADMISSION_STATUS_ADMITTED)
+                ? patient : existingPatient;
             PatientRecord pendingAdmissionPatient = Objects.equals(
-                patient.getAdmissionStatus(), PENDING_ADMISSION_VAL) ? patient : existingPatient;
+                patient.getAdmissionStatus(), ADMISSION_STATUS_PRE_ADMISSION)
+                ? patient : existingPatient;
             log.error(
                 "Bed occupancy conflict: in-ICU patient and pending-admission patient share the same bed; " +
                 "deptId={}, hisBedNumber={}, inIcuPatientId={}, pendingAdmissionPatientId={}",
@@ -695,10 +654,6 @@ public class PatientConfig {
     }
 
     private final String ZONE_ID;
-    private final Integer PENDING_ADMISSION_VAL;
-    private final Integer IN_ICU_VAL;
-    private final Integer PENDING_DISCHARGED_VAL;
-    private final Integer DISCHARGED_VAL;
     private final Integer ADMISSION_TYPE_SURGERY_VAL;
     private final Integer DISCHARGE_TYPE_DEAD_VAL;
 

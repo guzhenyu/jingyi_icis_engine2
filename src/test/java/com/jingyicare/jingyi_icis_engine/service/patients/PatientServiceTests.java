@@ -1,5 +1,6 @@
 package com.jingyicare.jingyi_icis_engine.service.patients;
 
+import static com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDateTime;
@@ -11,15 +12,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
+import com.jingyicare.jingyi_icis_engine.entity.patients.BedConfig;
+import com.jingyicare.jingyi_icis_engine.entity.patients.DiagnosisHistory;
+import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
+import com.jingyicare.jingyi_icis_engine.entity.users.Account;
+import com.jingyicare.jingyi_icis_engine.entity.users.RbacAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
-
-import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
-import com.jingyicare.jingyi_icis_engine.entity.patients.BedConfig;
-import com.jingyicare.jingyi_icis_engine.entity.patients.DiagnosisHistory;
-import com.jingyicare.jingyi_icis_engine.entity.users.Account;
-import com.jingyicare.jingyi_icis_engine.entity.users.RbacAccount;
 import com.jingyicare.jingyi_icis_engine.repository.patients.BedConfigRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patients.DiagnosisHistoryRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordRepository;
@@ -32,7 +32,6 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 
 public class PatientServiceTests extends TestsBase {
     public PatientServiceTests(
-        @Autowired ConfigProtoService protoService,
         @Autowired PatientService patientService,
         @Autowired PatientRecordRepository patientRecordRepo,
         @Autowired BedConfigRepository bedConfigRepo,
@@ -40,27 +39,6 @@ public class PatientServiceTests extends TestsBase {
         @Autowired RbacAccountRepository rbacAccountRepo,
         @Autowired DiagnosisHistoryRepository diagnosisHistoryRepo
     ) {
-        this.enums = protoService.getConfig().getPatient().getEnumsV2();
-        this.PENDING_ADMISSION_VAL = enums.getAdmissionStatusList().stream()
-            .filter(e -> e.getName().equals(protoService.getConfig().getPatient().getPendingAdmissionName()))
-            .findFirst()
-            .get()
-            .getId();
-        this.IN_ICU_VAL = enums.getAdmissionStatusList().stream()
-            .filter(e -> e.getName().equals(protoService.getConfig().getPatient().getInIcuName()))
-            .findFirst()
-            .get()
-            .getId();
-        this.PENDING_DISCHARGED_VAL = enums.getAdmissionStatusList().stream()
-            .filter(e -> e.getName().equals(protoService.getConfig().getPatient().getPendingDischargedName()))
-            .findFirst()
-            .get()
-            .getId();
-        this.DISCHARGED_VAL = enums.getAdmissionStatusList().stream()
-            .filter(e -> e.getName().equals(protoService.getConfig().getPatient().getDischargedName()))
-            .findFirst()
-            .get()
-            .getId();
 
         this.patientService = patientService;
         this.patientTestUtils = new PatientTestUtils();
@@ -77,7 +55,8 @@ public class PatientServiceTests extends TestsBase {
     @Test
     @org.springframework.transaction.annotation.Transactional
     public void testPatientInfoBloodTypes() throws Exception {
-        PatientRecord patient = patientTestUtils.newPatientRecord(99010L, IN_ICU_VAL, "10013");
+        PatientRecord patient = patientTestUtils.newPatientRecord(
+            99010L, ADMISSION_STATUS_ADMITTED, "10013");
         patient.setId(null);
         patient.setBloodType("A");
         patient.setBloodRh("RH阳性");
@@ -156,11 +135,16 @@ public class PatientServiceTests extends TestsBase {
         primaryCareDoctor.setIsDeleted(false);
         accountRepo.save(primaryCareDoctor);
 
-        PatientRecord rec1 = patientTestUtils.newPatientRecord(701L, PENDING_ADMISSION_VAL, deptId);
-        PatientRecord rec2 = patientTestUtils.newPatientRecord(702L, IN_ICU_VAL, deptId);
-        PatientRecord rec3 = patientTestUtils.newPatientRecord(703L, PENDING_DISCHARGED_VAL, deptId);
-        PatientRecord rec4 = patientTestUtils.newPatientRecord(704L, DISCHARGED_VAL, deptId);
-        PatientRecord rec5 = patientTestUtils.newPatientRecord(705L, IN_ICU_VAL, deptId);
+        PatientRecord rec1 = patientTestUtils.newPatientRecord(
+            701L, ADMISSION_STATUS_PRE_ADMISSION, deptId);
+        PatientRecord rec2 = patientTestUtils.newPatientRecord(
+            702L, ADMISSION_STATUS_ADMITTED, deptId);
+        PatientRecord rec3 = patientTestUtils.newPatientRecord(
+            703L, ADMISSION_STATUS_PRE_DISCHARGE, deptId);
+        PatientRecord rec4 = patientTestUtils.newPatientRecord(
+            704L, ADMISSION_STATUS_DISCHARGED, deptId);
+        PatientRecord rec5 = patientTestUtils.newPatientRecord(
+            705L, ADMISSION_STATUS_ADMITTED, deptId);
         rec2.setAttendingDoctorId(null);
         rec2.setPrimaryCareDoctorId(primaryCareDoctor.getAccountId());
         rec1 = patientRecordRepo.save(rec1);
@@ -220,14 +204,16 @@ public class PatientServiceTests extends TestsBase {
     public void testInlinePatientsWithMissingHistoricalDischargeTimes() {
         final String deptId = "10013";
         final String hisMrn = "inline-missing-discharge-time";
-        PatientRecord pending = patientTestUtils.newPatientRecord(99001L, PENDING_ADMISSION_VAL, deptId);
+        PatientRecord pending = patientTestUtils.newPatientRecord(
+            99001L, ADMISSION_STATUS_PRE_ADMISSION, deptId);
         pending.setId(null);
         pending.setHisMrn(hisMrn);
         pending.setDischargeTime(null);
         pending = patientRecordRepo.save(pending);
         bedConfigRepo.save(newBedConfig(deptId, pending.getHisBedNumber(), 1, false));
 
-        for (Integer status : java.util.List.of(PENDING_DISCHARGED_VAL, DISCHARGED_VAL)) {
+        for (Integer status : java.util.List.of(
+            ADMISSION_STATUS_PRE_DISCHARGE, ADMISSION_STATUS_DISCHARGED)) {
             PatientRecord history = patientTestUtils.newPatientRecord(99002L + status, status, deptId);
             history.setId(null);
             history.setHisMrn(hisMrn);
@@ -272,7 +258,8 @@ public class PatientServiceTests extends TestsBase {
         );
 
         try {
-            PatientRecord patient = patientTestUtils.newPatientRecord(90001L, IN_ICU_VAL, "10013");
+            PatientRecord patient = patientTestUtils.newPatientRecord(
+                90001L, ADMISSION_STATUS_ADMITTED, "10013");
             patient.setId(null);
             patient.setHisMrn("diagnosis-history-shell-mrn");
             patient.setDiagnosis(null);
@@ -375,11 +362,6 @@ public class PatientServiceTests extends TestsBase {
             .build();
     }
 
-    final PatientEnumsV2 enums;
-    final private Integer PENDING_ADMISSION_VAL;
-    final private Integer IN_ICU_VAL;
-    final private Integer PENDING_DISCHARGED_VAL;
-    final private Integer DISCHARGED_VAL;
     final private PatientService patientService;
     final private PatientTestUtils patientTestUtils;
     final private PatientRecordRepository patientRecordRepo;
@@ -443,7 +425,6 @@ public class PatientServiceTests extends TestsBase {
     //     dischargeInputs.setDischargeEditTime(now);
     //     dischargeInputs.setDischargeAccountId("出科操作人");
     //     record.get().setDischargeInputs(dischargeInputs);
-
 
     //     patientRecordRepository.save(record.get());
 

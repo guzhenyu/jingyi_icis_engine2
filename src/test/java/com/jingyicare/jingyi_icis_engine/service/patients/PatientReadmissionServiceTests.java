@@ -18,36 +18,21 @@ import com.jingyicare.jingyi_icis_engine.entity.patients.DiagnosisHistory;
 import com.jingyicare.jingyi_icis_engine.entity.patients.HisPatientRecord;
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
 import com.jingyicare.jingyi_icis_engine.entity.patients.SurgeryHistory;
-import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.Patient;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.PatientEnumsV2;
-import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.EnumValue;
 import com.jingyicare.jingyi_icis_engine.repository.patients.DiagnosisHistoryRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patients.HisPatientRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patients.SurgeryHistoryRepository;
-import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 
 public class PatientReadmissionServiceTests {
     @Test
     public void testReadmitPatientStillMergesPatientAndHistoriesIndependentlyOfScheduledSync() {
-        ConfigProtoService protoService = mock(ConfigProtoService.class);
-        Config config = Config.newBuilder()
-            .setPatient(Patient.newBuilder()
-                .setInIcuName("在科")
-                .setEnumsV2(PatientEnumsV2.newBuilder()
-                    .addAdmissionStatus(EnumValue.newBuilder().setId(1).setName("在科"))))
-            .build();
-        when(protoService.getConfig()).thenReturn(config);
-
         PatientSyncUtils patientSyncUtils = mock(PatientSyncUtils.class);
         PatientRecordRepository patientRepo = mock(PatientRecordRepository.class);
         DiagnosisHistoryRepository diagnosisRepo = mock(DiagnosisHistoryRepository.class);
         SurgeryHistoryRepository surgeryRepo = mock(SurgeryHistoryRepository.class);
         HisPatientRecordRepository hisPatientRepo = mock(HisPatientRecordRepository.class);
         PatientReadmissionService service = new PatientReadmissionService(
-            protoService,
             patientSyncUtils,
             patientRepo,
             diagnosisRepo,

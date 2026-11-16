@@ -67,22 +67,6 @@ shift {
 }
 patient {
     enums_v2 {
-        admission_status {
-            id: 0
-            name: "待入科"
-        }
-        admission_status {
-            id: 1
-            name: "在科"
-        }
-        admission_status {
-            id: 2
-            name: "待出科"
-        }
-        admission_status {
-            id: 3
-            name: "已出科"
-        }
         admission_type {
             id: 0
             name: "待确定"
@@ -323,6 +307,10 @@ patient {
             id: 7
             name: "本科及以上"
         }
+        pending_admission_name: "待入科"
+        in_icu_name: "在科"
+        pending_discharged_name: "待出科"
+        discharged_name: "已出科"
     }
     default_display_field_settings {
         function_id: 1
@@ -575,10 +563,6 @@ patient {
             col_id_to_display: "diagnosis"
         }
     }
-    pending_admission_name: "待入科"
-    in_icu_name: "在科"
-    pending_discharged_name: "待出科"
-    discharged_name: "已出科"
 }
 medication {
     enums {

@@ -1,5 +1,6 @@
 package com.jingyicare.jingyi_icis_engine.service.patients;
 
+import static com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.*;
@@ -12,12 +13,11 @@ import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
-
-import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.service.certs.*;
@@ -44,17 +44,6 @@ public class PatientDeviceServiceTests extends TestsBase {
         this.devDeptId3 = "10031";
         this.devDeptId4 = "10041";
 
-        this.enums = protoService.getConfig().getPatient().getEnumsV2();
-        this.PENDING_ADMISSION_VAL = enums.getAdmissionStatusList().stream()
-            .filter(e -> e.getName().equals(protoService.getConfig().getPatient().getPendingAdmissionName()))
-            .findFirst()
-            .get()
-            .getId();
-        this.IN_ICU_VAL = enums.getAdmissionStatusList().stream()
-            .filter(e -> e.getName().equals(protoService.getConfig().getPatient().getInIcuName()))
-            .findFirst()
-            .get()
-            .getId();
         this.BED_TYPE_FIXED = 1;
         this.BED_TYPE_TEMP = 2;
         this.MONITOR_DEVICE_TYPE = 1;
@@ -179,7 +168,8 @@ public class PatientDeviceServiceTests extends TestsBase {
         }
 
         // 普通换床成功：status=IN_ICU
-        PatientRecord patient = PatientTestUtils.newPatientRecord(2301L, IN_ICU_VAL, devDeptId4);
+        PatientRecord patient = PatientTestUtils.newPatientRecord(
+            2301L, ADMISSION_STATUS_ADMITTED, devDeptId4);
         patient.setAdmissionTime(TimeUtils.getLocalTime(2025, 8, 15));  // 2025-08-15 8:00 上海时间
         patientConfig.clearDischargeFields(patient);
         patient = patientRecordRepo.save(patient);
@@ -203,7 +193,8 @@ public class PatientDeviceServiceTests extends TestsBase {
         assertThat(bedHistory).hasSize(1);
 
         // 普通换床-目标床被他人占
-        PatientRecord patient2 = PatientTestUtils.newPatientRecord(2305L, IN_ICU_VAL, devDeptId4);
+        PatientRecord patient2 = PatientTestUtils.newPatientRecord(
+            2305L, ADMISSION_STATUS_ADMITTED, devDeptId4);
         patient2.setAdmissionTime(TimeUtils.getLocalTime(2025, 8, 15));  // 2025-08-15 8:00 上海时间
         patientConfig.clearDischargeFields(patient2);
         patient2 = patientRecordRepo.save(patient2);
@@ -217,7 +208,7 @@ public class PatientDeviceServiceTests extends TestsBase {
         )).isEqualTo(StatusCode.BED_SWITCH_TIME_OUTDATED);
 
         // 普通换床-非法状态：status=DISCHARGED → INVALID_ADMISSION_STATUS_FOR_BED_SWITCH
-        patient.setAdmissionStatus(patientConfig.getDischargedId());
+        patient.setAdmissionStatus(PatientEnums.ADMISSION_STATUS_DISCHARGED);
         patient.setDischargeTime(TimeUtils.getLocalTime(2025, 8, 17));
         patient = patientRecordRepo.save(patient);
         assertThat(patientDeviceService.switchBedImpl(
@@ -225,7 +216,8 @@ public class PatientDeviceServiceTests extends TestsBase {
         )).isEqualTo(StatusCode.INVALID_ADMISSION_STATUS_FOR_BED_SWITCH);
 
         // patient重返, 2301->2306
-        PatientRecord patient3 = PatientTestUtils.newPatientRecord(2306L, IN_ICU_VAL, devDeptId4);
+        PatientRecord patient3 = PatientTestUtils.newPatientRecord(
+            2306L, ADMISSION_STATUS_ADMITTED, devDeptId4);
         patient3.setHisMrn("mrn2305");
         patient3.setAdmissionTime(TimeUtils.getLocalTime(2025, 8, 18));  // 2025-08-18 8:00 上海时间
         patientConfig.clearDischargeFields(patient3);
@@ -271,7 +263,7 @@ public class PatientDeviceServiceTests extends TestsBase {
         patient = patientRecordRepo.findById(patient.getId()).orElse(null);
         assertThat(patient).isNotNull();
         assertThat(patient.getHisBedNumber()).isEqualTo("hisBedNumber2306");
-        assertThat(patient.getAdmissionStatus()).isEqualTo(patientConfig.getInIcuId());
+        assertThat(patient.getAdmissionStatus()).isEqualTo(PatientEnums.ADMISSION_STATUS_ADMITTED);
     }
 
     @Test
@@ -313,7 +305,8 @@ public class PatientDeviceServiceTests extends TestsBase {
         assertThat(deleteDevResp.getRt().getCode()).isEqualTo(0);
 
         // 绑定病人设备
-        PatientRecord patient = PatientTestUtils.newPatientRecord(1401L, IN_ICU_VAL, devDeptId1);
+        PatientRecord patient = PatientTestUtils.newPatientRecord(
+            1401L, ADMISSION_STATUS_ADMITTED, devDeptId1);
         patient.setAdmissionTime(TimeUtils.getLocalTime(2025, 3, 9));  // 2025-03-09 8:00 上海时间
         patient = patientRecordRepo.save(patient);
         BindPatientDeviceReq bindDevReq = BindPatientDeviceReq.newBuilder()
@@ -399,10 +392,12 @@ public class PatientDeviceServiceTests extends TestsBase {
         }
 
         // 新增病人
-        PatientRecord patient1 = PatientTestUtils.newPatientRecord(1501L, IN_ICU_VAL, devDeptId3);
+        PatientRecord patient1 = PatientTestUtils.newPatientRecord(
+            1501L, ADMISSION_STATUS_ADMITTED, devDeptId3);
         patient1.setAdmissionTime(TimeUtils.getLocalTime(2025, 3, 9));  // 2025-03-09 8:00 上海时间
         patient1 = patientRecordRepo.save(patient1);
-        PatientRecord patient2 = PatientTestUtils.newPatientRecord(1502L, IN_ICU_VAL, devDeptId3);
+        PatientRecord patient2 = PatientTestUtils.newPatientRecord(
+            1502L, ADMISSION_STATUS_ADMITTED, devDeptId3);
         patient2.setAdmissionTime(TimeUtils.getLocalTime(2025, 3, 9));  // 2025-03-09 8:00 上海时间
         patient2 = patientRecordRepo.save(patient2);
 
@@ -503,12 +498,12 @@ public class PatientDeviceServiceTests extends TestsBase {
         String conflictHisBedNumber = "shared-bed-conflict";
 
         PatientRecord inIcuPatient = PatientTestUtils.newPatientRecord(
-            990001L, IN_ICU_VAL, conflictDeptId);
+            990001L, ADMISSION_STATUS_ADMITTED, conflictDeptId);
         inIcuPatient.setHisBedNumber(conflictHisBedNumber);
         inIcuPatient = patientRecordRepo.save(inIcuPatient);
 
         PatientRecord pendingAdmissionPatient = PatientTestUtils.newPatientRecord(
-            990002L, PENDING_ADMISSION_VAL, conflictDeptId);
+            990002L, ADMISSION_STATUS_PRE_ADMISSION, conflictDeptId);
         pendingAdmissionPatient.setHisBedNumber(conflictHisBedNumber);
         pendingAdmissionPatient = patientRecordRepo.save(pendingAdmissionPatient);
 
@@ -633,8 +628,6 @@ public class PatientDeviceServiceTests extends TestsBase {
     private final String devDeptId3;
     private final String devDeptId4;
 
-    private final Integer PENDING_ADMISSION_VAL;
-    private final Integer IN_ICU_VAL;
     private final Integer BED_TYPE_FIXED;
     private final Integer BED_TYPE_TEMP;
     private final Integer MONITOR_DEVICE_TYPE;
@@ -642,7 +635,6 @@ public class PatientDeviceServiceTests extends TestsBase {
     private final Integer CENTRAL_STATION_DEVICE_TYPE;
 
     private final ConfigProtoService protoService;
-    private final PatientEnumsV2 enums;
     private final PatientService patientService;
     private final PatientDeviceService patientDeviceService;
     private final PatientConfig patientConfig;

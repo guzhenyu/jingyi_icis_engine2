@@ -1,5 +1,7 @@
 package com.jingyicare.jingyi_icis_engine.service.patients;
 
+import static com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums.*;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -14,32 +16,22 @@ import com.jingyicare.jingyi_icis_engine.entity.patients.HisPatientRecord;
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
 import com.jingyicare.jingyi_icis_engine.entity.patients.SurgeryHistory;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.PatientEnumsV2;
 import com.jingyicare.jingyi_icis_engine.repository.patients.DiagnosisHistoryRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patients.HisPatientRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patients.SurgeryHistoryRepository;
-import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientSyncUtils.PatientSyncInfo;
 
 @Service
 @Slf4j
 public class PatientReadmissionService {
     public PatientReadmissionService(
-        ConfigProtoService protoService,
         PatientSyncUtils patientSyncUtils,
         PatientRecordRepository patientRepo,
         DiagnosisHistoryRepository diagnosisRepo,
         SurgeryHistoryRepository surgeryRepo,
         HisPatientRecordRepository hisPatientRepo
     ) {
-        PatientEnumsV2 enumsV2 = protoService.getConfig().getPatient().getEnumsV2();
-        this.IN_ICU_VAL = enumsV2.getAdmissionStatusList().stream()
-            .filter(e -> e.getName().equals(protoService.getConfig().getPatient().getInIcuName()))
-            .findFirst()
-            .get()
-            .getId();
-
         this.patientSyncUtils = patientSyncUtils;
         this.patientRepo = patientRepo;
         this.diagnosisRepo = diagnosisRepo;
@@ -61,7 +53,7 @@ public class PatientReadmissionService {
             return StatusCode.READMISSION_PATIENT_INCONSISTENT;
         }
         HisPatientRecord hisPatientRecord = hisPatientRepo.findByPidAndAdmissionStatus(
-            newPatient.getHisPatientId(), IN_ICU_VAL
+            newPatient.getHisPatientId(), ADMISSION_STATUS_ADMITTED
         ).orElse(null);
         if (hisPatientRecord == null) {
             log.warn("Cannot find hisPatientRecord for: {}", newPatient.getHisPatientId());
@@ -95,8 +87,6 @@ public class PatientReadmissionService {
 
         return StatusCode.OK;
     }
-
-    private final Integer IN_ICU_VAL;
 
     private final PatientSyncUtils patientSyncUtils;
     private final PatientRecordRepository patientRepo;

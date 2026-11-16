@@ -6,6 +6,7 @@ import java.util.Map;
 
 import org.springframework.stereotype.Component;
 
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.PatientEnumsV2;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisText.EnumTextPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.EnumValue;
 import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
@@ -39,6 +40,13 @@ public class PatientEnums {
     );
 
     public PatientEnums(ProtoConfig protoConfig) {
+        PatientEnumsV2 patientEnums = protoConfig.getConfig().getPatient().getEnumsV2();
+        this.admissionStatusNames = Map.of(
+            ADMISSION_STATUS_PRE_ADMISSION, patientEnums.getPendingAdmissionName(),
+            ADMISSION_STATUS_ADMITTED, patientEnums.getInIcuName(),
+            ADMISSION_STATUS_PRE_DISCHARGE, patientEnums.getPendingDischargedName(),
+            ADMISSION_STATUS_DISCHARGED, patientEnums.getDischargedName());
+
         Map<String, Integer> rhIds = new HashMap<>();
         for (EnumValue value : BLOOD_RHS) {
             rhIds.put(value.getName(), value.getId());
@@ -47,6 +55,11 @@ public class PatientEnums {
         addRhAliases(rhIds, enumText.getBloodRhNegativeStrList(), BLOOD_RH_NEGATIVE);
         addRhAliases(rhIds, enumText.getBloodRhPositiveStrList(), BLOOD_RH_POSITIVE);
         this.bloodRhIds = Map.copyOf(rhIds);
+    }
+
+    public String getAdmissionStatusName(Integer id) {
+        if (id == null) return "";
+        return admissionStatusNames.getOrDefault(id, "");
     }
 
     public Integer getBloodTypeId(String bloodType) {
@@ -95,5 +108,6 @@ public class PatientEnums {
             .orElse("");
     }
 
+    private final Map<Integer, String> admissionStatusNames;
     private final Map<String, Integer> bloodRhIds;
 }

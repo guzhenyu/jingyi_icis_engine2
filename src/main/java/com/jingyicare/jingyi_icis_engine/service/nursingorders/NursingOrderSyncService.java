@@ -1,5 +1,7 @@
 package com.jingyicare.jingyi_icis_engine.service.nursingorders;
 
+import static com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums.*;
+
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
@@ -10,14 +12,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.entity.medications.*;
+import com.jingyicare.jingyi_icis_engine.entity.nursingorders.*;
+import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingOrder.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
-
-import com.jingyicare.jingyi_icis_engine.entity.medications.*;
-import com.jingyicare.jingyi_icis_engine.entity.nursingorders.*;
-import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.medications.*;
 import com.jingyicare.jingyi_icis_engine.repository.nursingorders.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
@@ -41,17 +42,14 @@ public class NursingOrderSyncService {
         this.orderRepo = orderRepo;
         this.medFreqRepo = medFreqRepo;
 
-        this.IN_ICU_VAL = protoService.getConfig().getPatient().getEnumsV2().getAdmissionStatusList().stream()
-            .filter(e -> e.getName().equals(protoService.getConfig().getPatient().getInIcuName()))
-            .findFirst()
-            .map(EnumValue::getId)
-            .orElse(null);
     }
 
     @Transactional
     public StatusCode syncFromMedicalOrders(PatientRecord patient, String accountId) {
         if (patient == null) return StatusCode.PATIENT_NOT_FOUND;
-        if (!Objects.equals(patient.getAdmissionStatus(), IN_ICU_VAL)) return StatusCode.OK;
+        if (!Objects.equals(patient.getAdmissionStatus(), ADMISSION_STATUS_ADMITTED)) {
+            return StatusCode.OK;
+        }
         if (StrUtils.isBlank(patient.getHisPatientId()) || patient.getAdmissionTime() == null) {
             log.warn("Skip nursing order sync because patient HIS id or admission time is empty, pid={}", patient.getId());
             return StatusCode.OK;
@@ -202,7 +200,6 @@ public class NursingOrderSyncService {
         return StrUtils.isBlank(s) ? "" : s;
     }
 
-    private final Integer IN_ICU_VAL;
     private final ConfigProtoService protoService;
     private final MedicalOrderRepository medOrdRepo;
     private final NursingOrderRepository orderRepo;

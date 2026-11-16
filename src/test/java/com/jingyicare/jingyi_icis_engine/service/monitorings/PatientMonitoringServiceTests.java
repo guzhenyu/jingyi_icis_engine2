@@ -1,12 +1,11 @@
 package com.jingyicare.jingyi_icis_engine.service.monitorings;
 
+import static com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.Comparator;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
@@ -17,16 +16,15 @@ import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.jingyicare.jingyi_icis_engine.entity.medications.*;
+import com.jingyicare.jingyi_icis_engine.entity.monitorings.*;
+import com.jingyicare.jingyi_icis_engine.entity.patients.*;
+import com.jingyicare.jingyi_icis_engine.entity.users.RbacDepartment;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
-
-import com.jingyicare.jingyi_icis_engine.entity.medications.*;
-import com.jingyicare.jingyi_icis_engine.entity.monitorings.*;
-import com.jingyicare.jingyi_icis_engine.entity.patients.*;
-import com.jingyicare.jingyi_icis_engine.entity.users.RbacDepartment;
 import com.jingyicare.jingyi_icis_engine.repository.medications.*;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordRepository;
@@ -58,12 +56,6 @@ public class PatientMonitoringServiceTests extends TestsBase {
         this.accountId = "admin";
         this.deptId = "10012";
         this.ZONE_ID = protoService.getConfig().getZoneId();
-        this.IN_ICU_VAL = protoService.getConfig().getPatient().getEnumsV2()
-            .getAdmissionStatusList().stream()
-            .filter(e -> e.getName().equals(protoService.getConfig().getPatient().getInIcuName()))
-            .findFirst()
-            .get()
-            .getId();
 
         MonitoringPB monitoringMeta = protoService.getConfig().getMonitoring();
         this.SUMMARY_MONOTORING_CODE = monitoringMeta.getParamCodeSummary();
@@ -126,7 +118,8 @@ public class PatientMonitoringServiceTests extends TestsBase {
 
         initDepartments();
 
-        PatientRecord patient = PatientTestUtils.newPatientRecord(601L, IN_ICU_VAL, deptId);
+        PatientRecord patient = PatientTestUtils.newPatientRecord(
+            601L, ADMISSION_STATUS_ADMITTED, deptId);
         patient.setAdmissionTime(TimeUtils.getLocalTime(2024, 11, 21));
         patient = patientRepo.save(patient);
         final Long pid = patient.getId();
@@ -176,7 +169,8 @@ public class PatientMonitoringServiceTests extends TestsBase {
 
         initDepartments();
 
-        PatientRecord patient = PatientTestUtils.newPatientRecord(602L, IN_ICU_VAL, deptId);
+        PatientRecord patient = PatientTestUtils.newPatientRecord(
+            602L, ADMISSION_STATUS_ADMITTED, deptId);
         patient.setAdmissionTime(TimeUtils.getLocalTime(2024, 11, 21));
         patient = patientRepo.save(patient);
         final Long pid = patient.getId();
@@ -347,7 +341,6 @@ public class PatientMonitoringServiceTests extends TestsBase {
         assertThat(resp.getOrderGroup(2).getExeRecordCount()).isEqualTo(1);
         final Long medExeRecId3 = resp.getOrderGroup(2).getExeRecord(0).getMedExeRec().getId();
 
-
         // 新增执行过程start, 10ml/hour
         LocalDateTime actionUtc = TimeUtils.getUtcFromLocalDateTime(
             TimeUtils.getLocalTime(2024, 10, 11, 9, 0), ZONE_ID);
@@ -482,7 +475,8 @@ public class PatientMonitoringServiceTests extends TestsBase {
         AddDeptMonitoringGroupParamResp addGroupParamResp = monitoringService.addDeptMonitoringGroupParam(addGroupParamReqJson);
         assertThat(addGroupParamResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
-        PatientRecord patient = PatientTestUtils.newPatientRecord(603L, IN_ICU_VAL, deptId);
+        PatientRecord patient = PatientTestUtils.newPatientRecord(
+            603L, ADMISSION_STATUS_ADMITTED, deptId);
         patient.setAdmissionTime(TimeUtils.getLocalTime(2024, 11, 21));
         patient = patientRepo.save(patient);
         final Long pid = patient.getId();
@@ -601,7 +595,6 @@ public class PatientMonitoringServiceTests extends TestsBase {
         deptMonitoringGroupParamRepo.save(param);
     }
 
-
     @Transactional
     private void initRoutes() {
         AdministrationRoute route = MedicationTestUtils.newAdministrationRoute(
@@ -636,7 +629,6 @@ public class PatientMonitoringServiceTests extends TestsBase {
     private final String deptId;
 
     private final String ZONE_ID;
-    private final Integer IN_ICU_VAL;
     private final String SUMMARY_MONOTORING_CODE;
     private final String IN_GROUP_NAME;
     private final String OUT_GROUP_NAME;

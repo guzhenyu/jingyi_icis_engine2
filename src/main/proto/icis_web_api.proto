@@ -828,11 +828,9 @@ message PatientBasicsPB {
     string bed_number_str = 5;
 
     int32 admission_status = 6;
-    // admissison_time is meaningful when
-    // admission_status == icis_config.pb.txt:admission_status_pending_admission.id
+    // 患者入科时间
     string admission_time = 7;
-    // discharge_time is meaningful when
-    // admission_status == icis_config.pb.txt:admission_status_pending_discharged.id
+    // 患者出科时间
     string discharge_time = 8;
 
     string date_of_birth_iso8601 = 9;

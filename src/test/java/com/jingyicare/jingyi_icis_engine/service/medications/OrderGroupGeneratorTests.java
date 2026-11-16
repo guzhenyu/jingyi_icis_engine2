@@ -1,5 +1,6 @@
 package com.jingyicare.jingyi_icis_engine.service.medications;
 
+import static com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDateTime;
@@ -12,11 +13,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.MedOrderGroupSettingsPB.*;
-
 import com.jingyicare.jingyi_icis_engine.entity.medications.*;
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.MedOrderGroupSettingsPB.*;
 import com.jingyicare.jingyi_icis_engine.repository.medications.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
@@ -36,13 +36,6 @@ public class OrderGroupGeneratorTests extends TestsBase {
     ) {
         this.deptId = "10003";
 
-        this.IN_ICU_VAL = configProtoService.getConfig().getPatient().getEnumsV2().getAdmissionStatusList()
-            .stream()
-            .filter(e -> e.getName().equals(configProtoService.getConfig().getPatient().getInIcuName()))
-            .findFirst()
-            .get()
-            .getId();
-
         this.orderGroupGenerator = orderGroupGenerator;
         this.patientRecordRepo = patientRecordRepo;
         this.medOrdRepo = medOrdRepo;
@@ -61,7 +54,8 @@ public class OrderGroupGeneratorTests extends TestsBase {
     @Test
     public void testGenerateSimpliestOrderGroup() {
         // Patient: hisPatientId101, inIcu, 2024-9-10(admissionTime)
-        PatientRecord patient = patientTestUtils.newPatientRecord(101L, IN_ICU_VAL, deptId);
+        PatientRecord patient = patientTestUtils.newPatientRecord(
+            101L, ADMISSION_STATUS_ADMITTED, deptId);
         patient.setAdmissionTime(TimeUtils.getLocalTime(2024, 9, 10));
         patient = patientRecordRepo.save(patient);
 
@@ -95,7 +89,8 @@ public class OrderGroupGeneratorTests extends TestsBase {
     @ValueSource(strings = {" \t "})
     @Transactional
     public void testOneTimeOrderWithMissingFrequency(String frequency) {
-        PatientRecord patient = patientTestUtils.newPatientRecord(1102L, IN_ICU_VAL, deptId);
+        PatientRecord patient = patientTestUtils.newPatientRecord(
+            1102L, ADMISSION_STATUS_ADMITTED, deptId);
         patient.setAdmissionTime(TimeUtils.getLocalTime(2024, 9, 10));
         patient = patientRecordRepo.save(patient);
         String onceCode = configProtoService.getConfig().getMedication().getFreqSpec().getOnceCode();
@@ -120,7 +115,8 @@ public class OrderGroupGeneratorTests extends TestsBase {
     @ValueSource(strings = {" \t "})
     @Transactional
     public void testLongTermOrderStillRequiresFrequency(String frequency) {
-        PatientRecord patient = patientTestUtils.newPatientRecord(1102L, IN_ICU_VAL, deptId);
+        PatientRecord patient = patientTestUtils.newPatientRecord(
+            1102L, ADMISSION_STATUS_ADMITTED, deptId);
         patient.setAdmissionTime(TimeUtils.getLocalTime(2024, 9, 10));
         patient = patientRecordRepo.save(patient);
         medOrdRepo.save(newOrderWithFrequency(patient, "missing_frequency", 0, frequency));
@@ -131,7 +127,8 @@ public class OrderGroupGeneratorTests extends TestsBase {
     @Test
     @Transactional
     public void testOneTimeOrderKeepsExplicitFrequency() {
-        PatientRecord patient = patientTestUtils.newPatientRecord(1102L, IN_ICU_VAL, deptId);
+        PatientRecord patient = patientTestUtils.newPatientRecord(
+            1102L, ADMISSION_STATUS_ADMITTED, deptId);
         patient.setAdmissionTime(TimeUtils.getLocalTime(2024, 9, 10));
         patient = patientRecordRepo.save(patient);
         medOrdRepo.save(newOrderWithFrequency(patient, "explicit_frequency", 1, "explicit_frequency_code"));
@@ -157,7 +154,8 @@ public class OrderGroupGeneratorTests extends TestsBase {
     @Test
     public void testFilterMedicalOrders() {
         // Patient: hisPatientId102, inIcu, 2024-9-10(admissionTime)
-        PatientRecord patient = patientTestUtils.newPatientRecord(102L, IN_ICU_VAL, deptId);
+        PatientRecord patient = patientTestUtils.newPatientRecord(
+            102L, ADMISSION_STATUS_ADMITTED, deptId);
         patient.setAdmissionTime(TimeUtils.getLocalTime(2024, 9, 10));
         patient = patientRecordRepo.save(patient);
 
@@ -196,7 +194,8 @@ public class OrderGroupGeneratorTests extends TestsBase {
     @Test
     public void testInconsistentFields() {
         // Patient: hisPatientId103, inIcu, 2024-9-10(admissionTime)
-        PatientRecord patient = patientTestUtils.newPatientRecord(103L, IN_ICU_VAL, deptId);
+        PatientRecord patient = patientTestUtils.newPatientRecord(
+            103L, ADMISSION_STATUS_ADMITTED, deptId);
         patient.setAdmissionTime(TimeUtils.getLocalTime(2024, 9, 10));
         patient = patientRecordRepo.save(patient);
 
@@ -325,7 +324,8 @@ public class OrderGroupGeneratorTests extends TestsBase {
     @Test
     public void testConsistentFields() {
         // Patient: hisPatientId104, inIcu, 2024-9-10(admissionTime)
-        PatientRecord patient = patientTestUtils.newPatientRecord(104L, IN_ICU_VAL, deptId);
+        PatientRecord patient = patientTestUtils.newPatientRecord(
+            104L, ADMISSION_STATUS_ADMITTED, deptId);
         patient.setAdmissionTime(TimeUtils.getLocalTime(2024, 9, 10));
         patient = patientRecordRepo.save(patient);
 
@@ -395,7 +395,8 @@ public class OrderGroupGeneratorTests extends TestsBase {
     @Test
     public void testOrderGroupCanceled() {
         // Patient: hisPatientId105, inIcu, 2024-9-10(admissionTime)
-        PatientRecord patient = patientTestUtils.newPatientRecord(105L, IN_ICU_VAL, deptId);
+        PatientRecord patient = patientTestUtils.newPatientRecord(
+            105L, ADMISSION_STATUS_ADMITTED, deptId);
         patient.setAdmissionTime(TimeUtils.getLocalTime(2024, 9, 10));
         patient = patientRecordRepo.save(patient);
 
@@ -419,7 +420,8 @@ public class OrderGroupGeneratorTests extends TestsBase {
     @Test
     public void testOrderGroupCanceledWithoutTimestamp() {
         // Patient: hisPatientId105, inIcu, 2024-9-10(admissionTime)
-        PatientRecord patient = patientTestUtils.newPatientRecord(111L, IN_ICU_VAL, deptId);
+        PatientRecord patient = patientTestUtils.newPatientRecord(
+            111L, ADMISSION_STATUS_ADMITTED, deptId);
         patient.setAdmissionTime(TimeUtils.getLocalTime(2024, 9, 10));
         patient = patientRecordRepo.save(patient);
 
@@ -443,7 +445,8 @@ public class OrderGroupGeneratorTests extends TestsBase {
     @Test
     public void testOrderGroupStopped() {
         // Patient: hisPatientId106, inIcu, 2024-9-10(admissionTime)
-        PatientRecord patient = patientTestUtils.newPatientRecord(106L, IN_ICU_VAL, deptId);
+        PatientRecord patient = patientTestUtils.newPatientRecord(
+            106L, ADMISSION_STATUS_ADMITTED, deptId);
         patient.setAdmissionTime(TimeUtils.getLocalTime(2024, 9, 10));
         patient = patientRecordRepo.save(patient);
 
@@ -467,7 +470,8 @@ public class OrderGroupGeneratorTests extends TestsBase {
     @Test
     public void testOverwriteOrderGroup() {
         // Patient: hisPatientId107, inIcu, 2024-9-10(admissionTime)
-        PatientRecord patient = patientTestUtils.newPatientRecord(107L, IN_ICU_VAL, deptId);
+        PatientRecord patient = patientTestUtils.newPatientRecord(
+            107L, ADMISSION_STATUS_ADMITTED, deptId);
         patient.setAdmissionTime(TimeUtils.getLocalTime(2024, 9, 10));
         patient = patientRecordRepo.save(patient);
 
@@ -537,7 +541,8 @@ public class OrderGroupGeneratorTests extends TestsBase {
     @Test
     public void testUpdateOrderGroup() {
         // Patient: hisPatientId108, inIcu, 2024-9-10(admissionTime)
-        PatientRecord patient = patientTestUtils.newPatientRecord(108L, IN_ICU_VAL, deptId);
+        PatientRecord patient = patientTestUtils.newPatientRecord(
+            108L, ADMISSION_STATUS_ADMITTED, deptId);
         patient.setAdmissionTime(TimeUtils.getLocalTime(2024, 9, 10));
         patient = patientRecordRepo.save(patient);
 
@@ -579,7 +584,8 @@ public class OrderGroupGeneratorTests extends TestsBase {
     @Test
     public void testGenerateDurationOnceOrderGroup() {
         // Patient: hisPatientId110, inIcu, 2024-9-10(admissionTime)
-        PatientRecord patient = patientTestUtils.newPatientRecord(110L, IN_ICU_VAL, deptId);
+        PatientRecord patient = patientTestUtils.newPatientRecord(
+            110L, ADMISSION_STATUS_ADMITTED, deptId);
         patient.setAdmissionTime(TimeUtils.getLocalTime(2024, 9, 10));
         patient = patientRecordRepo.save(patient);
 
@@ -603,7 +609,8 @@ public class OrderGroupGeneratorTests extends TestsBase {
     @Test
     public void testGenerateNonHisOrderGroup() {
         // Patient: hisPatientId109, inIcu, 2024-9-10(admissionTime)
-        PatientRecord patient = patientTestUtils.newPatientRecord(109L, IN_ICU_VAL, deptId);
+        PatientRecord patient = patientTestUtils.newPatientRecord(
+            109L, ADMISSION_STATUS_ADMITTED, deptId);
         patient.setAdmissionTime(TimeUtils.getLocalTime(2024, 9, 10));
         patient = patientRecordRepo.save(patient);
 
@@ -666,7 +673,8 @@ public class OrderGroupGeneratorTests extends TestsBase {
     @Test
     public void testOrderGroupDisplayName_Normal() {
         // Patient: hisPatientId108, inIcu, 2024-9-10(admissionTime)
-        PatientRecord patient = patientTestUtils.newPatientRecord(112L, IN_ICU_VAL, deptId);
+        PatientRecord patient = patientTestUtils.newPatientRecord(
+            112L, ADMISSION_STATUS_ADMITTED, deptId);
         patient.setAdmissionTime(TimeUtils.getLocalTime(2024, 9, 10));
         patient = patientRecordRepo.save(patient);
 
@@ -701,7 +709,8 @@ public class OrderGroupGeneratorTests extends TestsBase {
     @Test
     public void testOrderGroupDisplayName_Deprioritized() {
         // Patient: hisPatientId108, inIcu, 2024-9-10(admissionTime)
-        PatientRecord patient = patientTestUtils.newPatientRecord(113L, IN_ICU_VAL, deptId);
+        PatientRecord patient = patientTestUtils.newPatientRecord(
+            113L, ADMISSION_STATUS_ADMITTED, deptId);
         patient.setAdmissionTime(TimeUtils.getLocalTime(2024, 9, 10));
         patient = patientRecordRepo.save(patient);
 
@@ -771,7 +780,8 @@ public class OrderGroupGeneratorTests extends TestsBase {
     @Test
     public void testCalculateIntakeVolume() {
         // Patient: hisPatientId114, inIcu, 2024-9-10(admissionTime)
-        PatientRecord patient = patientTestUtils.newPatientRecord(114L, IN_ICU_VAL, deptId);
+        PatientRecord patient = patientTestUtils.newPatientRecord(
+            114L, ADMISSION_STATUS_ADMITTED, deptId);
         patient.setAdmissionTime(TimeUtils.getLocalTime(2024, 9, 10));
         patient = patientRecordRepo.save(patient);
 
@@ -811,7 +821,6 @@ public class OrderGroupGeneratorTests extends TestsBase {
     }
 
     final private String deptId;
-    final private Integer IN_ICU_VAL;
     final private Integer ONE_TIME_EXECUTION_STOP_STRATEGY_IGNORE;
 
     private MedOrderGroupSettingsPB medOgSettings;

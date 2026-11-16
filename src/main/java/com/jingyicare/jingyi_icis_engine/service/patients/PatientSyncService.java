@@ -1,32 +1,31 @@
 package com.jingyicare.jingyi_icis_engine.service.patients;
 
-import jakarta.persistence.EntityManager;
-import javax.annotation.PostConstruct;
-import javax.annotation.PreDestroy;
-import java.time.LocalDateTime;
+import static com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums.*;
+
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
-import org.springframework.context.ConfigurableApplicationContext;
+import javax.annotation.PostConstruct;
+import javax.annotation.PreDestroy;
+
+import jakarta.persistence.EntityManager;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.google.protobuf.util.JsonFormat;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.entity.patients.*;
+import com.jingyicare.jingyi_icis_engine.entity.users.*;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
-
-import com.jingyicare.jingyi_icis_engine.entity.patients.*;
-import com.jingyicare.jingyi_icis_engine.entity.users.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
 import com.jingyicare.jingyi_icis_engine.service.*;
@@ -49,28 +48,7 @@ public class PatientSyncService {
         @Autowired HisPatientRecordRepository hisPatientRepo,
         @Autowired EntityManager entityManager
     ) {
-        PatientEnumsV2 enumsV2 = protoService.getConfig().getPatient().getEnumsV2();
         this.ZONE_ID = protoService.getConfig().getZoneId();
-        this.PENDING_ADMISSION_VAL = enumsV2.getAdmissionStatusList().stream()
-            .filter(e -> e.getName().equals(protoService.getConfig().getPatient().getPendingAdmissionName()))
-            .findFirst()
-            .get()
-            .getId();
-        this.IN_ICU_VAL = enumsV2.getAdmissionStatusList().stream()
-            .filter(e -> e.getName().equals(protoService.getConfig().getPatient().getInIcuName()))
-            .findFirst()
-            .get()
-            .getId();
-        this.PENDING_DISCHARGED_VAL = enumsV2.getAdmissionStatusList().stream()
-            .filter(e -> e.getName().equals(protoService.getConfig().getPatient().getPendingDischargedName()))
-            .findFirst()
-            .get()
-            .getId();
-        this.DISCHARGED_VAL = enumsV2.getAdmissionStatusList().stream()
-            .filter(e -> e.getName().equals(protoService.getConfig().getPatient().getDischargedName()))
-            .findFirst()
-            .get()
-            .getId();
         this.TEMP_BED_TYPE_ID = protoService.getConfig().getDevice().getEnums().getBedTypeList().stream()
             .filter(e -> e.getName().equals("临时授权"))
             .findFirst()
@@ -78,7 +56,6 @@ public class PatientSyncService {
             .getId();
 
         this.context = context;
-        this.protoService = protoService;
         this.patientConfig = patientConfig;
         this.patientSyncUtils = patientSyncUtils;
         this.deptRepo = deptRepo;
@@ -157,7 +134,7 @@ public class PatientSyncService {
 
         // 在patient_records表中查找在科/待入科的病人
         List<PatientRecord> patientRecords = patientRepo.findByAdmissionStatusInOrderByHisMrnAsc(
-            List.of(PENDING_ADMISSION_VAL, IN_ICU_VAL));
+            List.of(ADMISSION_STATUS_PRE_ADMISSION, ADMISSION_STATUS_ADMITTED));
         if (deptId != null) {
             patientRecords = patientRecords.stream()
                 .filter(r -> r.getDeptId().equals(deptId)).toList();
@@ -183,12 +160,12 @@ public class PatientSyncService {
                     // 2. mrn存在于hisPatientRecords但不在patientRecords中，创建新记录
                     PatientRecord newRecord = createPatientRecordFromHis(hisRecord, syncInfoMap);
                     if (newRecord != null) {
-                        newRecord.setAdmissionStatus(PENDING_ADMISSION_VAL);
+                        newRecord.setAdmissionStatus(ADMISSION_STATUS_PRE_ADMISSION);
                     }
                     hisIndex++;
                 } else {
                     // 3. mrn存在于patientRecords但不在hisPatientRecords中，标记为待出科
-                    patientRecord.setAdmissionStatus(PENDING_DISCHARGED_VAL);
+                    patientRecord.setAdmissionStatus(ADMISSION_STATUS_PRE_DISCHARGE);
                     patientRecord.setDischargeTime(TimeUtils.getNowUtc());
                     PatientSyncInfo syncInfo = new PatientSyncInfo();
                     syncInfo.patientRecord = patientRecord;
@@ -201,7 +178,7 @@ public class PatientSyncService {
                     hisPatientRecords.get(hisIndex), syncInfoMap
                 );
                 if (newRecord != null) {
-                    newRecord.setAdmissionStatus(PENDING_ADMISSION_VAL);
+                    newRecord.setAdmissionStatus(ADMISSION_STATUS_PRE_ADMISSION);
                 }
                 hisIndex++;
             } else {
@@ -211,7 +188,7 @@ public class PatientSyncService {
                     log.warn("Patient record {} is not manually entered, skipping sync", patientRecord.getId());
                 } else {
                     log.info("Marking patient record {} as pending discharged", patientRecord.getId());
-                    patientRecord.setAdmissionStatus(PENDING_DISCHARGED_VAL);
+                    patientRecord.setAdmissionStatus(ADMISSION_STATUS_PRE_DISCHARGE);
                     patientRecord.setDischargeTime(TimeUtils.getNowUtc());
                     PatientSyncInfo syncInfo = new PatientSyncInfo();
                     syncInfo.patientRecord = patientRecord;
@@ -258,7 +235,8 @@ public class PatientSyncService {
             .stream().map(RbacDepartment::getDeptId).toList();
 
         List<HisPatientRecord> hisPatientRecords = hisPatientRepo
-            .findByAdmissionStatusAndDeptCodeInOrderByMrnAscIdDesc(IN_ICU_VAL, deptIds)
+            .findByAdmissionStatusAndDeptCodeInOrderByMrnAscIdDesc(
+                ADMISSION_STATUS_ADMITTED, deptIds)
             .stream()
             .filter(record -> {
                 if (record.getDischargeTime() == null) {
@@ -341,14 +319,9 @@ public class PatientSyncService {
     private int syncThreadJoinTimeoutSeconds;
 
     private final String ZONE_ID;
-    private final Integer PENDING_ADMISSION_VAL;
-    private final Integer IN_ICU_VAL;
-    private final Integer PENDING_DISCHARGED_VAL;
-    private final Integer DISCHARGED_VAL;
     private final Integer TEMP_BED_TYPE_ID;
 
     private final ConfigurableApplicationContext context;
-    private final ConfigProtoService protoService;
     private final PatientConfig patientConfig;
     private final PatientSyncUtils patientSyncUtils;
     private final RbacDepartmentRepository deptRepo;

@@ -11,22 +11,22 @@ import org.springframework.transaction.annotation.Transactional;
 import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
-import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisQualityControl.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisSepticShock.*;
-import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
-
 import com.jingyicare.jingyi_icis_engine.entity.doctors.*;
 import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.entity.scores.*;
 import com.jingyicare.jingyi_icis_engine.entity.users.*;
+import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisQualityControl.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisSepticShock.*;
+import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.repository.doctors.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.scores.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
-import com.jingyicare.jingyi_icis_engine.service.settings.IcuQcConfigService;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
+import com.jingyicare.jingyi_icis_engine.service.settings.IcuQcConfigService;
 import com.jingyicare.jingyi_icis_engine.service.therapies.SepsisAndSepticShockBundleService;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -890,7 +890,8 @@ public class GenericIcuQcService {
             boolean countedNumerator = false;
             for (int i = 0; i < records.size(); i++) {
                 PatientRecord record = records.get(i);
-                if (!Objects.equals(record.getAdmissionStatus(), patientConfig.getDischargedId())) continue;
+                if (!Objects.equals(record.getAdmissionStatus(),
+                    PatientEnums.ADMISSION_STATUS_DISCHARGED)) continue;
                 LocalDateTime dischargeTime = record.getDischargeTime();
                 if (dischargeTime == null || dischargeTime.isBefore(statsStartUtc) || !dischargeTime.isBefore(statsEndUtc)) {
                     continue;
