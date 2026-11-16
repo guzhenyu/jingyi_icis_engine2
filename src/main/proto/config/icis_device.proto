@@ -5,13 +5,11 @@ import "shared/shared.proto";
 package com.jingyicare.jingyi_icis_engine.proto.config;
 
 ////// 配置消息
-message DeviceEnums {
+message DeviceEnumsPB {
     repeated shared.EnumValue bed_type = 3;
 
-    // 床位切换状态
-    shared.EnumValue switch_type_normal = 4;  // 普通换床
-    shared.EnumValue switch_type_readmission_discharge = 5;  // 24h重返-出科 (重返： 先出后入)
-    shared.EnumValue switch_type_readmission_admit = 6;  // 24h重返-入科 (重返： 先出后入)
+    reserved 4 to 6;
+    reserved "switch_type_normal", "switch_type_readmission_discharge", "switch_type_readmission_admit";
 
     // 1: INBOUND_SERVER, 2: OUTBOUND_CLIENT, 3: NON_DIRECT_CONNECT
     repeated shared.EnumValue source_mode = 7;
@@ -95,7 +93,7 @@ message DeviceCascadePB {
 }
 
 message DeviceConfigPB {
-    DeviceEnums enums = 1;
+    DeviceEnumsPB enums = 1;
     repeated AltParamCodePairPB alternative_code_pair = 2;
     repeated string param_code_to_approx = 3;
     int32 approx_seconds = 4;  // 近似时间内的数据合并时间间隔，单位秒

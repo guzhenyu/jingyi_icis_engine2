@@ -36,7 +36,7 @@ public class BedConfig {
     private String displayBedNumber;  // 显示床位号
 
     @Column(name = "bed_type", nullable = false)
-    private Integer bedType;  // 床位类型，icis_device.proto:DeviceEnums.bed_type
+    private Integer bedType;  // 床位类型，icis_device.proto:DeviceEnumsPB.bed_type
 
     @Column(name = "note")
     private String note;  // 备注

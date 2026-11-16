@@ -19,7 +19,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceConfigPB;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceEnums;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceEnumsPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.EnumValue;
 import com.jingyicare.jingyi_icis_engine.repository.patients.DiagnosisHistoryRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patients.HisPatientRecordRepository;
@@ -83,7 +83,7 @@ public class PatientSyncEnabledTests {
             ConfigProtoService protoService = mock(ConfigProtoService.class);
             Config config = Config.newBuilder()
                 .setDevice(DeviceConfigPB.newBuilder()
-                    .setEnums(DeviceEnums.newBuilder()
+                    .setEnums(DeviceEnumsPB.newBuilder()
                         .addBedType(enumValue(1, "固定授权"))
                         .addBedType(enumValue(2, "临时授权"))))
                 .build();

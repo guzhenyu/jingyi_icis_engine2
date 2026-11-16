@@ -33,7 +33,7 @@ public class DeviceInfo {
     private String deviceBedNumber;  // 设备默认床号
 
     @Column(name = "device_type", nullable = false)
-    private Integer deviceType;  // 设备类型 icis_device.proto:DeviceEnums.device_type
+    private Integer deviceType;  // 设备类型 DeviceConfigPB.device_cascade.entry.device_type_id
 
     @Column(name = "device_name", nullable = false)
     private String deviceName;  // 设备名称
@@ -48,10 +48,10 @@ public class DeviceInfo {
     private String deviceDriverCode;  // 驱动编码（内部编码）
 
     @Column(name = "source_mode")
-    private Integer sourceMode;  // 数据来源模式，icis_device.proto:DeviceEnums.source_mode
+    private Integer sourceMode;  // 数据来源模式，icis_device.proto:DeviceEnumsPB.source_mode
 
     @Column(name = "source_topology")
-    private Integer sourceTopology;  // 数据来源拓扑，icis_device.proto:DeviceEnums.source_topology
+    private Integer sourceTopology;  // 数据来源拓扑，icis_device.proto:DeviceEnumsPB.source_topology
 
     @Builder.Default
     @Column(name = "upstream_device_id", nullable = false)

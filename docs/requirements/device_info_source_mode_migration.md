@@ -68,14 +68,14 @@ message DeviceInfoPB {
 - `manufacturer = 14`
 - `enabled_as_source = 17`
 
-`DeviceEnums` 仍需保留：
+`DeviceEnumsPB` 仍需保留：
 
 - `source_mode`
 - `source_topology`
 - `bed_type`
 - 换床相关枚举
 
-`network_protocol` 和 `serial_protocol` 从 `DeviceEnums` 彻底删除，pbtxt 中对应配置同步删除。
+`network_protocol` 和 `serial_protocol` 从 `DeviceEnumsPB` 彻底删除，pbtxt 中对应配置同步删除。
 
 ### 数据库 schema
 
@@ -209,7 +209,7 @@ source_mode = 3:
 - `source_mode` 必须包含 1、2、3。
 - `source_topology` 必须包含 1、2。
 - 主配置、测试配置和医院专用配置需要在同一轮变更中同步。
-- 从 `DeviceEnums` 删除 `network_protocol` / `serial_protocol`，对应 pbtxt 配置也要同步删除，前端 selector 不能再读取这些枚举。
+- 从 `DeviceEnumsPB` 删除 `network_protocol` / `serial_protocol`，对应 pbtxt 配置也要同步删除，前端 selector 不能再读取这些枚举。
 
 ## 前端需求
 
@@ -323,7 +323,7 @@ source_mode = 3:
 3. `source_mode = 1 / 3` 时，`device_port` 保存为空。
 4. 前端设备类型选择继续使用级联结构，但需要调整级联数据结构以去掉 `manufacturer` / `model` 层级，展示效果保持不变。
 5. 除设备管理页外，患者设备绑定相关页面中对 `manufacturer` / `model` 的引用一并调整。
-6. `DeviceEnums.network_protocol` / `serial_protocol` 从 proto 和 pbtxt 中彻底删除。
+6. `DeviceEnumsPB.network_protocol` / `serial_protocol` 从 proto 和 pbtxt 中彻底删除。
 7. 生产库迁移直接 `DROP COLUMN`，不保留旧列做回滚兼容。
 8. `pds_ip_seq` 前端本次不处理，后端默认 `0` 足够。
 9. 上游设备现在保持要求为“中央站” `device_type`。

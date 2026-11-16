@@ -9,23 +9,22 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.entity.monitorings.*;
+import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
-
-import com.jingyicare.jingyi_icis_engine.entity.monitorings.*;
-import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Service
@@ -292,7 +291,8 @@ public class DeviceDataFetcher {
             LocalDateTime approxEnd = end;
             if (end == null || end.isAfter(ctx.to)) end = ctx.to;
             if (approxEnd == null || approxEnd.isAfter(approxTo)) approxEnd = approxTo;
-            if (bedTimePair.getFirst().switchType.equals(patientDevService.getSwitchTypeReadmissionAdmitId())) {
+            if (bedTimePair.getFirst().switchType.equals(
+                PatientEnums.SWITCH_TYPE_READMISSION_ADMIT)) {
                 continue;  // 跳过[重返-出科， 重返-入科)之间的记录
             }
             if (!start.isBefore(end)) continue;

@@ -4,31 +4,25 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import org.junit.jupiter.api.Test;
 
+import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.AuthorityUtils;
-import org.springframework.security.core.context.SecurityContextHolder;
 
 import lombok.extern.slf4j.Slf4j;
 
-import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisQualityControl.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.*;
-import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
-
 import com.jingyicare.jingyi_icis_engine.entity.patients.*;
+import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisQualityControl.*;
+import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
-import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
 import com.jingyicare.jingyi_icis_engine.testutils.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Slf4j
 public class BedUtilizationCalcTests extends TestsBase {
     public BedUtilizationCalcTests(
-        @Autowired ConfigProtoService protoService,
         @Autowired BedUtilizationCalc bedUtilizationCalc,
         @Autowired PatientRecordRepository patientRecordRepo,
         @Autowired BedConfigRepository bedConfigRepo,
@@ -36,10 +30,6 @@ public class BedUtilizationCalcTests extends TestsBase {
         @Autowired BedCountRepository bedCountRepo
     ) {
         this.deptId = "10037";
-        DeviceEnums devEnums = protoService.getConfig().getDevice().getEnums();
-        this.SWITCH_TYPE_NORMAL = devEnums.getSwitchTypeNormal().getId();
-        this.SWITCH_TYPE_READMISSION_DISCHARGE = devEnums.getSwitchTypeReadmissionDischarge().getId();
-        this.SWITCH_TYPE_READMISSION_ADMIT = devEnums.getSwitchTypeReadmissionAdmit().getId();
 
         this.bedUtilizationCalc = bedUtilizationCalc;
 
@@ -255,7 +245,7 @@ public class BedUtilizationCalcTests extends TestsBase {
             .switchTime(TimeUtils.getUtcFromLocalDateTime(
                 TimeUtils.getLocalTime(2025, 2, 15, 16, 0), zoneId)
             )
-            .switchType(SWITCH_TYPE_NORMAL)
+            .switchType(PatientEnums.SWITCH_TYPE_NORMAL)
             .build();
         patientBedHistoryRepo.save(history);
 
@@ -339,10 +329,6 @@ public class BedUtilizationCalcTests extends TestsBase {
     }
 
     private final String deptId;
-
-    private final Integer SWITCH_TYPE_NORMAL;
-    private final Integer SWITCH_TYPE_READMISSION_DISCHARGE;
-    private final Integer SWITCH_TYPE_READMISSION_ADMIT;
 
     private final BedUtilizationCalc bedUtilizationCalc;
 

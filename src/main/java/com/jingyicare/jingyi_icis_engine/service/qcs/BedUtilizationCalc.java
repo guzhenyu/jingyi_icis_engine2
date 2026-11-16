@@ -12,14 +12,12 @@ import org.springframework.transaction.annotation.Transactional;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisQualityControl.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
-
-import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
-import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
-import com.jingyicare.jingyi_icis_engine.service.patients.*;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 // todo: 添加开关，同一个床位同一天被多个病人占用时，是否算做多个床日
@@ -28,14 +26,10 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 @Slf4j
 public class BedUtilizationCalc {
     public BedUtilizationCalc(
-        @Autowired ConfigProtoService protoService,
-        @Autowired PatientDeviceService patientDeviceService,
         @Autowired BedConfigRepository bedConfigRepo,
         @Autowired PatientBedHistoryRepository patientBedHistoryRepo,
         @Autowired BedCountRepository bedCountRepo
     ) {
-        this.statusMsgList = protoService.getConfig().getText().getStatusCodeMsgList();
-        this.patientDeviceService = patientDeviceService;
         this.bedConfigRepo = bedConfigRepo;
         this.patientBedHistoryRepo = patientBedHistoryRepo;
         this.bedCountRepo = bedCountRepo;
@@ -366,7 +360,7 @@ public class BedUtilizationCalc {
                 PatientBedHistory bedHistory = bedHistories.get(i);
                 String displayBedNum = bedHistory.getDisplayBedNumber();  // **
                 LocalDateTime switchTimeLocal = TimeUtils.getLocalDateTimeFromUtc(bedHistory.getSwitchTime(), zoneId);  // **
-                if (bedHistory.getSwitchType().equals(patientDeviceService.getSwitchTypeReadmissionAdmitId())) {
+                if (bedHistory.getSwitchType().equals(PatientEnums.SWITCH_TYPE_READMISSION_ADMIT)) {
                     patBedStartLocal = switchTimeLocal;
                     continue;
                 }
@@ -523,10 +517,7 @@ public class BedUtilizationCalc {
         }
     }
 
-    private final List<String> statusMsgList;
-
     private final BedConfigRepository bedConfigRepo;
-    private final PatientDeviceService patientDeviceService;
     private final PatientBedHistoryRepository patientBedHistoryRepo;
     private final BedCountRepository bedCountRepo;
 }

@@ -2214,7 +2214,7 @@ COMMENT ON COLUMN bed_configs.department_id IS '科室编码，NOT NULL';
 COMMENT ON COLUMN bed_configs.his_bed_number IS 'his床位号，NOT NULL';
 COMMENT ON COLUMN bed_configs.device_bed_number IS '设备床位号，NOT NULL';
 COMMENT ON COLUMN bed_configs.display_bed_number IS '显示床位号，NOT NULL';
-COMMENT ON COLUMN bed_configs.bed_type IS '床位类型，icis_device.proto:DeviceEnums.bed_type';
+COMMENT ON COLUMN bed_configs.bed_type IS '床位类型，icis_device.proto:DeviceEnumsPB.bed_type';
 COMMENT ON COLUMN bed_configs.note IS '备注';
 COMMENT ON COLUMN bed_configs.is_deleted IS '是否已删除';
 COMMENT ON COLUMN bed_configs.deleted_by IS '删除人';
@@ -2264,7 +2264,7 @@ CREATE TABLE patient_bed_history (
     device_bed_number VARCHAR(255),
     display_bed_number VARCHAR(255),
     switch_time TIMESTAMP NOT NULL,
-    switch_type INT NOT NULL,  -- 换床类型：0-普通换床，1-入科（重返），2-出科（重返）
+    switch_type INT NOT NULL,  -- 换床类型：0-普通换床，1-重返出科，2-重返入科
     modified_by VARCHAR(255),
     modified_by_account_name VARCHAR(255),
     modified_at TIMESTAMP,
@@ -2314,13 +2314,13 @@ COMMENT ON COLUMN device_infos.id IS '自增id';
 COMMENT ON COLUMN device_infos.department_id IS '部门代码';
 COMMENT ON COLUMN device_infos.device_sn IS '设备序列号';
 COMMENT ON COLUMN device_infos.device_bed_number IS '设备默认床号';
-COMMENT ON COLUMN device_infos.device_type IS '设备类型 icis_device.proto:DeviceEnums.device_type';
+COMMENT ON COLUMN device_infos.device_type IS '设备类型 icis_device.proto:DeviceConfigPB.device_cascade.entry.device_type_id';
 COMMENT ON COLUMN device_infos.device_name IS '设备名称';
 COMMENT ON COLUMN device_infos.device_ip IS '设备的IP地址';
 COMMENT ON COLUMN device_infos.device_port IS '设备端口';
 COMMENT ON COLUMN device_infos.device_driver_code IS '驱动编码，内部编码（如：迈瑞-呼吸-code1，飞利浦-监护-code2）';
 COMMENT ON COLUMN device_infos.source_mode IS '数据来源模式，1-INBOUND_SERVER，2-OUTBOUND_CLIENT，3-NON_DIRECT_CONNECT';
-COMMENT ON COLUMN device_infos.source_topology IS '数据来源拓扑，icis_device.proto:DeviceEnums.source_topology';
+COMMENT ON COLUMN device_infos.source_topology IS '数据来源拓扑，icis_device.proto:DeviceEnumsPB.source_topology';
 COMMENT ON COLUMN device_infos.upstream_device_id IS '上游设备id，0表示无上游；PDS target 指向所属中央站';
 COMMENT ON COLUMN device_infos.pds_ip_seq IS 'PDS realtime 目标监护仪的 ipSeq；第一版床旁 target 默认 0';
 COMMENT ON COLUMN device_infos.is_deleted IS '是否已删除';

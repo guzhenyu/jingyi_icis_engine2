@@ -29,18 +29,6 @@ enums {
         id: 2
         name: "临时授权"
     }
-    switch_type_normal {
-        id: 0
-        name: "普通换床"
-    }
-    switch_type_readmission_discharge {
-        id: 1
-        name: "24h重返-出科"
-    }
-    switch_type_readmission_admit {
-        id: 2
-        name: "24h重返-入科"
-    }
 }
 alternative_code_pair {
     replacing_code: "vent_respiratory_rate"

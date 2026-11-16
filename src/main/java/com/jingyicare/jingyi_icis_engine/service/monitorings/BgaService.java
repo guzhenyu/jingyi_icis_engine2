@@ -6,28 +6,28 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.google.protobuf.util.JsonFormat;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.entity.lis.*;
+import com.jingyicare.jingyi_icis_engine.entity.monitorings.*;
+import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisBga.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
-
-import com.jingyicare.jingyi_icis_engine.entity.lis.*;
-import com.jingyicare.jingyi_icis_engine.entity.patients.*;
-import com.jingyicare.jingyi_icis_engine.entity.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.repository.lis.*;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
 import com.jingyicare.jingyi_icis_engine.service.reports.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.PatientNursingReportInvalidationService;
 import com.jingyicare.jingyi_icis_engine.service.users.*;
@@ -112,7 +112,6 @@ public class BgaService {
                 .build()
             );
         }
-
 
         return GetBgaParamsResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.OK))
@@ -1248,7 +1247,7 @@ public class BgaService {
             patientDeviceService.getBedHistory(patient);
         for (int i = 0; i < bedHistory.usageRecords.size(); i++) {
             PatientDeviceService.BedName bedName = bedHistory.usageRecords.get(i).getFirst();
-            if (bedName.switchType == patientDeviceService.getSwitchTypeReadmissionAdmitId()) {
+            if (bedName.switchType == PatientEnums.SWITCH_TYPE_READMISSION_ADMIT) {
                 continue;
             }
             LocalDateTime bedStart = bedHistory.usageRecords.get(i).getSecond();

@@ -399,7 +399,7 @@ message GetConfigResp {
     repeated config.JfkDataSourceMetaPB jfk_data_sources = 23;
 
     // 设备
-    config.DeviceEnums device_enums = 24;
+    config.DeviceEnumsPB device_enums = 24;
     config.DeviceCascadePB device_cascade = 25;
     // 病情概览
     config.DiagnosisEnums diagnosis_enums = 26;

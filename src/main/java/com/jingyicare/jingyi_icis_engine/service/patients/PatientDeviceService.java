@@ -1,5 +1,7 @@
 package com.jingyicare.jingyi_icis_engine.service.patients;
 
+import static com.jingyicare.jingyi_icis_engine.service.patients.DeviceEnums.*;
+
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -26,12 +28,6 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 @Service
 @Slf4j
 public class PatientDeviceService {
-    private static final int SOURCE_MODE_INBOUND_SERVER = 1;
-    private static final int SOURCE_MODE_OUTBOUND_CLIENT = 2;
-    private static final int SOURCE_MODE_NON_DIRECT_CONNECT = 3;
-    private static final int SOURCE_TOPOLOGY_SINGLE_DEVICE = 1;
-    private static final int SOURCE_TOPOLOGY_CENTRAL_STATION_FANOUT = 2;
-
     public static class UsageHistory<T> {
         public UsageHistory() {
             this.usageRecords = new ArrayList<>();
@@ -60,10 +56,6 @@ public class PatientDeviceService {
         Config config = protoConfig.getConfig();
         this.statusCodeMsgList = config.getText().getStatusCodeMsgList();
         this.ZONE_ID = config.getZoneId();
-        DeviceEnums devEnums = config.getDevice().getEnums();
-        this.SWITCH_TYPE_NORMAL = devEnums.getSwitchTypeNormal().getId();
-        this.SWITCH_TYPE_READMISSION_DISCHARGE = devEnums.getSwitchTypeReadmissionDischarge().getId();
-        this.SWITCH_TYPE_READMISSION_ADMIT = devEnums.getSwitchTypeReadmissionAdmit().getId();
         this.CENTRAL_STATION_DEVICE_TYPE = config.getDevice().getDeviceCascade().getEntryList()
             .stream()
             .filter(entry -> entry.getDeviceTypeName().equals("中央站"))
@@ -80,18 +72,6 @@ public class PatientDeviceService {
         this.bedHistoryRepo = bedHistoryRepo;
         this.devRepo = devRepo;
         this.patientDevRepo = patientDevRepo;
-    }
-
-    public Integer getSwitchTypeNormalId() {
-        return SWITCH_TYPE_NORMAL;
-    }
-
-    public Integer getSwitchTypeReadmissionDischargeId() {
-        return SWITCH_TYPE_READMISSION_DISCHARGE;
-    }
-
-    public Integer getSwitchTypeReadmissionAdmitId() {
-        return SWITCH_TYPE_READMISSION_ADMIT;
     }
 
     @Transactional
@@ -993,17 +973,17 @@ public class PatientDeviceService {
     // - 增加一条床位历史记录
     //   (bed = fromHisBedNumber,
     //       switchTime = switchTime,
-    //       switchType = SWITCH_TYPE_NORMAL)
+    //       switchType = PatientEnums.SWITCH_TYPE_NORMAL)
     //
     // 如果是病人重返，则
     // - 需要满足 patient.getAdmissionStatus() 为 '已出科'
     // - 增加两条床位历史记录
     //   1. (bed = patient.getHisBedNumber(),
     //       switchTime = patient.getDischargeTime(),
-    //       switchType = SWITCH_TYPE_READMISSION_DISCHARGE)
+    //       switchType = PatientEnums.SWITCH_TYPE_READMISSION_DISCHARGE)
     //   2. (bed = toHisBedNumber,
     //       switchTime = switchTime,
-    //       switchType = SWITCH_TYPE_READMISSION_ADMIT)
+    //       switchType = PatientEnums.SWITCH_TYPE_READMISSION_ADMIT)
     @Transactional
     public StatusCode switchBedImpl(
         PatientRecord patient, String toHisBedNumber, LocalDateTime switchTime,
@@ -1078,7 +1058,7 @@ public class PatientDeviceService {
                 .deviceBedNumber(latestBedName.deviceBedNumber)
                 .displayBedNumber(latestBedName.displayBedNumber)
                 .switchTime(switchTime)
-                .switchType(SWITCH_TYPE_NORMAL)
+                .switchType(PatientEnums.SWITCH_TYPE_NORMAL)
                 .modifiedBy(modifiedBy)
                 .modifiedByAccountName(modifiedByName)
                 .modifiedAt(nowUtc)
@@ -1115,7 +1095,7 @@ public class PatientDeviceService {
                 .deviceBedNumber(latestBedName.deviceBedNumber)
                 .displayBedNumber(latestBedName.displayBedNumber)
                 .switchTime(latestBedEndTime)
-                .switchType(SWITCH_TYPE_READMISSION_DISCHARGE)
+                .switchType(PatientEnums.SWITCH_TYPE_READMISSION_DISCHARGE)
                 .modifiedBy(modifiedBy)
                 .modifiedByAccountName(modifiedByName)
                 .modifiedAt(nowUtc)
@@ -1127,7 +1107,7 @@ public class PatientDeviceService {
                 .deviceBedNumber(toBedConfigPB.getDeviceBedNumber())
                 .displayBedNumber(toBedConfigPB.getDisplayBedNumber())
                 .switchTime(switchTime)
-                .switchType(SWITCH_TYPE_READMISSION_ADMIT)
+                .switchType(PatientEnums.SWITCH_TYPE_READMISSION_ADMIT)
                 .modifiedBy(modifiedBy)
                 .modifiedByAccountName(modifiedByName)
                 .modifiedAt(nowUtc)
@@ -1164,7 +1144,7 @@ public class PatientDeviceService {
             curHisBedNumber,
             curBedConfigPB == null ? "" : curBedConfigPB.getDeviceBedNumber(),
             curBedConfigPB == null ? "" : curBedConfigPB.getDisplayBedNumber(),
-            SWITCH_TYPE_NORMAL
+            PatientEnums.SWITCH_TYPE_NORMAL
         );
 
         // 获取床位历史
@@ -1294,9 +1274,6 @@ public class PatientDeviceService {
     }
 
     private final String ZONE_ID;
-    private final Integer SWITCH_TYPE_NORMAL;
-    private final Integer SWITCH_TYPE_READMISSION_DISCHARGE;
-    private final Integer SWITCH_TYPE_READMISSION_ADMIT;
     private final Integer CENTRAL_STATION_DEVICE_TYPE;
 
     private final List<String> statusCodeMsgList;

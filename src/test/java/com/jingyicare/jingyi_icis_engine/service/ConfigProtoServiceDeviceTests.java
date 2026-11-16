@@ -13,11 +13,15 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.core.io.ClassPathResource;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.google.protobuf.TextFormat;
+
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceConfigPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceDriverPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceTypeEntryPB;
+import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
 class ConfigProtoServiceDeviceTests {
     private static final String COMMON_DEVICE_PATH = "config/pbtxt/common_device.pb.txt";
@@ -87,6 +91,16 @@ class ConfigProtoServiceDeviceTests {
         DeviceConfigPB loaded = loadConfig(DEFAULT_CONFIG_PATH, externalConfig.toString()).getDevice();
 
         assertThat(loaded).isEqualTo(DeviceConfigPB.newBuilder().setApproxSeconds(42).build());
+    }
+
+    @Test
+    void shouldExposeOnlyConfigurableDeviceEnums() {
+        String json = ProtoUtils.protoToJson(
+            loadConfig(DEFAULT_CONFIG_PATH, "").getDevice().getEnums());
+        JsonObject enums = JsonParser.parseString(json).getAsJsonObject();
+
+        assertThat(enums.keySet()).containsExactlyInAnyOrder(
+            "bedType", "sourceMode", "sourceTopology");
     }
 
     private Config loadConfig(String path, String externalPath) {
