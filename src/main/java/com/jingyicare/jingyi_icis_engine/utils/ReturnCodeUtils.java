@@ -13,6 +13,10 @@ public class ReturnCodeUtils {
         return GenericResp.newBuilder().setRt(returnCode).build();
     }
 
+    public static GenericResp genericResponse(List<String> statusCodeMsgList, StatusCode code) {
+        return genericResponse(getReturnCode(statusCodeMsgList, code));
+    }
+
     public static ReturnCode getReturnCode(List<String> statusCodeMsgList, StatusCode code) {
         return ReturnCode.newBuilder().setCode(code.ordinal())
             .setMsg(statusCodeMsgList.get(code.getNumber())).build();

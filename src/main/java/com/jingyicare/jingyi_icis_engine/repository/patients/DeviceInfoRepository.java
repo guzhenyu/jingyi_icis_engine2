@@ -8,12 +8,13 @@ import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 import com.jingyicare.jingyi_icis_engine.entity.patients.DeviceInfo;
 
-public interface DeviceInfoRepository extends JpaRepository<DeviceInfo, Integer>, JpaSpecificationExecutor<DeviceInfo> {
-    List<DeviceInfo> findAll();
-    List<DeviceInfo> findAllByIsDeletedFalse();
-    List<DeviceInfo> findByDeviceIpAndIsDeletedFalse(String deviceIp);
-    List<DeviceInfo> findByDeviceIpAndIsDeletedFalseAndIdNot(String deviceIp, Integer id);
-    List<DeviceInfo> findByDepartmentIdAndDeviceBedNumberAndIsDeletedFalse(String departmentId, String deviceBedNumber);
-    Optional<DeviceInfo> findByDeviceSnAndIsDeletedFalse(String deviceSn);
-    Optional<DeviceInfo> findByDepartmentIdAndDeviceNameAndIsDeletedFalse(String departmentId, String deviceName);
+public interface DeviceInfoRepository
+    extends JpaRepository<DeviceInfo, Integer>, JpaSpecificationExecutor<DeviceInfo>
+{
+    List<DeviceInfo> findByDepartmentIdAndDeviceBedNumberAndIsDeletedFalse(
+        String departmentId, String deviceBedNumber);
+    boolean existsByDeviceIpAndIsDeletedFalse(String deviceIp);
+    boolean existsByDeviceIpAndIsDeletedFalseAndIdNot(String deviceIp, Integer id);
+    Optional<DeviceInfo> findByDepartmentIdAndDeviceNameAndIsDeletedFalse(
+        String departmentId, String deviceName);
 }

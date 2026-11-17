@@ -29,11 +29,16 @@ import com.jingyicare.jingyi_icis_engine.repository.settings.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceEnums;
+import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceMapper;
+import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceService;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Service
 @Slf4j
 public class PatientConfig {
+    private static final Comparator<DeviceInfo> DEVICE_ORDER = Comparator
+        .comparing(DeviceInfo::getDeviceType).thenComparing(DeviceInfo::getDeviceName);
+
     public static BedConfigPB getBedConfigPB(BedConfig bedConfig, PatientRecord patient) {
         BedConfigPB.Builder bedConfigBuilder = BedConfigPB.newBuilder()
             .setId(bedConfig.getId())
@@ -58,7 +63,7 @@ public class PatientConfig {
         @Autowired DeptSystemSettingsRepository systemSettingsRepo,
         @Autowired PatientRecordRepository patientRepo,
         @Autowired BedConfigRepository bedConfigRepo,
-        @Autowired DeviceInfoRepository devRepo,
+        @Autowired DeviceService deviceService,
         @Autowired PatientDeviceRepository patientDevRepo,
         @Autowired RbacDepartmentRepository rbacDeptRepo
     ) {
@@ -84,7 +89,7 @@ public class PatientConfig {
         this.settingsRepo = systemSettingsRepo;
         this.patientRepo = patientRepo;
         this.bedConfigRepo = bedConfigRepo;
-        this.devRepo = devRepo;
+        this.deviceService = deviceService;
         this.patientDevRepo = patientDevRepo;
         this.rbacDeptRepo = rbacDeptRepo;
     }
@@ -166,24 +171,6 @@ public class PatientConfig {
         PatientRecord patient = patients.get(0);
 
         return getBedConfigPB(bedConfig, patient);
-    }
-
-    public List<DeviceInfoPB> getDeviceInfo(
-        String deptId, Integer devId, String devBedNum, Integer devType, String devName
-    ) {
-        return devRepo
-            .findAll(
-                DeviceInfoSpecification.hasDepartmentId(deptId)
-                    .and(DeviceInfoSpecification.hasDeviceId(devId))
-                    .and(DeviceInfoSpecification.hasDeviceBedNumer(devBedNum))
-                    .and(DeviceInfoSpecification.hasDeviceType(devType))
-                    .and(DeviceInfoSpecification.hasDeviceName(devName))
-                    .and(DeviceInfoSpecification.isDeleted(false))
-            )
-            .stream()
-            .sorted(Comparator.comparing(DeviceInfo::getDeviceType).thenComparing(DeviceInfo::getDeviceName))
-            .map(dev -> toDeviceInfoPB(dev))
-            .toList();
     }
 
     public Pair<StatusCode, Map<Integer/*device_id*/, DeviceBindingPB>> getBindedDevices() {
@@ -273,167 +260,94 @@ public class PatientConfig {
     }
 
     public List<DeviceInfo> getCurrentBindedDevices(Long patientId, Integer devType) {
-        LocalDateTime from = TimeUtils.getLocalTime(1900, 1, 1);
-        LocalDateTime to = TimeUtils.getLocalTime(9999, 1, 1);
-
-        // 获取病人绑定设备信息
-        List<PatientDevice> patientDevList = patientDevRepo
+        List<Integer> devIds = patientDevRepo
             .findByPatientIdAndUnbindingTimeIsNullAndBindingTimeBefore(
-                patientId, TimeUtils.getLocalTime(9999, 1, 1)
-            );
+                patientId, TimeUtils.getMax())
+            .stream()
+            .filter(binding -> !Boolean.TRUE.equals(binding.getIsDeleted()))
+            .map(PatientDevice::getDeviceId)
+            .distinct()
+            .toList();
+        List<DeviceInfo> devices = deviceService.findDevicesByIds(devIds).stream()
+            .filter(device -> !Boolean.TRUE.equals(device.getIsDeleted()))
+            .filter(device -> matchesDeviceType(device, devType))
+            .sorted(DEVICE_ORDER)
+            .collect(Collectors.toCollection(ArrayList::new));
 
-        List<Integer> devIds = patientDevList.stream().map(PatientDevice::getDeviceId).distinct().toList();
-        List<DeviceInfo> deviceList = new ArrayList<>(devRepo
-            .findAll(DeviceInfoSpecification.hasDeviceType(devType)
-                .and(DeviceInfoSpecification.hasDeviceIdIn(devIds))
-            ).stream()
-            .sorted(Comparator.comparing(DeviceInfo::getDeviceType).thenComparing(DeviceInfo::getDeviceName))
-            .toList());
-
-        // 获取固定设备
         PatientRecord patient = patientRepo.findById(patientId).orElse(null);
-        List<DeviceInfo> fixedDevices = getFixedDevices(patient).stream()
-            .filter(dev -> (devType == null || devType == 0 || dev.getDeviceType().equals(devType)))
-            .collect(Collectors.toList());
-        deviceList.addAll(fixedDevices);
-        return deviceList;
+        getFixedDevices(patient).stream()
+            .filter(device -> matchesDeviceType(device, devType))
+            .forEach(devices::add);
+        return devices;
     }
 
     public LocalDateTime getDeviceLatestUnbindedTime(Long patientId, Integer devType) {
-        // 获取病人绑定设备信息
-        List<PatientDevice> patientDevList = patientDevRepo.findByPatientIdAndUnbindingTimeIsNotNullAndIsDeletedFalse(patientId);
-        Map<Integer, List<PatientDevice>> devIdToUnbindedMap = patientDevList
-            .stream()
-            .collect(Collectors.groupingBy(PatientDevice::getDeviceId));
-
-        List<Integer> devIds = patientDevList.stream().map(PatientDevice::getDeviceId).distinct().toList();
-        List<Integer> devIdsWithType = devRepo
-            .findAll(DeviceInfoSpecification.hasDeviceType(devType)
-                .and(DeviceInfoSpecification.hasDeviceIdIn(devIds))
-            ).stream()
-            .map(DeviceInfo::getId)
-            .distinct()
-            .toList();
-
-        LocalDateTime latestUnbindedTime = null;
-        for (Integer devId : devIdsWithType) {
-            List<PatientDevice> unbindedList = devIdToUnbindedMap.get(devId);
-            if (unbindedList == null || unbindedList.size() == 0) continue;
-            LocalDateTime unbindedTime = unbindedList.stream()
-                .map(PatientDevice::getUnbindingTime)
-                .max(LocalDateTime::compareTo)
-                .orElse(null);
-            if (unbindedTime != null && (latestUnbindedTime == null || latestUnbindedTime.isBefore(unbindedTime))) {
-                latestUnbindedTime = unbindedTime;
-            }
-        }
-        return latestUnbindedTime;
+        Map<Integer, LocalDateTime> latestByDevice = patientDevRepo
+            .findByPatientIdAndUnbindingTimeIsNotNullAndIsDeletedFalse(patientId).stream()
+            .collect(Collectors.toMap(PatientDevice::getDeviceId, PatientDevice::getUnbindingTime,
+                (first, second) -> first.isAfter(second) ? first : second));
+        return deviceService.findDevicesByIds(latestByDevice.keySet()).stream()
+            .filter(device -> matchesDeviceType(device, devType))
+            .map(device -> latestByDevice.get(device.getId()))
+            .max(LocalDateTime::compareTo)
+            .orElse(null);
     }
 
     public List<DeviceInfoWithBindingPB> getPatientDeviceBindingHistory(
-        Long patientId, String patientName, Integer devType, LocalDateTime from, LocalDateTime to
+        PatientRecord patient, Integer devType, LocalDateTime from, LocalDateTime to
     ) {
-        PatientRecord patient = patientRepo.findById(patientId).orElse(null);
-        if (patient == null) return Collections.emptyList();
-
+        Long patientId = patient.getId();
         if (from == null) from = TimeUtils.getMin();
         if (to == null) to = TimeUtils.getMax();
 
-        // 获取病人绑定设备信息
-        List<PatientDevice> patientDevList = new ArrayList<>();
-        patientDevList.addAll(patientDevRepo
+        List<PatientDevice> bindings = new ArrayList<>(patientDevRepo
             .findByPatientIdAndUnbindingTimeIsNotNullAndUnbindingTimeAfterAndBindingTimeBefore(
-                patientId, from, to
-            ));
+                patientId, from, to));
+        List<PatientDevice> currentBindings = patientDevRepo
+            .findByPatientIdAndUnbindingTimeIsNullAndBindingTimeBefore(patientId, to);
+        Set<Integer> inUseDevIds = currentBindings.stream()
+            .map(PatientDevice::getDeviceId).collect(Collectors.toSet());
+        bindings.addAll(currentBindings);
 
-        List<PatientDevice> inUseDeviceList = patientDevRepo
-            .findByPatientIdAndUnbindingTimeIsNullAndBindingTimeBefore(
-                patientId, to
-            );
-        Set<Integer> inUseDevIds = new HashSet<>(inUseDeviceList.stream().map(PatientDevice::getDeviceId).collect(Collectors.toSet()));
-        patientDevList.addAll(inUseDeviceList);
-
-        // 获取固定设备绑定信息
-        List<DeviceInfo> fixedDevices = getFixedDevices(patient);
-        List<PatientDevice> fixedPatientDevices = new ArrayList<>();
-        for (DeviceInfo dev : fixedDevices) {
-            inUseDevIds.add(dev.getId());
-            fixedPatientDevices.add(PatientDevice.builder().id(0L).patientId(patientId)
-                .deviceId(dev.getId()).bindingTime(patient.getAdmissionTime())
-                .unbindingTime(null).isDeleted(false).build()
-            );
+        // 固定设备从入科时起计入绑定历史，已加载的设备无需再按 ID 查询。
+        Set<Integer> remainingDevIds = bindings.stream()
+            .map(PatientDevice::getDeviceId).collect(Collectors.toSet());
+        List<DeviceInfo> devices = new ArrayList<>(getFixedDevices(patient));
+        for (DeviceInfo device : devices) {
+            int id = device.getId();
+            remainingDevIds.remove(id);
+            inUseDevIds.add(id);
+            bindings.add(PatientDevice.builder().id(0L).patientId(patientId)
+                .deviceId(id).bindingTime(patient.getAdmissionTime()).build());
         }
-        patientDevList.addAll(fixedPatientDevices);
+        devices.addAll(deviceService.findDevicesByIds(remainingDevIds));
 
-        // 组装绑定信息
-        List<DeviceBindingPB> devBindingList = patientDevList.stream()
+        Map<Integer, List<DeviceBindingPB>> bindingMap = bindings.stream()
             .sorted(Comparator.comparing(PatientDevice::getBindingTime))
-            .map(pd -> DeviceBindingPB.newBuilder()
-                .setId(pd.getId())
-                .setPatientId(pd.getPatientId())
-                .setPatientName(patientName)
-                .setDeviceId(pd.getDeviceId())
-                .setBindingTimeIso8601(TimeUtils.toIso8601String(pd.getBindingTime(), ZONE_ID))
-                .setUnbindingTimeIso8601(TimeUtils.toIso8601String(pd.getUnbindingTime(), ZONE_ID))
-                .build()
-            )
-            .toList();
-        Map<Integer, List<DeviceBindingPB>> devBindingMap = devBindingList.stream()
+            .map(binding -> DeviceBindingPB.newBuilder()
+                .setId(binding.getId())
+                .setPatientId(patientId)
+                .setPatientName(patient.getIcuName())
+                .setDeviceId(binding.getDeviceId())
+                .setBindingTimeIso8601(TimeUtils.toIso8601String(binding.getBindingTime(), ZONE_ID))
+                .setUnbindingTimeIso8601(
+                    TimeUtils.toIso8601String(binding.getUnbindingTime(), ZONE_ID))
+                .build())
             .collect(Collectors.groupingBy(DeviceBindingPB::getDeviceId));
 
-        // 获取相关设备信息
-        List<Integer> devIds = patientDevList.stream().map(PatientDevice::getDeviceId).distinct().toList();
-        List<DeviceInfo> devList = devRepo
-            .findAll(DeviceInfoSpecification.hasDeviceType(devType)
-                .and(DeviceInfoSpecification.hasDeviceIdIn(devIds))
-            ).stream()
-            .sorted(Comparator.comparing(DeviceInfo::getDeviceType).thenComparing(DeviceInfo::getDeviceName))
+        return devices.stream()
+            .filter(device -> matchesDeviceType(device, devType))
+            .sorted(DEVICE_ORDER)
+            .map(device -> DeviceInfoWithBindingPB.newBuilder()
+                .setDevice(DeviceMapper.toDeviceInfoPB(device))
+                .setIsBinding(inUseDevIds.contains(device.getId()))
+                .addAllBinding(bindingMap.get(device.getId()))
+                .build())
             .toList();
-
-        return devList.stream().map(dev -> {
-            List<DeviceBindingPB> bindingList = devBindingMap.getOrDefault(dev.getId(), new ArrayList<>());
-            return DeviceInfoWithBindingPB.newBuilder()
-                .setDevice(toDeviceInfoPB(dev))
-                .setIsBinding(inUseDevIds.contains(dev.getId()))
-                .addAllBinding(bindingList)
-                .build();
-        }).toList();
     }
 
-    public DeviceInfoPB toDeviceInfoPB(DeviceInfo dev) {
-        return DeviceInfoPB.newBuilder()
-            .setId(dev.getId())
-            .setDepartmentId(dev.getDepartmentId())
-            .setDeviceSn(dev.getDeviceSn())
-            .setDeviceBedNumber(dev.getDeviceBedNumber() == null ? "" : dev.getDeviceBedNumber())
-            .setDeviceType(dev.getDeviceType())
-            .setDeviceName(dev.getDeviceName())
-            .setDeviceIp(dev.getDeviceIp() == null ? "" : dev.getDeviceIp())
-            .setDevicePort(dev.getDevicePort() == null ? "" : dev.getDevicePort())
-            .setDeviceDriverCode(dev.getDeviceDriverCode() == null ? "" : dev.getDeviceDriverCode())
-            .setSourceMode(dev.getSourceMode() == null ? 0 : dev.getSourceMode())
-            .setSourceTopology(dev.getSourceTopology() == null ? 0 : dev.getSourceTopology())
-            .setUpstreamDeviceId(dev.getUpstreamDeviceId() == null ? 0 : dev.getUpstreamDeviceId())
-            .setPdsIpSeq(dev.getPdsIpSeq() == null ? 0 : dev.getPdsIpSeq())
-            .build();
-    }
-
-    public DeviceInfo toDeviceInfo(DeviceInfoPB devPB) {
-        return DeviceInfo.builder()
-            .departmentId(devPB.getDepartmentId())
-            .deviceSn(devPB.getDeviceSn())
-            .deviceBedNumber(devPB.getDeviceBedNumber().isEmpty() ? null : devPB.getDeviceBedNumber())
-            .deviceType(devPB.getDeviceType())
-            .deviceName(devPB.getDeviceName())
-            .deviceIp(devPB.getDeviceIp().isEmpty() ? null : devPB.getDeviceIp())
-            .devicePort(devPB.getDevicePort().isEmpty() ? null : devPB.getDevicePort())
-            .deviceDriverCode(devPB.getDeviceDriverCode().isEmpty() ? null : devPB.getDeviceDriverCode())
-            .sourceMode(devPB.getSourceMode() == 0 ? null : devPB.getSourceMode())
-            .sourceTopology(devPB.getSourceTopology() == 0 ? null : devPB.getSourceTopology())
-            .upstreamDeviceId(devPB.getUpstreamDeviceId())
-            .pdsIpSeq(devPB.getPdsIpSeq())
-            .isDeleted(false)
-            .build();
+    private static boolean matchesDeviceType(DeviceInfo device, Integer type) {
+        return type == null || type <= 0 || type.equals(device.getDeviceType());
     }
 
     public Map<String, BedConfig> getBedConfigMap(String deptId) {
@@ -647,23 +561,11 @@ public class PatientConfig {
     }
 
     private List<DeviceInfo> getFixedDevices(PatientRecord patient) {
-        // 查找患者信息
-        List<DeviceInfo> devices = new ArrayList<>();
-        if (patient == null) return devices;
-
-        // 查找患者设备床号
-        BedConfig bedConfig = bedConfigRepo.findByDepartmentIdAndHisBedNumberAndIsDeletedFalse(
-            patient.getDeptId(), patient.getHisBedNumber()
-        ).orElse(null);
-        if (bedConfig == null) return devices;
-        String deviceBedNumber = bedConfig.getDeviceBedNumber();
-
-        // 查找设备信息
-        List<DeviceInfo> devList = devRepo.findByDepartmentIdAndDeviceBedNumberAndIsDeletedFalse(
-            patient.getDeptId(), deviceBedNumber
-        );
-        devices.addAll(devList);
-        return devices;
+        if (patient == null) return List.of();
+        BedConfig bed = bedConfigRepo.findByDepartmentIdAndHisBedNumberAndIsDeletedFalse(
+            patient.getDeptId(), patient.getHisBedNumber()).orElse(null);
+        if (bed == null) return List.of();
+        return deviceService.findDevicesAtBed(patient.getDeptId(), bed.getDeviceBedNumber());
     }
 
     private final String ZONE_ID;
@@ -679,7 +581,7 @@ public class PatientConfig {
 
     private PatientRecordRepository patientRepo;
     private BedConfigRepository bedConfigRepo;
-    private DeviceInfoRepository devRepo;
+    private final DeviceService deviceService;
     private PatientDeviceRepository patientDevRepo;
     private RbacDepartmentRepository rbacDeptRepo;
 }

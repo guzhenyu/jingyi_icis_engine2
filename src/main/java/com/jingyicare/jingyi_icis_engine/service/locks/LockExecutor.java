@@ -105,6 +105,20 @@ public class LockExecutor {
             Function<P, R> businessAction
     ) {
         Objects.requireNonNull(planSupplier);
+        // 普通计划必须存在，业务回调仍可返回 null。
+        return executePlannedIfPresent(() -> Objects.requireNonNull(planSupplier.get()),
+            resourceResolver, validateAfterLock, businessAction, null);
+    }
+
+    // 首次预读或重试时，若计划已不存在，直接返回 missingPlanResult。
+    public <P, R> R executePlannedIfPresent(
+            Supplier<P> planSupplier,
+            Function<P, Collection<String>> resourceResolver,
+            Predicate<P> validateAfterLock,
+            Function<P, R> businessAction,
+            R missingPlanResult
+    ) {
+        Objects.requireNonNull(planSupplier);
         Objects.requireNonNull(resourceResolver);
         Objects.requireNonNull(validateAfterLock);
         Objects.requireNonNull(businessAction);
@@ -116,7 +130,8 @@ public class LockExecutor {
 
         for (int attempt = 1; attempt <= MAX_PLAN_ATTEMPTS; attempt++) {
             // 1. 事务外预读取，产生一份候选计划
-            P plan = Objects.requireNonNull(planSupplier.get());
+            P plan = planSupplier.get();
+            if (plan == null) return missingPlanResult;
             Collection<String> keys = resourceResolver.apply(plan);
 
             try {

@@ -1,7 +1,5 @@
 package com.jingyicare.jingyi_icis_engine.service.patients;
 
-import static com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceEnums.*;
-
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -10,7 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import lombok.*;
+import lombok.AllArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import com.jingyicare.jingyi_icis_engine.entity.patients.*;
@@ -22,6 +20,8 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 import com.jingyicare.jingyi_icis_engine.service.certs.*;
+import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceMapper;
+import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceService;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -50,7 +50,7 @@ public class PatientDeviceService {
         @Autowired BedConfigRepository bedConfigRepo,
         @Autowired BedCountRepository bedCountRepo,
         @Autowired PatientBedHistoryRepository bedHistoryRepo,
-        @Autowired DeviceInfoRepository devRepo,
+        @Autowired DeviceService deviceService,
         @Autowired PatientDeviceRepository patientDevRepo
     ) {
         Config config = protoConfig.getConfig();
@@ -64,7 +64,7 @@ public class PatientDeviceService {
         this.bedConfigRepo = bedConfigRepo;
         this.bedCountRepo = bedCountRepo;
         this.bedHistoryRepo = bedHistoryRepo;
-        this.devRepo = devRepo;
+        this.deviceService = deviceService;
         this.patientDevRepo = patientDevRepo;
     }
 
@@ -465,9 +465,6 @@ public class PatientDeviceService {
                 .build();
         }
 
-        List<DeviceInfoPB> deviceList = patientConfig.getDeviceInfo(
-            req.getDeptId(), req.getDeviceId(), req.getDeviceBedNum(), req.getDeviceType(), req.getDeviceName()
-        );
         Pair<StatusCode, Map<Integer/*device_id*/, DeviceBindingPB>> bindingResult =
             patientConfig.getBindedDevices();
         if (bindingResult.getFirst() != StatusCode.OK) {
@@ -478,30 +475,19 @@ public class PatientDeviceService {
         Map<Integer/*device_id*/, DeviceBindingPB> bindingMap = bindingResult.getSecond();
 
         List<DeviceInfoWithBindingPB> inlineDevList = new ArrayList<>();
-        for (DeviceInfoPB dev : deviceList) {
+        for (DeviceInfo dev : deviceService.searchActiveDevices(req)) {
             DeviceBindingPB binding = bindingMap.get(dev.getId());
-            DeviceInfoWithBindingPB.Builder builder = DeviceInfoWithBindingPB.newBuilder().setDevice(dev);
+            DeviceInfoWithBindingPB.Builder builder = DeviceInfoWithBindingPB.newBuilder()
+                .setDevice(DeviceMapper.toDeviceInfoPB(dev));
             if (binding != null) builder.setIsBinding(true).addBinding(binding);
             inlineDevList.add(builder.build());
         }
-        // 排序: 空闲，使用中，固定设备
-        inlineDevList = inlineDevList.stream()
-            .sorted((a, b) -> {
-                // 移动设备在前
-                boolean aIsFixed = !StrUtils.isBlank(a.getDevice().getDeviceBedNumber());
-                boolean bIsFixed = !StrUtils.isBlank(b.getDevice().getDeviceBedNumber());
-                if (aIsFixed != bIsFixed) return aIsFixed ? 1 : -1;
-
-                // 空闲设备在前
-                boolean aIsFree = !a.getIsBinding();
-                boolean bIsFree = !b.getIsBinding();
-                if (aIsFree != bIsFree) return aIsFree ? -1 : 1;
-
-                // 最后按deviceId排序
-                if (a.getDevice().getId() < b.getDevice().getId()) return -1;
-                return 1;
-            })
-            .collect(Collectors.toList());
+        // 移动设备在前，同组中空闲设备在前，最后按设备 ID 排序。
+        inlineDevList.sort(Comparator
+            .comparing((DeviceInfoWithBindingPB d) ->
+                !StrUtils.isBlank(d.getDevice().getDeviceBedNumber()))
+            .thenComparing(DeviceInfoWithBindingPB::getIsBinding)
+            .thenComparingInt(d -> d.getDevice().getId()));
 
         return GetDeviceInfoResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
@@ -565,200 +551,8 @@ public class PatientDeviceService {
         return GetPatientDeviceBindingHistoryResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .addAllBinding(patientConfig.getPatientDeviceBindingHistory(
-                patient.getId(), patient.getIcuName(), req.getDeviceType(), from, to
+                patient, req.getDeviceType(), from, to
             ))
-            .build();
-    }
-
-    @Transactional
-    public AddDeviceInfoResp addDeviceInfo(String addDeviceInfoReqJson) {
-        final AddDeviceInfoReq req;
-        try {
-            req = ProtoUtils.parseJsonToProto(addDeviceInfoReqJson, AddDeviceInfoReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert string to proto: {}", e);
-            return AddDeviceInfoResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        // 获取当前用户
-        CurrentAccount account = userQuery.getCurrentAccount();
-        if (account == null) {
-            return AddDeviceInfoResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-
-        DeviceInfoPB deviceInfoPB = normalizeDeviceInfo(req.getDeviceInfo());
-
-        // 查找设备信息
-        DeviceInfo devInfo = devRepo.findByDepartmentIdAndDeviceNameAndIsDeletedFalse(
-            deviceInfoPB.getDepartmentId(), deviceInfoPB.getDeviceName()
-        ).orElse(null);
-        if (devInfo != null) {
-            log.error("DeviceInfo already exists: {}", devInfo);
-            return AddDeviceInfoResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.DEVICE_INFO_ALREADY_EXISTS))
-                .build();
-        }
-
-        // 确认IP是否被其它设备占用
-        List<DeviceInfo> devInfoList = devRepo.findByDeviceIpAndIsDeletedFalse(deviceInfoPB.getDeviceIp());
-        if (!devInfoList.isEmpty()) {
-            log.error("DeviceInfo already exists: {}", devInfoList.get(0));
-            return AddDeviceInfoResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.DEVICE_IP_ALREADY_USED))
-                .build();
-        }
-        StatusCode sourceConfigStatus = validateDeviceSourceConfig(deviceInfoPB, null);
-        if (sourceConfigStatus != StatusCode.OK) {
-            return AddDeviceInfoResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, sourceConfigStatus))
-                .build();
-        }
-
-        // 新增设备信息
-        devInfo = patientConfig.toDeviceInfo(deviceInfoPB);
-        devInfo.setModifiedBy(account.autoAcctId());
-        devInfo.setModifiedByAccountName(account.acctName());
-        devInfo.setModifiedAt(TimeUtils.getNowUtc());
-        devInfo = devRepo.save(devInfo);
-        log.info("DeviceInfo added: {}, by {}", devInfo, account.acctName());
-
-        return AddDeviceInfoResp.newBuilder()
-            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
-            .setId(devInfo.getId())
-            .build();
-    }
-
-    @Transactional
-    public GenericResp updateDeviceInfo(String updateDeviceInfoReqJson) {
-        final AddDeviceInfoReq req;
-        try {
-            req = ProtoUtils.parseJsonToProto(updateDeviceInfoReqJson, AddDeviceInfoReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert string to proto: {}", e);
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        CurrentAccount account = userQuery.getCurrentAccount();
-        if (account == null) {
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-
-        DeviceInfoPB deviceInfoPB = normalizeDeviceInfo(req.getDeviceInfo());
-
-        // 查找设备是否存在
-        DeviceInfo devInfo = devRepo.findById(deviceInfoPB.getId()).orElse(null);
-        if (devInfo == null) {
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.DEVICE_INFO_NOT_EXISTS))
-                .build();
-        }
-
-        // 查找设备和其他设备是否重名
-        DeviceInfo devInfoWithSameName = devRepo.findByDepartmentIdAndDeviceNameAndIsDeletedFalse(
-            deviceInfoPB.getDepartmentId(), deviceInfoPB.getDeviceName()
-        ).orElse(null);
-        if (devInfoWithSameName != null && devInfoWithSameName.getId() != devInfo.getId()) {
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.DEVICE_INFO_ALREADY_EXISTS))
-                .build();
-        }
-        List<DeviceInfo> devInfoWithSameIp = devRepo.findByDeviceIpAndIsDeletedFalseAndIdNot(
-            deviceInfoPB.getDeviceIp(), devInfo.getId()
-        );
-        if (!devInfoWithSameIp.isEmpty()) {
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.DEVICE_IP_ALREADY_USED))
-                .build();
-        }
-        StatusCode sourceConfigStatus = validateDeviceSourceConfig(deviceInfoPB, devInfo.getId());
-        if (sourceConfigStatus != StatusCode.OK) {
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, sourceConfigStatus))
-                .build();
-        }
-
-        // 更新设备信息
-        devInfo = patientConfig.toDeviceInfo(deviceInfoPB);
-        devInfo.setId(deviceInfoPB.getId());
-        devInfo.setModifiedBy(account.autoAcctId());
-        devInfo.setModifiedByAccountName(account.acctName());
-        devInfo.setModifiedAt(TimeUtils.getNowUtc());
-        devInfo = devRepo.save(devInfo);
-        log.info("DeviceInfo updated: {}, by {}", devInfo, account.acctName());
-
-        return GenericResp.newBuilder()
-            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
-            .build();
-    }
-
-    @Transactional
-    public GenericResp deleteDeviceInfo(String deleteDeviceInfoReqJson) {
-        final DeleteDeviceInfoReq req;
-        try {
-            req = ProtoUtils.parseJsonToProto(deleteDeviceInfoReqJson, DeleteDeviceInfoReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert string to proto: {}", e);
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        CurrentAccount account = userQuery.getCurrentAccount();
-        if (account == null) {
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-
-        // 查找设备是否存在
-        DeviceInfo devInfo = devRepo.findById(req.getId()).orElse(null);
-        if (devInfo == null) {
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
-                .build();
-        }
-
-        // 查看是否有病人绑定了该设备
-        List<PatientDevice> patientDevList = patientDevRepo.findByDeviceIdAndUnbindingTimeIsNullAndIsDeletedFalse(req.getId());
-        if (!patientDevList.isEmpty()) {
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.DEVICE_ALREADY_BINDED))
-                .build();
-        }
-
-        // 删除设备信息
-        LocalDateTime nowUtc = TimeUtils.getNowUtc();
-        devInfo.setIsDeleted(true);
-        devInfo.setDeletedBy(account.autoAcctId());
-        devInfo.setDeletedAt(nowUtc);
-        devInfo.setModifiedBy(account.autoAcctId());
-        devInfo.setModifiedByAccountName(account.acctName());
-        devInfo.setModifiedAt(nowUtc);
-        devRepo.save(devInfo);
-        log.info("DeviceInfo deleted: {}, by {}", devInfo, account.acctName());
-
-        return GenericResp.newBuilder()
-            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .build();
     }
 
@@ -790,6 +584,15 @@ public class PatientDeviceService {
             LocalDateTime bindingTime = TimeUtils.fromIso8601String(req.getBindingTimeIso8601(), "UTC");
             if (bindingTime == null) bindingTime = TimeUtils.getNowUtc();
 
+            DeviceInfo deviceInfo = deviceService.lockDeviceById(deviceId).orElse(null);
+            if (deviceInfo == null || Boolean.TRUE.equals(deviceInfo.getIsDeleted())) {
+                log.error("Device not found: {}", deviceId);
+                return BindPatientDeviceResp.newBuilder()
+                    .setRt(ReturnCodeUtils.getReturnCode(
+                        statusCodeMsgList, StatusCode.DEVICE_INFO_NOT_EXISTS))
+                    .build();
+            }
+
             List<PatientDevice> patientDevs = patientDevRepo.findByDeviceIdAndUnbindingTimeIsNullAndIsDeletedFalse(deviceId);
             PatientDevice patientDev = null;
             if (patientDevs.size() > 1) {
@@ -805,32 +608,18 @@ public class PatientDeviceService {
                     return BindPatientDeviceResp.newBuilder()
                         .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
                         .build();
-                } else {
-                    // 设备已经绑定到其他病人，解绑
-                    if (patientDev.getBindingTime().isAfter(bindingTime)) {
-                        log.error("Binding time is earlier than the current binding time: {}", bindingTime);
-                        return BindPatientDeviceResp.newBuilder()
-                            .setRt(ReturnCodeUtils.getReturnCode(
-                                statusCodeMsgList, StatusCode.BINDING_TIME_CONFLICT))
-                            .build();
-                    }
-                    patientDev.setUnbindingTime(bindingTime);
-                    patientDev.setModifiedBy(account.autoAcctId());
-                    patientDev.setModifiedByAccountName(account.acctName());
-                    patientDev.setModifiedAt(TimeUtils.getNowUtc());
-                    patientDevRepo.save(patientDev);
+                }
+                if (patientDev.getBindingTime().isAfter(bindingTime)) {
+                    log.error("Binding time is earlier than the current binding time: {}",
+                        bindingTime);
+                    return BindPatientDeviceResp.newBuilder()
+                        .setRt(ReturnCodeUtils.getReturnCode(
+                            statusCodeMsgList, StatusCode.BINDING_TIME_CONFLICT))
+                        .build();
                 }
             }
 
             // 检查病人是否绑定了其他同类型的设备
-            DeviceInfo deviceInfo = devRepo.findById(deviceId).orElse(null);
-            if (deviceInfo == null) {
-                log.error("Device not found: {}", deviceId);
-                return BindPatientDeviceResp.newBuilder()
-                    .setRt(ReturnCodeUtils.getReturnCode(
-                        statusCodeMsgList, StatusCode.DEVICE_INFO_NOT_EXISTS))
-                    .build();
-            }
             List<DeviceInfo> deviceWithSameType = patientConfig.getCurrentBindedDevices(req.getPid(), deviceInfo.getDeviceType());
             if (!deviceWithSameType.isEmpty()) {
                 log.error("Patient already binded to a device with the same type: {}", deviceWithSameType.get(0));
@@ -849,6 +638,15 @@ public class PatientDeviceService {
                         statusCodeMsgList,
                         StatusCode.BINDING_TIME_BEFORE_UNBINDING_TIME_FOR_SAME_TYPE_DEVICE))
                     .build();
+            }
+
+            // 转绑校验通过后再结束原绑定，确保失败时患者仍保留原设备。
+            if (patientDev != null) {
+                patientDev.setUnbindingTime(bindingTime);
+                patientDev.setModifiedBy(account.autoAcctId());
+                patientDev.setModifiedByAccountName(account.acctName());
+                patientDev.setModifiedAt(TimeUtils.getNowUtc());
+                patientDevRepo.save(patientDev);
             }
 
             // 绑定到当前病人
@@ -874,7 +672,7 @@ public class PatientDeviceService {
             if (unbindingTime == null) unbindingTime = TimeUtils.getNowUtc();
 
             // 检查设备是否是固定设备
-            DeviceInfo deviceInfo = devRepo.findById(req.getDeviceId()).orElse(null);
+            DeviceInfo deviceInfo = deviceService.lockDeviceById(deviceId).orElse(null);
             if (deviceInfo == null) {
                 log.error("Device not found: {}", req.getDeviceId());
                 return BindPatientDeviceResp.newBuilder()
@@ -882,7 +680,8 @@ public class PatientDeviceService {
                         statusCodeMsgList, StatusCode.DEVICE_INFO_NOT_EXISTS))
                     .build();
             }
-            if (!StrUtils.isBlank(deviceInfo.getDeviceBedNumber())) {
+            if (!Boolean.TRUE.equals(deviceInfo.getIsDeleted())
+                && !StrUtils.isBlank(deviceInfo.getDeviceBedNumber())) {
                 // 处理固定设备的逻辑
                 log.error("Cannot unbind a fixed device: {}", deviceInfo);
                 return BindPatientDeviceResp.newBuilder()
@@ -1190,83 +989,6 @@ public class PatientDeviceService {
         return bedConfig;
     }
 
-    private DeviceInfoPB normalizeDeviceInfo(DeviceInfoPB devInfoPB) {
-        DeviceInfoPB.Builder builder = devInfoPB.toBuilder();
-        int sourceMode = devInfoPB.getSourceMode();
-        if (sourceMode == SOURCE_MODE_INBOUND_SERVER) {
-            builder.setDevicePort("");
-        } else if (sourceMode == SOURCE_MODE_NON_DIRECT_CONNECT) {
-            builder.setDevicePort("");
-            builder.setSourceTopology(SOURCE_TOPOLOGY_CENTRAL_STATION_FANOUT);
-        }
-        return builder.build();
-    }
-
-    private StatusCode validateDeviceSourceConfig(DeviceInfoPB devInfoPB, Integer selfDeviceId) {
-        int sourceMode = devInfoPB.getSourceMode();
-        int sourceTopology = devInfoPB.getSourceTopology();
-        int upstreamDeviceId = devInfoPB.getUpstreamDeviceId();
-
-        if (sourceMode != SOURCE_MODE_INBOUND_SERVER
-            && sourceMode != SOURCE_MODE_OUTBOUND_CLIENT
-            && sourceMode != SOURCE_MODE_NON_DIRECT_CONNECT) {
-            log.error("Invalid source mode: {}", sourceMode);
-            return StatusCode.DEVICE_SOURCE_CONFIG_INVALID;
-        }
-
-        if (sourceMode == SOURCE_MODE_INBOUND_SERVER || sourceMode == SOURCE_MODE_OUTBOUND_CLIENT) {
-            if (upstreamDeviceId != 0) {
-                log.error("Direct source device cannot have upstream device: {}", upstreamDeviceId);
-                return StatusCode.DEVICE_SOURCE_CONFIG_INVALID;
-            }
-            if (sourceTopology != SOURCE_TOPOLOGY_SINGLE_DEVICE
-                && sourceTopology != SOURCE_TOPOLOGY_CENTRAL_STATION_FANOUT) {
-                log.error("Invalid source topology for direct source: {}", sourceTopology);
-                return StatusCode.DEVICE_SOURCE_CONFIG_INVALID;
-            }
-            if (sourceMode == SOURCE_MODE_OUTBOUND_CLIENT && StrUtils.isBlank(devInfoPB.getDevicePort())) {
-                log.error("Outbound source device port cannot be empty");
-                return StatusCode.DEVICE_SOURCE_CONFIG_INVALID;
-            }
-            return StatusCode.OK;
-        }
-
-        if (sourceTopology != SOURCE_TOPOLOGY_CENTRAL_STATION_FANOUT) {
-            log.error("Non-direct source topology must be central station fanout: {}", sourceTopology);
-            return StatusCode.DEVICE_SOURCE_CONFIG_INVALID;
-        }
-        if (upstreamDeviceId <= 0) {
-            log.error("Non-direct device must have upstream device");
-            return StatusCode.DEVICE_SOURCE_CONFIG_INVALID;
-        }
-        if (selfDeviceId != null && upstreamDeviceId == selfDeviceId) {
-            log.error("Device cannot use itself as upstream device: {}", selfDeviceId);
-            return StatusCode.DEVICE_SOURCE_CONFIG_INVALID;
-        }
-
-        DeviceInfo upstreamDevice = devRepo.findById(upstreamDeviceId).orElse(null);
-        if (upstreamDevice == null || Boolean.TRUE.equals(upstreamDevice.getIsDeleted())) {
-            log.error("Upstream device not found: {}", upstreamDeviceId);
-            return StatusCode.DEVICE_SOURCE_CONFIG_INVALID;
-        }
-        if (!Objects.equals(upstreamDevice.getDepartmentId(), devInfoPB.getDepartmentId())) {
-            log.error("Upstream device department mismatch: upstream {}, current {}",
-                upstreamDevice.getDepartmentId(), devInfoPB.getDepartmentId());
-            return StatusCode.DEVICE_SOURCE_CONFIG_INVALID;
-        }
-        if (upstreamDevice.getSourceMode() == null
-            || (upstreamDevice.getSourceMode() != SOURCE_MODE_INBOUND_SERVER
-                && upstreamDevice.getSourceMode() != SOURCE_MODE_OUTBOUND_CLIENT)) {
-            log.error("Upstream device must be a direct source: {}", upstreamDeviceId);
-            return StatusCode.DEVICE_SOURCE_CONFIG_INVALID;
-        }
-        if (!Objects.equals(upstreamDevice.getDeviceType(), DEVICE_TYPE_CENTRAL_STATION)) {
-            log.error("Upstream device is not a central station: {}", upstreamDeviceId);
-            return StatusCode.DEVICE_SOURCE_CONFIG_INVALID;
-        }
-        return StatusCode.OK;
-    }
-
     private final String ZONE_ID;
 
     private final List<String> statusCodeMsgList;
@@ -1277,6 +999,6 @@ public class PatientDeviceService {
     private final BedConfigRepository bedConfigRepo;
     private final BedCountRepository bedCountRepo;
     private final PatientBedHistoryRepository bedHistoryRepo;
-    private final DeviceInfoRepository devRepo;
+    private final DeviceService deviceService;
     private final PatientDeviceRepository patientDevRepo;
 }

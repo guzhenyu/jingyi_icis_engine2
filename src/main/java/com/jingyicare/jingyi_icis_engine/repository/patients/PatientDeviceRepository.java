@@ -39,6 +39,8 @@ public interface PatientDeviceRepository extends JpaRepository<PatientDevice, Lo
 
     List<PatientDevice> findByDeviceIdAndUnbindingTimeIsNullAndIsDeletedFalse(Integer deviceId);
 
+    boolean existsByDeviceIdAndUnbindingTimeIsNullAndIsDeletedFalse(Integer deviceId);
+
     List<PatientDevice> findByPatientIdAndUnbindingTimeIsNotNullAndIsDeletedFalse(Long patientId);
 
     List<PatientDevice> findByPatientIdAndUnbindingTimeNullAndIsDeletedFalse(Long patientId);

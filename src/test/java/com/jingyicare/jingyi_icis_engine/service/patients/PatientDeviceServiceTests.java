@@ -8,10 +8,12 @@ import java.util.*;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.jingyicare.jingyi_icis_engine.entity.patients.*;
@@ -21,7 +23,9 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.certs.*;
+import com.jingyicare.jingyi_icis_engine.service.debug.DeviceDebugger;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
+import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceService;
 import com.jingyicare.jingyi_icis_engine.testutils.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -29,6 +33,7 @@ public class PatientDeviceServiceTests extends TestsBase {
     public PatientDeviceServiceTests(
         @Autowired PatientService patientService,
         @Autowired PatientDeviceService patientDeviceService,
+        @Autowired DeviceService deviceService,
         @Autowired PatientConfig patientConfig,
         @Autowired CertificateService certService,
         @Autowired BedConfigRepository bedConfigRepo,
@@ -48,6 +53,7 @@ public class PatientDeviceServiceTests extends TestsBase {
 
         this.patientService = patientService;
         this.patientDeviceService = patientDeviceService;
+        this.deviceService = deviceService;
         this.patientConfig = patientConfig;
         this.certService = certService;
 
@@ -257,7 +263,7 @@ public class PatientDeviceServiceTests extends TestsBase {
     }
 
     @Test
-    public void testDeviceInfoCRUD() {
+    public void testDeviceInfoCRUD(@Autowired DeviceDebugger debugger) {
         List<GrantedAuthority> authorities = AuthorityUtils.createAuthorityList("ROLE_1");
         UsernamePasswordAuthenticationToken authentication = 
             new UsernamePasswordAuthenticationToken(accountId, null, authorities);
@@ -275,7 +281,7 @@ public class PatientDeviceServiceTests extends TestsBase {
         for (DeviceInfoPB devInfo : List.of(devInfoPB1, devInfoPB2, devInfoPB3, devInfoPB4, devInfoPB5)) {
             AddDeviceInfoReq addDevReq = AddDeviceInfoReq.newBuilder().setDeviceInfo(devInfo).build();
             String addDevReqJson = ProtoUtils.protoToJson(addDevReq);
-            AddDeviceInfoResp addDevResp = patientDeviceService.addDeviceInfo(addDevReqJson);
+            AddDeviceInfoResp addDevResp = deviceService.addDeviceInfo(addDevReqJson);
             assertThat(addDevResp.getRt().getCode()).isEqualTo(0);
             devIds.add(addDevResp.getId());
         }
@@ -285,14 +291,17 @@ public class PatientDeviceServiceTests extends TestsBase {
             .setId(devIds.get(1)).setDeviceName("device-name-102-updated").build();
         AddDeviceInfoReq updateDevReq = AddDeviceInfoReq.newBuilder().setDeviceInfo(devInfoToUpdate).build();
         String updateDevReqJson = ProtoUtils.protoToJson(updateDevReq);
-        GenericResp updateDevResp = patientDeviceService.updateDeviceInfo(updateDevReqJson);
+        GenericResp updateDevResp = deviceService.updateDeviceInfo(updateDevReqJson);
         assertThat(updateDevResp.getRt().getCode()).isEqualTo(0);
 
         // 删除设备信息
         DeleteDeviceInfoReq deleteDevReq = DeleteDeviceInfoReq.newBuilder().setId(devIds.get(4)).build();
         String deleteDevReqJson = ProtoUtils.protoToJson(deleteDevReq);
-        GenericResp deleteDevResp = patientDeviceService.deleteDeviceInfo(deleteDevReqJson);
+        GenericResp deleteDevResp = deviceService.deleteDeviceInfo(deleteDevReqJson);
         assertThat(deleteDevResp.getRt().getCode()).isEqualTo(0);
+        assertThat(debugger.listDevInfos())
+            .contains(devInfoPB1.getDeviceName())
+            .doesNotContain(devInfoPB5.getDeviceName());
 
         // 绑定病人设备
         PatientRecord patient = PatientTestUtils.newPatientRecord(
@@ -364,6 +373,74 @@ public class PatientDeviceServiceTests extends TestsBase {
     }
 
     @Test
+    @WithMockUser(username = "admin", roles = "1")
+    public void softDeletedDeviceAllowsHistoryAndUnbinding(@Autowired JdbcTemplate jdbc) {
+        DeviceInfoPB device = newDevInfoPB(devDeptId3, 29411, DEVICE_TYPE_MONITOR)
+            .toBuilder().setDeviceBedNumber("原固定床位").build();
+        AddDeviceInfoReq add = AddDeviceInfoReq.newBuilder().setDeviceInfo(device).build();
+        AddDeviceInfoResp added = deviceService.addDeviceInfo(ProtoUtils.protoToJson(add));
+        assertThat(added.getRt().getCode()).isEqualTo(StatusCode.OK_VALUE);
+        int deviceId = added.getId();
+        PatientRecord patient = patientRecordRepo.save(PatientTestUtils.newPatientRecord(
+            29411L, ADMISSION_STATUS_ADMITTED, devDeptId3));
+        try {
+            String delete = ProtoUtils.protoToJson(
+                DeleteDeviceInfoReq.newBuilder().setId(deviceId).build());
+            assertThat(deviceService.deleteDeviceInfo(delete).getRt().getCode())
+                .isEqualTo(StatusCode.OK_VALUE);
+            assertThat(deviceService.deleteDeviceInfo(delete).getRt().getCode())
+                .isEqualTo(StatusCode.OK_VALUE);
+
+            AddDeviceInfoReq update = add.toBuilder().setDeviceInfo(
+                device.toBuilder().setId(deviceId).setDeviceName("更名后的监护仪")).build();
+            assertThat(deviceService.updateDeviceInfo(ProtoUtils.protoToJson(update))
+                .getRt().getCode()).isEqualTo(StatusCode.DEVICE_INFO_NOT_EXISTS_VALUE);
+            GetDeviceInfoReq search = GetDeviceInfoReq.newBuilder().setDeviceId(deviceId).build();
+            GetDeviceInfoResp results = patientDeviceService.getDeviceInfo(
+                ProtoUtils.protoToJson(search));
+            assertThat(results.getRt().getCode()).isEqualTo(StatusCode.OK_VALUE);
+            assertThat(results.getInlineDevList()).isEmpty();
+
+            BindPatientDeviceReq bind = BindPatientDeviceReq.newBuilder()
+                .setPid(patient.getId()).setDeviceId(deviceId)
+                .setBindingTimeIso8601("2025-03-09T09:00+08:00").build();
+            assertThat(patientDeviceService.bindPatientDevice(ProtoUtils.protoToJson(bind))
+                .getRt().getCode()).isEqualTo(StatusCode.DEVICE_INFO_NOT_EXISTS_VALUE);
+
+            // 模拟老数据中软删除设备仍有一条未结束的绑定。
+            PatientDevice legacy = patientDeviceRepo.save(DeviceTestUtils.newPatientDevice(
+                patient.getId(), deviceId, TimeUtils.getLocalTime(2025, 3, 9, 1, 0), null));
+            assertThat(patientConfig.getCurrentBindedDevices(patient.getId(), DEVICE_TYPE_MONITOR))
+                .isEmpty();
+            String unbindingTime = "2025-03-09T10:00+08:00";
+            BindPatientDeviceReq unbind = bind.toBuilder().clearBindingTimeIso8601()
+                .setUnbindingTimeIso8601(unbindingTime).build();
+            assertThat(patientDeviceService.bindPatientDevice(ProtoUtils.protoToJson(unbind))
+                .getRt().getCode()).isEqualTo(StatusCode.OK_VALUE);
+            assertThat(patientConfig.getDeviceLatestUnbindedTime(patient.getId(),
+                DEVICE_TYPE_MONITOR)).isEqualTo(TimeUtils.fromIso8601String(unbindingTime, "UTC"));
+
+            GetPatientDeviceBindingHistoryReq historyReq =
+                GetPatientDeviceBindingHistoryReq.newBuilder().setPid(patient.getId()).build();
+            GetPatientDeviceBindingHistoryResp history = patientDeviceService
+                .getPatientDeviceBindingHistory(ProtoUtils.protoToJson(historyReq));
+            assertThat(history.getRt().getCode()).isEqualTo(StatusCode.OK_VALUE);
+            assertThat(history.getBindingList()).singleElement().satisfies(entry -> {
+                assertThat(entry.getDevice().getDeviceName()).isEqualTo(device.getDeviceName());
+                assertThat(entry.getIsBinding()).isFalse();
+                assertThat(entry.getBindingList()).singleElement().satisfies(binding -> {
+                    assertThat(binding.getId()).isEqualTo(legacy.getId());
+                    assertThat(binding.getUnbindingTimeIso8601()).isEqualTo(unbindingTime);
+                });
+            });
+        } finally {
+            jdbc.update("DELETE FROM patient_devices WHERE device_id = ?", deviceId);
+            jdbc.update("DELETE FROM device_infos WHERE id = ?", deviceId);
+            patientRecordRepo.deleteById(patient.getId());
+        }
+    }
+
+    @Test
     public void testDeviceBinding() {
         List<GrantedAuthority> authorities = AuthorityUtils.createAuthorityList("ROLE_1");
         UsernamePasswordAuthenticationToken authentication = 
@@ -377,7 +454,7 @@ public class PatientDeviceServiceTests extends TestsBase {
         for (DeviceInfoPB devInfo : List.of(devInfoPB1, devInfoPB2)) {
             AddDeviceInfoReq addDevReq = AddDeviceInfoReq.newBuilder().setDeviceInfo(devInfo).build();
             String addDevReqJson = ProtoUtils.protoToJson(addDevReq);
-            AddDeviceInfoResp addDevResp = patientDeviceService.addDeviceInfo(addDevReqJson);
+            AddDeviceInfoResp addDevResp = deviceService.addDeviceInfo(addDevReqJson);
             assertThat(addDevResp.getRt().getCode()).isEqualTo(0);
             devIds.add(addDevResp.getId());
         }
@@ -480,6 +557,32 @@ public class PatientDeviceServiceTests extends TestsBase {
         assertThat(getPatResp.getBindingList().get(1).getBindingList()).hasSize(1);
         assertThat(getPatResp.getBindingList().get(1).getBindingList().get(0).getBindingTimeIso8601()).isEqualTo("2025-03-09T11:00+08:00");
         assertThat(getPatResp.getBindingList().get(1).getBindingList().get(0).getUnbindingTimeIso8601()).isEqualTo("");
+
+        // 病人2已有另一台监护仪，转绑失败时原设备仍应归病人1使用。
+        AddDeviceInfoReq addMonitor = AddDeviceInfoReq.newBuilder()
+            .setDeviceInfo(newDevInfoPB(devDeptId3, 203, DEVICE_TYPE_MONITOR)).build();
+        AddDeviceInfoResp addedMonitor =
+            deviceService.addDeviceInfo(ProtoUtils.protoToJson(addMonitor));
+        assertThat(addedMonitor.getRt().getCode()).isEqualTo(StatusCode.OK_VALUE);
+        PatientDevice otherMonitorBinding = patientDeviceRepo.save(DeviceTestUtils.newPatientDevice(
+            patient2.getId(), addedMonitor.getId(), TimeUtils.getLocalTime(2025, 3, 9, 4, 30),
+            null));
+        try {
+            BindPatientDeviceReq transfer = BindPatientDeviceReq.newBuilder()
+                .setPid(patient2.getId()).setDeviceId(devIds.get(0))
+                .setBindingTimeIso8601("2025-03-09T13:00+08:00").build();
+            BindPatientDeviceResp rejected =
+                patientDeviceService.bindPatientDevice(ProtoUtils.protoToJson(transfer));
+            assertThat(rejected.getRt().getCode())
+                .isEqualTo(StatusCode.PATIENT_ALREADY_BINDED_TO_SAME_TYPE_DEVICE_VALUE);
+            assertThat(patientDeviceRepo.findByDeviceIdAndUnbindingTimeIsNullAndIsDeletedFalse(
+                devIds.get(0))).extracting(PatientDevice::getPatientId)
+                .containsExactly(patient1.getId());
+        } finally {
+            patientDeviceRepo.deleteById(otherMonitorBinding.getId());
+            deviceService.deleteDeviceInfo(ProtoUtils.protoToJson(
+                DeleteDeviceInfoReq.newBuilder().setId(addedMonitor.getId()).build()));
+        }
     }
 
     @Test
@@ -533,7 +636,7 @@ public class PatientDeviceServiceTests extends TestsBase {
             .setSourceTopology(2)
             .setUpstreamDeviceId(0)
             .build();
-        AddDeviceInfoResp addResp = patientDeviceService.addDeviceInfo(
+        AddDeviceInfoResp addResp = deviceService.addDeviceInfo(
             ProtoUtils.protoToJson(AddDeviceInfoReq.newBuilder().setDeviceInfo(directCentral).build())
         );
         assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
@@ -545,7 +648,7 @@ public class PatientDeviceServiceTests extends TestsBase {
             .setSourceTopology(2)
             .setUpstreamDeviceId(directCentralId)
             .build();
-        addResp = patientDeviceService.addDeviceInfo(
+        addResp = deviceService.addDeviceInfo(
             ProtoUtils.protoToJson(AddDeviceInfoReq.newBuilder().setDeviceInfo(indirectCentral).build())
         );
         assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
@@ -557,7 +660,7 @@ public class PatientDeviceServiceTests extends TestsBase {
             .setSourceTopology(2)
             .setUpstreamDeviceId(directCentralId)
             .build();
-        addResp = patientDeviceService.addDeviceInfo(
+        addResp = deviceService.addDeviceInfo(
             ProtoUtils.protoToJson(AddDeviceInfoReq.newBuilder().setDeviceInfo(downstreamDevice).build())
         );
         assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
@@ -568,7 +671,7 @@ public class PatientDeviceServiceTests extends TestsBase {
             .setSourceTopology(1)
             .setUpstreamDeviceId(directCentralId)
             .build();
-        addResp = patientDeviceService.addDeviceInfo(
+        addResp = deviceService.addDeviceInfo(
             ProtoUtils.protoToJson(AddDeviceInfoReq.newBuilder().setDeviceInfo(directWithUpstream).build())
         );
         assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.DEVICE_SOURCE_CONFIG_INVALID.ordinal());
@@ -579,7 +682,7 @@ public class PatientDeviceServiceTests extends TestsBase {
             .setSourceTopology(2)
             .setUpstreamDeviceId(indirectCentralId)
             .build();
-        addResp = patientDeviceService.addDeviceInfo(
+        addResp = deviceService.addDeviceInfo(
             ProtoUtils.protoToJson(AddDeviceInfoReq.newBuilder().setDeviceInfo(upstreamNotSource).build())
         );
         assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.DEVICE_SOURCE_CONFIG_INVALID.ordinal());
@@ -624,6 +727,7 @@ public class PatientDeviceServiceTests extends TestsBase {
 
     private final PatientService patientService;
     private final PatientDeviceService patientDeviceService;
+    private final DeviceService deviceService;
     private final PatientConfig patientConfig;
     private final CertificateService certService;
 

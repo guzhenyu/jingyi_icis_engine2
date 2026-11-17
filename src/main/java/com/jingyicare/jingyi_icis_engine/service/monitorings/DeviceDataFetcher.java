@@ -301,7 +301,7 @@ public class DeviceDataFetcher {
 
         // 获取设备绑定历史[{deviceId, from, to}]
         List<DeviceInfoWithBindingPB> devBindings = patientConfig.getPatientDeviceBindingHistory(
-            ctx.pid, ctx.patientRecord.getIcuName(), null, ctx.from, ctx.to
+            ctx.patientRecord, null, ctx.from, ctx.to
         );
         for (DeviceInfoWithBindingPB devBinding : devBindings) {
             for (DeviceBindingPB binding : devBinding.getBindingList()) {

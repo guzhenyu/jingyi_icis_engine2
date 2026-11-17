@@ -2,11 +2,13 @@ package com.jingyicare.jingyi_icis_engine.service.locks;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
 public final class LockKeys {
+    private static final int MAX_DEVICE_KEY_LENGTH = 255;
     private static final String NURSING_RECORD_TEMPLATE_GROUPS = "nursing_record_template_groups";
     private static final String NURSING_RECORD_TEMPLATES = "nursing_record_templates";
 
@@ -31,6 +33,29 @@ public final class LockKeys {
     public static String department(String deptId) {
         StrUtils.requireNonBlank(deptId, "deptId");
         return "department:" + deptId;
+    }
+
+    public static String deviceInfo(String deptId, String deviceName) {
+        Objects.requireNonNull(deptId, "deptId");
+        Objects.requireNonNull(deviceName, "deviceName");
+        // 转义科室中的分隔符，最后一段设备名可以原样保留。
+        String deptKey = deptId.replace("%", "%25").replace(":", "%3A");
+        return truncateDeviceKey("device_infos:" + deptKey + ":" + deviceName);
+    }
+
+    public static String deviceIp(String deviceIp) {
+        if (deviceIp == null || deviceIp.isEmpty()) {
+            throw new IllegalArgumentException("deviceIp must not be empty");
+        }
+        return truncateDeviceKey("device_ip:" + deviceIp);
+    }
+
+    // 锁表的 resource_key 为 VARCHAR(255)，完整拼接后按 Unicode 码点截取前 255 个字符。
+    private static String truncateDeviceKey(String key) {
+        if (key.codePointCount(0, key.length()) <= MAX_DEVICE_KEY_LENGTH) {
+            return key;
+        }
+        return key.substring(0, key.offsetByCodePoints(0, MAX_DEVICE_KEY_LENGTH));
     }
 
     public static String deptSystemSettings(String deptId, int functionId) {

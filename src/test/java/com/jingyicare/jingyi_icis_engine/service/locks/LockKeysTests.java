@@ -46,6 +46,44 @@ class LockKeysTests {
     }
 
     @Test
+    void shouldUseReadableDeviceKeys() {
+        assertThat(LockKeys.deviceInfo("00063", "1号监护仪")).isEqualTo("device_infos:00063:1号监护仪");
+        assertThat(LockKeys.deviceIp("10.0.0.1")).isEqualTo("device_ip:10.0.0.1");
+        assertThat(LockKeys.deviceIp("2001:db8::1")).isEqualTo("device_ip:2001:db8::1");
+    }
+
+    @Test
+    void shouldKeepDeviceNamesAndIpsDistinct() {
+        assertThat(LockKeys.deviceInfo("icu", "a:b"))
+            .isEqualTo("device_infos:icu:a:b")
+            .isNotEqualTo(LockKeys.deviceInfo("icu:a", "b"))
+            .isNotEqualTo(LockKeys.deviceInfo("other", "a:b"))
+            .isNotEqualTo(LockKeys.deviceInfo("icu", "A:B"));
+        assertThat(LockKeys.deviceInfo("icu%3Aa", "b"))
+            .isNotEqualTo(LockKeys.deviceInfo("icu:a", "b"));
+        assertThat(LockKeys.deviceInfo("", "")).isNotEqualTo(LockKeys.deviceInfo("", " "));
+        assertThat(LockKeys.deviceIp("10.0.0.1"))
+            .isNotEqualTo(LockKeys.deviceInfo("", "10.0.0.1"))
+            .isNotEqualTo(LockKeys.deviceIp("10.0.0.2"));
+    }
+
+    @Test
+    void shouldTruncateDeviceNameKeyAfterJoiningAt255CodePoints() {
+        String prefix = "device_infos:00063:";
+        String name = "机".repeat(254 - prefix.length()) + "📟";
+        assertThat(LockKeys.deviceInfo("00063", name)).isEqualTo(prefix + name);
+        assertThat(LockKeys.deviceInfo("00063", name + "甲")).isEqualTo(prefix + name);
+    }
+
+    @Test
+    void shouldTruncateDeviceIpKeyIncludingItsPrefix() {
+        String prefix = "device_ip:";
+        String value = "1".repeat(255 - prefix.length());
+        assertThat(LockKeys.deviceIp(value)).isEqualTo(prefix + value);
+        assertThat(LockKeys.deviceIp(value + "2")).isEqualTo(prefix + value);
+    }
+
+    @Test
     void shouldScopeBgaParamKeysToDepartment() {
         assertThat(LockKeys.bgaParam("icu")).isEqualTo("bga_params:icu")
             .isNotEqualTo(LockKeys.bgaParam("other-icu"))

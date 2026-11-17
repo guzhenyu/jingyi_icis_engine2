@@ -27,6 +27,7 @@ import com.jingyicare.jingyi_icis_engine.service.nursingorders.*;
 import com.jingyicare.jingyi_icis_engine.service.nursingrecords.*;
 import com.jingyicare.jingyi_icis_engine.service.overviews.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
+import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceService;
 import com.jingyicare.jingyi_icis_engine.service.patientshifts.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.ah2report.Ah2ReportService;
@@ -52,6 +53,7 @@ public class WebApiService {
         @Autowired MenuService menuService,
         @Autowired PatientService patientService,
         @Autowired PatientDeviceService patientDeviceService,
+        @Autowired DeviceService deviceService,
         @Autowired PatientDiagnoseService patientDiagnoseService,
         @Autowired PatientOverviewService patientOverviewService,
         @Autowired DoctorScoreService doctorScoreService,
@@ -92,6 +94,7 @@ public class WebApiService {
         this.menuService = menuService;
         this.patientService = patientService;
         this.patientDeviceService = patientDeviceService;
+        this.deviceService = deviceService;
         this.patientDiagnoseService = patientDiagnoseService;
         this.doctorScoreService = doctorScoreService;
         this.patientOverviewService = patientOverviewService;
@@ -1373,19 +1376,19 @@ public class WebApiService {
     }
 
     public AddDeviceInfoResp addDeviceInfo(String addDeviceInfoReqJson) {
-        AddDeviceInfoResp resp = patientDeviceService.addDeviceInfo(addDeviceInfoReqJson);
+        AddDeviceInfoResp resp = deviceService.addDeviceInfo(addDeviceInfoReqJson);
         resp = metricService.recordApiMetrics(resp, AddDeviceInfoResp::getRt);
         return resp;
     }
 
     public GenericResp updateDeviceInfo(String updateDeviceInfoReqJson) {
-        GenericResp resp = patientDeviceService.updateDeviceInfo(updateDeviceInfoReqJson);
+        GenericResp resp = deviceService.updateDeviceInfo(updateDeviceInfoReqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
 
     public GenericResp deleteDeviceInfo(String deleteDeviceInfoReqJson) {
-        GenericResp resp = patientDeviceService.deleteDeviceInfo(deleteDeviceInfoReqJson);
+        GenericResp resp = deviceService.deleteDeviceInfo(deleteDeviceInfoReqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
@@ -2173,6 +2176,7 @@ public class WebApiService {
     private MenuService menuService;
     private PatientService patientService;
     private PatientDeviceService patientDeviceService;
+    private DeviceService deviceService;
     private PatientDiagnoseService patientDiagnoseService;
     private PatientOverviewService patientOverviewService;
     private DoctorScoreService doctorScoreService;

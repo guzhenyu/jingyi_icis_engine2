@@ -2,33 +2,30 @@ package com.jingyicare.jingyi_icis_engine.service.debug;
 
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.jingyicare.jingyi_icis_engine.entity.patients.DeviceData;
+import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.GetDeviceInfoReq;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceInfoPB;
 import com.jingyicare.jingyi_icis_engine.repository.patients.DeviceDataRepository;
-import com.jingyicare.jingyi_icis_engine.repository.patients.DeviceInfoRepository;
-import com.jingyicare.jingyi_icis_engine.service.patients.PatientConfig;
+import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceMapper;
+import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceService;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
 @Service
 public class DeviceDebugger {
     public DeviceDebugger(
-        @Autowired DeviceInfoRepository deviceInfoRepository,
-        @Autowired DeviceDataRepository deviceDataRepository,
-        @Autowired PatientConfig patientConfig
+        DeviceService deviceService,
+        DeviceDataRepository deviceDataRepository
     ) {
-        this.deviceInfoRepository = deviceInfoRepository;
+        this.deviceService = deviceService;
         this.deviceDataRepository = deviceDataRepository;
-        this.patientConfig = patientConfig;
     }
 
     public String listDevInfos() {
-        List<DeviceInfoPB> deviceInfos = deviceInfoRepository
-            .findAllByIsDeletedFalse()
-            .stream()
-            .map(patientConfig::toDeviceInfoPB)
+        List<DeviceInfoPB> deviceInfos = deviceService
+            .searchActiveDevices(GetDeviceInfoReq.getDefaultInstance()).stream()
+            .map(DeviceMapper::toDeviceInfoPB)
             .toList();
         return formatDeviceInfos(deviceInfos);
     }
@@ -63,7 +60,6 @@ public class DeviceDebugger {
             + deviceData.getRecordedStr();
     }
 
-    private DeviceInfoRepository deviceInfoRepository;
-    private DeviceDataRepository deviceDataRepository;
-    private PatientConfig patientConfig;
+    private final DeviceService deviceService;
+    private final DeviceDataRepository deviceDataRepository;
 }
