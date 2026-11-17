@@ -13,6 +13,18 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class LockKeysTests {
     @Test
+    void shouldScopeBedKeysByDepartmentAndRoundCountTimeToMicros() {
+        LocalDateTime time = LocalDateTime.parse("2026-11-03T23:59:59.999999900");
+        LocalDateTime nextDay = LocalDateTime.parse("2026-11-04T00:00");
+        assertThat(LockKeys.bedConfig("icu")).isEqualTo("bed_configs:icu")
+            .isNotEqualTo(LockKeys.bedConfig("icu2"));
+        assertThat(LockKeys.BedCount("icu", time)).isEqualTo("bed_counts:icu:" + nextDay)
+            .isEqualTo(LockKeys.BedCount("icu", nextDay))
+            .isNotEqualTo(LockKeys.BedCount("icu2", nextDay))
+            .isNotEqualTo(LockKeys.BedCount("icu", nextDay.plusNanos(1000)));
+    }
+
+    @Test
     void shouldScopeDepartmentCatalogSeparatelyFromIndividualDepartments() {
         assertThat(LockKeys.departments()).isEqualTo("departments")
             .isNotEqualTo(LockKeys.department("departments"));

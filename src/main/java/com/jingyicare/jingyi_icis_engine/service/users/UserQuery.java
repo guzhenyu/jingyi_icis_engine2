@@ -33,8 +33,8 @@ public class UserQuery {
         Config config,
         RbacAccountRepository accountRepo,
         AccountRepository accountInfoRepo,
-        RbacDepartmentRepository deptRepo,
-        DepartmentRepository deptInfoRepo,
+        RbacDepartmentRepository rbacDeptRepo,
+        DepartmentRepository deptRepo,
         RbacDepartmentAccountRepository deptAccountRepo,
         RbacRoleRepository roleRepo,
         RbacDepartmentAccountPermissionRepository deptAccountPermRepo,
@@ -47,8 +47,8 @@ public class UserQuery {
         this.ZONE_ID = config.getZoneId();
         this.accountRepo = accountRepo;
         this.accountInfoRepo = accountInfoRepo;
+        this.rbacDeptRepo = rbacDeptRepo;
         this.deptRepo = deptRepo;
-        this.deptInfoRepo = deptInfoRepo;
         this.deptAccountRepo = deptAccountRepo;
         this.roleRepo = roleRepo;
         this.deptAccountPermRepo = deptAccountPermRepo;
@@ -146,7 +146,7 @@ public class UserQuery {
         List<Account> accountInfoList = accountInfoRepo.findByIsDeletedFalse();
 
         Map<String, RbacDepartment> deptMap = new HashMap<>();
-        for (RbacDepartment dept : deptRepo.findAll()) {
+        for (RbacDepartment dept : rbacDeptRepo.findAll()) {
             deptMap.put(dept.getDeptId(), dept);
         }
 
@@ -278,7 +278,7 @@ public class UserQuery {
     }
 
     public List<DepartmentPB> getAllDepartments() {
-        return deptInfoRepo.findByIsDeletedFalse().stream()
+        return deptRepo.findByIsDeletedFalse().stream()
             .map(deptInfo -> DepartmentPB.newBuilder()
                 .setId(deptInfo.getId())
                 .setDeptId(deptInfo.getDeptId())
@@ -293,7 +293,7 @@ public class UserQuery {
     }
 
     public Integer getDepartmentId(String deptId) {
-        Department deptInfo = deptInfoRepo.findByDeptIdAndIsDeletedFalse(deptId).orElse(null);
+        Department deptInfo = deptRepo.findByDeptIdAndIsDeletedFalse(deptId).orElse(null);
         if (deptInfo == null) {
             log.error("Department not found: {}", deptId);
             return null;
@@ -301,8 +301,21 @@ public class UserQuery {
         return deptInfo.getId();
     }
 
-    List<Department> getAllDeptInfo() {
-        return deptInfoRepo.findByIsDeletedFalse();
+    public String getDepartmentName(String deptId) {
+        Department deptInfo = deptRepo.findByDeptIdAndIsDeletedFalse(deptId).orElse(null);
+        if (deptInfo == null) {
+            log.error("Department not found: {}", deptId);
+            return "";
+        }
+        return deptInfo.getName();
+    }
+
+    public List<RbacDepartment> getAllRbacDeptInfo() {
+        return rbacDeptRepo.findAll();
+    }
+
+    public List<Department> getAllDeptInfo() {
+        return deptRepo.findByIsDeletedFalse();
     }
 
     public List<String> getDeptIdsByAccountId(String accountId) {
@@ -312,7 +325,7 @@ public class UserQuery {
     }
 
     public List<Department> getAllDeptInfoByAccountId(String accountId) {
-        return deptInfoRepo.findByDeptIdInAndIsDeletedFalse(getDeptIdsByAccountId(accountId));
+        return deptRepo.findByDeptIdInAndIsDeletedFalse(getDeptIdsByAccountId(accountId));
     }
 
     public List<IcisRolePB> getPrimaryRoles() {
@@ -326,7 +339,7 @@ public class UserQuery {
     }
 
     public Boolean departmentExists(String deptId) {
-        return deptRepo.existsByDeptId(deptId);
+        return rbacDeptRepo.existsByDeptId(deptId);
     }
 
     public List<IcisPermissionGroupPB> getNonPrimaryRolePermissions(String deptId) {
@@ -529,8 +542,8 @@ public class UserQuery {
 
     private final RbacAccountRepository accountRepo;
     private final AccountRepository accountInfoRepo;
-    private final RbacDepartmentRepository deptRepo;
-    private final DepartmentRepository deptInfoRepo;
+    private final RbacDepartmentRepository rbacDeptRepo;
+    private final DepartmentRepository deptRepo;
     private final RbacDepartmentAccountRepository deptAccountRepo;
     private final RbacRoleRepository roleRepo;
     private final RbacDepartmentAccountPermissionRepository deptAccountPermRepo;

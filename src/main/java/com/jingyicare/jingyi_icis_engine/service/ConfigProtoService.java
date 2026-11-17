@@ -24,6 +24,7 @@ import com.jingyicare.jingyi_icis_engine.entity.settings.*;
 import com.jingyicare.jingyi_icis_engine.entity.medications.*;
 import com.jingyicare.jingyi_icis_engine.repository.settings.*;
 import com.jingyicare.jingyi_icis_engine.repository.medications.*;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
 
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -32,9 +33,11 @@ public class ConfigProtoService {
     public ConfigProtoService(
         Config config,
         @Autowired DeptSystemSettingsRepository deptSettingsRepo,
-        @Autowired IntakeTypeRepository intakeTypeRepo
+        @Autowired IntakeTypeRepository intakeTypeRepo,
+        PatientEnums patientEnums
     ) {
         this.config = config;
+        this.patientEnums = patientEnums;
         this.genderMap = config == null ? null :
             config.getCommon().getEnums().getGenderList().stream()
                 .collect(Collectors.toMap(EnumValue::getId, EnumValue::getName));
@@ -71,7 +74,9 @@ public class ConfigProtoService {
         return GetConfigResp.newBuilder()
             .setRt(getReturnCode(StatusCode.OK))
             .setCommonEnums(config.getCommon().getEnums())
-            .setPatientEnums(config.getPatient().getEnumsV2())
+            .setPatientEnums(config.getPatient().getEnumsV2().toBuilder()
+                .clearBloodType().addAllBloodType(PatientEnums.BLOOD_TYPES)
+                .clearBloodRh().addAllBloodRh(PatientEnums.BLOOD_RHS))
             .setTubeEnums(config.getTube().getEnums())
             .setTubeTypeList(config.getTube().getTypeList())
             .setTubeAttrList(config.getTube().getAttributeList())
@@ -92,7 +97,8 @@ public class ConfigProtoService {
             .setJfkEnums(config.getJfk().getEnums())
             .addAllJfkInputs(config.getJfk().getInputsList())
             .addAllJfkDataSources(config.getJfk().getDataSourcesList())
-            .setDeviceEnums(config.getDevice().getEnums())
+            .setDeviceEnums(config.getDevice().getEnums().toBuilder()
+                .clearBedType().addAllBedType(patientEnums.getBedTypes()))
             .setDeviceCascade(config.getDevice().getDeviceCascade())
             .setDiagnosisEnums(config.getDiagnosis().getEnums())
             .setBgaEnums(config.getBga().getEnums())
@@ -144,6 +150,7 @@ public class ConfigProtoService {
 
     @Getter
     private final Config config;
+    private final PatientEnums patientEnums;
 
     private final Map<Integer, String> genderMap;
     private final Map<Integer, String> maritalStatusMap;

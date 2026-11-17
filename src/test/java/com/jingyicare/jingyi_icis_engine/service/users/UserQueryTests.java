@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.AccountPB;
@@ -86,6 +87,20 @@ class UserQueryTests extends TestsBase {
             INHERITED_PERMISSION, DIRECT_PERMISSION);
         jdbcTemplate.update("DELETE FROM accounts WHERE account_id LIKE ?", PREFIX + "%");
         jdbcTemplate.update("DELETE FROM rbac_accounts WHERE account_id LIKE ?", PREFIX + "%");
+    }
+
+    @Test
+    @Transactional
+    void resolvesOnlyActiveDepartmentNames() {
+        assertThat(query.getDepartmentName(DEPT)).isEmpty();
+        jdbcTemplate.update("""
+            INSERT INTO departments(dept_id, name, abbreviation, hospital_name, is_deleted)
+            VALUES (?, '查询测试科室', '查询', '测试医院', false)
+            """, DEPT);
+        assertThat(query.getDepartmentName(DEPT)).isEqualTo("查询测试科室");
+
+        jdbcTemplate.update("UPDATE departments SET is_deleted = true WHERE dept_id = ?", DEPT);
+        assertThat(query.getDepartmentName(DEPT)).isEmpty();
     }
 
     @Test

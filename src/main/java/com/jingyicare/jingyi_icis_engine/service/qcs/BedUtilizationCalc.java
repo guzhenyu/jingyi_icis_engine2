@@ -5,7 +5,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -16,8 +15,9 @@ import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisQualityControl.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
-import com.jingyicare.jingyi_icis_engine.repository.patients.*;
+import com.jingyicare.jingyi_icis_engine.repository.patients.PatientBedHistoryRepository;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
+import com.jingyicare.jingyi_icis_engine.service.patients.bed.BedMetaReader;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 // todo: 添加开关，同一个床位同一天被多个病人占用时，是否算做多个床日
@@ -26,13 +26,11 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 @Slf4j
 public class BedUtilizationCalc {
     public BedUtilizationCalc(
-        @Autowired BedConfigRepository bedConfigRepo,
-        @Autowired PatientBedHistoryRepository patientBedHistoryRepo,
-        @Autowired BedCountRepository bedCountRepo
+        BedMetaReader bedMetaReader,
+        PatientBedHistoryRepository patientBedHistoryRepo
     ) {
-        this.bedConfigRepo = bedConfigRepo;
+        this.bedMetaReader = bedMetaReader;
         this.patientBedHistoryRepo = patientBedHistoryRepo;
-        this.bedCountRepo = bedCountRepo;
     }
 
     ///////////// 床位使用率常量
@@ -200,8 +198,7 @@ public class BedUtilizationCalc {
         // 获取科室床位历史
         List<Pair<LocalDateTime, Integer>> bedTimeline = new ArrayList<>();
         bedTimeline.add(new Pair<>(Consts.MIN_TIME, 0));
-        bedTimeline.addAll(bedCountRepo.findByDeptIdAndIsDeletedFalse(deptId)
-            .stream().sorted(Comparator.comparing(BedCount::getEffectiveTime))
+        bedTimeline.addAll(bedMetaReader.findBedCountHistory(deptId).stream()
             .map(bc -> new Pair<>(
                 TimeUtils.getLocalDateTimeFromUtc(bc.getEffectiveTime(), zoneId), bc.getBedCount()
             ))
@@ -323,8 +320,8 @@ public class BedUtilizationCalc {
         LocalDateTime endLocal = TimeUtils.truncateToDay(TimeUtils.getLocalDateTimeFromUtc(endUtc, zoneId));
 
         // 获取 his床位号 到 显示床位号 的映射
-        Map<String/*hisBed*/, String/*displayBed*/> bedMap = bedConfigRepo
-            .findByDepartmentIdAndIsDeletedFalse(deptId)
+        Map<String/*hisBed*/, String/*displayBed*/> bedMap = bedMetaReader
+            .findActiveBedsByDepartment(deptId)
             .stream().collect(Collectors.toMap(
                 BedConfig::getHisBedNumber, BedConfig::getDisplayBedNumber
             ));
@@ -517,7 +514,6 @@ public class BedUtilizationCalc {
         }
     }
 
-    private final BedConfigRepository bedConfigRepo;
+    private final BedMetaReader bedMetaReader;
     private final PatientBedHistoryRepository patientBedHistoryRepo;
-    private final BedCountRepository bedCountRepo;
 }

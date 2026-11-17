@@ -25,6 +25,7 @@ import com.jingyicare.jingyi_icis_engine.repository.scores.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
+import com.jingyicare.jingyi_icis_engine.service.patients.bed.BedMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
 import com.jingyicare.jingyi_icis_engine.service.settings.IcuQcConfigService;
 import com.jingyicare.jingyi_icis_engine.service.therapies.SepsisAndSepticShockBundleService;
@@ -44,7 +45,7 @@ public class GenericIcuQcService {
         @Autowired DepartmentAccountRepository deptAcctRepo,
         @Autowired AccountRepository accountRepo,
         @Autowired RbacRoleRepository roleRepo,
-        @Autowired BedCountRepository bedCountRepo,
+        @Autowired BedMetaReader bedMetaReader,
         @Autowired ApacheIIScoreRepository apacheRepo,
         @Autowired VTECapriniScoreRepository vteCapriniRepo,
         @Autowired VTEPaduaScoreRepository vtePaduaRepo,
@@ -62,7 +63,7 @@ public class GenericIcuQcService {
         this.deptAcctRepo = deptAcctRepo;
         this.accountRepo = accountRepo;
         this.roleRepo = roleRepo;
-        this.bedCountRepo = bedCountRepo;
+        this.bedMetaReader = bedMetaReader;
         this.apacheRepo = apacheRepo;
         this.vteCapriniRepo = vteCapriniRepo;
         this.vtePaduaRepo = vtePaduaRepo;
@@ -449,9 +450,7 @@ public class GenericIcuQcService {
 
     private int bedCountAt(String deptId, LocalDateTime statsEndUtc) {
         int bedCount = 0;
-        for (BedCount change : bedCountRepo.findByDeptIdAndIsDeletedFalse(deptId).stream()
-            .sorted(Comparator.comparing(BedCount::getEffectiveTime))
-            .toList()) {
+        for (BedCount change : bedMetaReader.findBedCountHistory(deptId)) {
             if (change.getEffectiveTime() != null && change.getEffectiveTime().isBefore(statsEndUtc)) {
                 bedCount = change.getBedCount() == null ? 0 : change.getBedCount();
             }
@@ -1139,9 +1138,6 @@ public class GenericIcuQcService {
 
     @AllArgsConstructor
     private static class DeptScope {
-        StatusCode errorStatus;
-        List<String> deptIds;
-
         static DeptScope error(StatusCode statusCode) {
             return new DeptScope(statusCode, List.of());
         }
@@ -1149,6 +1145,9 @@ public class GenericIcuQcService {
         static DeptScope ok(List<String> deptIds) {
             return new DeptScope(null, deptIds);
         }
+
+        StatusCode errorStatus;
+        List<String> deptIds;
     }
 
     @AllArgsConstructor
@@ -1177,7 +1176,7 @@ public class GenericIcuQcService {
     private final DepartmentAccountRepository deptAcctRepo;
     private final AccountRepository accountRepo;
     private final RbacRoleRepository roleRepo;
-    private final BedCountRepository bedCountRepo;
+    private final BedMetaReader bedMetaReader;
     private final ApacheIIScoreRepository apacheRepo;
     private final VTECapriniScoreRepository vteCapriniRepo;
     private final VTEPaduaScoreRepository vtePaduaRepo;

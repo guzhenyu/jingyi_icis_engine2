@@ -21,14 +21,6 @@ enums {
         id: 2
         name: "中央站扇出分发"
     }
-    bed_type {
-        id: 1
-        name: "固定授权"
-    }
-    bed_type {
-        id: 2
-        name: "临时授权"
-    }
 }
 alternative_code_pair {
     replacing_code: "vent_respiratory_rate"

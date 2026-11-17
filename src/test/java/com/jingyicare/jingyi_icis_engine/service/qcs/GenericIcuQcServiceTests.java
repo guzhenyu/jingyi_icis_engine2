@@ -30,6 +30,7 @@ import com.jingyicare.jingyi_icis_engine.repository.users.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.settings.IcuQcConfigService;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
+import com.jingyicare.jingyi_icis_engine.service.patients.bed.BedMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.therapies.SepsisAndSepticShockBundleService;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -92,7 +93,7 @@ public class GenericIcuQcServiceTests {
             mock(DepartmentAccountRepository.class),
             mock(AccountRepository.class),
             mock(RbacRoleRepository.class),
-            mock(BedCountRepository.class),
+            mock(BedMetaReader.class),
             mock(ApacheIIScoreRepository.class),
             mock(VTECapriniScoreRepository.class),
             mock(VTEPaduaScoreRepository.class),

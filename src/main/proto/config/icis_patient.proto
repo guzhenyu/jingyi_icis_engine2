@@ -28,6 +28,10 @@ message PatientEnumsV2 {
     string in_icu_name = 17; // 在科的显示名称
     string pending_discharged_name = 18; // 待出科的显示名称
     string discharged_name = 19; // 已出科的显示名称
+
+    // bed_type
+    string bed_type_fixed = 20;
+    string bed_type_temp = 21;
 }
 
 message DisplayFieldSettingsPB {

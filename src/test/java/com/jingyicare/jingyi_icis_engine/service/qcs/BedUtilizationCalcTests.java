@@ -177,7 +177,7 @@ public class BedUtilizationCalcTests extends TestsBase {
             .hisBedNumber("hisBedNumber1901")
             .deviceBedNumber("devBedNumber1901")
             .displayBedNumber("dispBedNumber1901")
-            .bedType(1/*固定*/)
+            .bedType(PatientEnums.BED_TYPE_FIXED)
             .isDeleted(false)
             .build();
         bedConfigRepo.save(bedConfig);

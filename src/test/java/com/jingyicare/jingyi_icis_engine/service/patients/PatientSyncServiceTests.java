@@ -57,7 +57,7 @@ public class PatientSyncServiceTests extends TestsBase {
             .hisBedNumber("hisBedNumber2001")
             .deviceBedNumber("devBedNumber2001")
             .displayBedNumber("dispBedNumber2001")
-            .bedType(1/*固定*/)
+            .bedType(PatientEnums.BED_TYPE_FIXED)
             .isDeleted(false)
             .build();
         bedConfigRepo.save(bedConfig);
@@ -144,7 +144,7 @@ public class PatientSyncServiceTests extends TestsBase {
             .hisBedNumber("9")
             .deviceBedNumber("device-9")
             .displayBedNumber("9")
-            .bedType(1)
+            .bedType(PatientEnums.BED_TYPE_FIXED)
             .isDeleted(false)
             .build());
 

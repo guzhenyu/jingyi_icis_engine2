@@ -2,6 +2,7 @@ package com.jingyicare.jingyi_icis_engine.service;
 
 import static com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceEnums.*;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 
@@ -25,16 +26,16 @@ import com.google.protobuf.TextFormat;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceConfigPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceDriverPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceEnumsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceTypeEntryPB;
+import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.EnumValue;
+import com.jingyicare.jingyi_icis_engine.repository.medications.IntakeTypeRepository;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientConfig;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
 import com.jingyicare.jingyi_icis_engine.utils.LogUtils;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
 class ConfigProtoServiceDeviceTests {
-    private static final String COMMON_DEVICE_PATH = "config/pbtxt/common_device.pb.txt";
-    private static final String DEFAULT_CONFIG_PATH = "config/pbtxt/icis_config.pb.txt";
-    private static final String TEST_CONFIG_PATH = "text_resources/icis_config.pb.txt";
-
     @ParameterizedTest
     @ValueSource(strings = {
         DEFAULT_CONFIG_PATH,
@@ -45,7 +46,7 @@ class ConfigProtoServiceDeviceTests {
     void shouldLoadCommonDeviceForAllProductionConfigs(String path) throws Exception {
         assertThat(readConfig(path).hasDevice()).isFalse();
 
-        Config loaded = loadConfig(path, "");
+        Config loaded = loadConfig(path, "").getConfig();
         DeviceConfigPB device = loaded.getDevice();
         assertThat(device).isEqualTo(readCommonDevice());
         assertThat(device.getApproxSeconds()).isEqualTo(1800);
@@ -74,12 +75,13 @@ class ConfigProtoServiceDeviceTests {
     @ParameterizedTest
     @ValueSource(ints = {0, 10})
     void shouldRejectUndefinedCascadeDeviceTypeAtStartup(int deviceTypeId) {
-        Config.Builder config = loadConfig(DEFAULT_CONFIG_PATH, "").toBuilder();
+        Config.Builder config = loadConfig(DEFAULT_CONFIG_PATH, "").getConfig().toBuilder();
         config.getDeviceBuilder().getDeviceCascadeBuilder().addEntryBuilder()
             .setDeviceTypeId(deviceTypeId).setDeviceTypeName("测试设备");
         ConfigurableApplicationContext context = mock(ConfigurableApplicationContext.class);
-        PatientConfig patientConfig = new PatientConfig(context,
-            new ConfigProtoService(config.build(), null, null), null, null, null, null, null, null);
+        ConfigProtoService service = new ConfigProtoService(config.build(), null, null, null);
+        PatientConfig patientConfig = new PatientConfig(
+            context, service, null, null, null, null, null, null);
 
         try (MockedStatic<LogUtils> logUtils = mockStatic(LogUtils.class)) {
             patientConfig.checkIntegrity();
@@ -91,51 +93,80 @@ class ConfigProtoServiceDeviceTests {
     void shouldPreserveInlineTestDeviceConfig() throws Exception {
         DeviceConfigPB expected = readConfig(TEST_CONFIG_PATH).getDevice();
 
-        DeviceConfigPB loaded = loadConfig(TEST_CONFIG_PATH, "").getDevice();
+        DeviceConfigPB loaded = loadConfig(TEST_CONFIG_PATH, "").getConfig().getDevice();
 
         assertThat(loaded).isEqualTo(expected);
         assertThat(loaded.getApproxSeconds()).isEqualTo(300);
     }
 
     @Test
-    void shouldLoadCommonDeviceWhenExternalConfigOmitsDevice(@TempDir Path tempDir) throws Exception {
+    void shouldLoadCommonDeviceWhenExternalConfigOmitsDevice(@TempDir Path tempDir)
+        throws Exception {
         Path externalConfig = tempDir.resolve("icis_config.pb.txt");
         Files.writeString(externalConfig, "zone_id: \"Asia/Shanghai\"\n", StandardCharsets.UTF_8);
 
-        // The external config must take precedence over even a resource with an inline device block.
-        Config loaded = loadConfig(TEST_CONFIG_PATH, externalConfig.toString());
+        ProtoConfig protoConfig = loadConfig(TEST_CONFIG_PATH, externalConfig.toString());
+        Config loaded = protoConfig.getConfig();
 
         assertThat(loaded.getZoneId()).isEqualTo("Asia/Shanghai");
         assertThat(loaded.getDevice()).isEqualTo(readCommonDevice());
+        assertThat(publicDeviceEnums(protoConfig).getBedTypeList())
+            .extracting(EnumValue::getId, EnumValue::getName)
+            .containsExactly(tuple(1, "固定授权"), tuple(2, "临时授权"));
     }
 
-    @Test
-    void shouldUseExternalDeviceAsWholeOverride(@TempDir Path tempDir) throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = {"", "bed_type { id: 91 name: \"固定授权\" }"})
+    void shouldUseExternalDeviceAndFixedBedTypes(String legacyBedType, @TempDir Path tempDir)
+        throws Exception {
         Path externalConfig = tempDir.resolve("icis_config.pb.txt");
-        Files.writeString(externalConfig, "device { approx_seconds: 42 }\n", StandardCharsets.UTF_8);
+        Files.writeString(externalConfig, """
+            patient { enums_v2 { bed_type_fixed: "常设床" bed_type_temp: "临时加床" } }
+            device {
+                approx_seconds: 42
+                enums { source_mode { id: 7 name: "外部模式" } %s }
+            }
+            """.formatted(legacyBedType), StandardCharsets.UTF_8);
 
-        DeviceConfigPB loaded = loadConfig(DEFAULT_CONFIG_PATH, externalConfig.toString()).getDevice();
+        ProtoConfig protoConfig = loadConfig(DEFAULT_CONFIG_PATH, externalConfig.toString());
 
-        assertThat(loaded).isEqualTo(DeviceConfigPB.newBuilder().setApproxSeconds(42).build());
+        DeviceConfigPB.Builder expected = DeviceConfigPB.newBuilder().setApproxSeconds(42);
+        expected.getEnumsBuilder().addSourceModeBuilder().setId(7).setName("外部模式");
+        TextFormat.getParser().merge(legacyBedType, expected.getEnumsBuilder());
+        DeviceEnumsPB published = publicDeviceEnums(protoConfig);
+        assertThat(protoConfig.getConfig().getDevice()).isEqualTo(expected.build());
+        assertThat(published.getSourceModeList())
+            .isEqualTo(expected.getEnums().getSourceModeList());
+        assertThat(published.getBedTypeList()).extracting(EnumValue::getId, EnumValue::getName)
+            .containsExactly(tuple(1, "常设床"), tuple(2, "临时加床"));
     }
 
     @Test
-    void shouldExposeOnlyConfigurableDeviceEnums() {
-        String json = ProtoUtils.protoToJson(
-            loadConfig(DEFAULT_CONFIG_PATH, "").getDevice().getEnums());
+    void shouldExposeFixedBedIdsAndNamesWithDeviceEnums() {
+        DeviceEnumsPB published = publicDeviceEnums(loadConfig(DEFAULT_CONFIG_PATH, ""));
+        assertThat(published.getBedTypeList())
+            .extracting(EnumValue::getId, EnumValue::getName)
+            .containsExactly(tuple(1, "固定授权"), tuple(2, "临时授权"));
+        String json = ProtoUtils.protoToJson(published);
         JsonObject enums = JsonParser.parseString(json).getAsJsonObject();
 
         assertThat(enums.keySet()).containsExactlyInAnyOrder(
             "bedType", "sourceMode", "sourceTopology");
     }
 
-    private Config loadConfig(String path, String externalPath) {
-        ProtoConfig service = new ProtoConfig(
-            null, externalPath, new ClassPathResource(path), null, null,
+    private ProtoConfig loadConfig(String path, String externalPath) {
+        return new ProtoConfig(
+            null, externalPath, new ClassPathResource(path),
+            new ClassPathResource("config/pbtxt/common_text.pb.txt"), null,
             new ClassPathResource(COMMON_DEVICE_PATH), null, null, null,
             StandardCharsets.UTF_8.name()
         );
-        return service.getConfig();
+    }
+
+    private DeviceEnumsPB publicDeviceEnums(ProtoConfig protoConfig) {
+        ConfigProtoService service = new ConfigProtoService(protoConfig.getConfig(), null,
+            mock(IntakeTypeRepository.class), new PatientEnums(protoConfig));
+        return service.getWebApiConfig().getDeviceEnums();
     }
 
     private Config readConfig(String path) throws Exception {
@@ -157,4 +188,8 @@ class ConfigProtoServiceDeviceTests {
         }
         return builder.build();
     }
+
+    private static final String COMMON_DEVICE_PATH = "config/pbtxt/common_device.pb.txt";
+    private static final String DEFAULT_CONFIG_PATH = "config/pbtxt/icis_config.pb.txt";
+    private static final String TEST_CONFIG_PATH = "text_resources/icis_config.pb.txt";
 }

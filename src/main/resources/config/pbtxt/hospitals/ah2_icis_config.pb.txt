@@ -314,6 +314,8 @@ patient {
         in_icu_name: "在科"
         pending_discharged_name: "待出科"
         discharged_name: "已出科"
+        bed_type_fixed: "固定授权"
+        bed_type_temp: "临时授权"
     }
     default_display_field_settings {
         function_id: 1

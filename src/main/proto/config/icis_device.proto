@@ -6,6 +6,7 @@ package com.jingyicare.jingyi_icis_engine.proto.config;
 
 ////// 配置消息
 message DeviceEnumsPB {
+    // 由 PatientEnums.getBedTypes 生成，供前端显示类型名称、提交类型 ID。
     repeated shared.EnumValue bed_type = 3;
 
     reserved 4 to 6;

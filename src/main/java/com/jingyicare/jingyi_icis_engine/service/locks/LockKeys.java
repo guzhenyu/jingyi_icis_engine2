@@ -8,10 +8,6 @@ import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
 public final class LockKeys {
-    private static final int MAX_DEVICE_KEY_LENGTH = 255;
-    private static final String NURSING_RECORD_TEMPLATE_GROUPS = "nursing_record_template_groups";
-    private static final String NURSING_RECORD_TEMPLATES = "nursing_record_templates";
-
     private LockKeys() {}
 
     public static String account(String rbacAcctId) {
@@ -35,27 +31,39 @@ public final class LockKeys {
         return "department:" + deptId;
     }
 
+    public static String bedConfig(String deptId) {
+        Objects.requireNonNull(deptId, "deptId");
+        return truncateResourceKey("bed_configs:" + deptId);
+    }
+
+    public static String BedCount(String deptId, LocalDateTime effectiveTimeUtc) {
+        Objects.requireNonNull(deptId, "deptId");
+        Objects.requireNonNull(effectiveTimeUtc, "effectiveTimeUtc");
+        return truncateResourceKey("bed_counts:" + deptId + ":"
+            + TimeUtils.roundToMicros(effectiveTimeUtc));
+    }
+
     public static String deviceInfo(String deptId, String deviceName) {
         Objects.requireNonNull(deptId, "deptId");
         Objects.requireNonNull(deviceName, "deviceName");
         // 转义科室中的分隔符，最后一段设备名可以原样保留。
         String deptKey = deptId.replace("%", "%25").replace(":", "%3A");
-        return truncateDeviceKey("device_infos:" + deptKey + ":" + deviceName);
+        return truncateResourceKey("device_infos:" + deptKey + ":" + deviceName);
     }
 
     public static String deviceIp(String deviceIp) {
         if (deviceIp == null || deviceIp.isEmpty()) {
             throw new IllegalArgumentException("deviceIp must not be empty");
         }
-        return truncateDeviceKey("device_ip:" + deviceIp);
+        return truncateResourceKey("device_ip:" + deviceIp);
     }
 
     // 锁表的 resource_key 为 VARCHAR(255)，完整拼接后按 Unicode 码点截取前 255 个字符。
-    private static String truncateDeviceKey(String key) {
-        if (key.codePointCount(0, key.length()) <= MAX_DEVICE_KEY_LENGTH) {
+    private static String truncateResourceKey(String key) {
+        if (key.codePointCount(0, key.length()) <= MAX_RESOURCE_KEY_LENGTH) {
             return key;
         }
-        return key.substring(0, key.offsetByCodePoints(0, MAX_DEVICE_KEY_LENGTH));
+        return key.substring(0, key.offsetByCodePoints(0, MAX_RESOURCE_KEY_LENGTH));
     }
 
     public static String deptSystemSettings(String deptId, int functionId) {
@@ -179,4 +187,8 @@ public final class LockKeys {
         return resource + ":" + pid + ":" + code + ":"
             + TimeUtils.roundToMicros(effectiveTimeUtc);
     }
+
+    private static final int MAX_RESOURCE_KEY_LENGTH = 255;
+    private static final String NURSING_RECORD_TEMPLATE_GROUPS = "nursing_record_template_groups";
+    private static final String NURSING_RECORD_TEMPLATES = "nursing_record_templates";
 }

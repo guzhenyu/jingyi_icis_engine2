@@ -18,9 +18,8 @@ public interface BedConfigRepository extends JpaRepository<BedConfig, Long> {
 
     Optional<BedConfig> findByIdAndIsDeletedFalse(Long id);
 
-    Optional<BedConfig> findByDepartmentIdAndHisBedNumberAndIsDeletedFalse(String departmentId, String hisBedNumber);
-    Optional<BedConfig> findByDepartmentIdAndDisplayBedNumberAndIsDeletedFalse(String departmentId, String displayBedNumber);
-    Optional<BedConfig> findByDepartmentIdAndDeviceBedNumberAndIsDeletedFalse(String departmentId, String deviceBedNumber);
+    Optional<BedConfig> findByDepartmentIdAndHisBedNumberAndIsDeletedFalse(
+        String departmentId, String hisBedNumber);
 
     Integer countByDepartmentIdAndBedTypeAndIsDeletedFalse(String deptId, Integer bedType);
 }

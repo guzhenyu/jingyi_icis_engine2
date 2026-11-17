@@ -22,9 +22,9 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
-import com.jingyicare.jingyi_icis_engine.service.certs.*;
 import com.jingyicare.jingyi_icis_engine.service.debug.DeviceDebugger;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
+import com.jingyicare.jingyi_icis_engine.service.patients.bed.BedMetaService;
 import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceService;
 import com.jingyicare.jingyi_icis_engine.testutils.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -35,8 +35,7 @@ public class PatientDeviceServiceTests extends TestsBase {
         @Autowired PatientDeviceService patientDeviceService,
         @Autowired DeviceService deviceService,
         @Autowired PatientConfig patientConfig,
-        @Autowired CertificateService certService,
-        @Autowired BedConfigRepository bedConfigRepo,
+        @Autowired BedMetaService bedMetaService,
         @Autowired PatientRecordRepository patientRecordRepo,
         @Autowired PatientBedHistoryRepository patientBedHistoryRepo,
         @Autowired PatientDeviceRepository patientDeviceRepo
@@ -48,16 +47,11 @@ public class PatientDeviceServiceTests extends TestsBase {
         this.devDeptId3 = "10031";
         this.devDeptId4 = "10041";
 
-        this.BED_TYPE_FIXED = 1;
-        this.BED_TYPE_TEMP = 2;
-
         this.patientService = patientService;
         this.patientDeviceService = patientDeviceService;
         this.deviceService = deviceService;
         this.patientConfig = patientConfig;
-        this.certService = certService;
-
-        this.bedConfigRepo = bedConfigRepo;
+        this.bedMetaService = bedMetaService;
         this.patientRecordRepo = patientRecordRepo;
         this.patientBedHistoryRepo = patientBedHistoryRepo;
         this.patientDeviceRepo = patientDeviceRepo;
@@ -74,24 +68,24 @@ public class PatientDeviceServiceTests extends TestsBase {
         AddBedConfigReq addBedReq = AddBedConfigReq.newBuilder()
             .setBedConfig(newBedConfigPB(deptId, 1211, BED_TYPE_FIXED)).build();
         String addBedReqJson = ProtoUtils.protoToJson(addBedReq);
-        AddBedConfigResp addResp = patientDeviceService.addBedConfig(addBedReqJson);
+        AddBedConfigResp addResp = bedMetaService.addBedConfig(addBedReqJson);
         assertThat(addResp.getRt().getCode()).isEqualTo(0);
 
         addBedReq = AddBedConfigReq.newBuilder()
             .setBedConfig(newBedConfigPB(deptId, 1212, BED_TYPE_FIXED)).build();
         addBedReqJson = ProtoUtils.protoToJson(addBedReq);
-        addResp = patientDeviceService.addBedConfig(addBedReqJson);
+        addResp = bedMetaService.addBedConfig(addBedReqJson);
         assertThat(addResp.getRt().getCode()).isEqualTo(0);
 
         addBedReq = AddBedConfigReq.newBuilder()
             .setBedConfig(newBedConfigPB(deptId, 1213, BED_TYPE_TEMP)).build();
         addBedReqJson = ProtoUtils.protoToJson(addBedReq);
-        addResp = patientDeviceService.addBedConfig(addBedReqJson);
+        addResp = bedMetaService.addBedConfig(addBedReqJson);
         assertThat(addResp.getRt().getCode()).isEqualTo(0);
 
         GetBedConfigReq getBedReq = GetBedConfigReq.newBuilder().setDeptId(deptId).build();
         String getBedReqJson = ProtoUtils.protoToJson(getBedReq);
-        GetBedConfigResp getResp = patientDeviceService.getBedConfig(getBedReqJson);
+        GetBedConfigResp getResp = bedMetaService.getBedConfig(getBedReqJson);
         assertThat(getResp.getRt().getCode()).isEqualTo(0);
         Set<String> hisBedNumbers = new HashSet<>();
         for (BedConfigPB bedConfig : getResp.getBedConfigList()) {
@@ -113,10 +107,10 @@ public class PatientDeviceServiceTests extends TestsBase {
         }
         AddBedConfigReq updateBedReq = AddBedConfigReq.newBuilder().setBedConfig(bedToUpdate).build();
         String updateBedReqJson = ProtoUtils.protoToJson(updateBedReq);
-        GenericResp updateResp = patientDeviceService.updateBedConfig(updateBedReqJson);
+        GenericResp updateResp = bedMetaService.updateBedConfig(updateBedReqJson);
         assertThat(updateResp.getRt().getCode()).isEqualTo(0);
 
-        getResp = patientDeviceService.getBedConfig(getBedReqJson);
+        getResp = bedMetaService.getBedConfig(getBedReqJson);
         assertThat(getResp.getRt().getCode()).isEqualTo(0);
         for (BedConfigPB bedConfig : getResp.getBedConfigList()) {
             if (bedConfig.getHisBedNumber().equals("hisBedNumber1212")) {
@@ -135,10 +129,10 @@ public class PatientDeviceServiceTests extends TestsBase {
         }
         DeleteBedConfigReq deleteBedReq = DeleteBedConfigReq.newBuilder().setId(bedToDelete.getId()).build();
         String deleteBedReqJson = ProtoUtils.protoToJson(deleteBedReq);
-        GenericResp deleteResp = patientDeviceService.deleteBedConfig(deleteBedReqJson);
+        GenericResp deleteResp = bedMetaService.deleteBedConfig(deleteBedReqJson);
         assertThat(deleteResp.getRt().getCode()).isEqualTo(0);
 
-        getResp = patientDeviceService.getBedConfig(getBedReqJson);
+        getResp = bedMetaService.getBedConfig(getBedReqJson);
         assertThat(getResp.getRt().getCode()).isEqualTo(0);
         hisBedNumbers.clear();
         for (BedConfigPB bedConfig : getResp.getBedConfigList()) {
@@ -159,7 +153,7 @@ public class PatientDeviceServiceTests extends TestsBase {
             AddBedConfigReq addBedReq = AddBedConfigReq.newBuilder()
                 .setBedConfig(newBedConfigPB(devDeptId4, i, BED_TYPE_FIXED)).build();
             String addBedReqJson = ProtoUtils.protoToJson(addBedReq);
-            AddBedConfigResp addResp = patientDeviceService.addBedConfig(addBedReqJson);
+            AddBedConfigResp addResp = bedMetaService.addBedConfig(addBedReqJson);
             assertThat(addResp.getRt().getCode()).isEqualTo(0);
         }
 
@@ -722,16 +716,11 @@ public class PatientDeviceServiceTests extends TestsBase {
     private final String devDeptId3;
     private final String devDeptId4;
 
-    private final Integer BED_TYPE_FIXED;
-    private final Integer BED_TYPE_TEMP;
-
     private final PatientService patientService;
     private final PatientDeviceService patientDeviceService;
     private final DeviceService deviceService;
     private final PatientConfig patientConfig;
-    private final CertificateService certService;
-
-    private final BedConfigRepository bedConfigRepo;
+    private final BedMetaService bedMetaService;
     private final PatientRecordRepository patientRecordRepo;
     private final PatientBedHistoryRepository patientBedHistoryRepo;
     private final PatientDeviceRepository patientDeviceRepo;

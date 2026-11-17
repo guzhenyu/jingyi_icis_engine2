@@ -2,7 +2,6 @@ package com.jingyicare.jingyi_icis_engine.service.patients;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -19,7 +18,6 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
-import com.jingyicare.jingyi_icis_engine.service.certs.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceMapper;
 import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceService;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
@@ -45,10 +43,7 @@ public class PatientDeviceService {
         @Autowired ProtoConfig protoConfig,
         @Autowired PatientConfig patientConfig,
         @Autowired UserQuery userQuery,
-        @Autowired CertificateService certificateService,
         @Autowired PatientRecordRepository patientRepo,
-        @Autowired BedConfigRepository bedConfigRepo,
-        @Autowired BedCountRepository bedCountRepo,
         @Autowired PatientBedHistoryRepository bedHistoryRepo,
         @Autowired DeviceService deviceService,
         @Autowired PatientDeviceRepository patientDevRepo
@@ -59,397 +54,10 @@ public class PatientDeviceService {
 
         this.patientConfig = patientConfig;
         this.userQuery = userQuery;
-        this.certificateService = certificateService;
         this.patientRepo = patientRepo;
-        this.bedConfigRepo = bedConfigRepo;
-        this.bedCountRepo = bedCountRepo;
         this.bedHistoryRepo = bedHistoryRepo;
         this.deviceService = deviceService;
         this.patientDevRepo = patientDevRepo;
-    }
-
-    @Transactional
-    public GetBedConfigResp getBedConfig(String getBedConfigReqJson) {
-        final GetBedConfigReq req;
-        try {
-            req = ProtoUtils.parseJsonToProto(getBedConfigReqJson, GetBedConfigReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert string to proto: {}", e);
-            return GetBedConfigResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-        final String deptId = req.getDeptId();
-
-        // 查找在线病人
-        Map<String/*his_bed_number*/, PatientRecord> patientMap = new HashMap<>();
-        for (PatientRecord patient : patientRepo.findByDeptIdAndAdmissionStatus(
-            deptId, PatientEnums.ADMISSION_STATUS_ADMITTED)) {
-            if (patientMap.containsKey(patient.getHisBedNumber())) {
-                log.error("Duplicate his bed number found for patients: {}, {}",
-                    patientMap.get(patient.getHisBedNumber()).getId(), patient.getId()
-                );
-            }
-            patientMap.put(patient.getHisBedNumber(), patient);
-        }
-
-        // 查找床位配置
-        List<BedConfig> bedConfigs = StrUtils.isBlank(deptId) ?
-            bedConfigRepo.findAllByIsDeletedFalse() : bedConfigRepo.findByDepartmentIdAndIsDeletedFalse(deptId);
-        bedConfigs = bedConfigs.stream()
-            .sorted((a, b) -> a.getHisBedNumber().compareTo(b.getHisBedNumber()))
-            .collect(Collectors.toList());
-        
-        // 构建返回
-        GetBedConfigResp.Builder respBuilder = GetBedConfigResp.newBuilder()
-            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK));
-        for (BedConfig bedConfig : bedConfigs) {
-            final PatientRecord patient = patientMap.get(bedConfig.getHisBedNumber());
-            BedConfigPB bedConfigPB = patientConfig.getBedConfigPB(bedConfig, patient);
-            respBuilder.addBedConfig(bedConfigPB);
-        }
-        return respBuilder.build();
-    }
-
-    @Transactional
-    public AddBedConfigResp addBedConfig(String addBedConfigReqJson) {
-        final AddBedConfigReq req;
-        try {
-            req = ProtoUtils.parseJsonToProto(addBedConfigReqJson, AddBedConfigReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert string to proto: {}", e);
-            return AddBedConfigResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-        final String deptId = req.getBedConfig().getDepartmentId();
-        final String hisBedNumber = req.getBedConfig().getHisBedNumber();
-
-        // 获取当前用户信息
-        CurrentAccount account = userQuery.getCurrentAccount();
-        if (account == null) {
-            log.error("Account not found");
-            return AddBedConfigResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-
-        // 查找床位配置
-        List<BedConfig> bedConfigs = bedConfigRepo.findByDepartmentIdAndIsDeletedFalse(deptId)
-            .stream()
-            .filter(b -> b.getHisBedNumber().equals(hisBedNumber))
-            .collect(Collectors.toList());
-        if (!bedConfigs.isEmpty()) {
-            log.error("BedConfig already exists: {}", bedConfigs.get(0));
-            return AddBedConfigResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.BED_CONFIG_ALREADY_EXISTS))
-                .build();
-        }
-        BedConfig bedConfig = bedConfigRepo.findByDepartmentIdAndDisplayBedNumberAndIsDeletedFalse(
-            deptId, req.getBedConfig().getDisplayBedNumber()
-        ).orElse(null);
-        if (bedConfig != null) {
-            log.error("BedConfig already exists: {}", bedConfig);
-            return AddBedConfigResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.BED_CONFIG_DISPLAY_NAME_ALREADY_EXISTS))
-                .build();
-        }
-        bedConfig = bedConfigRepo.findByDepartmentIdAndDeviceBedNumberAndIsDeletedFalse(
-            deptId, req.getBedConfig().getDeviceBedNumber()
-        ).orElse(null);
-        if (bedConfig != null) {
-            log.error("BedConfig already exists: {}", bedConfig);
-            return AddBedConfigResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.BED_CONFIG_DEVICE_NAME_ALREADY_EXISTS))
-                .build();
-        }
-
-        // 新增或恢复已删除床位时，只占用其对应床位类型的一份授权
-        if (!certificateService.checkBedAvailable(deptId, req.getBedConfig().getBedType(), 1)) {
-            return AddBedConfigResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.BED_CONFIG_BED_NUMBER_LIMIT_EXCEEDED))
-                .build();
-        }
-
-        // 新增床位配置
-        bedConfig = getBedConfig(req.getBedConfig(), account.autoAcctId(), account.acctName());
-        bedConfig = bedConfigRepo.save(bedConfig);
-        log.info("BedConfig added: {}, by {}", bedConfig, account.acctName());
-
-        return AddBedConfigResp.newBuilder()
-            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
-            .setId(bedConfig.getId())
-            .build();
-    }
-
-    @Transactional
-    public GenericResp updateBedConfig(String updateBedConfigReqJson) {
-        final AddBedConfigReq req;
-        try {
-            req = ProtoUtils.parseJsonToProto(updateBedConfigReqJson, AddBedConfigReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert string to proto: {}", e);
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        // 获取当前用户信息
-        CurrentAccount account = userQuery.getCurrentAccount();
-        if (account == null) {
-            log.error("Account not found");
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-
-        // 检查床位是否存在
-        BedConfig bedConfig = bedConfigRepo
-            .findByIdAndIsDeletedFalse(req.getBedConfig().getId()).orElse(null);
-        if (bedConfig == null) {
-            log.error("BedConfig not found: {}", req.getBedConfig().getId());
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.BED_CONFIG_NOT_EXISTS))
-                .build();
-        }
-
-        // 检查床位是否重名
-        BedConfig bedConfigWithSameName = bedConfigRepo.findByDepartmentIdAndDisplayBedNumberAndIsDeletedFalse(
-            req.getBedConfig().getDepartmentId(), req.getBedConfig().getDisplayBedNumber()
-        ).orElse(null);
-        if (bedConfigWithSameName != null && bedConfigWithSameName.getId() != bedConfig.getId()) {
-            log.error("BedConfig already exists: {}", bedConfigWithSameName);
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.BED_CONFIG_DISPLAY_NAME_ALREADY_EXISTS))
-                .build();
-        }
-        bedConfigWithSameName = bedConfigRepo.findByDepartmentIdAndDeviceBedNumberAndIsDeletedFalse(
-            req.getBedConfig().getDepartmentId(), req.getBedConfig().getDeviceBedNumber()
-        ).orElse(null);
-        if (bedConfigWithSameName != null && bedConfigWithSameName.getId() != bedConfig.getId()) {
-            log.error("BedConfig already exists: {}", bedConfigWithSameName);
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.BED_CONFIG_DEVICE_NAME_ALREADY_EXISTS))
-                .build();
-        }
-
-        final String targetDeptId = req.getBedConfig().getDepartmentId();
-        final Integer targetBedType = req.getBedConfig().getBedType();
-        if ((!Objects.equals(bedConfig.getDepartmentId(), targetDeptId)
-            || !Objects.equals(bedConfig.getBedType(), targetBedType))
-            && !certificateService.checkBedAvailable(targetDeptId, targetBedType, 1)) {
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.BED_CONFIG_BED_NUMBER_LIMIT_EXCEEDED))
-                .build();
-        }
-
-        // 更新床位配置
-        bedConfig = getBedConfig(req.getBedConfig(), account.autoAcctId(), account.acctName());
-        bedConfig = bedConfigRepo.save(bedConfig);
-        log.info("BedConfig updated: {}, by {}", bedConfig, account.acctName());
-
-        return GenericResp.newBuilder()
-            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
-            .build();
-    }
-
-    @Transactional
-    public GenericResp deleteBedConfig(String deleteBedConfigReqJson) {
-        final DeleteBedConfigReq req;
-        try {
-            req = ProtoUtils.parseJsonToProto(deleteBedConfigReqJson, DeleteBedConfigReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert string to proto: {}", e);
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        // 获取当前用户信息
-        CurrentAccount account = userQuery.getCurrentAccount();
-        if (account == null) {
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-
-        // 检查床位是否存在
-        BedConfig bedConfig = bedConfigRepo
-            .findByIdAndIsDeletedFalse(req.getId()).orElse(null);
-        if (bedConfig == null) {
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
-                .build();
-        }
-
-        // 删除床位配置
-        bedConfig.setIsDeleted(true);
-        bedConfig.setDeletedBy(account.autoAcctId());
-        bedConfig.setDeletedAt(TimeUtils.getNowUtc());
-        bedConfigRepo.save(bedConfig);
-        log.info("BedConfig deleted: {}, by {}", bedConfig, account.acctName());
-
-        return GenericResp.newBuilder()
-            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
-            .build();
-    }
-
-    @Transactional
-    public GetBedCountsResp getBedCounts(String getBedCountsReqJson) {
-        final GetBedCountsReq req;
-        try {
-            req = ProtoUtils.parseJsonToProto(getBedCountsReqJson, GetBedCountsReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert string to proto: {}", e);
-            return GetBedCountsResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        final String deptId = req.getDeptId();
-        List<BedCount> bedCounts = null;
-        if (StrUtils.isBlank(deptId)) {
-            bedCounts = bedCountRepo.findByIsDeletedFalseOrderByDeptIdAscEffectiveTimeDesc();
-        } else {
-            bedCounts = bedCountRepo.findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc(deptId);
-        }
-        List<BedCountPB> bedCountPbs = bedCounts.stream()
-            .map(bc -> BedCountPB.newBuilder()
-                .setId(bc.getId())
-                .setDeptId(bc.getDeptId())
-                .setDateIso8601(TimeUtils.toIso8601String(bc.getEffectiveTime(), ZONE_ID))
-                .setCount(bc.getBedCount())
-                .build()
-            )
-            .toList();
-
-        return GetBedCountsResp.newBuilder()
-            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
-            .addAllBedCount(bedCountPbs)
-            .build();
-    }
-
-    @Transactional
-    public GenericResp addBedCount(String addBedCountReqJson) {
-        final AddBedCountReq req;
-        try {
-            req = ProtoUtils.parseJsonToProto(addBedCountReqJson, AddBedCountReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert string to proto: {}", e);
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        // 获取当前用户信息
-        CurrentAccount account = userQuery.getCurrentAccount();
-        if (account == null) {
-            log.error("Account not found");
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-
-        // 解析关键参数
-        String deptId = req.getDeptId();
-        BedCountPB bedCountPB = req.getBedCount();
-        LocalDateTime effectiveTime = TimeUtils.fromIso8601String(bedCountPB.getDateIso8601(), "UTC");
-        if (effectiveTime == null) {
-            log.error("Invalid date format: {}", bedCountPB.getDateIso8601());
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.INVALID_TIME_FORMAT))
-                .build();
-        }
-        Integer count = bedCountPB.getCount();
-
-        // 检查是否已存在相同日期的记录
-        Optional<BedCount> existingBedCount = bedCountRepo.findByDeptIdAndEffectiveTimeAndIsDeletedFalse(
-            deptId, effectiveTime);
-        if (existingBedCount.isPresent()) {
-            log.error("BedCount already exists for date: {}", bedCountPB.getDateIso8601());
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.BED_COUNT_ALREADY_EXISTS))
-                .build();
-        }
-
-        // 创建新的床位数量记录
-        BedCount bedCount = BedCount.builder()
-            .deptId(deptId)
-            .bedCount(count)
-            .effectiveTime(effectiveTime)
-            .isDeleted(false)
-            .modifiedBy(account.autoAcctId())
-            .modifiedAt(TimeUtils.getNowUtc())
-            .build();
-
-        bedCount = bedCountRepo.save(bedCount);
-        log.info("BedCount added: {}, by {}", bedCount, account.acctName());
-
-        return GenericResp.newBuilder()
-            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
-            .build();
-    }
-
-    @Transactional
-    public GenericResp deleteBedCount(String deleteBedCountReqJson) {
-        final DeleteBedCountReq req;
-        try {
-            req = ProtoUtils.parseJsonToProto(deleteBedCountReqJson, DeleteBedCountReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert string to proto: {}", e);
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        // 获取当前用户信息
-        CurrentAccount account = userQuery.getCurrentAccount();
-        if (account == null) {
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(
-                    statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-
-        // 检查床位数量记录是否存在
-        BedCount bedCount = bedCountRepo.findByIdAndIsDeletedFalse(req.getId()).orElse(null);
-        if (bedCount == null) {
-            return GenericResp.newBuilder()
-                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
-                .build();
-        }
-
-        // 删除床位数量记录
-        bedCount.setIsDeleted(true);
-        bedCount.setDeletedBy(account.autoAcctId());
-        bedCount.setDeletedAt(TimeUtils.getNowUtc());
-        bedCountRepo.save(bedCount);
-        log.info("BedCount deleted: {}, by {}", bedCount, account.acctName());
-
-        return GenericResp.newBuilder()
-            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
-            .build();
     }
 
     @Transactional
@@ -970,34 +578,12 @@ public class PatientDeviceService {
         return usageHistory;
     }
 
-    private BedConfig getBedConfig(BedConfigPB bedConfigPB, String accountId, String accountName) {
-        BedConfig bedConfig = BedConfig.builder()
-            .departmentId(bedConfigPB.getDepartmentId())
-            .hisBedNumber(bedConfigPB.getHisBedNumber())
-            .deviceBedNumber(bedConfigPB.getDeviceBedNumber())
-            .displayBedNumber(bedConfigPB.getDisplayBedNumber())
-            .bedType(bedConfigPB.getBedType())
-            .note(bedConfigPB.getNote())
-            .isDeleted(false)
-            .modifiedBy(accountId)
-            .modifiedByAccountName(accountName)
-            .modifiedAt(TimeUtils.getNowUtc())
-            .build();
-        if (bedConfigPB.getId() > 0) {
-            bedConfig.setId(bedConfigPB.getId());
-        }
-        return bedConfig;
-    }
-
     private final String ZONE_ID;
 
     private final List<String> statusCodeMsgList;
     private final PatientConfig patientConfig;
     private final UserQuery userQuery;
-    private final CertificateService certificateService;
     private final PatientRecordRepository patientRepo;
-    private final BedConfigRepository bedConfigRepo;
-    private final BedCountRepository bedCountRepo;
     private final PatientBedHistoryRepository bedHistoryRepo;
     private final DeviceService deviceService;
     private final PatientDeviceRepository patientDevRepo;

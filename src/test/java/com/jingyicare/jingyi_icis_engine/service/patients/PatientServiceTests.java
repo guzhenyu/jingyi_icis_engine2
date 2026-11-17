@@ -49,8 +49,43 @@ public class PatientServiceTests extends TestsBase {
         this.diagnosisHistoryRepo = diagnosisHistoryRepo;
     }
 
-    @Autowired
-    private jakarta.persistence.EntityManager entityManager;
+    @Test
+    @org.springframework.transaction.annotation.Transactional
+    public void testNewPatientUsesHisBedNumberWhenAnotherBedDisplaysIt() {
+        String deptId = "10013";
+        String accountId = "manual-entry-bed-test";
+        BedConfig selectedBed = newBedConfig(deptId, "HIS-01", BED_TYPE_FIXED, false);
+        selectedBed.setDisplayBedNumber("A01");
+        BedConfig otherBed = newBedConfig(deptId, "HIS-02", BED_TYPE_FIXED, false);
+        otherBed.setDisplayBedNumber("HIS-01");
+        bedConfigRepo.save(selectedBed);
+        bedConfigRepo.save(otherBed);
+
+        rbacAccountRepo.save(new RbacAccount(accountId, "手工建档测试用户", ""));
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken(accountId, null, Collections.emptyList()));
+        try {
+            NewPatientReq request = NewPatientReq.newBuilder()
+                .setDeptId(deptId).setHisMrn("new-patient-his-bed")
+                .setBedNumberStr(selectedBed.getHisBedNumber())
+                .setAdmissionTime("2025-01-01T10:00:00+08:00").build();
+
+            GenericResp response = patientService.newPatient(ProtoUtils.protoToJson(request));
+
+            assertThat(response.getRt().getCode()).isEqualTo(StatusCode.OK.getNumber());
+            assertThat(patientRecordRepo.findByMrnAndAdmissionStatus(
+                deptId, request.getHisMrn(), ADMISSION_STATUS_ADMITTED))
+                .extracting(PatientRecord::getHisBedNumber).containsExactly("HIS-01");
+
+            NewPatientReq displayOnly = request.toBuilder().setHisMrn("new-patient-display-bed")
+                .setBedNumberStr(selectedBed.getDisplayBedNumber()).build();
+            GenericResp missing = patientService.newPatient(ProtoUtils.protoToJson(displayOnly));
+            assertThat(missing.getRt().getCode())
+                .isEqualTo(StatusCode.BED_CONFIG_NOT_EXISTS.getNumber());
+        } finally {
+            SecurityContextHolder.clearContext();
+        }
+    }
 
     @Test
     @org.springframework.transaction.annotation.Transactional
@@ -153,10 +188,10 @@ public class PatientServiceTests extends TestsBase {
         rec4 = patientRecordRepo.save(rec4);
         rec5 = patientRecordRepo.save(rec5);
 
-        bedConfigRepo.save(newBedConfig(deptId, rec1.getHisBedNumber(), 1, false));
-        bedConfigRepo.save(newBedConfig(deptId, rec2.getHisBedNumber(), 2, false));
-        bedConfigRepo.save(newBedConfig(deptId, rec3.getHisBedNumber(), 1, false));
-        bedConfigRepo.save(newBedConfig(deptId, rec5.getHisBedNumber(), 1, true));
+        bedConfigRepo.save(newBedConfig(deptId, rec1.getHisBedNumber(), BED_TYPE_FIXED, false));
+        bedConfigRepo.save(newBedConfig(deptId, rec2.getHisBedNumber(), BED_TYPE_TEMP, false));
+        bedConfigRepo.save(newBedConfig(deptId, rec3.getHisBedNumber(), BED_TYPE_FIXED, false));
+        bedConfigRepo.save(newBedConfig(deptId, rec5.getHisBedNumber(), BED_TYPE_FIXED, true));
 
         // 获取在线病人
         GetInlinePatientsV2Req req = GetInlinePatientsV2Req.newBuilder()
@@ -210,7 +245,7 @@ public class PatientServiceTests extends TestsBase {
         pending.setHisMrn(hisMrn);
         pending.setDischargeTime(null);
         pending = patientRecordRepo.save(pending);
-        bedConfigRepo.save(newBedConfig(deptId, pending.getHisBedNumber(), 1, false));
+        bedConfigRepo.save(newBedConfig(deptId, pending.getHisBedNumber(), BED_TYPE_FIXED, false));
 
         for (Integer status : java.util.List.of(
             ADMISSION_STATUS_PRE_DISCHARGE, ADMISSION_STATUS_DISCHARGED)) {
@@ -361,6 +396,9 @@ public class PatientServiceTests extends TestsBase {
             .isDeleted(isDeleted)
             .build();
     }
+
+    @Autowired
+    private jakarta.persistence.EntityManager entityManager;
 
     final private PatientService patientService;
     final private PatientTestUtils patientTestUtils;

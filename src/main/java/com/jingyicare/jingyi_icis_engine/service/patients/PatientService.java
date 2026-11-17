@@ -28,6 +28,7 @@ import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.service.certs.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
+import com.jingyicare.jingyi_icis_engine.service.patients.bed.BedMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
 import com.jingyicare.jingyi_icis_engine.service.therapies.SepsisAndSepticShockBundleService;
 import com.jingyicare.jingyi_icis_engine.service.users.*;
@@ -56,7 +57,7 @@ public class PatientService {
         @Autowired CertificateService certService,
         @Autowired MonitoringConfig monitoringConfig,
         @Autowired PatientRecordRepository repository,
-        @Autowired BedConfigRepository bedConfigRepository,
+        @Autowired BedMetaReader bedMetaReader,
         @Autowired DiagnosisHistoryRepository diagnosisHistoryRepository,
         @Autowired PatientDeviceRepository patientDeviceRepository,
         @Autowired ReadmissionHistoryRepository readmissionHistoryRepository,
@@ -109,7 +110,7 @@ public class PatientService {
         this.certService = certService;
         this.monitoringConfig = monitoringConfig;
         this.patientRecordRepository = repository;
-        this.bedConfigRepository = bedConfigRepository;
+        this.bedMetaReader = bedMetaReader;
         this.diagnosisHistoryRepository = diagnosisHistoryRepository;
         this.patientDeviceRepository = patientDeviceRepository;
         this.readmissionHistoryRepository = readmissionHistoryRepository;
@@ -398,11 +399,11 @@ public class PatientService {
             .build();
         }
 
-        // 根据显示床号查找his床号
-        BedConfig bedConfig = bedConfigRepository.findByDepartmentIdAndDisplayBedNumberAndIsDeletedFalse(
+        // 手工建档时提交的是所选床位的 HIS 床号。
+        BedConfig bedConfig = bedMetaReader.findActiveBedByHisNumber(
             req.getDeptId(), req.getBedNumberStr()).orElse(null);
         if (bedConfig == null) {
-            log.error("BedConfig not found for deptId: {}, displayBedNumber: {}", req.getDeptId(), req.getBedNumberStr());
+            log.error("未找到有效床位配置，科室={}，HIS 床号={}", req.getDeptId(), req.getBedNumberStr());
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.BED_CONFIG_NOT_EXISTS))
                 .build();
@@ -531,7 +532,7 @@ public class PatientService {
         }
 
         // 检查床位配置是否存在
-        BedConfig bedConfig = bedConfigRepository.findByDepartmentIdAndHisBedNumberAndIsDeletedFalse(
+        BedConfig bedConfig = bedMetaReader.findActiveBedByHisNumber(
             deptId, hisBedNumber).orElse(null);
         if (bedConfig == null) {
             log.error("BedConfig not found for deptId: {}, hisBedNumber: {}", deptId, hisBedNumber);
@@ -2162,7 +2163,7 @@ public class PatientService {
     private PatientDeviceService patientDeviceService;
     private final PatientEnums patientEnums;
     private PatientRecordRepository patientRecordRepository;
-    private BedConfigRepository bedConfigRepository;
+    private final BedMetaReader bedMetaReader;
     private DiagnosisHistoryRepository diagnosisHistoryRepository;
     private PatientDeviceRepository patientDeviceRepository;
     private ReadmissionHistoryRepository readmissionHistoryRepository;

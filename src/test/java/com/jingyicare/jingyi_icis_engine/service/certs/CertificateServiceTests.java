@@ -1,5 +1,7 @@
 package com.jingyicare.jingyi_icis_engine.service.certs;
 
+import static com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums.BED_TYPE_FIXED;
+import static com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums.BED_TYPE_TEMP;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
@@ -8,7 +10,6 @@ import static org.mockito.Mockito.when;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.env.MockEnvironment;
@@ -16,17 +17,13 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import com.jingyicare.jingyi_icis_engine.entity.users.Department;
 import com.jingyicare.jingyi_icis_engine.entity.users.RbacDepartment;
-import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisCertificate.DepartmentLicencePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisCertificate.HospitalLicensePB;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceConfigPB;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceEnumsPB;
-import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.EnumValue;
 import com.jingyicare.jingyi_icis_engine.repository.patients.BedConfigRepository;
-import com.jingyicare.jingyi_icis_engine.repository.users.DepartmentRepository;
-import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
-import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.repository.patients.BedCountRepository;
 import com.jingyicare.jingyi_icis_engine.service.IcisBootstrapProperties;
+import com.jingyicare.jingyi_icis_engine.service.patients.bed.BedMetaReader;
+import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 
 class CertificateServiceTests {
     @Test
@@ -41,7 +38,7 @@ class CertificateServiceTests {
     @Test
     void productionEmptyDatabaseRequiresBootstrap() {
         ServiceFixture fixture = newProductionFixture(new IcisBootstrapProperties());
-        setUsableCertificate(fixture.service, buildCertificate("ICU", 3, 1));
+        setUsableCertificate(fixture.certificate, buildCertificate("ICU", 3, 1));
 
         assertThatThrownBy(fixture.service::validatePreInitializationOrThrow)
             .isInstanceOf(IllegalStateException.class)
@@ -52,7 +49,7 @@ class CertificateServiceTests {
     void productionEmptyDatabaseAcceptsMatchingBootstrap() {
         IcisBootstrapProperties bootstrap = matchingBootstrap("ICU01", "ICU");
         ServiceFixture fixture = newProductionFixture(bootstrap);
-        setUsableCertificate(fixture.service, buildCertificate("ICU", 3, 1));
+        setUsableCertificate(fixture.certificate, buildCertificate("ICU", 3, 1));
 
         fixture.service.validatePreInitializationOrThrow();
     }
@@ -62,7 +59,7 @@ class CertificateServiceTests {
         IcisBootstrapProperties bootstrap = matchingBootstrap("ICU01", "ICU");
         bootstrap.getDepartments().get(0).setAbbreviation("重症");
         ServiceFixture fixture = newProductionFixture(bootstrap);
-        setUsableCertificate(fixture.service, buildCertificate("ICU", 3, 1));
+        setUsableCertificate(fixture.certificate, buildCertificate("ICU", 3, 1));
 
         assertThatThrownBy(fixture.service::validatePreInitializationOrThrow)
             .isInstanceOf(IllegalStateException.class)
@@ -73,21 +70,31 @@ class CertificateServiceTests {
     void productionExistingDatabaseMayOmitBootstrap() {
         ServiceFixture fixture = newProductionFixture(new IcisBootstrapProperties());
         Department department = buildDepartment(1, "ICU01", "ICU", "测试医院");
-        when(fixture.departmentRepository.count()).thenReturn(1L);
-        when(fixture.departmentRepository.findByIsDeletedFalse()).thenReturn(List.of(department));
-        setUsableCertificate(fixture.service, buildCertificate("ICU", 3, 1));
+        when(fixture.userQuery.getAllDeptInfo()).thenReturn(List.of(department));
+        setUsableCertificate(fixture.certificate, buildCertificate("ICU", 3, 1));
 
         fixture.service.validatePreInitializationOrThrow();
+    }
+
+    @Test
+    void productionStartupRejectsLicensedDepartmentNameAtAnotherHospital() {
+        ServiceFixture fixture = newProductionFixture(new IcisBootstrapProperties());
+        Department department = buildDepartment(1, "ICU01", "ICU", "其他医院");
+        when(fixture.userQuery.getAllDeptInfo()).thenReturn(List.of(department));
+        setUsableCertificate(fixture.certificate, buildCertificate("ICU", 3, 1));
+
+        assertThatThrownBy(fixture.service::validateStartupOrThrow)
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("department hospital does not match certificate");
     }
 
     @Test
     void productionExistingDatabaseRejectsMissingLicensedDepartment() {
         ServiceFixture fixture = newProductionFixture(new IcisBootstrapProperties());
         Department department = buildDepartment(1, "ICU01", "ICU", "测试医院");
-        when(fixture.departmentRepository.count()).thenReturn(1L);
-        when(fixture.departmentRepository.findByIsDeletedFalse()).thenReturn(List.of(department));
+        when(fixture.userQuery.getAllDeptInfo()).thenReturn(List.of(department));
         setUsableCertificate(
-            fixture.service,
+            fixture.certificate,
             buildCertificate("ICU", 3, 1).toBuilder()
                 .addDepartmentLicences(buildDepartmentLicence("EICU", 2, 0))
                 .build());
@@ -101,30 +108,32 @@ class CertificateServiceTests {
     void productionStartupValidatesRbacMirrorAndBedCounts() {
         ServiceFixture fixture = newProductionFixture(new IcisBootstrapProperties());
         Department department = buildDepartment(1, "ICU01", "ICU", "测试医院");
-        when(fixture.departmentRepository.count()).thenReturn(1L);
-        when(fixture.departmentRepository.findByIsDeletedFalse()).thenReturn(List.of(department));
-        when(fixture.departmentRepository.findByDeptIdAndIsDeletedFalse("ICU01"))
-            .thenReturn(Optional.of(department));
-        when(fixture.rbacDepartmentRepository.findAll())
+        when(fixture.userQuery.getAllDeptInfo()).thenReturn(List.of(department));
+        when(fixture.userQuery.getDepartmentName("ICU01")).thenReturn("ICU");
+        when(fixture.userQuery.getAllRbacDeptInfo())
             .thenReturn(List.of(new RbacDepartment("ICU01", "ICU")));
         when(fixture.bedConfigRepository
-            .countByDepartmentIdAndBedTypeAndIsDeletedFalse("ICU01", FIXED_BED_TYPE))
+            .countByDepartmentIdAndBedTypeAndIsDeletedFalse("ICU01", BED_TYPE_FIXED))
             .thenReturn(3);
         when(fixture.bedConfigRepository
-            .countByDepartmentIdAndBedTypeAndIsDeletedFalse("ICU01", TEMP_BED_TYPE))
+            .countByDepartmentIdAndBedTypeAndIsDeletedFalse("ICU01", BED_TYPE_TEMP))
             .thenReturn(1);
-        setUsableCertificate(fixture.service, buildCertificate("ICU", 3, 1));
+        setUsableCertificate(fixture.certificate, buildCertificate("ICU", 3, 1));
 
         fixture.service.validateStartupOrThrow();
+        when(fixture.bedConfigRepository
+            .countByDepartmentIdAndBedTypeAndIsDeletedFalse("ICU01", BED_TYPE_TEMP))
+            .thenReturn(2);
+        assertThatThrownBy(fixture.service::validateStartupOrThrow)
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("Bed count exceeds certificate limit");
     }
 
     @Test
     void productionDoesNotBypassJingyiNamedDepartment() {
         ServiceFixture fixture = newProductionFixture(new IcisBootstrapProperties());
-        Department department = buildDepartment(1, "99999", "晶医重症医学科", "晶医");
-        when(fixture.departmentRepository.findByDeptIdAndIsDeletedFalse("99999"))
-            .thenReturn(Optional.of(department));
-        setUsableCertificate(fixture.service, buildCertificate("ICU", 3, 1));
+        when(fixture.userQuery.getDepartmentName("99999")).thenReturn("晶医重症医学科");
+        setUsableCertificate(fixture.certificate, buildCertificate("ICU", 3, 1));
 
         assertThat(fixture.service.getMenuGroupIdList("99999")).isEmpty();
         assertThat(fixture.service.getMaxBedCount("99999").getFirst()).isZero();
@@ -135,21 +144,19 @@ class CertificateServiceTests {
     @Test
     void productionFixedAndTemporaryBedLimitsAreCheckedSeparately() {
         ServiceFixture fixture = newProductionFixture(new IcisBootstrapProperties());
-        Department department = buildDepartment(1, "ICU01", "ICU", "测试医院");
-        when(fixture.departmentRepository.findByDeptIdAndIsDeletedFalse("ICU01"))
-            .thenReturn(Optional.of(department));
+        when(fixture.userQuery.getDepartmentName("ICU01")).thenReturn("ICU");
         when(fixture.bedConfigRepository
-            .countByDepartmentIdAndBedTypeAndIsDeletedFalse("ICU01", FIXED_BED_TYPE))
+            .countByDepartmentIdAndBedTypeAndIsDeletedFalse("ICU01", BED_TYPE_FIXED))
             .thenReturn(2);
         when(fixture.bedConfigRepository
-            .countByDepartmentIdAndBedTypeAndIsDeletedFalse("ICU01", TEMP_BED_TYPE))
+            .countByDepartmentIdAndBedTypeAndIsDeletedFalse("ICU01", BED_TYPE_TEMP))
             .thenReturn(0);
-        setUsableCertificate(fixture.service, buildCertificate("ICU", 3, 1));
+        setUsableCertificate(fixture.certificate, buildCertificate("ICU", 3, 1));
 
-        assertThat(fixture.service.checkBedAvailable("ICU01", FIXED_BED_TYPE, 1)).isTrue();
-        assertThat(fixture.service.checkBedAvailable("ICU01", FIXED_BED_TYPE, 2)).isFalse();
-        assertThat(fixture.service.checkBedAvailable("ICU01", TEMP_BED_TYPE, 1)).isTrue();
-        assertThat(fixture.service.checkBedAvailable("ICU01", TEMP_BED_TYPE, 2)).isFalse();
+        assertThat(fixture.service.checkBedAvailable("ICU01", BED_TYPE_FIXED, 1)).isTrue();
+        assertThat(fixture.service.checkBedAvailable("ICU01", BED_TYPE_FIXED, 2)).isFalse();
+        assertThat(fixture.service.checkBedAvailable("ICU01", BED_TYPE_TEMP, 1)).isTrue();
+        assertThat(fixture.service.checkBedAvailable("ICU01", BED_TYPE_TEMP, 2)).isFalse();
         assertThat(fixture.service.checkBedAvailable("ICU01", 999, 1)).isFalse();
     }
 
@@ -157,8 +164,7 @@ class CertificateServiceTests {
     void productionOnlyAllowsAuxiliaryDepartmentUpdates() {
         ServiceFixture fixture = newProductionFixture(new IcisBootstrapProperties());
         Department department = buildDepartment(1, "ICU01", "ICU", "测试医院");
-        when(fixture.departmentRepository.findByIdAndIsDeletedFalse(1))
-            .thenReturn(Optional.of(department));
+        when(fixture.userQuery.getAllDeptInfo()).thenReturn(List.of(department));
 
         assertThat(fixture.service.isDepartmentCreationAllowed()).isFalse();
         assertThat(fixture.service.isDepartmentDeletionAllowed()).isFalse();
@@ -193,34 +199,18 @@ class CertificateServiceTests {
         boolean requestedTestMode,
         MockEnvironment environment
     ) {
-        ConfigProtoService configProtoService = mock(ConfigProtoService.class);
-        Config config = Config.newBuilder()
-            .setDevice(DeviceConfigPB.newBuilder()
-                .setEnums(DeviceEnumsPB.newBuilder()
-                    .addBedType(EnumValue.newBuilder()
-                        .setId(FIXED_BED_TYPE).setName("固定授权"))
-                    .addBedType(EnumValue.newBuilder()
-                        .setId(TEMP_BED_TYPE).setName("临时授权"))))
-            .build();
-        when(configProtoService.getConfig()).thenReturn(config);
-
-        DepartmentRepository departmentRepository = mock(DepartmentRepository.class);
-        RbacDepartmentRepository rbacDepartmentRepository = mock(RbacDepartmentRepository.class);
         BedConfigRepository bedConfigRepository = mock(BedConfigRepository.class);
+        UserQuery userQuery = mock(UserQuery.class);
+        CertificateReader certificate = new CertificateReader(
+            "", "", requestedTestMode, userQuery, environment);
+        BedMetaReader bedMetaReader = new BedMetaReader(
+            bedConfigRepository, mock(BedCountRepository.class), certificate);
         CertificateService service = new CertificateService(
-            "",
-            "",
-            requestedTestMode,
-            configProtoService,
-            departmentRepository,
-            rbacDepartmentRepository,
-            bedConfigRepository,
-            bootstrap,
-            environment);
+            certificate, userQuery, bootstrap, bedMetaReader);
         return new ServiceFixture(
             service,
-            departmentRepository,
-            rbacDepartmentRepository,
+            certificate,
+            userQuery,
             bedConfigRepository);
     }
 
@@ -269,22 +259,22 @@ class CertificateServiceTests {
 
     @SuppressWarnings("unchecked")
     private void setUsableCertificate(
-        CertificateService service,
+        CertificateReader reader,
         HospitalLicensePB certificate
     ) {
-        ReflectionTestUtils.setField(service, "hospitalLicensePb", certificate);
-        ReflectionTestUtils.setField(service, "validationError", null);
+        ReflectionTestUtils.setField(reader, "hospitalLicensePb", certificate);
+        ReflectionTestUtils.setField(reader, "validationError", null);
         ReflectionTestUtils.setField(
-            service,
+            reader,
             "issueTime",
             LocalDateTime.now().minusDays(1));
         ReflectionTestUtils.setField(
-            service,
+            reader,
             "expireTime",
             LocalDateTime.now().plusDays(1));
         Map<String, DepartmentLicencePB> licenceMap =
             (Map<String, DepartmentLicencePB>) ReflectionTestUtils.getField(
-                service,
+                reader,
                 "departmentLicencePbMap");
         licenceMap.clear();
         for (DepartmentLicencePB licence : certificate.getDepartmentLicencesList()) {
@@ -308,13 +298,10 @@ class CertificateServiceTests {
         return department;
     }
 
-    private static final int FIXED_BED_TYPE = 1;
-    private static final int TEMP_BED_TYPE = 2;
-
     private record ServiceFixture(
         CertificateService service,
-        DepartmentRepository departmentRepository,
-        RbacDepartmentRepository rbacDepartmentRepository,
+        CertificateReader certificate,
+        UserQuery userQuery,
         BedConfigRepository bedConfigRepository
     ) {}
 }

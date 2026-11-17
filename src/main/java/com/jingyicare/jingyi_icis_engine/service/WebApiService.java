@@ -27,6 +27,7 @@ import com.jingyicare.jingyi_icis_engine.service.nursingorders.*;
 import com.jingyicare.jingyi_icis_engine.service.nursingrecords.*;
 import com.jingyicare.jingyi_icis_engine.service.overviews.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
+import com.jingyicare.jingyi_icis_engine.service.patients.bed.BedMetaService;
 import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceService;
 import com.jingyicare.jingyi_icis_engine.service.patientshifts.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.*;
@@ -53,6 +54,7 @@ public class WebApiService {
         @Autowired MenuService menuService,
         @Autowired PatientService patientService,
         @Autowired PatientDeviceService patientDeviceService,
+        @Autowired BedMetaService bedMetaService,
         @Autowired DeviceService deviceService,
         @Autowired PatientDiagnoseService patientDiagnoseService,
         @Autowired PatientOverviewService patientOverviewService,
@@ -94,6 +96,7 @@ public class WebApiService {
         this.menuService = menuService;
         this.patientService = patientService;
         this.patientDeviceService = patientDeviceService;
+        this.bedMetaService = bedMetaService;
         this.deviceService = deviceService;
         this.patientDiagnoseService = patientDiagnoseService;
         this.doctorScoreService = doctorScoreService;
@@ -1316,43 +1319,43 @@ public class WebApiService {
     }
 
     public GetBedConfigResp getBedConfig(String getBedConfigReqJson) {
-        GetBedConfigResp resp = patientDeviceService.getBedConfig(getBedConfigReqJson);
+        GetBedConfigResp resp = bedMetaService.getBedConfig(getBedConfigReqJson);
         resp = metricService.recordApiMetrics(resp, GetBedConfigResp::getRt);
         return resp;
     }
 
     public AddBedConfigResp addBedConfig(String addBedConfigReqJson) {
-        AddBedConfigResp resp = patientDeviceService.addBedConfig(addBedConfigReqJson);
+        AddBedConfigResp resp = bedMetaService.addBedConfig(addBedConfigReqJson);
         resp = metricService.recordApiMetrics(resp, AddBedConfigResp::getRt);
         return resp;
     }
 
     public GenericResp updateBedConfig(String updateBedConfigReqJson) {
-        GenericResp resp = patientDeviceService.updateBedConfig(updateBedConfigReqJson);
+        GenericResp resp = bedMetaService.updateBedConfig(updateBedConfigReqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
 
     public GenericResp deleteBedConfig(String deleteBedConfigReqJson) {
-        GenericResp resp = patientDeviceService.deleteBedConfig(deleteBedConfigReqJson);
+        GenericResp resp = bedMetaService.deleteBedConfig(deleteBedConfigReqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
 
     public GetBedCountsResp getBedCounts(String getBedCountsReqJson) {
-        GetBedCountsResp resp = patientDeviceService.getBedCounts(getBedCountsReqJson);
+        GetBedCountsResp resp = bedMetaService.getBedCounts(getBedCountsReqJson);
         resp = metricService.recordApiMetrics(resp, GetBedCountsResp::getRt);
         return resp;
     }
 
     public GenericResp addBedCount(String addBedCountReqJson) {
-        GenericResp resp = patientDeviceService.addBedCount(addBedCountReqJson);
+        GenericResp resp = bedMetaService.addBedCount(addBedCountReqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
 
     public GenericResp deleteBedCount(String deleteBedCountReqJson) {
-        GenericResp resp = patientDeviceService.deleteBedCount(deleteBedCountReqJson);
+        GenericResp resp = bedMetaService.deleteBedCount(deleteBedCountReqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
@@ -2176,6 +2179,7 @@ public class WebApiService {
     private MenuService menuService;
     private PatientService patientService;
     private PatientDeviceService patientDeviceService;
+    private final BedMetaService bedMetaService;
     private DeviceService deviceService;
     private PatientDiagnoseService patientDiagnoseService;
     private PatientOverviewService patientOverviewService;

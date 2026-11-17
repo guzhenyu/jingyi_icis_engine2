@@ -150,7 +150,7 @@ public class DeviceDataFetcherTests extends TestsBase {
             .hisBedNumber("hisBedNumber" + bedAPid)
             .deviceBedNumber("deviceBedNumber" + bedAPid)
             .displayBedNumber("displayBedNumber" + bedAPid)
-            .bedType(1/*固定床位*/)
+            .bedType(PatientEnums.BED_TYPE_FIXED)
             .isDeleted(false)
             .build();
         bedConfigRepo.save(bedConfig);
@@ -596,7 +596,7 @@ public class DeviceDataFetcherTests extends TestsBase {
             .hisBedNumber("hisBedNumber" + hisPid)
             .deviceBedNumber("deviceBedNumber" + hisPid)
             .displayBedNumber("displayBedNumber" + hisPid)
-            .bedType(1/*固定床位*/)
+            .bedType(PatientEnums.BED_TYPE_FIXED)
             .isDeleted(false)
             .build();
         bedConfigRepo.save(bedConfig);
@@ -802,7 +802,7 @@ public class DeviceDataFetcherTests extends TestsBase {
             .hisBedNumber("hisBedNumber" + hisPid)
             .deviceBedNumber("deviceBedNumber" + hisPid)
             .displayBedNumber("displayBedNumber" + hisPid)
-            .bedType(1)
+            .bedType(PatientEnums.BED_TYPE_FIXED)
             .isDeleted(false)
             .build();
         bedConfigRepo.save(bedConfig);
@@ -892,7 +892,7 @@ public class DeviceDataFetcherTests extends TestsBase {
             .hisBedNumber("hisBedNumber" + hisPid)
             .deviceBedNumber("deviceBedNumber" + hisPid)
             .displayBedNumber("displayBedNumber" + hisPid)
-            .bedType(1)
+            .bedType(PatientEnums.BED_TYPE_FIXED)
             .isDeleted(false)
             .build());
 

@@ -906,7 +906,7 @@ message NewPatientReq {
     string his_mrn = 2;                       // 住院号
     int32 icu_gender = 3;                     // 性别(枚举)
     string icu_date_of_birth = 4;             // 出生时间
-    string bed_number_str = 5;                // 床号
+    string bed_number_str = 5;                // 所选床位的 HIS 床号
     string admission_time = 6;                // 入科时间
     repeated int32 admission_type = 7;        // 入科类型(枚举)
     string from_dept_name = 8;                // 入科来源
@@ -3477,7 +3477,7 @@ message GetBedCountsResp {
 }
 
 /*
- * /api/device/addbedCount
+ * /api/device/addbedcount
  *  input: AddBedCountReq
  *  output: GenericResp
  */

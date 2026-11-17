@@ -28,6 +28,8 @@ import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.settings.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.patients.bed.BedMapper;
+import com.jingyicare.jingyi_icis_engine.service.patients.bed.BedMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceEnums;
 import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceMapper;
 import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceService;
@@ -36,25 +38,8 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 @Service
 @Slf4j
 public class PatientConfig {
-    private static final Comparator<DeviceInfo> DEVICE_ORDER = Comparator
-        .comparing(DeviceInfo::getDeviceType).thenComparing(DeviceInfo::getDeviceName);
-
     public static BedConfigPB getBedConfigPB(BedConfig bedConfig, PatientRecord patient) {
-        BedConfigPB.Builder bedConfigBuilder = BedConfigPB.newBuilder()
-            .setId(bedConfig.getId())
-            .setDepartmentId(bedConfig.getDepartmentId())
-            .setHisBedNumber(bedConfig.getHisBedNumber())
-            .setDeviceBedNumber(bedConfig.getDeviceBedNumber())
-            .setDisplayBedNumber(bedConfig.getDisplayBedNumber())
-            .setBedType(bedConfig.getBedType())
-            .setNote(bedConfig.getNote() == null ? "" : bedConfig.getNote());
-        if (patient != null) {
-            bedConfigBuilder
-                .setPid(patient.getId())
-                .setPatientName(patient.getIcuName())
-                .setHisMrn(patient.getHisMrn());
-        }
-        return bedConfigBuilder.build();
+        return BedMapper.toBedConfigPB(bedConfig, patient);
     }
 
     public PatientConfig(
@@ -62,7 +47,7 @@ public class PatientConfig {
         @Autowired ConfigProtoService protoService,
         @Autowired DeptSystemSettingsRepository systemSettingsRepo,
         @Autowired PatientRecordRepository patientRepo,
-        @Autowired BedConfigRepository bedConfigRepo,
+        @Autowired BedMetaReader bedMetaReader,
         @Autowired DeviceService deviceService,
         @Autowired PatientDeviceRepository patientDevRepo,
         @Autowired RbacDepartmentRepository rbacDeptRepo
@@ -88,7 +73,7 @@ public class PatientConfig {
         this.patientCfg = protoService.getConfig().getPatient();
         this.settingsRepo = systemSettingsRepo;
         this.patientRepo = patientRepo;
-        this.bedConfigRepo = bedConfigRepo;
+        this.bedMetaReader = bedMetaReader;
         this.deviceService = deviceService;
         this.patientDevRepo = patientDevRepo;
         this.rbacDeptRepo = rbacDeptRepo;
@@ -152,8 +137,7 @@ public class PatientConfig {
     }
 
     public BedConfigPB findBedConfigByHisBedNumber(String deptId, String hisBedNumber) {
-        BedConfig bedConfig = bedConfigRepo
-            .findByDepartmentIdAndHisBedNumberAndIsDeletedFalse(deptId, hisBedNumber)
+        BedConfig bedConfig = bedMetaReader.findActiveBedByHisNumber(deptId, hisBedNumber)
             .orElse(null);
         if (bedConfig == null) return null;
 
@@ -351,8 +335,7 @@ public class PatientConfig {
     }
 
     public Map<String, BedConfig> getBedConfigMap(String deptId) {
-        return bedConfigRepo
-            .findByDepartmentIdAndIsDeletedFalse(deptId)
+        return bedMetaReader.findActiveBedsByDepartment(deptId)
             .stream()
             .collect(Collectors.toMap(BedConfig::getHisBedNumber, Function.identity()));
     }
@@ -537,7 +520,7 @@ public class PatientConfig {
             .map(patient -> getBedNumberKey(patient.getDeptId(), patient.getHisBedNumber()))
             .collect(Collectors.toSet());
         Map<String, String> bedNumberMap = new HashMap<>();
-        for (BedConfig bedConfig : bedConfigRepo.findByHisBedNumberInAndIsDeletedFalse(hisBedList)) {
+        for (BedConfig bedConfig : bedMetaReader.findActiveBedsByHisNumbers(hisBedList)) {
             String bedKey = getBedNumberKey(bedConfig.getDepartmentId(), bedConfig.getHisBedNumber());
             if (!patientBedKeys.contains(bedKey)) continue;
 
@@ -562,11 +545,14 @@ public class PatientConfig {
 
     private List<DeviceInfo> getFixedDevices(PatientRecord patient) {
         if (patient == null) return List.of();
-        BedConfig bed = bedConfigRepo.findByDepartmentIdAndHisBedNumberAndIsDeletedFalse(
+        BedConfig bed = bedMetaReader.findActiveBedByHisNumber(
             patient.getDeptId(), patient.getHisBedNumber()).orElse(null);
         if (bed == null) return List.of();
         return deviceService.findDevicesAtBed(patient.getDeptId(), bed.getDeviceBedNumber());
     }
+
+    private static final Comparator<DeviceInfo> DEVICE_ORDER = Comparator
+        .comparing(DeviceInfo::getDeviceType).thenComparing(DeviceInfo::getDeviceName);
 
     private final String ZONE_ID;
     private final Integer ADMISSION_TYPE_SURGERY_VAL;
@@ -580,7 +566,7 @@ public class PatientConfig {
     private DeptSystemSettingsRepository settingsRepo;
 
     private PatientRecordRepository patientRepo;
-    private BedConfigRepository bedConfigRepo;
+    private final BedMetaReader bedMetaReader;
     private final DeviceService deviceService;
     private PatientDeviceRepository patientDevRepo;
     private RbacDepartmentRepository rbacDeptRepo;

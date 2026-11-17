@@ -28,7 +28,6 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
-import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.service.certs.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientSyncUtils.PatientSyncInfo;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -38,7 +37,6 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class PatientSyncService {
     public PatientSyncService(
         ConfigurableApplicationContext context,
-        @Autowired ConfigProtoService protoService,
         @Autowired PatientConfig patientConfig,
         @Autowired PatientSyncUtils patientSyncUtils,
         @Autowired RbacDepartmentRepository deptRepo,
@@ -48,13 +46,6 @@ public class PatientSyncService {
         @Autowired HisPatientRecordRepository hisPatientRepo,
         @Autowired EntityManager entityManager
     ) {
-        this.ZONE_ID = protoService.getConfig().getZoneId();
-        this.TEMP_BED_TYPE_ID = protoService.getConfig().getDevice().getEnums().getBedTypeList().stream()
-            .filter(e -> e.getName().equals("临时授权"))
-            .findFirst()
-            .get()
-            .getId();
-
         this.context = context;
         this.patientConfig = patientConfig;
         this.patientSyncUtils = patientSyncUtils;
@@ -278,7 +269,7 @@ public class PatientSyncService {
         // 如果hisRecord的床位号不在我们的配置中，则不创建
         Map<String, BedConfig> bedConfigMap = patientConfig.getBedConfigMap(hisRecord.getDeptCode());
         BedConfig bedConfig = bedConfigMap.get(hisRecord.getBedNumber());
-        if (bedConfig == null || Objects.equals(bedConfig.getBedType(), TEMP_BED_TYPE_ID)) {
+        if (bedConfig == null || Objects.equals(bedConfig.getBedType(), BED_TYPE_TEMP)) {
             log.warn("Bed number {} not found in config for department {}, skipping creation", 
                      hisRecord.getBedNumber(), hisRecord.getDeptCode());
             return null; // 床位号不在配置中，跳过创建
@@ -317,9 +308,6 @@ public class PatientSyncService {
 
     @Value("${patient.sync.thread_join_timeout_seconds:10}")
     private int syncThreadJoinTimeoutSeconds;
-
-    private final String ZONE_ID;
-    private final Integer TEMP_BED_TYPE_ID;
 
     private final ConfigurableApplicationContext context;
     private final PatientConfig patientConfig;

@@ -25,7 +25,6 @@ import com.google.gson.JsonParser;
 import com.google.protobuf.TextFormat;
 
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.Patient;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisText.EnumTextPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisText.Text;
 import com.jingyicare.jingyi_icis_engine.repository.medications.IntakeTypeRepository;
@@ -33,8 +32,6 @@ import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
 class ConfigProtoServicePatientTests {
-    private static final String DEFAULT_CONFIG = "config/pbtxt/icis_config.pb.txt";
-
     @ParameterizedTest
     @ValueSource(strings = {DEFAULT_CONFIG, "config/pbtxt/hospitals/ah2_icis_config.pb.txt",
         "config/pbtxt/hospitals/xaxrmyy_icis_config.pb.txt",
@@ -48,8 +45,7 @@ class ConfigProtoServicePatientTests {
         assertThat(raw.getPatient().getEnumsV2().getBloodTypeList()).isEmpty();
         assertThat(raw.getPatient().getEnumsV2().getBloodRhList()).isEmpty();
         ProtoConfig protoConfig = loadConfig(path, "");
-        assertThat(withoutBloodEnums(protoConfig.getConfig().getPatient()))
-            .isEqualTo(raw.getPatient());
+        assertThat(protoConfig.getConfig().getPatient()).isEqualTo(raw.getPatient());
         assertPublicBloodEnums(protoConfig);
         assertDefaultRhAliases(protoConfig.getConfig().getText().getEnumText());
     }
@@ -69,8 +65,7 @@ class ConfigProtoServicePatientTests {
         Files.writeString(file, external.build().toString(), StandardCharsets.UTF_8);
         ProtoConfig protoConfig = loadConfig(DEFAULT_CONFIG, file.toString());
         assertThat(protoConfig.getConfig().getZoneId()).isEqualTo("UTC");
-        assertThat(withoutBloodEnums(protoConfig.getConfig().getPatient()))
-            .isEqualTo(withoutBloodEnums(external.getPatient()));
+        assertThat(protoConfig.getConfig().getPatient()).isEqualTo(external.getPatient());
         assertPublicBloodEnums(protoConfig);
     }
 
@@ -81,8 +76,7 @@ class ConfigProtoServicePatientTests {
         Files.writeString(file, "zone_id: \"UTC\"\n", StandardCharsets.UTF_8);
         ProtoConfig protoConfig = loadConfig(DEFAULT_CONFIG, file.toString());
         assertThat(protoConfig.getConfig().getZoneId()).isEqualTo("UTC");
-        assertThat(withoutBloodEnums(protoConfig.getConfig().getPatient()))
-            .isEqualTo(withoutBloodEnums(Patient.getDefaultInstance()));
+        assertThat(protoConfig.getConfig().hasPatient()).isFalse();
         assertPublicBloodEnums(protoConfig);
     }
 
@@ -189,7 +183,6 @@ class ConfigProtoServicePatientTests {
             }
             """, StandardCharsets.UTF_8);
         ProtoConfig protoConfig = loadConfig(DEFAULT_CONFIG, file.toString());
-
         assertThatThrownBy(() -> new PatientEnums(protoConfig))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessage("Rh 别名冲突: RH阴性");
@@ -210,20 +203,17 @@ class ConfigProtoServicePatientTests {
             commonText, null, null, null, null, null, StandardCharsets.UTF_8.name());
     }
 
-    private Patient withoutBloodEnums(Patient patient) {
-        Patient.Builder builder = patient.toBuilder();
-        builder.getEnumsV2Builder().clearBloodType().clearBloodRh();
-        return builder.build();
-    }
-
     private void assertPublicBloodEnums(ProtoConfig protoConfig) {
-        JsonObject enums = getPublicPatientEnums(protoConfig);
-        assertThat(enums.get("bloodType")).isEqualTo(JsonParser.parseString("""
+        String configured = ProtoUtils.protoToJson(
+            protoConfig.getConfig().getPatient().getEnumsV2());
+        JsonObject expected = JsonParser.parseString(configured).getAsJsonObject();
+        expected.add("bloodType", JsonParser.parseString("""
             [{"id":1,"name":"A"},{"id":2,"name":"B"},{"id":3,"name":"O"},{"id":4,"name":"AB"}]
             """));
-        assertThat(enums.get("bloodRh")).isEqualTo(JsonParser.parseString("""
+        expected.add("bloodRh", JsonParser.parseString("""
             [{"id":1,"name":"RH-"},{"id":2,"name":"RH+"}]
             """));
+        assertThat(getPublicPatientEnums(protoConfig)).isEqualTo(expected);
     }
 
     @Test
@@ -240,10 +230,12 @@ class ConfigProtoServicePatientTests {
         IntakeTypeRepository intakeTypes = mock(IntakeTypeRepository.class);
         when(intakeTypes.findAll()).thenReturn(List.of());
         ConfigProtoService service = new ConfigProtoService(
-            protoConfig.getConfig(), null, intakeTypes);
+            protoConfig.getConfig(), null, intakeTypes, new PatientEnums(protoConfig));
         String json = ProtoUtils.protoToJson(service.getWebApiConfig());
         assertThat(json).isNotNull();
         return JsonParser.parseString(json).getAsJsonObject()
             .getAsJsonObject("patientEnums");
     }
+
+    private static final String DEFAULT_CONFIG = "config/pbtxt/icis_config.pb.txt";
 }

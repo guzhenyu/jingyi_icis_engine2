@@ -17,16 +17,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceConfigPB;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceEnumsPB;
-import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.EnumValue;
 import com.jingyicare.jingyi_icis_engine.repository.patients.DiagnosisHistoryRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patients.HisPatientRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patients.SurgeryHistoryRepository;
 import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
-import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 
 public class PatientSyncEnabledTests {
     @Test
@@ -80,19 +75,10 @@ public class PatientSyncEnabledTests {
 
     private static class Fixture {
         Fixture(boolean enabled) {
-            ConfigProtoService protoService = mock(ConfigProtoService.class);
-            Config config = Config.newBuilder()
-                .setDevice(DeviceConfigPB.newBuilder()
-                    .setEnums(DeviceEnumsPB.newBuilder()
-                        .addBedType(enumValue(1, "固定授权"))
-                        .addBedType(enumValue(2, "临时授权"))))
-                .build();
-            when(protoService.getConfig()).thenReturn(config);
             when(deptRepo.findAll()).thenReturn(List.of());
 
             service = new PatientSyncService(
                 mock(ConfigurableApplicationContext.class),
-                protoService,
                 mock(PatientConfig.class),
                 mock(PatientSyncUtils.class),
                 deptRepo,
@@ -106,10 +92,6 @@ public class PatientSyncEnabledTests {
             ReflectionTestUtils.setField(service, "syncStartDelayMinutes", 0);
             ReflectionTestUtils.setField(service, "syncIntervalMinutes", 10000);
             ReflectionTestUtils.setField(service, "syncThreadJoinTimeoutSeconds", 0);
-        }
-
-        private static EnumValue enumValue(int id, String name) {
-            return EnumValue.newBuilder().setId(id).setName(name).build();
         }
 
         final RbacDepartmentRepository deptRepo = mock(RbacDepartmentRepository.class);
