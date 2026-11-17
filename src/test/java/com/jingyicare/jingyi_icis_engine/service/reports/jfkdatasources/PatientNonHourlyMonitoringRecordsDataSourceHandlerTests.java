@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
@@ -37,6 +40,7 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.ValueMetaPB;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientMonitoringRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.ca.CaSignatureImageService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
@@ -92,6 +96,17 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandlerTests {
         assertThat(output.get("record_time")).containsExactly(List.of("2026-04-17 08:10"));
         assertThat(output.get("content")).containsExactly(List.of("体温: 36.8 ℃; 心率: 88 次/分"));
         assertThat(output.get("recorded_by")).containsExactly(List.of(SIGNATURE_PNG));
+
+        verifyNoInteractions(ctx.ca);
+        when(ctx.ca.getPng(102L)).thenReturn(
+            PatientNursingRecordsDataSourceHandlerTests.caPngResult());
+        Pair<ReturnCode, JfkDataSourcePB> compactResult = ctx.signatures.withCompactSignatures(
+            () -> ctx.handler().handle(input()));
+        String caImage = PatientNursingRecordsDataSourceHandlerTests.CA_PNG;
+        assertThat(toOutputMap(compactResult.getSecond()).get("recorded_by"))
+            .containsExactly(List.of(caImage));
+        verify(ctx.ca).getPng(102L);
+        verifyNoMoreInteractions(ctx.ca);
     }
 
     private static JfkDataSourcePB input() {
@@ -261,11 +276,15 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandlerTests {
                 monitoringConfig,
                 configProtoService,
                 userQuery,
-                accountRepo,
+                signatures,
                 properties,
                 new DefaultResourceLoader()
             );
         }
+
+        private final CaSignatureImageService ca = mock(CaSignatureImageService.class);
+        private final JfkSignatureValueResolver signatures =
+            new JfkSignatureValueResolver(accountRepo, ca);
     }
 
     private static final LocalDateTime MON_START_UTC = LocalDateTime.of(2026, 4, 16, 23, 0);

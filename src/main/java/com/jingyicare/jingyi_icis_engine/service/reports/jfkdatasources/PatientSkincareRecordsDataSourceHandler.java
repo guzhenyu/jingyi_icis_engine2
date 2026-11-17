@@ -39,7 +39,6 @@ import com.jingyicare.jingyi_icis_engine.repository.skincares.PatientSkincareRec
 import com.jingyicare.jingyi_icis_engine.repository.skincares.PatientSkincareRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.skincares.SkincareTypeAttributeRepository;
 import com.jingyicare.jingyi_icis_engine.repository.skincares.SkincareTypeRepository;
-import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
@@ -62,7 +61,7 @@ public class PatientSkincareRecordsDataSourceHandler extends AbstractJfkDataSour
         PatientSkincareRecordAttrRepository skincareRecordAttrRepo,
         SkincareTypeRepository skincareTypeRepo,
         SkincareTypeAttributeRepository skincareTypeAttrRepo,
-        AccountRepository accountRepo,
+        JfkSignatureValueResolver signatureResolver,
         ReportProperties reportProperties,
         ResourceLoader resourceLoader
     ) {
@@ -73,7 +72,7 @@ public class PatientSkincareRecordsDataSourceHandler extends AbstractJfkDataSour
         this.skincareRecordAttrRepo = skincareRecordAttrRepo;
         this.skincareTypeRepo = skincareTypeRepo;
         this.skincareTypeAttrRepo = skincareTypeAttrRepo;
-        this.accountRepo = accountRepo;
+        this.signatureResolver = signatureResolver;
         this.reportProperties = reportProperties;
         this.resourceLoader = resourceLoader;
     }
@@ -126,14 +125,12 @@ public class PatientSkincareRecordsDataSourceHandler extends AbstractJfkDataSour
         }
 
         SkincareData data = loadSkincareData(records);
-        JfkSignatureValueResolver signatureResolver = new JfkSignatureValueResolver(
-            accountRepo, skincareSignatureAccountRefs(records), log, "Compact skincare records");
         Set<String> attrCodeWhitelist = attrCodeWhitelist();
         SkincareRows rows;
         try (PDDocument document = new PDDocument()) {
             PdfFontSet font = loadFont(document);
             rows = buildRows(
-                records, data, attrCodeWhitelist, signatureResolver, colWidths, font, fontSize, charSpacing, hPadding);
+                records, data, attrCodeWhitelist, colWidths, font, fontSize, charSpacing, hPadding);
         } catch (IOException e) {
             log.error("Failed to wrap compact patient skincare records text: {}", e.getMessage(), e);
             return error(StatusCode.INTERNAL_EXCEPTION, e.getMessage());
@@ -149,7 +146,6 @@ public class PatientSkincareRecordsDataSourceHandler extends AbstractJfkDataSour
         List<PatientSkincareRecord> records,
         SkincareData data,
         Set<String> attrCodeWhitelist,
-        JfkSignatureValueResolver signatureResolver,
         List<Double> colWidths,
         PdfFontSet font,
         double fontSize,
@@ -190,11 +186,8 @@ public class PatientSkincareRecordsDataSourceHandler extends AbstractJfkDataSour
             rows.add(
                 stringsVal(wrap(formatLocal(record.getCreatedAt()), RECORD_TIME_COL_INDEX, colWidths, font, fontSize, charSpacing, hPadding)),
                 stringsVal(wrap(content, CONTENT_COL_INDEX, colWidths, font, fontSize, charSpacing, hPadding)),
-                strVal(signatureResolver.signatureOrFallback(
-                    record.getModifiedBy(),
-                    displayAccountName(record.getModifiedBy(), data.accountNameByModifiedBy()),
-                    record.getId()
-                ))
+                strVal(signatureResolver.resolve(record.getModifiedBy(), data.accounts())
+                    .displayValue())
             );
         }
         return rows;
@@ -280,7 +273,7 @@ public class PatientSkincareRecordsDataSourceHandler extends AbstractJfkDataSour
             planAttrsByPlanId,
             recordAttrsByRecordId,
             attrById,
-            accountNameByModifiedBy(records)
+            signatureResolver.loadAccounts(skincareSignatureAccountRefs(records))
         );
     }
 
@@ -393,54 +386,6 @@ public class PatientSkincareRecordsDataSourceHandler extends AbstractJfkDataSour
         return result;
     }
 
-    private Map<String, String> accountNameByModifiedBy(List<PatientSkincareRecord> records) {
-        Map<String, Long> accountIdByModifiedBy = new LinkedHashMap<>();
-        for (PatientSkincareRecord record : records) {
-            String modifiedBy = record.getModifiedBy();
-            if (StrUtils.isBlank(modifiedBy)) continue;
-            try {
-                accountIdByModifiedBy.putIfAbsent(modifiedBy, Long.parseLong(modifiedBy));
-            } catch (NumberFormatException e) {
-                log.warn(
-                    "Compact skincare record modified_by is not accounts.id, recordId={}, modifiedBy={}",
-                    record.getId(), modifiedBy
-                );
-            }
-        }
-        if (accountIdByModifiedBy.isEmpty()) {
-            return Map.of();
-        }
-
-        List<Long> accountIds = new ArrayList<>(new LinkedHashSet<>(accountIdByModifiedBy.values()));
-        Map<Long, String> accountNameById = accountRepo.findByIdInAndIsDeletedFalse(accountIds).stream()
-            .collect(Collectors.toMap(
-                Account::getId,
-                account -> safe(account.getName()),
-                (left, right) -> left,
-                LinkedHashMap::new
-            ));
-
-        Map<String, String> result = new LinkedHashMap<>();
-        for (Map.Entry<String, Long> entry : accountIdByModifiedBy.entrySet()) {
-            String accountName = accountNameById.get(entry.getValue());
-            if (StrUtils.isBlank(accountName)) {
-                log.warn(
-                    "Compact skincare record modified_by account not found, modifiedBy={}, accountId={}",
-                    entry.getKey(), entry.getValue()
-                );
-                continue;
-            }
-            result.put(entry.getKey(), accountName);
-        }
-        return result;
-    }
-
-    private String displayAccountName(String modifiedBy, Map<String, String> accountNameByModifiedBy) {
-        if (StrUtils.isBlank(modifiedBy)) return "";
-        String accountName = accountNameByModifiedBy.get(modifiedBy);
-        return StrUtils.isBlank(accountName) ? modifiedBy : accountName;
-    }
-
     private Set<String> attrCodeWhitelist() {
         if (reportProperties == null
             || reportProperties.getCompact() == null
@@ -546,7 +491,7 @@ public class PatientSkincareRecordsDataSourceHandler extends AbstractJfkDataSour
         Map<Long, List<PatientSkincarePlanAttr>> planAttrsByPlanId,
         Map<Long, List<PatientSkincareRecordAttr>> recordAttrsByRecordId,
         Map<Integer, SkincareTypeAttribute> attrById,
-        Map<String, String> accountNameByModifiedBy
+        Map<Long, Account> accounts
     ) {
     }
 
@@ -589,7 +534,7 @@ public class PatientSkincareRecordsDataSourceHandler extends AbstractJfkDataSour
     private final PatientSkincareRecordAttrRepository skincareRecordAttrRepo;
     private final SkincareTypeRepository skincareTypeRepo;
     private final SkincareTypeAttributeRepository skincareTypeAttrRepo;
-    private final AccountRepository accountRepo;
+    private final JfkSignatureValueResolver signatureResolver;
     private final ReportProperties reportProperties;
     private final ResourceLoader resourceLoader;
 }

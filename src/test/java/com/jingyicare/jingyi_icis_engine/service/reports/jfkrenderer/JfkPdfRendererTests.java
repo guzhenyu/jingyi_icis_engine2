@@ -1,15 +1,28 @@
 package com.jingyicare.jingyi_icis_engine.service.reports.jfkrenderer;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.*;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
+import java.util.Map;
 
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.contentstream.operator.Operator;
+import org.apache.pdfbox.pdfparser.PDFStreamParser;
+import org.apache.pdfbox.pdmodel.PDDocument;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentCaptor;
 import org.springframework.core.io.DefaultResourceLoader;
 
+import com.jingyicare.jingyi_cig.grpc.ca.GetSignImageResponsePB;
+import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
+import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.RealtimeCaSignImageSourcePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkAbsContainerPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkAcTablePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourceMetaPB;
@@ -25,9 +38,26 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkTextPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValMetaPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisReportCompact.CompactReportTemplatePB;
+import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
+import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
+import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.archives.ArchiveService;
+import com.jingyicare.jingyi_icis_engine.service.ca.CaSignImageValidator;
+import com.jingyicare.jingyi_icis_engine.service.ca.CaSignImageValidator.ValidatedSignImage;
+import com.jingyicare.jingyi_icis_engine.service.ca.CaSignatureImageService;
+import com.jingyicare.jingyi_icis_engine.service.ca.client.CigCaClient;
+import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataService;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
+import com.jingyicare.jingyi_icis_engine.service.reports.MonitoringReportRequest;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
+import com.jingyicare.jingyi_icis_engine.service.reports.compactreport.CompactReportDataSourceBuilder;
+import com.jingyicare.jingyi_icis_engine.service.reports.compactreport.CompactReportService;
 import com.jingyicare.jingyi_icis_engine.service.reports.compactreport.CompactReportTemplateLoader;
+import com.jingyicare.jingyi_icis_engine.service.reports.jfkdatasources.JfkDataSourceHandler;
+import com.jingyicare.jingyi_icis_engine.service.reports.jfkdatasources.JfkDataSourceSupport;
+import com.jingyicare.jingyi_icis_engine.service.reports.jfkdatasources.JfkSignatureValueResolver;
+import com.jingyicare.jingyi_icis_engine.utils.Pair;
+import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
 public class JfkPdfRendererTests {
     @Test
@@ -69,6 +99,87 @@ public class JfkPdfRendererTests {
         assertThat(result.pageCount()).isEqualTo(1);
         assertThat(output).exists();
         assertThat(Files.size(output)).isGreaterThan(0);
+    }
+
+    @Test
+    public void generateEmbedsAndArchivesOneCaSignatureAcrossTwoTables(@TempDir Path dir)
+        throws Exception {
+        DefaultResourceLoader resources = new DefaultResourceLoader();
+        ReportProperties properties = new ReportProperties();
+        properties.getCompact().setTemplate(
+            "classpath:/config/pbtxt/report_compact_renderer_test.pb.txt");
+        Config.Builder config = Config.newBuilder().setZoneId("UTC");
+        config.getJfkBuilder().addAllDataSources(syntheticMetas());
+        config.getTextBuilder().addStatusCodeMsg("ok");
+        ConfigProtoService proto = mock(ConfigProtoService.class);
+        when(proto.getConfig()).thenReturn(config.build());
+
+        CigCaClient client = mock(CigCaClient.class);
+        when(client.isEnabled()).thenReturn(true);
+        GetSignImageResponsePB response = GetSignImageResponsePB.getDefaultInstance();
+        when(client.getSignImage(55L)).thenReturn(response);
+        CaSignImageValidator validator = mock(CaSignImageValidator.class);
+        byte[] gif = Base64.getDecoder().decode(
+            "R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==");
+        when(validator.validate(response, 55L)).thenReturn(new ValidatedSignImage(
+            gif, "image/gif", "", 1, 1,
+            RealtimeCaSignImageSourcePB.REALTIME_CA_SIGN_IMAGE_SOURCE_CA_PROVIDER));
+        ArchiveService archive = mock(ArchiveService.class);
+        when(archive.buildRelativeUrl(anyLong(), anyInt(), any(), anyString()))
+            .thenReturn("compact.pdf");
+        JfkSignatureValueResolver signatures = new JfkSignatureValueResolver(
+            mock(AccountRepository.class), new CaSignatureImageService(client, validator));
+        CompactReportService reports = new CompactReportService(proto, properties, resources,
+            new CompactReportTemplateLoader(properties, resources),
+            new CompactReportDataSourceBuilder(), signatureDataService(signatures),
+            new JfkPdfRenderer(resources), archive, signatures);
+        Path output = dir.resolve("compact.pdf");
+        LocalDateTime start = LocalDateTime.of(2026, 4, 17, 0, 0);
+        MonitoringReportRequest request = MonitoringReportRequest.builder()
+            .pid(1L).deptId("test").queryStartUtc(start).queryEndUtc(start.plusDays(1))
+            .shiftStartTime(start).reportPath(output.toString()).build();
+
+        assertThat(reports.generate(request).getCode()).isZero();
+        verify(client).getSignImage(55L);
+        try (PDDocument pdf = Loader.loadPDF(output.toFile())) {
+            assertThat(new PDFStreamParser(pdf.getPage(0)).parse().stream()
+                .filter(token -> token instanceof Operator op && "Do".equals(op.getName()))
+                .count()).isEqualTo(2);
+        }
+        ArgumentCaptor<String> snapshot = ArgumentCaptor.forClass(String.class);
+        verify(archive).store(eq(1L), anyInt(), eq(start), anyString(), snapshot.capture(),
+            eq(1), eq(output));
+        List<String> archived = ProtoUtils.decodeNursingReportCompactArchive(snapshot.getValue())
+            .getSourcesList().stream().flatMap(source -> source.getOutputDataList().stream())
+            .filter(field -> field.getId().equals("recorded_by"))
+            .map(field -> field.getVals(0).getStrVal()).toList();
+        assertThat(archived).hasSize(2).allMatch(v -> v.startsWith("data:image/png;base64,"));
+        assertThat(archived.get(1)).isEqualTo(archived.get(0));
+
+        assertThat(reports.generate(request).getCode()).isZero();
+        verify(client, times(2)).getSignImage(55L);
+    }
+
+    private JfkDataService signatureDataService(JfkSignatureValueResolver signatures) {
+        List<JfkDataSourceHandler> handlers = new ArrayList<>();
+        for (JfkDataSourcePB source : syntheticDataSources()) {
+            JfkDataSourceHandler handler = mock(JfkDataSourceHandler.class);
+            when(handler.getMetaId()).thenReturn(source.getMetaId());
+            when(handler.handle(any())).thenAnswer(call -> {
+                JfkDataSourcePB.Builder output = source.toBuilder();
+                for (JfkFieldDataPB.Builder field : output.getOutputDataBuilderList()) {
+                    if ("recorded_by".equals(field.getId())) {
+                        JfkSignatureValueResolver.Signature signature =
+                            signatures.resolve("55", "记录人", Map.of());
+                        assertThat(signature.text()).isEqualTo("记录人");
+                        field.getValsBuilder(0).setStrVal(signature.displayValue());
+                    }
+                }
+                return new Pair<>(ReturnCode.getDefaultInstance(), output.build());
+            });
+            handlers.add(handler);
+        }
+        return new JfkDataService(mock(JfkDataSourceSupport.class), handlers);
     }
 
     private JfkTemplatePB template() {
@@ -282,5 +393,7 @@ public class JfkPdfRendererTests {
     }
 
     private static final String SIGNATURE_PNG =
-        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
+        "data:image/png;base64,"
+        + "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAw"
+        + "MCAO+ip1sAAAAASUVORK5CYII=";
 }

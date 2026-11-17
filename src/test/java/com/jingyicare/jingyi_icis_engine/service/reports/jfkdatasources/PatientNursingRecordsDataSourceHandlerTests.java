@@ -4,9 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +28,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.repository.nursingrecords.NursingRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
+import com.jingyicare.jingyi_icis_engine.service.ca.CaSignatureImageService;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
@@ -62,6 +66,37 @@ public class PatientNursingRecordsDataSourceHandlerTests {
         assertThat(output.get("reviewed_by")).containsExactly(List.of(SIGNATURE_PNG));
 
         verify(ctx.nursingRecordRepo).findReportNursingRecords(10001L, MON_START_UTC, MON_END_UTC);
+
+        verifyNoInteractions(ctx.ca);
+        when(ctx.ca.getPng(101L)).thenReturn(caPngResult());
+        when(ctx.ca.getPng(102L)).thenReturn(new Pair<>(false, new byte[0]));
+        Pair<ReturnCode, JfkDataSourcePB> compactResult = ctx.signatures.withCompactSignatures(
+            () -> ctx.handler().handle(input()));
+        Map<String, List<List<String>>> compact = toOutputMap(compactResult.getSecond());
+        assertThat(compact.get("recorded_by")).containsExactly(List.of(CA_PNG));
+        assertThat(compact.get("reviewed_by")).containsExactly(List.of(SIGNATURE_PNG));
+        verify(ctx.ca).getPng(101L);
+        verify(ctx.ca).getPng(102L);
+    }
+
+    @Test
+    public void missingReviewerSkipsLookupAndCreatorFallsBackToRecordedName() {
+        TestContext ctx = new TestContext();
+        NursingRecord record = NursingRecord.builder().id(11L).effectiveTime(MON_START_UTC)
+            .createdBy("55").createdByAccountName("记录人").content("护理记录").build();
+        when(ctx.nursingRecordRepo.findReportNursingRecords(10001L, MON_START_UTC, MON_END_UTC))
+            .thenReturn(List.of(record));
+        when(ctx.accountRepo.findByIdInAndIsDeletedFalse(any()))
+            .thenReturn(List.of(account(55L, "账号姓名", null)));
+
+        when(ctx.ca.getPng(55L)).thenReturn(new Pair<>(false, new byte[0]));
+        Pair<ReturnCode, JfkDataSourcePB> result = ctx.signatures.withCompactSignatures(
+            () -> ctx.handler().handle(input()));
+        Map<String, List<List<String>>> output = toOutputMap(result.getSecond());
+        verify(ctx.ca).getPng(55L);
+        verifyNoMoreInteractions(ctx.ca);
+        assertThat(output.get("recorded_by")).containsExactly(List.of("记录人"));
+        assertThat(output.get("reviewed_by")).containsExactly(List.of(""));
     }
 
     @Test
@@ -76,6 +111,11 @@ public class PatientNursingRecordsDataSourceHandlerTests {
         assertThat(output.get("content")).isEmpty();
         assertThat(output.get("recorded_by")).isEmpty();
         assertThat(output.get("reviewed_by")).isEmpty();
+    }
+
+    static Pair<Boolean, byte[]> caPngResult() {
+        String encoded = CA_PNG.substring(CA_PNG.indexOf(',') + 1);
+        return new Pair<>(true, Base64.getDecoder().decode(encoded));
     }
 
     private static JfkDataSourcePB input() {
@@ -183,17 +223,24 @@ public class PatientNursingRecordsDataSourceHandlerTests {
             return new PatientNursingRecordsDataSourceHandler(
                 support,
                 nursingRecordRepo,
-                accountRepo,
+                signatures,
                 properties,
                 new DefaultResourceLoader()
             );
         }
+
+        private final CaSignatureImageService ca = mock(CaSignatureImageService.class);
+        private final JfkSignatureValueResolver signatures =
+            new JfkSignatureValueResolver(accountRepo, ca);
     }
 
     private static final LocalDateTime MON_START_UTC = LocalDateTime.of(2026, 4, 16, 23, 0);
     private static final LocalDateTime MON_END_UTC = LocalDateTime.of(2026, 4, 17, 23, 0);
     private static final LocalDateTime MON_START_LOCAL = LocalDateTime.of(2026, 4, 17, 7, 0);
     private static final LocalDateTime MON_END_LOCAL = LocalDateTime.of(2026, 4, 18, 7, 0);
+    static final String CA_PNG = "data:image/png;base64,"
+        + "iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAAAAADRSSBWAAAAC0lEQVR4nGNg+A8AAQIBAEK+vGg"
+        + "AAAAASUVORK5CYII=";
     private static final String SIGNATURE_PNG =
         "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/p9sAAAAASUVORK5CYII=";
 }

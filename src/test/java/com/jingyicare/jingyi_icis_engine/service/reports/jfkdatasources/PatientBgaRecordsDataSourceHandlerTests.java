@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
@@ -43,6 +44,7 @@ import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientBgaRecord
 import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.ca.CaSignatureImageService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
@@ -110,6 +112,19 @@ public class PatientBgaRecordsDataSourceHandlerTests {
         verify(ctx.recordRepo)
             .findByPidAndEffectiveTimeGreaterThanEqualAndEffectiveTimeLessThanAndIsDeletedFalseOrderByEffectiveTimeAsc(
                 10001L, monStartUtc, monEndUtc);
+
+        verifyNoInteractions(ctx.ca);
+        when(ctx.ca.getPng(102L)).thenReturn(
+            PatientNursingRecordsDataSourceHandlerTests.caPngResult());
+        when(ctx.ca.getPng(101L)).thenReturn(new Pair<>(false, new byte[0]));
+        Pair<ReturnCode, JfkDataSourcePB> compactResult = ctx.signatures.withCompactSignatures(
+            () -> handler.handle(input()));
+        String caImage = PatientNursingRecordsDataSourceHandlerTests.CA_PNG;
+        Map<String, List<List<String>>> compact = toOutputMap(compactResult.getSecond());
+        assertThat(compact.get("recorded_by")).containsExactly(List.of(SIGNATURE_PNG));
+        assertThat(compact.get("reviewed_by")).containsExactly(List.of(caImage));
+        verify(ctx.ca).getPng(101L);
+        verify(ctx.ca).getPng(102L);
     }
 
     @Test
@@ -318,11 +333,15 @@ public class PatientBgaRecordsDataSourceHandlerTests {
                 bgaParamRepo,
                 monitoringConfig,
                 configProtoService,
-                accountRepo,
+                signatures,
                 new ReportProperties(),
                 new DefaultResourceLoader()
             );
         }
+
+        private final CaSignatureImageService ca = mock(CaSignatureImageService.class);
+        private final JfkSignatureValueResolver signatures =
+            new JfkSignatureValueResolver(accountRepo, ca);
     }
 
     private static final String SIGNATURE_PNG =

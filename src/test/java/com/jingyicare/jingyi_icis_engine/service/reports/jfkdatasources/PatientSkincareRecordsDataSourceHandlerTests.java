@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
@@ -38,6 +40,7 @@ import com.jingyicare.jingyi_icis_engine.repository.skincares.PatientSkincareRec
 import com.jingyicare.jingyi_icis_engine.repository.skincares.SkincareTypeAttributeRepository;
 import com.jingyicare.jingyi_icis_engine.repository.skincares.SkincareTypeRepository;
 import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
+import com.jingyicare.jingyi_icis_engine.service.ca.CaSignatureImageService;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
@@ -88,6 +91,17 @@ public class PatientSkincareRecordsDataSourceHandlerTests {
         assertThat(output.get("recorded_by")).containsExactly(List.of(SIGNATURE_PNG));
 
         verify(ctx.skincareRecordRepo).findReportSkincareRecords(10001L, MON_START_UTC, MON_END_UTC);
+
+        verifyNoInteractions(ctx.ca);
+        when(ctx.ca.getPng(201L)).thenReturn(
+            PatientNursingRecordsDataSourceHandlerTests.caPngResult());
+        Pair<ReturnCode, JfkDataSourcePB> compactResult = ctx.signatures.withCompactSignatures(
+            () -> ctx.handler().handle(input()));
+        String caImage = PatientNursingRecordsDataSourceHandlerTests.CA_PNG;
+        assertThat(toOutputMap(compactResult.getSecond()).get("recorded_by"))
+            .containsExactly(List.of(caImage));
+        verify(ctx.ca).getPng(201L);
+        verifyNoMoreInteractions(ctx.ca);
     }
 
     @Test
@@ -312,11 +326,15 @@ public class PatientSkincareRecordsDataSourceHandlerTests {
                 skincareRecordAttrRepo,
                 skincareTypeRepo,
                 skincareTypeAttrRepo,
-                accountRepo,
+                signatures,
                 reportProperties,
                 new DefaultResourceLoader()
             );
         }
+
+        private final CaSignatureImageService ca = mock(CaSignatureImageService.class);
+        private final JfkSignatureValueResolver signatures =
+            new JfkSignatureValueResolver(accountRepo, ca);
     }
 
     private static final LocalDateTime MON_START_UTC = LocalDateTime.of(2026, 4, 16, 23, 0);

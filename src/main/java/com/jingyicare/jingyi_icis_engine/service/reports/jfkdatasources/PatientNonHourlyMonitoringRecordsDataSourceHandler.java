@@ -6,7 +6,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -30,7 +29,6 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringP
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringValuePB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientMonitoringRecordRepository;
-import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
@@ -47,14 +45,15 @@ import com.jingyicare.jingyi_icis_engine.utils.ValueMetaUtils;
 
 @Component
 @Slf4j
-public class PatientNonHourlyMonitoringRecordsDataSourceHandler extends AbstractJfkDataSourceHandler {
+public class PatientNonHourlyMonitoringRecordsDataSourceHandler
+    extends AbstractJfkDataSourceHandler {
     public PatientNonHourlyMonitoringRecordsDataSourceHandler(
         JfkDataSourceSupport support,
         PatientMonitoringRecordRepository monitoringRecordRepo,
         MonitoringConfig monitoringConfig,
         ConfigProtoService configProtoService,
         UserQuery userQuery,
-        AccountRepository accountRepo,
+        JfkSignatureValueResolver signatureResolver,
         ReportProperties reportProperties,
         ResourceLoader resourceLoader
     ) {
@@ -63,7 +62,7 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandler extends Abstract
         this.monitoringConfig = monitoringConfig;
         this.configProtoService = configProtoService;
         this.userQuery = userQuery;
-        this.accountRepo = accountRepo;
+        this.signatureResolver = signatureResolver;
         this.reportProperties = reportProperties;
         this.resourceLoader = resourceLoader;
     }
@@ -128,16 +127,10 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandler extends Abstract
 
         Map<String, MonitoringParamPB> paramMap = monitoringConfig.getMonitoringParams(deptId);
         Map<String, Integer> paramOrder = monitoringParamOrder(pid, deptId, account.autoAcctId());
-        Map<String, String> accountNameByModifiedBy = accountNameByModifiedBy(nonHourlyRecords);
-        JfkSignatureValueResolver signatureResolver = new JfkSignatureValueResolver(
-            accountRepo,
+        Map<Long, Account> accounts = signatureResolver.loadAccounts(
             nonHourlyRecords.stream()
                 .map(PatientMonitoringRecord::getModifiedBy)
-                .filter(modifiedBy -> !StrUtils.isBlank(modifiedBy))
-                .toList(),
-            log,
-            "Compact non-hourly monitoring records"
-        );
+                .toList());
 
         MonitoringRows rows;
         try (PDDocument document = new PDDocument()) {
@@ -146,8 +139,7 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandler extends Abstract
                 nonHourlyRecords,
                 paramMap,
                 paramOrder,
-                accountNameByModifiedBy,
-                signatureResolver,
+                accounts,
                 colWidths,
                 font,
                 fontSize,
@@ -169,8 +161,7 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandler extends Abstract
         List<PatientMonitoringRecord> nonHourlyRecords,
         Map<String, MonitoringParamPB> paramMap,
         Map<String, Integer> paramOrder,
-        Map<String, String> accountNameByModifiedBy,
-        JfkSignatureValueResolver signatureResolver,
+        Map<Long, Account> accounts,
         List<Double> colWidths,
         PdfFontSet font,
         double fontSize,
@@ -217,11 +208,8 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandler extends Abstract
                 .orElse(null);
             String recordedBy = recordedByRecord == null
                 ? ""
-                : signatureResolver.signatureOrFallback(
-                    recordedByRecord.getModifiedBy(),
-                    displayAccountName(recordedByRecord.getModifiedBy(), accountNameByModifiedBy),
-                    recordedByRecord.getId()
-                );
+                : signatureResolver.resolve(recordedByRecord.getModifiedBy(), accounts)
+                    .displayValue();
 
             rows.add(
                 stringsVal(wrap(formatLocal(entry.getKey()), RECORD_TIME_COL_INDEX, colWidths, font, fontSize, charSpacing, hPadding)),
@@ -230,54 +218,6 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandler extends Abstract
             );
         }
         return rows;
-    }
-
-    private Map<String, String> accountNameByModifiedBy(List<PatientMonitoringRecord> records) {
-        Map<String, Long> accountIdByModifiedBy = new LinkedHashMap<>();
-        for (PatientMonitoringRecord record : records) {
-            String modifiedBy = record.getModifiedBy();
-            if (StrUtils.isBlank(modifiedBy)) continue;
-            try {
-                accountIdByModifiedBy.putIfAbsent(modifiedBy, Long.parseLong(modifiedBy));
-            } catch (NumberFormatException e) {
-                log.warn(
-                    "Compact non-hourly monitoring modified_by is not accounts.id, recordId={}, modifiedBy={}",
-                    record.getId(), modifiedBy
-                );
-            }
-        }
-        if (accountIdByModifiedBy.isEmpty()) {
-            return Map.of();
-        }
-
-        List<Long> accountIds = new ArrayList<>(new LinkedHashSet<>(accountIdByModifiedBy.values()));
-        Map<Long, String> accountNameById = accountRepo.findByIdInAndIsDeletedFalse(accountIds).stream()
-            .collect(Collectors.toMap(
-                Account::getId,
-                account -> safe(account.getName()),
-                (left, right) -> left,
-                LinkedHashMap::new
-            ));
-
-        Map<String, String> result = new LinkedHashMap<>();
-        for (Map.Entry<String, Long> entry : accountIdByModifiedBy.entrySet()) {
-            String accountName = accountNameById.get(entry.getValue());
-            if (StrUtils.isBlank(accountName)) {
-                log.warn(
-                    "Compact non-hourly monitoring modified_by account not found, modifiedBy={}, accountId={}",
-                    entry.getKey(), entry.getValue()
-                );
-                continue;
-            }
-            result.put(entry.getKey(), accountName);
-        }
-        return result;
-    }
-
-    private String displayAccountName(String modifiedBy, Map<String, String> accountNameByModifiedBy) {
-        if (StrUtils.isBlank(modifiedBy)) return "";
-        String accountName = accountNameByModifiedBy.get(modifiedBy);
-        return StrUtils.isBlank(accountName) ? modifiedBy : accountName;
     }
 
     private Comparator<PatientMonitoringRecord> monitoringRecordComparator(
@@ -477,7 +417,7 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandler extends Abstract
     private final MonitoringConfig monitoringConfig;
     private final ConfigProtoService configProtoService;
     private final UserQuery userQuery;
-    private final AccountRepository accountRepo;
+    private final JfkSignatureValueResolver signatureResolver;
     private final ReportProperties reportProperties;
     private final ResourceLoader resourceLoader;
 }

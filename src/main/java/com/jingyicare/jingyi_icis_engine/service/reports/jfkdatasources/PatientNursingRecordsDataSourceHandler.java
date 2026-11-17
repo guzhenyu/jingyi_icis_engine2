@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.springframework.core.io.Resource;
@@ -16,13 +17,13 @@ import org.springframework.stereotype.Component;
 import lombok.extern.slf4j.Slf4j;
 
 import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.NursingRecord;
+import com.jingyicare.jingyi_icis_engine.entity.users.Account;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkFieldDataPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.repository.nursingrecords.NursingRecordRepository;
-import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
@@ -38,13 +39,13 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
     public PatientNursingRecordsDataSourceHandler(
         JfkDataSourceSupport support,
         NursingRecordRepository nursingRecordRepo,
-        AccountRepository accountRepo,
+        JfkSignatureValueResolver signatureResolver,
         ReportProperties reportProperties,
         ResourceLoader resourceLoader
     ) {
         super(support);
         this.nursingRecordRepo = nursingRecordRepo;
-        this.accountRepo = accountRepo;
+        this.signatureResolver = signatureResolver;
         this.reportProperties = reportProperties;
         this.resourceLoader = resourceLoader;
     }
@@ -97,13 +98,14 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
             return new Pair<>(returnCode(StatusCode.OK), outputBuilder.build());
         }
 
-        JfkSignatureValueResolver signatureResolver = new JfkSignatureValueResolver(
-            accountRepo, nursingSignatureAccountRefs(nursingRecords), log, "Compact nursing records");
+        Map<Long, Account> accounts = signatureResolver.loadAccounts(
+            nursingSignatureAccountRefs(nursingRecords));
 
         NursingRows rows;
         try (PDDocument document = new PDDocument()) {
             PdfFontSet fonts = loadFonts(document);
-            rows = buildRows(nursingRecords, signatureResolver, colWidths, fonts, fontSize, charSpacing, hPadding);
+            rows = buildRows(nursingRecords, accounts, colWidths, fonts, fontSize,
+                charSpacing, hPadding);
         } catch (IOException e) {
             log.error("Failed to wrap compact patient nursing records text: {}", e.getMessage(), e);
             return error(StatusCode.INTERNAL_EXCEPTION, e.getMessage());
@@ -118,7 +120,7 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
 
     private NursingRows buildRows(
         List<NursingRecord> nursingRecords,
-        JfkSignatureValueResolver signatureResolver,
+        Map<Long, Account> accounts,
         List<Double> colWidths,
         PdfFontSet fonts,
         double fontSize,
@@ -150,16 +152,10 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
                     charSpacing,
                     hPadding
                 )),
-                strVal(signatureResolver.signatureOrFallback(
-                    nursingRecord.getCreatedBy(),
-                    safe(nursingRecord.getCreatedByAccountName()),
-                    nursingRecord.getId()
-                )),
-                strVal(signatureResolver.signatureOrFallback(
-                    nursingRecord.getReviewedBy(),
-                    safe(nursingRecord.getReviewedByAccountName()),
-                    nursingRecord.getId()
-                ))
+                strVal(signatureResolver.resolve(nursingRecord.getCreatedBy(),
+                    nursingRecord.getCreatedByAccountName(), accounts).displayValue()),
+                strVal(signatureResolver.resolve(nursingRecord.getReviewedBy(),
+                    nursingRecord.getReviewedByAccountName(), accounts).displayValue())
             );
         }
         return rows;
@@ -317,7 +313,7 @@ public class PatientNursingRecordsDataSourceHandler extends AbstractJfkDataSourc
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     private final NursingRecordRepository nursingRecordRepo;
-    private final AccountRepository accountRepo;
+    private final JfkSignatureValueResolver signatureResolver;
     private final ReportProperties reportProperties;
     private final ResourceLoader resourceLoader;
 }

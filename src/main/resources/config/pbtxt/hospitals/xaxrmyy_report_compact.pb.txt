@@ -141,7 +141,7 @@ template {
       font_color: "#000000"
       char_spacing: 0
       extend_to_next_page: true
-      next_page_x: 792
+      next_page_x: 16
       next_page_y: 16
       element_meta {
         content_type: 4
@@ -2970,7 +2970,7 @@ template {
       font_color: "#000000"
       char_spacing: 0
       extend_to_next_page: true
-      next_page_x: 792
+      next_page_x: 16
       next_page_y: 16
       element_meta {
         content_type: 4

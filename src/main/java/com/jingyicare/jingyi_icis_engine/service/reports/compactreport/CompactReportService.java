@@ -25,6 +25,7 @@ import com.jingyicare.jingyi_icis_engine.service.archives.ArchiveService;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataService;
 import com.jingyicare.jingyi_icis_engine.service.reports.MonitoringReportRequest;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
+import com.jingyicare.jingyi_icis_engine.service.reports.jfkdatasources.JfkSignatureValueResolver;
 import com.jingyicare.jingyi_icis_engine.service.reports.jfkrenderer.JfkPdfRenderer;
 import com.jingyicare.jingyi_icis_engine.service.reports.jfkrenderer.JfkRenderException;
 import com.jingyicare.jingyi_icis_engine.service.reports.jfkrenderer.JfkRenderResult;
@@ -45,7 +46,8 @@ public class CompactReportService {
         @Autowired CompactReportDataSourceBuilder dataSourceBuilder,
         @Autowired JfkDataService jfkDataService,
         @Autowired JfkPdfRenderer jfkPdfRenderer,
-        @Autowired ArchiveService archiveService
+        @Autowired ArchiveService archiveService,
+        @Autowired JfkSignatureValueResolver signatures
     ) {
         this.statusCodeMsgs = protoService.getConfig().getText().getStatusCodeMsgList();
         this.zoneId = protoService.getConfig().getZoneId();
@@ -57,12 +59,14 @@ public class CompactReportService {
         this.jfkDataService = jfkDataService;
         this.jfkPdfRenderer = jfkPdfRenderer;
         this.archiveService = archiveService;
+        this.signatures = signatures;
     }
 
     public ReturnCode generate(MonitoringReportRequest request) {
         try {
             CompactReportTemplatePB compactTemplate = templateLoader.load();
-            DataSourceLoadResult dataSourceLoadResult = loadDataSources(compactTemplate, request);
+            DataSourceLoadResult dataSourceLoadResult = signatures.withCompactSignatures(
+                () -> loadDataSources(compactTemplate, request));
             if (dataSourceLoadResult.returnCode().getCode() != StatusCode.OK.ordinal()) {
                 return dataSourceLoadResult.returnCode();
             }
@@ -179,6 +183,7 @@ public class CompactReportService {
     private final JfkDataService jfkDataService;
     private final JfkPdfRenderer jfkPdfRenderer;
     private final ArchiveService archiveService;
+    private final JfkSignatureValueResolver signatures;
 
     private static final String ARCHIVE_NAME = "nursing_report_compact";
 }

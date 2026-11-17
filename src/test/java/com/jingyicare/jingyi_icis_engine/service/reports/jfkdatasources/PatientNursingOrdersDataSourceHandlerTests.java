@@ -3,6 +3,8 @@ package com.jingyicare.jingyi_icis_engine.service.reports.jfkdatasources;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import java.time.LocalDateTime;
@@ -25,6 +27,7 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.repository.nursingorders.NursingExecutionRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.nursingorders.NursingExecutionRecordRepository.NursingExecutionRecordReportRow;
 import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
+import com.jingyicare.jingyi_icis_engine.service.ca.CaSignatureImageService;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
@@ -65,6 +68,18 @@ public class PatientNursingOrdersDataSourceHandlerTests {
             List.of(SIGNATURE_PNG),
             List.of("李护士")
         );
+
+        verifyNoInteractions(ctx.ca);
+        when(ctx.ca.getPng(101L)).thenReturn(
+            PatientNursingRecordsDataSourceHandlerTests.caPngResult());
+        when(ctx.ca.getPng(102L)).thenReturn(new Pair<>(false, new byte[0]));
+        Pair<ReturnCode, JfkDataSourcePB> compactResult = ctx.signatures.withCompactSignatures(
+            () -> ctx.handler().handle(input()));
+        String caImage = PatientNursingRecordsDataSourceHandlerTests.CA_PNG;
+        assertThat(toOutputMap(compactResult.getSecond()).get("recorded_by"))
+            .containsExactly(List.of(caImage), List.of("李护士"));
+        verify(ctx.ca).getPng(101L);
+        verify(ctx.ca).getPng(102L);
     }
 
     private static JfkDataSourcePB input() {
@@ -201,11 +216,15 @@ public class PatientNursingOrdersDataSourceHandlerTests {
             return new PatientNursingOrdersDataSourceHandler(
                 support,
                 nursingExecutionRecordRepo,
-                accountRepo,
+                signatures,
                 properties,
                 new DefaultResourceLoader()
             );
         }
+
+        private final CaSignatureImageService ca = mock(CaSignatureImageService.class);
+        private final JfkSignatureValueResolver signatures =
+            new JfkSignatureValueResolver(accountRepo, ca);
     }
 
     private static final LocalDateTime MON_START_UTC = LocalDateTime.of(2026, 4, 16, 23, 0);

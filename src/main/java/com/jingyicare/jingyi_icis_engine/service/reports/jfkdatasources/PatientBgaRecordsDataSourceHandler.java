@@ -21,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.BgaParam;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientBgaRecord;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientBgaRecordDetail;
+import com.jingyicare.jingyi_icis_engine.entity.users.Account;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkFieldDataPB;
@@ -32,7 +33,6 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.GenericValuePB;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.BgaParamRepository;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientBgaRecordDetailRepository;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientBgaRecordRepository;
-import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
@@ -56,7 +56,7 @@ public class PatientBgaRecordsDataSourceHandler extends AbstractJfkDataSourceHan
         BgaParamRepository bgaParamRepo,
         MonitoringConfig monitoringConfig,
         ConfigProtoService configProtoService,
-        AccountRepository accountRepo,
+        JfkSignatureValueResolver signatureResolver,
         ReportProperties reportProperties,
         ResourceLoader resourceLoader
     ) {
@@ -66,7 +66,7 @@ public class PatientBgaRecordsDataSourceHandler extends AbstractJfkDataSourceHan
         this.bgaParamRepo = bgaParamRepo;
         this.monitoringConfig = monitoringConfig;
         this.configProtoService = configProtoService;
-        this.accountRepo = accountRepo;
+        this.signatureResolver = signatureResolver;
         this.reportProperties = reportProperties;
         this.resourceLoader = resourceLoader;
     }
@@ -106,15 +106,15 @@ public class PatientBgaRecordsDataSourceHandler extends AbstractJfkDataSourceHan
         Map<Long, List<PatientBgaRecordDetail>> detailsByRecordId = findDetails(records);
         Map<String, MonitoringParamPB> paramMap = monitoringConfig.getMonitoringParams(deptId);
         Map<String, Integer> bgaParamOrder = bgaParamOrder(deptId);
-        JfkSignatureValueResolver signatureResolver = new JfkSignatureValueResolver(
-            accountRepo, bgaSignatureAccountRefs(records), log, "Compact BGA records");
+        Map<Long, Account> accounts = signatureResolver.loadAccounts(
+            bgaSignatureAccountRefs(records));
 
         JfkDataSourcePB.Builder outputBuilder = newOutputBuilder(input);
         BgaRows rows;
         try (PDDocument document = new PDDocument()) {
             PdfFontSet font = records.isEmpty() ? null : loadFont(document);
             rows = buildRows(
-                records, detailsByRecordId, paramMap, bgaParamOrder, signatureResolver,
+                records, detailsByRecordId, paramMap, bgaParamOrder, accounts,
                 colWidths, font, fontSize, charSpacing, hPadding
             );
         } catch (IOException e) {
@@ -135,7 +135,7 @@ public class PatientBgaRecordsDataSourceHandler extends AbstractJfkDataSourceHan
         Map<Long, List<PatientBgaRecordDetail>> detailsByRecordId,
         Map<String, MonitoringParamPB> paramMap,
         Map<String, Integer> bgaParamOrder,
-        JfkSignatureValueResolver signatureResolver,
+        Map<Long, Account> accounts,
         List<Double> colWidths,
         PdfFontSet font,
         double fontSize,
@@ -155,10 +155,10 @@ public class PatientBgaRecordsDataSourceHandler extends AbstractJfkDataSourceHan
                     bgaDetails(record, detailsByRecordId.getOrDefault(record.getId(), List.of()), paramMap, bgaParamOrder),
                     BGA_DETAILS_COL_INDEX, colWidths, font, fontSize, charSpacing, hPadding
                 )),
-                strVal(signatureResolver.signatureOrFallback(
-                    record.getRecordedBy(), safe(record.getRecordedByAccountName()), record.getId())),
-                strVal(signatureResolver.signatureOrFallback(
-                    record.getReviewedBy(), safe(record.getReviewedByAccountName()), record.getId()))
+                strVal(signatureResolver.resolve(record.getRecordedBy(),
+                    record.getRecordedByAccountName(), accounts).displayValue()),
+                strVal(signatureResolver.resolve(record.getReviewedBy(),
+                    record.getReviewedByAccountName(), accounts).displayValue())
             );
         }
         return rows;
@@ -393,7 +393,7 @@ public class PatientBgaRecordsDataSourceHandler extends AbstractJfkDataSourceHan
     private final BgaParamRepository bgaParamRepo;
     private final MonitoringConfig monitoringConfig;
     private final ConfigProtoService configProtoService;
-    private final AccountRepository accountRepo;
+    private final JfkSignatureValueResolver signatureResolver;
     private final ReportProperties reportProperties;
     private final ResourceLoader resourceLoader;
 }
