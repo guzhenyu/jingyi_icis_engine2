@@ -163,20 +163,20 @@ public class CertificateService {
     }
 
     private void validateRbacDepartmentMirror(List<Department> departments) {
-        Map<String, String> idNameMapFromDepartments = userQuery.getAllDeptInfo()
-            .stream().collect(
-                LinkedHashMap::new,
-                (map, dept) -> map.put(dept.getDeptId(), dept.getName()),
-                Map::putAll
-            );
         Map<String, String> idNameMapFromRbac = userQuery.getAllRbacDeptInfo()
             .stream().collect(
                 LinkedHashMap::new,
                 (map, rbacDept) -> map.put(rbacDept.getDeptId(), rbacDept.getDeptName()),
                 Map::putAll
             );
-        if (!idNameMapFromDepartments.equals(idNameMapFromRbac)) {
-            throw new IllegalStateException("RBAC mirror of departments is inconsistent with actual departments");
+        for (Department dept : userQuery.getAllDeptInfo()) {
+            String rbacDeptName = idNameMapFromRbac.getOrDefault(dept.getDeptId(), null);
+            if (!Objects.equals(rbacDeptName, dept.getName())) {
+                throw new IllegalStateException("RBAC mirror of departments is inconsistent with actual departments: "
+                    + "deptId=" + dept.getDeptId()
+                    + ", actualName=" + dept.getName()
+                    + ", rbacName=" + rbacDeptName);
+            }
         }
     }
 
