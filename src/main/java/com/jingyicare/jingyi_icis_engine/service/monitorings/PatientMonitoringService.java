@@ -41,6 +41,7 @@ public class PatientMonitoringService {
         @Autowired ConfigShiftUtils shiftUtils,
         @Autowired UserQuery userQuery,
         @Autowired PatientService patientService,
+        @Autowired PatientReader patientReader,
         @Autowired PatientTubeImpl patientTubeImpl,
         @Autowired MedMonitoringService medMonitoringService,
         @Autowired MonitoringConfig monitoringConfig,
@@ -61,6 +62,7 @@ public class PatientMonitoringService {
         this.shiftUtils = shiftUtils;
         this.userQuery = userQuery;
         this.patientService = patientService;
+        this.patientReader = patientReader;
         this.patientTubeImpl = patientTubeImpl;
         this.medMonitoringService = medMonitoringService;
         this.monitoringConfig = monitoringConfig;
@@ -377,7 +379,7 @@ public class PatientMonitoringService {
                     .build();
         }
         final Long pid = req.getPid();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return AddPatientMonitoringRecordResp.newBuilder()
@@ -603,7 +605,7 @@ public class PatientMonitoringService {
 
         // 获取患者信息
         final Long pid = req.getPid();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return AddPatientMonitoringTimePointsResp.newBuilder()
@@ -939,6 +941,7 @@ public class PatientMonitoringService {
     private final ConfigShiftUtils shiftUtils;
     private final UserQuery userQuery;
     private final PatientService patientService;
+    private final PatientReader patientReader;
     private final PatientTubeImpl patientTubeImpl;
     private final MedMonitoringService medMonitoringService;
     private final MonitoringConfig monitoringConfig;

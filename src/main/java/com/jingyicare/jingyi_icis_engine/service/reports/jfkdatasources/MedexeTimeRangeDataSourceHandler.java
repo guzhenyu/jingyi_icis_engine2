@@ -69,7 +69,7 @@ public class MedexeTimeRangeDataSourceHandler extends AbstractJfkDataSourceHandl
 
     private String resolveDeptId(Long pid, String inputDeptId) {
         if (pid != null && pid > 0) {
-            PatientRecord patient = support.getPatientService().getPatientRecord(pid);
+            PatientRecord patient = support.getPatientReader().findById(pid).orElse(null);
             if (patient != null && !StrUtils.isBlank(patient.getDeptId())) {
                 String patientDeptId = patient.getDeptId();
                 if (!StrUtils.isBlank(inputDeptId) && !inputDeptId.equals(patientDeptId)) {

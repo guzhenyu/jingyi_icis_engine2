@@ -120,7 +120,7 @@ public class PatientServiceTests extends TestsBase {
         assertThat(patient.getBloodType()).isEqualTo("A");
         assertThat(patient.getBloodRh()).isEqualTo("RH+");
 
-        PatientInfoPB selected = response.getPatientInfo().toBuilder()
+        PatientRecordPB selected = response.getPatientInfo().toBuilder()
             .setBloodType(PatientEnums.BLOOD_TYPE_AB)
             .setBloodRh(PatientEnums.BLOOD_RH_NEGATIVE).build();
         saved = patientService.updatePatientInfoV2(ProtoUtils.protoToJson(

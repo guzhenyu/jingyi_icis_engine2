@@ -17,6 +17,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
@@ -50,7 +51,7 @@ import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.BalanceCalculator;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.PatientMonitoringService;
-import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindowResolver;
@@ -247,8 +248,9 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
     @EnumSource(value = StatusCode.class, names = {"PATIENT_NOT_FOUND", "DEPT_NOT_FOUND"})
     public void handlePatientErrorsWithoutFallingBackToRequestDept(StatusCode expected) {
         TestContext ctx = new TestContext();
-        when(ctx.support.getPatientService().getPatientRecord(10001L))
-            .thenReturn(expected == StatusCode.PATIENT_NOT_FOUND ? null : new PatientRecord());
+        when(ctx.support.getPatientReader().findById(10001L))
+            .thenReturn(expected == StatusCode.PATIENT_NOT_FOUND
+                ? Optional.empty() : Optional.of(new PatientRecord()));
         JfkDataSourcePB request = input(List.of("intravenous_intake"));
         for (var result : List.of(ctx.handler().handle(request),
                 new BalanceTimeRangeDataSourceHandler(ctx.support).handle(request))) {
@@ -466,16 +468,16 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
         }
 
         private static JfkDataSourceSupport mockSupport() {
-            PatientService patientService = mock(PatientService.class);
+            PatientReader patientReader = mock(PatientReader.class);
             PatientRecord patient = new PatientRecord();
             patient.setId(10001L);
             patient.setDeptId("patient-dept");
-            when(patientService.getPatientRecord(10001L)).thenReturn(patient);
+            when(patientReader.findById(10001L)).thenReturn(Optional.of(patient));
 
             JfkDataSourceSupport support = mock(JfkDataSourceSupport.class);
             when(support.getStatusMsgList()).thenReturn(Collections.nCopies(400, "status"));
             when(support.getZoneId()).thenReturn("UTC");
-            when(support.getPatientService()).thenReturn(patientService);
+            when(support.getPatientReader()).thenReturn(patientReader);
             doCallRealMethod().when(support).addArrayOutput(any(), any(), any());
             doCallRealMethod().when(support).resolvePatientDayContext(any(), any());
             doCallRealMethod().when(support).resolveStatisticsDayWindow(any(), any());

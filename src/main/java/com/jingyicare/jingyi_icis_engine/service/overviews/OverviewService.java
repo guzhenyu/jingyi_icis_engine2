@@ -42,7 +42,7 @@ public class OverviewService {
         @Autowired ConfigProtoService protoService,
         @Autowired UserQuery userQuery,
         @Autowired MonitoringConfig monitoringConfig,
-        @Autowired PatientService patientService,
+        @Autowired PatientReader patientReader,
         @Autowired LisService lisService,
         @Autowired OverviewTemplateRepository templateRepo,
         @Autowired OverviewGroupRepository groupRepo,
@@ -83,7 +83,7 @@ public class OverviewService {
         this.protoService = protoService;
         this.userQuery = userQuery;
         this.monitoringConfig = monitoringConfig;
-        this.patientService = patientService;
+        this.patientReader = patientReader;
         this.lisService = lisService;
 
         this.templateRepo = templateRepo;
@@ -915,7 +915,7 @@ public class OverviewService {
 
         // 验证患者ID
         Long pid = req.getPid();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return GetOverviewDataResp.newBuilder()
@@ -1133,7 +1133,7 @@ public class OverviewService {
     private final ConfigProtoService protoService;
     private final UserQuery userQuery;
     private final MonitoringConfig monitoringConfig;
-    private final PatientService patientService;
+    private final PatientReader patientReader;
     private final LisService lisService;
 
     private final OverviewTemplateRepository templateRepo;

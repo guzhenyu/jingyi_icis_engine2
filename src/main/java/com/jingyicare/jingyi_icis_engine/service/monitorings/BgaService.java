@@ -39,8 +39,7 @@ public class BgaService {
     public BgaService(
         @Autowired ConfigProtoService protoService,
         @Autowired UserQuery userQuery,
-        @Autowired PatientService patientService,
-        @Autowired PatientDeviceService patientDeviceService,
+        @Autowired PatientReader patientReader,
         @Autowired MonitoringConfig monitoringConfig,
         @Autowired PatientNursingReportInvalidationService pnrUtils,
         @Autowired RbacDepartmentRepository departmentRepo,
@@ -62,8 +61,7 @@ public class BgaService {
             EnumValue::getId, EnumValue::getName, (left, right) -> left, LinkedHashMap::new
         ));
         this.userQuery = userQuery;
-        this.patientService = patientService;
-        this.patientDeviceService = patientDeviceService;
+        this.patientReader = patientReader;
         this.monitoringConfig = monitoringConfig;
         this.pnrUtils = pnrUtils;
         this.departmentRepository = departmentRepo;
@@ -329,7 +327,7 @@ public class BgaService {
         final LocalDateTime nowUtc = TimeUtils.getNowUtc();
 
         // 验证患者ID
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return GetPatientBgaRecordsResp.newBuilder()
@@ -433,7 +431,7 @@ public class BgaService {
 
         // 验证患者ID
         Long pid = req.getRecord().getPid();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return AddPatientBgaRecordResp.newBuilder()
@@ -546,7 +544,7 @@ public class BgaService {
 
         // 验证患者ID
         Long pid = req.getRecord().getPid();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return GenericResp.newBuilder()
@@ -623,7 +621,7 @@ public class BgaService {
         Long recordId = existingRecord.getId();
         final Long pid = existingRecord.getPid();
         final LocalDateTime effectiveTime = existingRecord.getEffectiveTime();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return GenericResp.newBuilder()
@@ -734,7 +732,7 @@ public class BgaService {
         }
 
         // 获取患者记录
-        final PatientRecord patientRecord = patientService.getPatientRecord(record.getPid());
+        final PatientRecord patientRecord = patientReader.findById(record.getPid()).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return new Pair<>(
@@ -1243,18 +1241,17 @@ public class BgaService {
         result.addAll(rawBgaRecordRepository
             .findByMrnBednumAndEffectiveTimeBetween(patient.getHisMrn(), start, end));
 
-        PatientDeviceService.UsageHistory<PatientDeviceService.BedName> bedHistory =
-            patientDeviceService.getBedHistory(patient);
-        for (int i = 0; i < bedHistory.usageRecords.size(); i++) {
-            PatientDeviceService.BedName bedName = bedHistory.usageRecords.get(i).getFirst();
-            if (bedName.switchType == PatientEnums.SWITCH_TYPE_READMISSION_ADMIT) {
+        PatientReader.BedHistory bedHistory = patientReader.findBedHistory(patient);
+        for (int i = 0; i < bedHistory.entries().size(); i++) {
+            PatientReader.BedHistoryEntry bedEntry = bedHistory.entries().get(i);
+            if (Objects.equals(bedEntry.switchType(), PatientEnums.SWITCH_TYPE_READMISSION_ADMIT)) {
                 continue;
             }
-            LocalDateTime bedStart = bedHistory.usageRecords.get(i).getSecond();
-            LocalDateTime bedEnd = (i + 1 < bedHistory.usageRecords.size())
-                ? bedHistory.usageRecords.get(i + 1).getSecond()
-                : (bedHistory.endTime != null ? bedHistory.endTime : TimeUtils.getLocalTime(9999, 1, 1));
-            String bedNumber = bedName.displayBedNumber;
+            LocalDateTime bedStart = bedEntry.startUtc();
+            LocalDateTime bedEnd = (i + 1 < bedHistory.entries().size())
+                ? bedHistory.entries().get(i + 1).startUtc()
+                : (bedHistory.endUtc() != null ? bedHistory.endUtc() : TimeUtils.getMax());
+            String bedNumber = bedEntry.displayBedNumber();
 
             // 床号匹配尾数，前面0可以忽略
             List<RawBgaRecord> bedRecords = rawBgaRecordRepository
@@ -1516,8 +1513,7 @@ public class BgaService {
     private final List<Integer> bgaCategoryIds;
     private final Map<Integer, String> bgaCategoryMap;
     private final UserQuery userQuery;
-    private final PatientService patientService;
-    private final PatientDeviceService patientDeviceService;
+    private final PatientReader patientReader;
     private final MonitoringConfig monitoringConfig;
     private final PatientNursingReportInvalidationService pnrUtils;
     private final RbacDepartmentRepository departmentRepository;

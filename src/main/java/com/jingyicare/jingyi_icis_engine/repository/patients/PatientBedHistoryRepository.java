@@ -12,7 +12,8 @@ public interface PatientBedHistoryRepository extends JpaRepository<PatientBedHis
 
     List<PatientBedHistory> findByPatientId(Long patientId);
 
-    List<PatientBedHistory> findByPatientIdAndSwitchTimeAfter(Long patientId, LocalDateTime admissionTime);
+    List<PatientBedHistory> findByPatientIdAndSwitchTimeAfterOrderBySwitchTimeAscIdAsc(
+        Long patientId, LocalDateTime admissionTime);
 
-    List<PatientBedHistory> findByPatientIdIn(List<Long> patientIds);
+    List<PatientBedHistory> findByPatientIdInOrderBySwitchTimeAscIdAsc(List<Long> patientIds);
 }

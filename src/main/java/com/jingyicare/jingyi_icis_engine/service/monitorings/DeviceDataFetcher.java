@@ -24,7 +24,7 @@ import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
-import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
+import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceBindingReader;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Service
@@ -32,8 +32,8 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class DeviceDataFetcher {
     public DeviceDataFetcher(
         @Autowired ConfigProtoService protoService,
-        @Autowired PatientConfig patientConfig,
-        @Autowired PatientDeviceService patientDevService,
+        @Autowired PatientReader patientReader,
+        @Autowired DeviceBindingReader bindingReader,
         @Autowired PatientRecordRepository patientRepo,
         @Autowired PatientMonitoringRecordRepository monRecRepo,
         @Autowired DeviceDataRepository devDataRepo,
@@ -60,8 +60,8 @@ public class DeviceDataFetcher {
         }
 
         this.protoService = protoService;
-        this.patientConfig = patientConfig;
-        this.patientDevService = patientDevService;
+        this.patientReader = patientReader;
+        this.bindingReader = bindingReader;
         this.patientRepo = patientRepo;
         this.monRecRepo = monRecRepo;
         this.devDataRepo = devDataRepo;
@@ -273,25 +273,24 @@ public class DeviceDataFetcher {
         LocalDateTime approxTo = ctx.to.plusSeconds(approxSeconds);
 
         // 获取床位绑定历史[{bedNum, from, to}]
-        PatientDeviceService.UsageHistory<PatientDeviceService.BedName> bedHistory =
-            patientDevService.getBedHistory(ctx.patientRecord);
-        final int bedHistorySize = bedHistory.usageRecords.size();
+        PatientReader.BedHistory bedHistory = patientReader.findBedHistory(ctx.patientRecord);
+        final int bedHistorySize = bedHistory.entries().size();
         for (int i = 0; i < bedHistorySize; ++i) {
-            Pair<PatientDeviceService.BedName, LocalDateTime> bedTimePair = bedHistory.usageRecords.get(i);
-            final String devBedNum = bedTimePair.getFirst().deviceBedNumber;
+            PatientReader.BedHistoryEntry bedEntry = bedHistory.entries().get(i);
+            final String devBedNum = bedEntry.deviceBedNumber();
 
             // 用from/to对start/end进行裁剪
-            LocalDateTime start = bedTimePair.getSecond();
+            LocalDateTime start = bedEntry.startUtc();
             LocalDateTime approxStart = start;
             if (start.isBefore(ctx.from)) start = ctx.from;
             if (approxStart.isBefore(approxFrom)) approxStart = approxFrom;
 
             LocalDateTime end = (i == bedHistorySize - 1) ?
-                bedHistory.endTime : bedHistory.usageRecords.get(i + 1).getSecond();
+                bedHistory.endUtc() : bedHistory.entries().get(i + 1).startUtc();
             LocalDateTime approxEnd = end;
             if (end == null || end.isAfter(ctx.to)) end = ctx.to;
             if (approxEnd == null || approxEnd.isAfter(approxTo)) approxEnd = approxTo;
-            if (bedTimePair.getFirst().switchType.equals(
+            if (Objects.equals(bedEntry.switchType(),
                 PatientEnums.SWITCH_TYPE_READMISSION_ADMIT)) {
                 continue;  // 跳过[重返-出科， 重返-入科)之间的记录
             }
@@ -300,7 +299,7 @@ public class DeviceDataFetcher {
         }
 
         // 获取设备绑定历史[{deviceId, from, to}]
-        List<DeviceWithBindingsPB> devBindings = patientConfig.getPatientDeviceBindingHistory(
+        List<DeviceWithBindingsPB> devBindings = bindingReader.findBindingHistory(
             ctx.patientRecord, null, ctx.from, ctx.to
         );
         for (DeviceWithBindingsPB devBinding : devBindings) {
@@ -901,8 +900,8 @@ public class DeviceDataFetcher {
     private Map<String, List<String>> aliasCodeMap;
 
     private ConfigProtoService protoService;
-    private PatientConfig patientConfig;
-    private PatientDeviceService patientDevService;
+    private final PatientReader patientReader;
+    private final DeviceBindingReader bindingReader;
     private PatientRecordRepository patientRepo;
     private PatientMonitoringRecordRepository monRecRepo;
     private DeviceDataRepository devDataRepo;

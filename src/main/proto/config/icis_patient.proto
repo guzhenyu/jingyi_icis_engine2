@@ -57,7 +57,7 @@ message DisplayFieldSettingsPB {
     repeated Table table = 3;
 }
 
-message PatientInfoPB {
+message PatientRecordPB {
     int64 pid = 1;
 
     // 入院信息
@@ -140,7 +140,7 @@ message PatientInfoPB {
     string discharge_diagnosis = 70;    // 出科诊断
 }
 
-message Patient {
+message PatientConfigPB {
     PatientEnumsV2 enums_v2 = 1;
     repeated DisplayFieldSettingsPB default_display_field_settings = 2;
     reserved 3 to 6;

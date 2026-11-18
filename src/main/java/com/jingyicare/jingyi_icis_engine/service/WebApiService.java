@@ -28,6 +28,7 @@ import com.jingyicare.jingyi_icis_engine.service.nursingrecords.*;
 import com.jingyicare.jingyi_icis_engine.service.overviews.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.bed.BedMetaService;
+import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceBindingService;
 import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceService;
 import com.jingyicare.jingyi_icis_engine.service.patientshifts.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.*;
@@ -53,7 +54,7 @@ public class WebApiService {
         @Autowired UserService userService,
         @Autowired MenuService menuService,
         @Autowired PatientService patientService,
-        @Autowired PatientDeviceService patientDeviceService,
+        @Autowired DeviceBindingService deviceBindingService,
         @Autowired BedMetaService bedMetaService,
         @Autowired DeviceService deviceService,
         @Autowired PatientDiagnoseService patientDiagnoseService,
@@ -95,7 +96,7 @@ public class WebApiService {
         this.userService = userService;
         this.menuService = menuService;
         this.patientService = patientService;
-        this.patientDeviceService = patientDeviceService;
+        this.deviceBindingService = deviceBindingService;
         this.bedMetaService = bedMetaService;
         this.deviceService = deviceService;
         this.patientDiagnoseService = patientDiagnoseService;
@@ -1361,19 +1362,21 @@ public class WebApiService {
     }
 
     public GetDeviceInfoResp getDeviceInfo(String getDeviceInfoReqJson) {
-        GetDeviceInfoResp resp = patientDeviceService.getDeviceInfo(getDeviceInfoReqJson);
+        GetDeviceInfoResp resp = deviceBindingService.getDeviceInfo(getDeviceInfoReqJson);
         resp = metricService.recordApiMetrics(resp, GetDeviceInfoResp::getRt);
         return resp;
     }
 
     public GetDeviceBindingHistoryResp getDeviceBindingHistory(String getDeviceBindingHistoryReqJson) {
-        GetDeviceBindingHistoryResp resp = patientDeviceService.getDeviceBindingHistory(getDeviceBindingHistoryReqJson);
+        GetDeviceBindingHistoryResp resp = deviceBindingService.getDeviceBindingHistory(
+            getDeviceBindingHistoryReqJson);
         resp = metricService.recordApiMetrics(resp, GetDeviceBindingHistoryResp::getRt);
         return resp;
     }
 
     public GetPatientDeviceBindingHistoryResp getPatientDeviceBindingHistory(String getPatientDeviceBindingHistoryReqJson) {
-        GetPatientDeviceBindingHistoryResp resp = patientDeviceService.getPatientDeviceBindingHistory(getPatientDeviceBindingHistoryReqJson);
+        GetPatientDeviceBindingHistoryResp resp = deviceBindingService.getPatientDeviceBindingHistory(
+            getPatientDeviceBindingHistoryReqJson);
         resp = metricService.recordApiMetrics(resp, GetPatientDeviceBindingHistoryResp::getRt);
         return resp;
     }
@@ -1397,7 +1400,8 @@ public class WebApiService {
     }
 
     public BindPatientDeviceResp bindPatientDevice(String bindPatientDeviceReqJson) {
-        BindPatientDeviceResp resp = patientDeviceService.bindPatientDevice(bindPatientDeviceReqJson);
+        BindPatientDeviceResp resp = deviceBindingService.bindPatientDevice(
+            bindPatientDeviceReqJson);
         resp = metricService.recordApiMetrics(resp, BindPatientDeviceResp::getRt);
         return resp;
     }
@@ -2178,7 +2182,7 @@ public class WebApiService {
     private UserService userService;
     private MenuService menuService;
     private PatientService patientService;
-    private PatientDeviceService patientDeviceService;
+    private DeviceBindingService deviceBindingService;
     private final BedMetaService bedMetaService;
     private DeviceService deviceService;
     private PatientDiagnoseService patientDiagnoseService;

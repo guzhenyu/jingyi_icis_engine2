@@ -40,7 +40,7 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class ScoreService {
     public ScoreService(
         ConfigProtoService protoService, ScoreMetaService scoreMetaService,
-        ScoreCalculator scoreCalculator, UserQuery userQuery, PatientService patientService,
+        ScoreCalculator scoreCalculator, UserQuery userQuery, PatientReader patientReader,
         PatientNursingReportInvalidationService pnrUtils, PatientScoreRepository patientScoreRepo,
         MonitoringParamRepository monitoringParamRepo, PatientMonitoringRecordRepository pmrRepo,
         ScoreReader scoreReader, SnapshotService snapshotService, LockExecutor lockExecutor,
@@ -51,7 +51,7 @@ public class ScoreService {
         this.scoreMetaService = scoreMetaService;
         this.scoreCalculator = scoreCalculator;
         this.userQuery = userQuery;
-        this.patientService = patientService;
+        this.patientReader = patientReader;
         this.pnrUtils = pnrUtils;
         this.patientScoreRepo = patientScoreRepo;
         this.monitoringParamRepo = monitoringParamRepo;
@@ -393,7 +393,7 @@ public class ScoreService {
         }
 
         Long pid = initial.getPid();
-        PatientRecord pr = patientService.getPatientRecord(pid);
+        PatientRecord pr = patientReader.findById(pid).orElse(null);
         if (pr == null) {
             return ReturnCodeUtils.genericResponse(
                 protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND));
@@ -431,7 +431,7 @@ public class ScoreService {
                         return ReturnCodeUtils.genericResponse(
                             protoService.getReturnCode(StatusCode.OK));
                     }
-                    PatientRecord patient = patientService.getPatientRecord(current.getPid());
+                    PatientRecord patient = patientReader.findById(current.getPid()).orElse(null);
                     if (patient == null) {
                         return ReturnCodeUtils.genericResponse(
                             protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND));
@@ -488,7 +488,7 @@ public class ScoreService {
         }
 
         // 验证患者信息
-        final PatientRecord pr = patientService.getPatientRecord(pid);
+        final PatientRecord pr = patientReader.findById(pid).orElse(null);
         if (pr == null) {
             log.error("Patient not found for pid: {}, accountId {}", pid, account.autoAcctId());
             return new Pair<>(StatusCode.PATIENT_NOT_FOUND, null);
@@ -734,7 +734,7 @@ public class ScoreService {
     private final ScoreMetaService scoreMetaService;
     private final ScoreCalculator scoreCalculator;
     private final UserQuery userQuery;
-    private final PatientService patientService;
+    private final PatientReader patientReader;
     private final PatientNursingReportInvalidationService pnrUtils;
     private final PatientScoreRepository patientScoreRepo;
     private final MonitoringParamRepository monitoringParamRepo;

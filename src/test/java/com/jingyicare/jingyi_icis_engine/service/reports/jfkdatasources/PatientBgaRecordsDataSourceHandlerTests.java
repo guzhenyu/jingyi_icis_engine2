@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
@@ -46,7 +47,7 @@ import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.ca.CaSignatureImageService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
-import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindowResolver;
@@ -287,7 +288,7 @@ public class PatientBgaRecordsDataSourceHandlerTests {
 
     private class TestContext {
         private final JfkDataSourceSupport support = mock(JfkDataSourceSupport.class);
-        private final PatientService patientService = mock(PatientService.class);
+        private final PatientReader patientReader = mock(PatientReader.class);
         private final BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
         private final PatientBgaRecordRepository recordRepo = mock(PatientBgaRecordRepository.class);
         private final PatientBgaRecordDetailRepository detailRepo = mock(PatientBgaRecordDetailRepository.class);
@@ -300,11 +301,11 @@ public class PatientBgaRecordsDataSourceHandlerTests {
             PatientRecord patient = new PatientRecord();
             patient.setId(10001L);
             patient.setDeptId("patient-dept");
-            when(patientService.getPatientRecord(10001L)).thenReturn(patient);
+            when(patientReader.findById(10001L)).thenReturn(Optional.of(patient));
 
             when(support.getStatusMsgList()).thenReturn(Collections.nCopies(400, "status"));
             when(support.getZoneId()).thenReturn("Asia/Shanghai");
-            when(support.getPatientService()).thenReturn(patientService);
+            when(support.getPatientReader()).thenReturn(patientReader);
             ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
                 new StatisticsDayWindowResolver(balanceStatsShiftRepo));
             doCallRealMethod().when(support).resolvePatientDayContext(any(), any());

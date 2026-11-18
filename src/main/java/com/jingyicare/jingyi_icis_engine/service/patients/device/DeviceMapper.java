@@ -1,9 +1,14 @@
 package com.jingyicare.jingyi_icis_engine.service.patients.device;
 
+import java.util.Collection;
 import java.util.Objects;
 
 import com.jingyicare.jingyi_icis_engine.entity.patients.DeviceInfo;
+import com.jingyicare.jingyi_icis_engine.entity.patients.PatientDevice;
+import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.DeviceWithBindingsPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceBindingRecordPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DevicePB;
+import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
 public final class DeviceMapper {
     private DeviceMapper() {}
@@ -41,6 +46,30 @@ public final class DeviceMapper {
             .upstreamDeviceId(device.getUpstreamDeviceId())
             .pdsIpSeq(device.getPdsIpSeq())
             .isDeleted(false)
+            .build();
+    }
+
+    public static DeviceBindingRecordPB toDeviceBindingRecordPB(
+        PatientDevice binding, String patientName, String displayBedNumber, String zoneId
+    ) {
+        return DeviceBindingRecordPB.newBuilder()
+            .setId(binding.getId())
+            .setPatientId(binding.getPatientId())
+            .setPatientName(patientName)
+            .setDisplayBedNumber(displayBedNumber)
+            .setDeviceId(binding.getDeviceId())
+            .setBindingTimeIso8601(TimeUtils.toIso8601String(binding.getBindingTime(), zoneId))
+            .setUnbindingTimeIso8601(TimeUtils.toIso8601String(binding.getUnbindingTime(), zoneId))
+            .build();
+    }
+
+    public static DeviceWithBindingsPB toDeviceWithBindingsPB(
+        DeviceInfo device, boolean isBinding, Collection<DeviceBindingRecordPB> bindings
+    ) {
+        return DeviceWithBindingsPB.newBuilder()
+            .setDevice(toDevicePB(device))
+            .setIsBinding(isBinding)
+            .addAllBinding(bindings)
             .build();
     }
 

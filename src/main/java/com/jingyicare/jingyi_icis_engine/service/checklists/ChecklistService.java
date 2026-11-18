@@ -33,7 +33,7 @@ public class ChecklistService {
     public ChecklistService(
         @Autowired ConfigProtoService protoService,
         @Autowired UserQuery userQuery,
-        @Autowired PatientService patientService,
+        @Autowired PatientReader patientReader,
         @Autowired DeptChecklistGroupRepository deptGroupRepo,
         @Autowired DeptChecklistItemRepository deptItemRepo,
         @Autowired PatientChecklistRecordRepository patientRecordRepo,
@@ -46,7 +46,7 @@ public class ChecklistService {
 
         this.protoService = protoService;
         this.userQuery = userQuery;
-        this.patientService = patientService;
+        this.patientReader = patientReader;
 
         this.deptGroupRepo = deptGroupRepo;
         this.deptItemRepo = deptItemRepo;
@@ -592,7 +592,7 @@ public class ChecklistService {
 
         // 提取关键参数
         final Long pid = req.getPid();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return GetPatientChecklistRecordsResp.newBuilder()
@@ -751,7 +751,7 @@ public class ChecklistService {
                 .build();
         }
         final Long pid = recordPb.getPid();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return AddPatientChecklistRecordResp.newBuilder()
@@ -935,7 +935,7 @@ public class ChecklistService {
 
     private final ConfigProtoService protoService;
     private final UserQuery userQuery;
-    private final PatientService patientService;
+    private final PatientReader patientReader;
 
     private final DeptChecklistGroupRepository deptGroupRepo;
     private final DeptChecklistItemRepository deptItemRepo;

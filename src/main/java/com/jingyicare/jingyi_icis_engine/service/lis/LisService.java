@@ -34,7 +34,7 @@ public class LisService {
     public LisService(
         @Autowired ConfigProtoService protoService,
         @Autowired UserQuery userQuery,
-        @Autowired PatientService patientService,
+        @Autowired PatientReader patientReader,
         @Autowired ExternalLisParamRepository externalLisParamRepo,
         @Autowired PatientLisItemRepository patientLisItemRepo,
         @Autowired PatientLisResultRepository patientLisResultRepo,
@@ -43,7 +43,7 @@ public class LisService {
         this.ZONE_ID = protoService.getConfig().getZoneId();
         this.statusCodeMsgList = protoService.getConfig().getText().getStatusCodeMsgList();
         this.protoService = protoService;
-        this.patientService = patientService;
+        this.patientReader = patientReader;
         this.userQuery = userQuery;
 
         this.externalLisParamRepo = externalLisParamRepo;
@@ -305,7 +305,7 @@ public class LisService {
         }
 
         // 获取患者信息
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return GetPatientLisResultsResp.newBuilder()
@@ -728,7 +728,7 @@ public class LisService {
     private final String ZONE_ID;
     private final List<String> statusCodeMsgList;
     private final ConfigProtoService protoService;
-    private final PatientService patientService;
+    private final PatientReader patientReader;
     private final UserQuery userQuery;
 
     private final ExternalLisParamRepository externalLisParamRepo;

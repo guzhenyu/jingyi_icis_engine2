@@ -42,6 +42,7 @@ public class MonitoringService {
         @Autowired ConfigProtoService protoService,
         @Autowired UserQuery userQuery,
         @Autowired PatientService patientService,
+        @Autowired PatientReader patientReader,
         @Autowired PatientTubeImpl patientTubeImpl,
         @Autowired MonitoringConfig monitoringConfig,
         @Autowired MonitoringParamRepository monitoringParamRepository,
@@ -62,6 +63,7 @@ public class MonitoringService {
 
         this.userQuery = userQuery;
         this.patientService = patientService;
+        this.patientReader = patientReader;
         this.patientTubeImpl = patientTubeImpl;
         this.monitoringConfig = monitoringConfig;
 
@@ -1033,7 +1035,7 @@ public class MonitoringService {
         LocalDateTime queryEndUtc = TimeUtils.fromIso8601String(req.getQueryEndIso8601(), "UTC");
 
         // 获取当前患者信息
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return GetPatientMonitoringGroupsResp.newBuilder()
@@ -1287,6 +1289,7 @@ public class MonitoringService {
     private final MonitoringPB monitoringPb;
     private final UserQuery userQuery;
     private final PatientService patientService;
+    private final PatientReader patientReader;
     private final PatientTubeImpl patientTubeImpl;
 
     private final MonitoringConfig monitoringConfig;

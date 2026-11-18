@@ -33,7 +33,7 @@ import com.jingyicare.jingyi_icis_engine.repository.patients.SurgeryHistoryRepos
 import com.jingyicare.jingyi_icis_engine.repository.patientshifts.PatientShiftRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
-import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
@@ -45,7 +45,7 @@ public class PatientInfoExtendedDataSourceHandlerTests {
         PatientInfoExtendedDataSourceHandler handler = ctx.handler();
 
         PatientRecord patient = patient();
-        when(ctx.patientService.getPatientRecord(10001L)).thenReturn(patient);
+        when(ctx.patientReader.findById(10001L)).thenReturn(Optional.of(patient));
         when(ctx.deptRepo.findByDeptId("patient-dept"))
             .thenReturn(Optional.of(new RbacDepartment("patient-dept", "重症医学科")));
 
@@ -114,7 +114,7 @@ public class PatientInfoExtendedDataSourceHandlerTests {
         PatientInfoExtendedDataSourceHandler handler = ctx.handler();
 
         PatientRecord patient = patient();
-        when(ctx.patientService.getPatientRecord(10001L)).thenReturn(patient);
+        when(ctx.patientReader.findById(10001L)).thenReturn(Optional.of(patient));
         when(ctx.deptRepo.findByDeptId("patient-dept"))
             .thenReturn(Optional.of(new RbacDepartment("patient-dept", "重症医学科")));
         when(ctx.balanceStatsShiftRepo
@@ -142,7 +142,7 @@ public class PatientInfoExtendedDataSourceHandlerTests {
 
         PatientRecord patient = patient();
         patient.setIllnessSeverityLevel("99");
-        when(ctx.patientService.getPatientRecord(10001L)).thenReturn(patient);
+        when(ctx.patientReader.findById(10001L)).thenReturn(Optional.of(patient));
         when(ctx.deptRepo.findByDeptId("patient-dept"))
             .thenReturn(Optional.of(new RbacDepartment("patient-dept", "重症医学科")));
         when(ctx.balanceStatsShiftRepo
@@ -186,7 +186,7 @@ public class PatientInfoExtendedDataSourceHandlerTests {
 
         PatientRecord patient = patient();
         patient.setDeptId(null);
-        when(ctx.patientService.getPatientRecord(10001L)).thenReturn(patient);
+        when(ctx.patientReader.findById(10001L)).thenReturn(Optional.of(patient));
         var missingDept = ctx.support.resolvePatientDayContext(10001L, queryStart);
         assertThat(missingDept.getFirst().getCode()).isEqualTo(StatusCode.DEPT_NOT_FOUND.ordinal());
         assertThat(missingDept.getSecond()).isNull();
@@ -266,7 +266,7 @@ public class PatientInfoExtendedDataSourceHandlerTests {
 
     private class TestContext {
         private final JfkDataSourceSupport support = mock(JfkDataSourceSupport.class);
-        private final PatientService patientService = mock(PatientService.class);
+        private final PatientReader patientReader = mock(PatientReader.class);
         private final RbacDepartmentRepository deptRepo = mock(RbacDepartmentRepository.class);
         private final BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
         private final SurgeryHistoryRepository surgeryHistoryRepo = mock(SurgeryHistoryRepository.class);
@@ -274,7 +274,7 @@ public class PatientInfoExtendedDataSourceHandlerTests {
         private TestContext() {
             when(support.getStatusMsgList()).thenReturn(Collections.nCopies(400, "status"));
             when(support.getZoneId()).thenReturn("Asia/Shanghai");
-            when(support.getPatientService()).thenReturn(patientService);
+            when(support.getPatientReader()).thenReturn(patientReader);
             ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
                 new StatisticsDayWindowResolver(balanceStatsShiftRepo));
             doCallRealMethod().when(support).resolvePatientDayContext(any(), any());

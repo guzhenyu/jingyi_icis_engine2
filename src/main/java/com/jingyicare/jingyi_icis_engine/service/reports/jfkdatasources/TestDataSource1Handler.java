@@ -45,7 +45,7 @@ public class TestDataSource1Handler extends AbstractJfkDataSourceHandler {
         log.info("### Test Data Source 1: pid={}, queryStartUtc={}, queryEndUtc={}",
             pid, queryStartUtc, queryEndUtc);
 
-        PatientRecord patient = support.getPatientService().getPatientRecord(pid);
+        PatientRecord patient = support.getPatientReader().findById(pid).orElse(null);
         if (patient == null) {
             return error(StatusCode.PATIENT_NOT_FOUND, "pid: " + pid);
         }

@@ -25,6 +25,7 @@ import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.debug.DeviceDebugger;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.bed.BedMetaService;
+import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceBindingService;
 import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceService;
 import com.jingyicare.jingyi_icis_engine.testutils.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -33,6 +34,7 @@ public class PatientDeviceServiceTests extends TestsBase {
     public PatientDeviceServiceTests(
         @Autowired PatientService patientService,
         @Autowired PatientDeviceService patientDeviceService,
+        @Autowired DeviceBindingService deviceBindingService,
         @Autowired DeviceService deviceService,
         @Autowired PatientConfig patientConfig,
         @Autowired BedMetaService bedMetaService,
@@ -49,6 +51,7 @@ public class PatientDeviceServiceTests extends TestsBase {
 
         this.patientService = patientService;
         this.patientDeviceService = patientDeviceService;
+        this.deviceBindingService = deviceBindingService;
         this.deviceService = deviceService;
         this.patientConfig = patientConfig;
         this.bedMetaService = bedMetaService;
@@ -309,7 +312,7 @@ public class PatientDeviceServiceTests extends TestsBase {
             .setBindingTimeIso8601(TimeUtils.toIso8601String(TimeUtils.getLocalTime(2025, 3, 10), "UTC"))
             .build();
         String bindDevReqJson = ProtoUtils.protoToJson(bindDevReq);
-        BindPatientDeviceResp bindDevResp = patientDeviceService.bindPatientDevice(bindDevReqJson);
+        BindPatientDeviceResp bindDevResp = deviceBindingService.bindPatientDevice(bindDevReqJson);
         assertThat(bindDevResp.getRt().getCode()).isEqualTo(0);
 
         // 绑定病人设备 - 病人已绑定过该类型设备
@@ -318,13 +321,13 @@ public class PatientDeviceServiceTests extends TestsBase {
             .setBindingTimeIso8601(TimeUtils.toIso8601String(TimeUtils.getLocalTime(2025, 3, 11), "UTC"))
             .build();
         bindDevReqJson = ProtoUtils.protoToJson(bindDevReq);
-        bindDevResp = patientDeviceService.bindPatientDevice(bindDevReqJson);
+        bindDevResp = deviceBindingService.bindPatientDevice(bindDevReqJson);
         assertThat(bindDevResp.getRt().getCode()).isEqualTo(StatusCode.PATIENT_ALREADY_BINDED_TO_SAME_TYPE_DEVICE.ordinal());
 
         // 查询设备信息 - 按部门查
         GetDeviceInfoReq getDevReq = GetDeviceInfoReq.newBuilder().setDeptId(devDeptId1).build();
         String getDevReqJson = ProtoUtils.protoToJson(getDevReq);
-        GetDeviceInfoResp getDevResp = patientDeviceService.getDeviceInfo(getDevReqJson);
+        GetDeviceInfoResp getDevResp = deviceBindingService.getDeviceInfo(getDevReqJson);
         assertThat(getDevResp.getRt().getCode()).isEqualTo(0);
         Map<String/*devName*/, Boolean/*isBinding*/> deviceNames = new HashMap<>();
         for (DeviceWithBindingsPB inlineDev : getDevResp.getInlineDevList()) {
@@ -337,7 +340,7 @@ public class PatientDeviceServiceTests extends TestsBase {
 
         getDevReq = getDevReq.toBuilder().setDeptId(devDeptId2).build();
         getDevReqJson = ProtoUtils.protoToJson(getDevReq);
-        getDevResp = patientDeviceService.getDeviceInfo(getDevReqJson);
+        getDevResp = deviceBindingService.getDeviceInfo(getDevReqJson);
         assertThat(getDevResp.getRt().getCode()).isEqualTo(0);
         assertThat(getDevResp.getInlineDevList()).hasSize(1);
         // 验证删
@@ -347,7 +350,7 @@ public class PatientDeviceServiceTests extends TestsBase {
         getDevReq = GetDeviceInfoReq.newBuilder()
             .setDeptId(devDeptId1).setDeviceType(DEVICE_TYPE_MONITOR).build();
         getDevReqJson = ProtoUtils.protoToJson(getDevReq);
-        getDevResp = patientDeviceService.getDeviceInfo(getDevReqJson);
+        getDevResp = deviceBindingService.getDeviceInfo(getDevReqJson);
         assertThat(getDevResp.getRt().getCode()).isEqualTo(0);
         deviceNames.clear();
         for (DeviceWithBindingsPB inlineDev : getDevResp.getInlineDevList()) {
@@ -361,7 +364,7 @@ public class PatientDeviceServiceTests extends TestsBase {
         // 查询设备信息 - 按床号查
         getDevReq = GetDeviceInfoReq.newBuilder().setDeviceBedNum("devBedNumber1401").build();
         getDevReqJson = ProtoUtils.protoToJson(getDevReq);
-        getDevResp = patientDeviceService.getDeviceInfo(getDevReqJson);
+        getDevResp = deviceBindingService.getDeviceInfo(getDevReqJson);
         assertThat(getDevResp.getRt().getCode()).isEqualTo(0);
         assertThat(getDevResp.getInlineDevList()).hasSize(1);
         assertThat(getDevResp.getInlineDevList().get(0).getDevice().getDeviceName()).isEqualTo("device-name-102-updated");
@@ -391,7 +394,7 @@ public class PatientDeviceServiceTests extends TestsBase {
             assertThat(deviceService.updateDeviceInfo(ProtoUtils.protoToJson(update))
                 .getRt().getCode()).isEqualTo(StatusCode.DEVICE_INFO_NOT_EXISTS_VALUE);
             GetDeviceInfoReq search = GetDeviceInfoReq.newBuilder().setDeviceId(deviceId).build();
-            GetDeviceInfoResp results = patientDeviceService.getDeviceInfo(
+            GetDeviceInfoResp results = deviceBindingService.getDeviceInfo(
                 ProtoUtils.protoToJson(search));
             assertThat(results.getRt().getCode()).isEqualTo(StatusCode.OK_VALUE);
             assertThat(results.getInlineDevList()).isEmpty();
@@ -399,25 +402,25 @@ public class PatientDeviceServiceTests extends TestsBase {
             BindPatientDeviceReq bind = BindPatientDeviceReq.newBuilder()
                 .setPid(patient.getId()).setDeviceId(deviceId)
                 .setBindingTimeIso8601("2025-03-09T09:00+08:00").build();
-            assertThat(patientDeviceService.bindPatientDevice(ProtoUtils.protoToJson(bind))
+            assertThat(deviceBindingService.bindPatientDevice(ProtoUtils.protoToJson(bind))
                 .getRt().getCode()).isEqualTo(StatusCode.DEVICE_INFO_NOT_EXISTS_VALUE);
 
             // 模拟老数据中软删除设备仍有一条未结束的绑定。
             PatientDevice legacy = patientDeviceRepo.save(DeviceTestUtils.newPatientDevice(
                 patient.getId(), deviceId, TimeUtils.getLocalTime(2025, 3, 9, 1, 0), null));
-            assertThat(patientConfig.getCurrentBindedDevices(patient.getId(), DEVICE_TYPE_MONITOR))
-                .isEmpty();
+            assertThat(deviceBindingService.getDeviceInfo(ProtoUtils.protoToJson(search))
+                .getInlineDevList()).isEmpty();
             String unbindingTime = "2025-03-09T10:00+08:00";
             BindPatientDeviceReq unbind = bind.toBuilder().clearBindingTimeIso8601()
                 .setUnbindingTimeIso8601(unbindingTime).build();
-            assertThat(patientDeviceService.bindPatientDevice(ProtoUtils.protoToJson(unbind))
+            assertThat(deviceBindingService.bindPatientDevice(ProtoUtils.protoToJson(unbind))
                 .getRt().getCode()).isEqualTo(StatusCode.OK_VALUE);
-            assertThat(patientConfig.getDeviceLatestUnbindedTime(patient.getId(),
-                DEVICE_TYPE_MONITOR)).isEqualTo(TimeUtils.fromIso8601String(unbindingTime, "UTC"));
+            assertThat(patientDeviceRepo.findById(legacy.getId()).orElseThrow()
+                .getUnbindingTime()).isEqualTo(TimeUtils.fromIso8601String(unbindingTime, "UTC"));
 
             GetPatientDeviceBindingHistoryReq historyReq =
                 GetPatientDeviceBindingHistoryReq.newBuilder().setPid(patient.getId()).build();
-            GetPatientDeviceBindingHistoryResp history = patientDeviceService
+            GetPatientDeviceBindingHistoryResp history = deviceBindingService
                 .getPatientDeviceBindingHistory(ProtoUtils.protoToJson(historyReq));
             assertThat(history.getRt().getCode()).isEqualTo(StatusCode.OK_VALUE);
             assertThat(history.getBindingList()).singleElement().satisfies(entry -> {
@@ -474,7 +477,7 @@ public class PatientDeviceServiceTests extends TestsBase {
             .setBindingTimeIso8601(TimeUtils.toIso8601String(TimeUtils.getLocalTime(2025, 3, 9, 1, 0), "UTC"))
             .build();
         String bindDevReqJson = ProtoUtils.protoToJson(bindDevReq);
-        BindPatientDeviceResp bindDevResp = patientDeviceService.bindPatientDevice(bindDevReqJson);
+        BindPatientDeviceResp bindDevResp = deviceBindingService.bindPatientDevice(bindDevReqJson);
         assertThat(bindDevResp.getRt().getCode()).isEqualTo(0);
 
         bindDevReq = BindPatientDeviceReq.newBuilder()
@@ -483,7 +486,7 @@ public class PatientDeviceServiceTests extends TestsBase {
             .setUnbindingTimeIso8601(TimeUtils.toIso8601String(TimeUtils.getLocalTime(2025, 3, 9, 2, 0), "UTC"))
             .build();
         bindDevReqJson = ProtoUtils.protoToJson(bindDevReq);
-        bindDevResp = patientDeviceService.bindPatientDevice(bindDevReqJson);
+        bindDevResp = deviceBindingService.bindPatientDevice(bindDevReqJson);
         assertThat(bindDevResp.getRt().getCode()).isEqualTo(0);
 
         bindDevReq = BindPatientDeviceReq.newBuilder()
@@ -492,7 +495,7 @@ public class PatientDeviceServiceTests extends TestsBase {
             .setBindingTimeIso8601(TimeUtils.toIso8601String(TimeUtils.getLocalTime(2025, 3, 9, 3, 0), "UTC"))
             .build();
         bindDevReqJson = ProtoUtils.protoToJson(bindDevReq);
-        bindDevResp = patientDeviceService.bindPatientDevice(bindDevReqJson);
+        bindDevResp = deviceBindingService.bindPatientDevice(bindDevReqJson);
         assertThat(bindDevResp.getRt().getCode()).isEqualTo(0);
 
         bindDevReq = BindPatientDeviceReq.newBuilder()
@@ -501,7 +504,7 @@ public class PatientDeviceServiceTests extends TestsBase {
             .setBindingTimeIso8601(TimeUtils.toIso8601String(TimeUtils.getLocalTime(2025, 3, 9, 4, 0), "UTC"))
             .build();
         bindDevReqJson = ProtoUtils.protoToJson(bindDevReq);
-        bindDevResp = patientDeviceService.bindPatientDevice(bindDevReqJson);
+        bindDevResp = deviceBindingService.bindPatientDevice(bindDevReqJson);
         assertThat(bindDevResp.getRt().getCode()).isEqualTo(0);
 
         // 病人1绑定设备202，2025-03-09 11:00
@@ -512,7 +515,7 @@ public class PatientDeviceServiceTests extends TestsBase {
             .setUnbindingTimeIso8601("")
             .build();
         bindDevReqJson = ProtoUtils.protoToJson(bindDevReq);
-        bindDevResp = patientDeviceService.bindPatientDevice(bindDevReqJson);
+        bindDevResp = deviceBindingService.bindPatientDevice(bindDevReqJson);
         assertThat(bindDevResp.getRt().getCode()).isEqualTo(0);
 
         // 查询设备的绑定历史
@@ -520,7 +523,7 @@ public class PatientDeviceServiceTests extends TestsBase {
             .setDeviceId(devIds.get(0))
             .build();
         String getDevReqJson = ProtoUtils.protoToJson(getDevReq);
-        GetDeviceBindingHistoryResp getDevResp = patientDeviceService.getDeviceBindingHistory(getDevReqJson);
+        GetDeviceBindingHistoryResp getDevResp = deviceBindingService.getDeviceBindingHistory(getDevReqJson);
         assertThat(getDevResp.getRt().getCode()).isEqualTo(0);
         assertThat(getDevResp.getBindingList()).hasSize(3);
         assertThat(getDevResp.getBindingList().get(0).getPatientId()).isEqualTo(patient1.getId());
@@ -538,7 +541,7 @@ public class PatientDeviceServiceTests extends TestsBase {
             .setPid(patient1.getId())
             .build();
         String getPatReqJson = ProtoUtils.protoToJson(getPatReq);
-        GetPatientDeviceBindingHistoryResp getPatResp = patientDeviceService.getPatientDeviceBindingHistory(getPatReqJson);
+        GetPatientDeviceBindingHistoryResp getPatResp = deviceBindingService.getPatientDeviceBindingHistory(getPatReqJson);
         assertThat(getPatResp.getRt().getCode()).isEqualTo(0);
         assertThat(getPatResp.getBindingList()).hasSize(2);
         assertThat(getPatResp.getBindingList().get(0).getDevice().getDeviceName()).isEqualTo("device-name-201");
@@ -567,7 +570,7 @@ public class PatientDeviceServiceTests extends TestsBase {
                 .setPid(patient2.getId()).setDeviceId(devIds.get(0))
                 .setBindingTimeIso8601("2025-03-09T13:00+08:00").build();
             BindPatientDeviceResp rejected =
-                patientDeviceService.bindPatientDevice(ProtoUtils.protoToJson(transfer));
+                deviceBindingService.bindPatientDevice(ProtoUtils.protoToJson(transfer));
             assertThat(rejected.getRt().getCode())
                 .isEqualTo(StatusCode.PATIENT_ALREADY_BINDED_TO_SAME_TYPE_DEVICE_VALUE);
             assertThat(patientDeviceRepo.findByDeviceIdAndUnbindingTimeIsNullAndIsDeletedFalse(
@@ -582,39 +585,53 @@ public class PatientDeviceServiceTests extends TestsBase {
 
     @Test
     @Transactional
-    public void getDeviceInfoReturnsExplicitErrorWhenInIcuAndPendingAdmissionPatientsShareBed() {
-        String conflictDeptId = "shared-bed-conflict-dept";
-        String conflictHisBedNumber = "shared-bed-conflict";
-
+    public void bindingQueriesAllowPatientsSharingABed(
+        @Autowired DeviceInfoRepository deviceRepo
+    ) {
+        String sharedDeptId = "shared-bed-query-dept";
+        String sharedHisBedNumber = "shared-bed";
         PatientRecord inIcuPatient = PatientTestUtils.newPatientRecord(
-            990001L, ADMISSION_STATUS_ADMITTED, conflictDeptId);
-        inIcuPatient.setHisBedNumber(conflictHisBedNumber);
+            990001L, ADMISSION_STATUS_ADMITTED, sharedDeptId);
+        inIcuPatient.setHisBedNumber(sharedHisBedNumber);
         inIcuPatient = patientRecordRepo.save(inIcuPatient);
+        PatientRecord pendingPatient = PatientTestUtils.newPatientRecord(
+            990002L, ADMISSION_STATUS_PRE_ADMISSION, sharedDeptId);
+        pendingPatient.setHisBedNumber(sharedHisBedNumber);
+        pendingPatient = patientRecordRepo.save(pendingPatient);
 
-        PatientRecord pendingAdmissionPatient = PatientTestUtils.newPatientRecord(
-            990002L, ADMISSION_STATUS_PRE_ADMISSION, conflictDeptId);
-        pendingAdmissionPatient.setHisBedNumber(conflictHisBedNumber);
-        pendingAdmissionPatient = patientRecordRepo.save(pendingAdmissionPatient);
+        DeviceInfo firstDevice = deviceRepo.save(DeviceTestUtils.newDeviceInfo(
+            sharedDeptId, "", DEVICE_TYPE_MONITOR, "共床患者设备甲"));
+        DeviceInfo secondDevice = deviceRepo.save(DeviceTestUtils.newDeviceInfo(
+            sharedDeptId, "", DEVICE_TYPE_MONITOR, "共床患者设备乙"));
+        patientDeviceRepo.save(DeviceTestUtils.newPatientDevice(
+            pendingPatient.getId(), firstDevice.getId(),
+            TimeUtils.getLocalTime(2025, 3, 9, 0, 0),
+            TimeUtils.getLocalTime(2025, 3, 9, 1, 0)));
+        patientDeviceRepo.save(DeviceTestUtils.newPatientDevice(
+            inIcuPatient.getId(), firstDevice.getId(),
+            TimeUtils.getLocalTime(2025, 3, 9, 1, 0), null));
+        patientDeviceRepo.save(DeviceTestUtils.newPatientDevice(
+            pendingPatient.getId(), secondDevice.getId(),
+            TimeUtils.getLocalTime(2025, 3, 9, 1, 0), null));
 
-        patientDeviceRepo.save(PatientDevice.builder()
-            .patientId(inIcuPatient.getId())
-            .deviceId(990001)
-            .bindingTime(TimeUtils.getNowUtc())
-            .isDeleted(false)
-            .build());
-        patientDeviceRepo.save(PatientDevice.builder()
-            .patientId(pendingAdmissionPatient.getId())
-            .deviceId(990002)
-            .bindingTime(TimeUtils.getNowUtc())
-            .isDeleted(false)
-            .build());
-
-        GetDeviceInfoResp response = patientDeviceService.getDeviceInfo("{}");
-
-        assertThat(response.getRt().getCode()).isEqualTo(
-            StatusCode.IN_ICU_AND_PENDING_ADMISSION_PATIENTS_SHARE_BED_VALUE);
-        assertThat(response.getRt().getMsg()).isEqualTo(
-            "在科患者和待入科患者使用了同一床位");
+        GetDeviceInfoReq deviceQuery = GetDeviceInfoReq.newBuilder()
+            .setDeptId(sharedDeptId).build();
+        GetDeviceInfoResp devices = deviceBindingService.getDeviceInfo(
+            ProtoUtils.protoToJson(deviceQuery));
+        assertThat(devices.getRt().getCode()).isEqualTo(StatusCode.OK_VALUE);
+        assertThat(devices.getInlineDevList()).hasSize(2).allSatisfy(device -> {
+            assertThat(device.getIsBinding()).isTrue();
+            assertThat(device.getBindingList()).singleElement().satisfies(binding ->
+                assertThat(binding.getDisplayBedNumber()).isEqualTo(sharedHisBedNumber));
+        });
+        GetDeviceBindingHistoryReq historyQuery = GetDeviceBindingHistoryReq.newBuilder()
+            .setDeviceId(firstDevice.getId()).build();
+        GetDeviceBindingHistoryResp history = deviceBindingService.getDeviceBindingHistory(
+            ProtoUtils.protoToJson(historyQuery));
+        assertThat(history.getRt().getCode()).isEqualTo(StatusCode.OK_VALUE);
+        assertThat(history.getIsBinding()).isTrue();
+        assertThat(history.getBindingList()).extracting(DeviceBindingRecordPB::getPatientId)
+            .containsExactly(pendingPatient.getId(), inIcuPatient.getId());
     }
 
     @Test
@@ -719,6 +736,7 @@ public class PatientDeviceServiceTests extends TestsBase {
 
     private final PatientService patientService;
     private final PatientDeviceService patientDeviceService;
+    private final DeviceBindingService deviceBindingService;
     private final DeviceService deviceService;
     private final PatientConfig patientConfig;
     private final BedMetaService bedMetaService;

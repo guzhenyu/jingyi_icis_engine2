@@ -10,7 +10,7 @@ import com.google.protobuf.CodedOutputStream;
 import com.jingyicare.jingyi_icis_databridge.grpc.HisPatientPB;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.DiagnosisHistoryPB;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.PatientInfoPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.PatientRecordPB;
 
 class PatientProtoCompatibilityTests {
     @Test
@@ -22,12 +22,12 @@ class PatientProtoCompatibilityTests {
         assertFieldNumber(HisPatientPB.getDescriptor(), "from_dept_id", 57);
         assertThat(HisPatientPB.getDescriptor().findFieldByName("discharged_type")).isNull();
 
-        assertFieldNumber(PatientInfoPB.getDescriptor(), "from_dept_name", 60);
-        assertFieldNumber(PatientInfoPB.getDescriptor(), "discharge_type", 65);
-        assertFieldNumber(PatientInfoPB.getDescriptor(), "death_time_iso8601", 66);
-        assertFieldNumber(PatientInfoPB.getDescriptor(), "his_discharge_time_iso8601", 67);
-        assertFieldNumber(PatientInfoPB.getDescriptor(), "to_dept_name", 68);
-        assertFieldNumber(PatientInfoPB.getDescriptor(), "discharge_diagnosis", 70);
+        assertFieldNumber(PatientRecordPB.getDescriptor(), "from_dept_name", 60);
+        assertFieldNumber(PatientRecordPB.getDescriptor(), "discharge_type", 65);
+        assertFieldNumber(PatientRecordPB.getDescriptor(), "death_time_iso8601", 66);
+        assertFieldNumber(PatientRecordPB.getDescriptor(), "his_discharge_time_iso8601", 67);
+        assertFieldNumber(PatientRecordPB.getDescriptor(), "to_dept_name", 68);
+        assertFieldNumber(PatientRecordPB.getDescriptor(), "discharge_diagnosis", 70);
 
         assertThat(StatusCode.INVALID_DISCHARGE_TYPE.getNumber()).isEqualTo(203);
     }
@@ -49,8 +49,8 @@ class PatientProtoCompatibilityTests {
         assertThat(HisPatientPB.getDescriptor().findFieldByName("diagnosis_tcm_time_iso8601")).isNull();
         assertThat(HisPatientPB.getDescriptor().findFieldByName("diagnosis_tcm_code")).isNull();
         assertThat(HisPatientPB.getDescriptor().findFieldByName("diagnosis_tcm")).isNull();
-        assertThat(PatientInfoPB.getDescriptor().findFieldByName("diagnosis_tcm")).isNull();
-        assertThat(PatientInfoPB.getDescriptor().findFieldByName("diagnosis_type")).isNull();
+        assertThat(PatientRecordPB.getDescriptor().findFieldByName("diagnosis_tcm")).isNull();
+        assertThat(PatientRecordPB.getDescriptor().findFieldByName("diagnosis_type")).isNull();
         assertThat(DiagnosisHistoryPB.getDescriptor().findFieldByName("diagnosis_tcm")).isNull();
         assertThat(DiagnosisHistoryPB.getDescriptor().findFieldByName("diagnosis_tcm_code")).isNull();
 
@@ -59,7 +59,7 @@ class PatientProtoCompatibilityTests {
             47, 48, 49
         );
         assertUnknownStringFields(
-            PatientInfoPB.parseFrom(stringFields(57, 58)),
+            PatientRecordPB.parseFrom(stringFields(57, 58)),
             57, 58
         );
         assertUnknownStringFields(

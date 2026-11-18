@@ -60,7 +60,7 @@ import com.jingyicare.jingyi_icis_engine.service.medications.MedReportUtils;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.BalanceCalculator;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.PatientMonitoringService;
-import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.*;
 import com.jingyicare.jingyi_icis_engine.service.settings.SettingService;
 import com.jingyicare.jingyi_icis_engine.service.shifts.ConfigShiftUtils;
@@ -93,11 +93,11 @@ class NursingRecordServiceLockTests extends TestsBase {
         UserQuery users = mock(UserQuery.class);
         when(users.getCurrentAccount())
             .thenReturn(new CurrentAccount("rbac-" + ACCOUNT, ACCOUNT, ACCOUNT_NAME));
-        PatientService patients = mock(PatientService.class);
+        PatientReader patients = mock(PatientReader.class);
         PatientRecord patient = new PatientRecord();
         patient.setId(PID);
         patient.setDeptId(DEPT_ID);
-        when(patients.getPatientRecord(PID)).thenReturn(patient);
+        when(patients.findById(PID)).thenReturn(Optional.of(patient));
         patientRepo = mock(PatientRecordRepository.class);
         when(patientRepo.findById(PID)).thenReturn(Optional.of(patient));
         settings = mock(SettingService.class);

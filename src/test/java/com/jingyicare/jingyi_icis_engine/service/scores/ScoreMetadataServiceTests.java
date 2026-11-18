@@ -49,7 +49,7 @@ import com.jingyicare.jingyi_icis_engine.repository.scores.PatientScoreRepositor
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
-import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.*;
 import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
 import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindowResolver;
@@ -104,7 +104,7 @@ class ScoreMetadataServiceTests extends TestsBase {
         MonitoringParamRepository params = mock(MonitoringParamRepository.class);
         when(params.findByCode(PARAM)).thenReturn(java.util.Optional.of(
             MonitoringParam.builder().code(PARAM).uiModalCode("gcs_modal").build()));
-        checkedPatients = mock(PatientService.class, delegatesTo(patients));
+        checkedPatients = mock(PatientReader.class, delegatesTo(patients));
         return new ScoreService(config, metadata, calculator, users, checkedPatients, invalidation,
             scores, params, monitoring, reader, snapshots, executor, scoreJdbc);
     }
@@ -273,10 +273,10 @@ class ScoreMetadataServiceTests extends TestsBase {
         }
         doAnswer(invocation -> {
             assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isFalse();
-            return patients.getPatientRecord(invocation.getArgument(0));
-        }).when(checkedPatients).getPatientRecord(PID);
+            return patients.findById(invocation.getArgument(0));
+        }).when(checkedPatients).findById(PID);
         assertThat(write(mode, record)).isEqualTo(StatusCode.OK_VALUE);
-        verify(checkedPatients, times(1)).getPatientRecord(PID);
+        verify(checkedPatients, times(1)).findById(PID);
     }
 
     @ParameterizedTest
@@ -844,7 +844,7 @@ class ScoreMetadataServiceTests extends TestsBase {
             assertThat(update.get(15, TimeUnit.SECONDS)).isEqualTo(StatusCode.OK_VALUE);
             assertThat(active(TIME).getNote()).isEqualTo("列备注");
             assertThat(linked(TIME).getNote()).isEqualTo("列备注");
-            verify(checkedPatients, times(1)).getPatientRecord(PID);
+            verify(checkedPatients, times(1)).findById(PID);
         } finally {
             release.countDown();
             pool.shutdownNow();
@@ -948,7 +948,7 @@ class ScoreMetadataServiceTests extends TestsBase {
             assertThat(linked.getParamValueStr()).isEqualTo(stored.getScoreStr());
             assertThat(linked.getModifiedAt()).isEqualTo(stored.getModifiedAt());
             assertThat(linked.getDeptId()).isEqualTo(targetDept);
-            verify(checkedPatients, times(1)).getPatientRecord(PID);
+            verify(checkedPatients, times(1)).findById(PID);
             verify(calculator, times(1)).validateScoreGroup(any(), any());
             verify(calculator, times(1)).printGroupScore(
                 any(), eq(request(TIME).getGroupScore()), any());
@@ -1160,11 +1160,11 @@ class ScoreMetadataServiceTests extends TestsBase {
     private static final LocalDateTime TIME = LocalDateTime.parse("2026-11-03T01:02:00");
     private UserQuery users;
     private ScoreCalculator calculator;
-    private PatientService checkedPatients;
+    private PatientReader checkedPatients;
     private PatientNursingReportInvalidationService invalidation;
     private ScoreService service;
     @Autowired private ConfigProtoService protoService;
-    @Autowired private PatientService patients;
+    @Autowired private PatientReader patients;
     @Autowired private PatientScoreRepository scores;
     @Autowired private PatientMonitoringRecordRepository monitoring;
     @Autowired private PatientNursingReportInvalidationService realInvalidation;

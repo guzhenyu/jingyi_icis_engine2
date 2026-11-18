@@ -15,8 +15,8 @@ import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisQualityControl.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
-import com.jingyicare.jingyi_icis_engine.repository.patients.PatientBedHistoryRepository;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.patients.bed.BedMetaReader;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -27,10 +27,10 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class BedUtilizationCalc {
     public BedUtilizationCalc(
         BedMetaReader bedMetaReader,
-        PatientBedHistoryRepository patientBedHistoryRepo
+        PatientReader patientReader
     ) {
         this.bedMetaReader = bedMetaReader;
-        this.patientBedHistoryRepo = patientBedHistoryRepo;
+        this.patientReader = patientReader;
     }
 
     ///////////// 床位使用率常量
@@ -328,9 +328,8 @@ public class BedUtilizationCalc {
 
         // 获取患者床位历史(按月切割)
         List<QcICUBedUsage> allBedUsage = new ArrayList<>();
-        Map<Long/*pid*/, List<PatientBedHistory>> bedHistoryMap = patientBedHistoryRepo
-            .findByPatientIdIn(patients.stream().map(PatientRecord::getId).toList())
-            .stream().collect(Collectors.groupingBy(PatientBedHistory::getPatientId));
+        Map<Long, List<PatientBedHistory>> bedHistoryMap = patientReader.findBedChanges(
+            patients.stream().map(PatientRecord::getId).toList());
         for (PatientRecord patient : patients) {
             // 获取患者的开始时间，结束时间，姓名，id
             LocalDateTime patBedStartLocal = TimeUtils.getLocalDateTimeFromUtc(patient.getAdmissionTime(), zoneId);
@@ -515,5 +514,5 @@ public class BedUtilizationCalc {
     }
 
     private final BedMetaReader bedMetaReader;
-    private final PatientBedHistoryRepository patientBedHistoryRepo;
+    private final PatientReader patientReader;
 }

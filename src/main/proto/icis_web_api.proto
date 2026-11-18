@@ -1005,7 +1005,7 @@ message GetPatientInfoV2Req {
 
 message GetPatientInfoV2Resp {
     shared.ReturnCode rt = 1;
-    config.PatientInfoPB patient_info = 2;
+    config.PatientRecordPB patient_info = 2;
 }
 
 /*
@@ -1035,7 +1035,7 @@ message UpdatePatientInfoReq {
  *  output: GenericResp
  */
 message UpdatePatientInfoV2Req {
-    config.PatientInfoPB patient_info = 1;
+    config.PatientRecordPB patient_info = 1;
 }
 
 /*

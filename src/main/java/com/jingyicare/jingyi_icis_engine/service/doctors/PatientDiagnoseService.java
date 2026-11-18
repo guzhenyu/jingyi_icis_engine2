@@ -32,7 +32,7 @@ public class PatientDiagnoseService {
     public PatientDiagnoseService(
         @Autowired ConfigProtoService protoService,
         @Autowired UserQuery userQuery,
-        @Autowired PatientService patientService,
+        @Autowired PatientReader patientReader,
         @Autowired DoctorDataFetcher doctorDataFetcher,
         @Autowired PatientRecordRepository patientRecordRepo,
         @Autowired PatientDiagnosisRepository patientDiagnosisRepo,
@@ -42,7 +42,7 @@ public class PatientDiagnoseService {
 
         this.protoService = protoService;
         this.userQuery = userQuery;
-        this.patientService = patientService;
+        this.patientReader = patientReader;
         this.doctorDataFetcher = doctorDataFetcher;
 
         this.patientRecordRepo = patientRecordRepo;
@@ -149,7 +149,7 @@ public class PatientDiagnoseService {
 
         // 获取当前病人科室
         Long pid = req.getPid();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return ConfirmDiseaseResp.newBuilder()
@@ -543,7 +543,7 @@ public class PatientDiagnoseService {
 
     private final ConfigProtoService protoService;
     private final UserQuery userQuery;
-    private final PatientService patientService;
+    private final PatientReader patientReader;
     private final DoctorDataFetcher doctorDataFetcher;
 
     private final PatientRecordRepository patientRecordRepo;

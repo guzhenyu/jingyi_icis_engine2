@@ -58,6 +58,14 @@ public final class LockKeys {
         return truncateResourceKey("device_ip:" + deviceIp);
     }
 
+    public static String deviceBinding(int deviceId) {
+        return "device_binding:" + deviceId;
+    }
+
+    public static String patientDeviceBindings(long patientId) {
+        return "patient_device_bindings:" + patientId;
+    }
+
     // 锁表的 resource_key 为 VARCHAR(255)，完整拼接后按 Unicode 码点截取前 255 个字符。
     private static String truncateResourceKey(String key) {
         if (key.codePointCount(0, key.length()) <= MAX_RESOURCE_KEY_LENGTH) {

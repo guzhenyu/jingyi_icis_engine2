@@ -34,8 +34,7 @@ import com.jingyicare.jingyi_icis_engine.repository.scores.PatientScoreRepositor
 import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
-import com.jingyicare.jingyi_icis_engine.service.patients.PatientDeviceService;
-import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.shifts.ConfigShiftUtils;
 import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
@@ -50,8 +49,7 @@ import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 public class JfkDataSourceSupport {
     public JfkDataSourceSupport(
         @Autowired ConfigProtoService protoService,
-        @Autowired PatientService patientService,
-        @Autowired PatientDeviceService patientDevService,
+        @Autowired PatientReader patientReader,
         @Autowired ConfigShiftUtils shiftUtils,
         @Autowired RbacDepartmentRepository deptRepo,
         @Autowired WardReportRepository wardReportRepo,
@@ -62,8 +60,7 @@ public class JfkDataSourceSupport {
         @Autowired ResourceLoader resourceLoader,
         @Autowired StatisticsDayWindowResolver statisticsDayWindowResolver
     ) {
-        this.patientService = patientService;
-        this.patientDevService = patientDevService;
+        this.patientReader = patientReader;
         this.shiftUtils = shiftUtils;
         this.deptRepo = deptRepo;
         this.wardReportRepo = wardReportRepo;
@@ -144,7 +141,7 @@ public class JfkDataSourceSupport {
     public String buildPatientHeader(long pid, LocalDateTime shiftStartTime) {
         if (pid <= 0) return "x床 xx";
 
-        PatientRecord patient = patientService.getPatientRecord(pid);
+        PatientRecord patient = patientReader.findById(pid).orElse(null);
         if (patient == null) return "x床 xx";
 
         String name = patient.getIcuName();
@@ -219,7 +216,7 @@ public class JfkDataSourceSupport {
     }
 
     public Pair<ReturnCode, JfkPatientInfo> getJfkPatientInfo(Long pid, LocalDateTime shiftTimeStart) {
-        PatientRecord patient = patientService.getPatientRecord(pid);
+        PatientRecord patient = patientReader.findById(pid).orElse(null);
         if (patient == null) {
             return new Pair<>(
                 ReturnCodeUtils.getReturnCode(
@@ -265,7 +262,7 @@ public class JfkDataSourceSupport {
 
     public Pair<ReturnCode, PatientDayContext> resolvePatientDayContext(Long pid,
         String queryStartIso) {
-        PatientRecord patient = getPatientService().getPatientRecord(pid);
+        PatientRecord patient = getPatientReader().findById(pid).orElse(null);
         if (patient == null) {
             return patientDayError(StatusCode.PATIENT_NOT_FOUND, "pid: " + pid);
         }
@@ -306,8 +303,8 @@ public class JfkDataSourceSupport {
         return Optional.ofNullable(jfkDataSourceMetaMap.get(metaId));
     }
 
-    public PatientService getPatientService() {
-        return patientService;
+    public PatientReader getPatientReader() {
+        return patientReader;
     }
 
     public RbacDepartmentRepository getDeptRepo() {
@@ -339,16 +336,14 @@ public class JfkDataSourceSupport {
     }
 
     public String getBedNumber(PatientRecord patient, LocalDateTime shiftStartTime) {
-        PatientDeviceService.UsageHistory<PatientDeviceService.BedName> bedHistory =
-            patientDevService.getBedHistory(patient);
+        PatientReader.BedHistory bedHistory = patientReader.findBedHistory(patient);
         String bedNumber = null;
-        for (Pair<PatientDeviceService.BedName, LocalDateTime> entry : bedHistory.usageRecords) {
-            PatientDeviceService.BedName bedName = entry.getFirst();
-            LocalDateTime recordTime = entry.getSecond();
+        for (PatientReader.BedHistoryEntry entry : bedHistory.entries()) {
+            LocalDateTime recordTime = entry.startUtc();
             if (bedNumber == null) {
-                bedNumber = bedName.displayBedNumber;
+                bedNumber = entry.displayBedNumber();
             } else if (!recordTime.isAfter(shiftStartTime)) {
-                bedNumber = bedName.displayBedNumber;
+                bedNumber = entry.displayBedNumber();
             } else {
                 break;
             }
@@ -356,8 +351,7 @@ public class JfkDataSourceSupport {
         return bedNumber == null ? "" : bedNumber;
     }
 
-    private final PatientService patientService;
-    private final PatientDeviceService patientDevService;
+    private final PatientReader patientReader;
     private final ConfigShiftUtils shiftUtils;
     private final RbacDepartmentRepository deptRepo;
     private final WardReportRepository wardReportRepo;

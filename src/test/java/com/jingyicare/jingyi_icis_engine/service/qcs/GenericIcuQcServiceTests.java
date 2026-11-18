@@ -41,6 +41,7 @@ public class GenericIcuQcServiceTests {
         IcuQcConfigService icuQcConfigService = mock(IcuQcConfigService.class);
         PatientService patientService = mock(PatientService.class);
         PatientConfig patientConfig = mock(PatientConfig.class);
+        PatientReader patientReader = mock(PatientReader.class);
         SepsisAndSepticShockBundleService septicShockBundleService =
             mock(SepsisAndSepticShockBundleService.class);
         DepartmentRepository deptRepo = mock(DepartmentRepository.class);
@@ -49,7 +50,7 @@ public class GenericIcuQcServiceTests {
         when(icuQcConfigService.getIcuQcConfigPb()).thenReturn(testQcConfig());
         when(deptRepo.findByDeptIdAndIsDeletedFalse("99999")).thenReturn(Optional.of(dept("99999")));
         when(patientConfig.getDischargeTypeDeadId()).thenReturn(-1);
-        when(patientConfig.getBedConfigMap("99999")).thenReturn(Map.of(
+        when(patientReader.getBedConfigMap("99999")).thenReturn(Map.of(
             "H-900001", bedConfig("99999", "H-900001", "B1"),
             "H-900002", bedConfig("99999", "H-900002", "B2"),
             "H-900004", bedConfig("99999", "H-900004", "B4")));
@@ -87,6 +88,7 @@ public class GenericIcuQcServiceTests {
             icuQcConfigService,
             patientService,
             patientConfig,
+            patientReader,
             septicShockBundleService,
             mock(BedUtilizationCalc.class),
             deptRepo,

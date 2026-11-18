@@ -79,7 +79,7 @@ public class PatientSyncEnabledTests {
 
             service = new PatientSyncService(
                 mock(ConfigurableApplicationContext.class),
-                mock(PatientConfig.class),
+                mock(PatientReader.class),
                 mock(PatientSyncUtils.class),
                 deptRepo,
                 patientRepo,

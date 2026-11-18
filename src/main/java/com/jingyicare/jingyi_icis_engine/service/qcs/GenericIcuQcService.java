@@ -39,6 +39,7 @@ public class GenericIcuQcService {
         @Autowired IcuQcConfigService icuQcConfigService,
         @Autowired PatientService patientService,
         @Autowired PatientConfig patientConfig,
+        @Autowired PatientReader patientReader,
         @Autowired SepsisAndSepticShockBundleService sepsisAndSepticShockBundleService,
         @Autowired BedUtilizationCalc bedUtilizationCalc,
         @Autowired DepartmentRepository deptRepo,
@@ -57,6 +58,7 @@ public class GenericIcuQcService {
         refreshQcConfig();
         this.patientService = patientService;
         this.patientConfig = patientConfig;
+        this.patientReader = patientReader;
         this.sepsisAndSepticShockBundleService = sepsisAndSepticShockBundleService;
         this.bedUtilizationCalc = bedUtilizationCalc;
         this.deptRepo = deptRepo;
@@ -633,7 +635,7 @@ public class GenericIcuQcService {
             .collect(Collectors.toMap(
                 deptId -> deptId,
                 deptId -> {
-                    Map<String, BedConfig> bedConfigMap = patientConfig.getBedConfigMap(deptId);
+                    Map<String, BedConfig> bedConfigMap = patientReader.getBedConfigMap(deptId);
                     return bedConfigMap == null ? Map.of() : bedConfigMap;
                 },
                 (a, b) -> a));
@@ -1170,6 +1172,7 @@ public class GenericIcuQcService {
 
     private final PatientService patientService;
     private final PatientConfig patientConfig;
+    private final PatientReader patientReader;
     private final SepsisAndSepticShockBundleService sepsisAndSepticShockBundleService;
     private final BedUtilizationCalc bedUtilizationCalc;
     private final DepartmentRepository deptRepo;

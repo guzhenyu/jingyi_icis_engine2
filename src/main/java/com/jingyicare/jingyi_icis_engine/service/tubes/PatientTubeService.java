@@ -38,7 +38,7 @@ public class PatientTubeService {
     public PatientTubeService(
         @Autowired ConfigProtoService protoService,
         @Autowired ConfigShiftUtils shiftUtils,
-        @Autowired PatientService patientService,
+        @Autowired PatientReader patientReader,
         @Autowired UserQuery userQuery,
         @Autowired TubeSetting setting,
         @Autowired PatientTubeImpl patientTubeImpl,
@@ -53,7 +53,7 @@ public class PatientTubeService {
 
         this.protoService = protoService;
         this.shiftUtils = shiftUtils;
-        this.patientService = patientService;
+        this.patientReader = patientReader;
         this.userQuery = userQuery;
         this.setting = setting;
         this.patientTubeImpl = patientTubeImpl;
@@ -72,7 +72,7 @@ public class PatientTubeService {
         }
 
         // 获取当前病人科室
-        final PatientRecord patientRecord = patientService.getPatientRecord(req.getPid());
+        final PatientRecord patientRecord = patientReader.findById(req.getPid()).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return GetPatientTubeRecordsResp.newBuilder()
@@ -168,7 +168,7 @@ public class PatientTubeService {
 
         // 提取关键参数
         final Long pid = req.getPid();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return NewPatientTubeResp.newBuilder()
@@ -542,7 +542,7 @@ public class PatientTubeService {
 
         // 获取病人信息
         final Long pid = record.getPid();
-        PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return GenericResp.newBuilder()
@@ -600,7 +600,7 @@ public class PatientTubeService {
 
         // 获取病人信息
         final Long pid = record.getPid();
-        PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return GenericResp.newBuilder()
@@ -654,7 +654,7 @@ public class PatientTubeService {
     private final Integer PATIENT_TUBE_REMOVED;
     private final ConfigProtoService protoService;  // 配置协议服务
     private final ConfigShiftUtils shiftUtils;  // 班次工具类
-    private final PatientService patientService;    // 病人服务
+    private final PatientReader patientReader;    // 病人服务
     private final UserQuery userQuery;  // 用户服务
     private final TubeSetting setting;       // 管道设置
     private final PatientTubeImpl patientTubeImpl;  // 病人管道实现类

@@ -39,7 +39,7 @@ public class RassDataSourceHandler extends AbstractJfkDataSourceHandler {
             return error(StatusCode.JFK_MISSING_REQUIRED_FIELD, "pid");
         }
 
-        PatientRecord patient = support.getPatientService().getPatientRecord(pid);
+        PatientRecord patient = support.getPatientReader().findById(pid).orElse(null);
         if (patient == null) {
             return error(StatusCode.PATIENT_NOT_FOUND, "pid: " + pid);
         }

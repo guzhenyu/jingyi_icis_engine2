@@ -63,7 +63,7 @@ public class AnhuiSecondHospitalAh2ReportData implements Ah2ReportDataProvider {
         @Autowired ConfigProtoService protoService,
         @Autowired ReportProperties reportProperties,
         @Autowired ConfigShiftUtils configShiftUtils,
-        @Autowired PatientService patientService,
+        @Autowired PatientReader patientReader,
         @Autowired MonitoringConfig monitoringConfig,
         @Autowired PatientMonitoringService patientMonitoringService,
         @Autowired BalanceCalculator balanceCalculator,
@@ -105,7 +105,7 @@ public class AnhuiSecondHospitalAh2ReportData implements Ah2ReportDataProvider {
         }
         this.DRAINAGE_TUBE_COLOR_META = colorParamPB.getValueMeta();
         this.configShiftUtils = configShiftUtils;
-        this.patientService = patientService;
+        this.patientReader = patientReader;
         this.monitoringConfig = monitoringConfig;
         this.patientMonitoringService = patientMonitoringService;
         this.balanceCalculator = balanceCalculator;
@@ -220,7 +220,7 @@ public class AnhuiSecondHospitalAh2ReportData implements Ah2ReportDataProvider {
         }
 
         // 获取病人信息
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             log.info(
@@ -232,6 +232,12 @@ public class AnhuiSecondHospitalAh2ReportData implements Ah2ReportDataProvider {
             );
         }
         final LocalDateTime admissionTimeUtc = patientRecord.getAdmissionTime();
+        // 本报表从入科日起累计分页，缺少起点时不能构建护理单。
+        if (admissionTimeUtc == null) {
+            release(pid);
+            return new Pair<>(ReturnCodeUtils.getReturnCode(
+                statusCodeMsgs, StatusCode.INVALID_TIME_FORMAT), null);
+        }
         if (queryStartUtc.isBefore(admissionTimeUtc)) queryStartUtc = admissionTimeUtc;
         final LocalDateTime dischargeTimeUtc = patientRecord.getDischargeTime();
         if (dischargeTimeUtc != null && queryEndUtc.isAfter(dischargeTimeUtc)) queryEndUtc = dischargeTimeUtc;
@@ -2118,7 +2124,7 @@ public class AnhuiSecondHospitalAh2ReportData implements Ah2ReportDataProvider {
 
     // 公共服务
     private final ConfigShiftUtils configShiftUtils;
-    private final PatientService patientService;
+    private final PatientReader patientReader;
     private final MonitoringConfig monitoringConfig;
     private final PatientMonitoringService patientMonitoringService;
     private final BalanceCalculator balanceCalculator;

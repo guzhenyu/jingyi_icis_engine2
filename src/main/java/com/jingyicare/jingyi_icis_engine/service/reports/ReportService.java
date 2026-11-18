@@ -39,6 +39,7 @@ public class ReportService {
         @Autowired ConfigShiftUtils shiftUtils,
         @Autowired UserQuery userQuery,
         @Autowired PatientService patientService,
+        @Autowired PatientReader patientReader,
         @Autowired List<MonitoringReportGenerator> monitoringReportGenerators,
         @Autowired JfkDataService jfkDataService,
         @Autowired DragableFormTemplateRepository dragableTemplateRepo,
@@ -59,6 +60,7 @@ public class ReportService {
         this.shiftUtils = shiftUtils;
         this.userQuery = userQuery;
         this.patientService = patientService;
+        this.patientReader = patientReader;
 
         Map<String, MonitoringReportGenerator> generatorMap = new HashMap<>();
         for (MonitoringReportGenerator generator : monitoringReportGenerators) {
@@ -598,7 +600,7 @@ public class ReportService {
             .setNightShiftCount(wardReportPb.getNightShiftCount());
         for (WardPatientStatsPB statsPB : wardReportPb.getPatientStatsList()) {
             String patientName = "";
-            PatientRecord patientRecord = patientService.getPatientRecord(statsPB.getPid());
+            PatientRecord patientRecord = patientReader.findById(statsPB.getPid()).orElse(null);
             if (patientRecord != null && !StrUtils.isBlank(patientRecord.getIcuName())) {
                 patientName = patientRecord.getIcuName();
             }
@@ -800,6 +802,7 @@ public class ReportService {
     private final ConfigShiftUtils shiftUtils;
     private final UserQuery userQuery;
     private final PatientService patientService;
+    private final PatientReader patientReader;
 
     private final Map<String, MonitoringReportGenerator> monitoringReportGenerators;
     private final JfkDataService jfkDataService;

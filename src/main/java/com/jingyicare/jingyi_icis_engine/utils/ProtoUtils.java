@@ -742,9 +742,9 @@ public class ProtoUtils {
         //    .should_calculate_rate = 8
         fields.add(MedicationDosagePB.getDescriptor().findFieldByNumber(8));
 
-        // PatientInfoPB
+        // PatientRecordPB
         //    .icu_gender = 8
-        fields.add(PatientInfoPB.getDescriptor().findFieldByNumber(8));
+        fields.add(PatientRecordPB.getDescriptor().findFieldByNumber(8));
 
         // PatientBasicsPB
         //    .gender = 3

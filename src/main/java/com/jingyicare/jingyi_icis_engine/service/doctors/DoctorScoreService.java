@@ -34,7 +34,7 @@ public class DoctorScoreService {
     public DoctorScoreService(
         @Autowired ConfigProtoService protoService,
         @Autowired UserQuery userQuery,
-        @Autowired PatientService patientService,
+        @Autowired PatientReader patientReader,
         @Autowired ApacheIIScorer apacheIIScorer,
         @Autowired SofaScorer sofaScorer,
         @Autowired DeptDoctorScoreTypeRepository deptDoctorScoreTypeRepo,
@@ -45,7 +45,7 @@ public class DoctorScoreService {
     ) {
         this.protoService = protoService;
         this.userQuery = userQuery;
-        this.patientService = patientService;
+        this.patientReader = patientReader;
         this.apacheIIScorer = apacheIIScorer;
         this.sofaScorer = sofaScorer;
 
@@ -303,7 +303,7 @@ public class DoctorScoreService {
 
         // 验证患者ID
         Long pid = req.getPid();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return GetApacheScoresResp.newBuilder()
@@ -387,7 +387,7 @@ public class DoctorScoreService {
 
         // 获取患者信息
         final Long pid = req.getPid();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return GetApacheScoreFactorsResp.newBuilder()
@@ -676,7 +676,7 @@ public class DoctorScoreService {
 
         // 验证患者ID
         Long pid = req.getPid();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return GetSofaScoresResp.newBuilder()
@@ -760,7 +760,7 @@ public class DoctorScoreService {
 
         // 获取患者信息
         final Long pid = req.getPid();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return GetSofaScoreFactorsResp.newBuilder()
@@ -1033,7 +1033,7 @@ public class DoctorScoreService {
         }
 
         Long pid = req.getPid();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return GetVteCapriniScoresResp.newBuilder()
@@ -1257,7 +1257,7 @@ public class DoctorScoreService {
         }
 
         Long pid = req.getPid();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return GetVtePaduaScoresResp.newBuilder()
@@ -1471,7 +1471,7 @@ public class DoctorScoreService {
         String evalEndAtIso8601, ApacheIIScorePB score
     ) {
         // 验证患者ID
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return new Pair<ReturnCode, ApacheIIScore>(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND), null);
@@ -1527,7 +1527,7 @@ public class DoctorScoreService {
         String evalEndAtIso8601, SOFAScorePB score
     ) {
         // 验证患者ID
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return new Pair<ReturnCode, SofaScore>(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND), null);
@@ -1583,7 +1583,7 @@ public class DoctorScoreService {
         String evalEndAtIso8601, VTECapriniScorePB score
     ) {
         // 验证患者ID
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return new Pair<>(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND), null);
@@ -1639,7 +1639,7 @@ public class DoctorScoreService {
         String evalEndAtIso8601, VTEPaduaScorePB score
     ) {
         // 验证患者ID
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return new Pair<>(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND), null);
@@ -1692,7 +1692,7 @@ public class DoctorScoreService {
 
     private final ConfigProtoService protoService;
     private final UserQuery userQuery;
-    private final PatientService patientService;
+    private final PatientReader patientReader;
     private final ApacheIIScorer apacheIIScorer;
     private final SofaScorer sofaScorer;
 

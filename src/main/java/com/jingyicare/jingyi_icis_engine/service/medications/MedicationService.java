@@ -13,6 +13,7 @@ import com.google.protobuf.util.JsonFormat;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.entity.medications.*;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.entity.nursingorders.*;
@@ -43,6 +44,7 @@ public class MedicationService {
         @Autowired MedicationConfig medConfig,
         @Autowired UserQuery userQuery,
         @Autowired PatientService patientService,
+        @Autowired PatientReader patientReader,
         @Autowired OrderGroupGenerator ordGroupGenerator,
         @Autowired OrderExecutor ordExecutor,
         @Autowired MedicationDictionary medDict,
@@ -75,6 +77,7 @@ public class MedicationService {
         this.medConfig = medConfig;
         this.userQuery = userQuery;
         this.patientService = patientService;
+        this.patientReader = patientReader;
         this.ordGroupGenerator = ordGroupGenerator;
         this.ordExecutor = ordExecutor;
         this.medDict = medDict;
@@ -115,7 +118,7 @@ public class MedicationService {
 
         // 获取当前病人
         final Long patientId = req.getPatientId();
-        final PatientRecord patientRecord = patientService.getPatientRecord(patientId);
+        final PatientRecord patientRecord = patientReader.findById(patientId).orElse(null);
         if (patientRecord == null) {
             log.error("PatientRecord not found: ", patientId);
             return GetOrderGroupsResp.newBuilder()
@@ -204,7 +207,8 @@ public class MedicationService {
         }
 
         // 查找病人记录
-        final PatientRecord patientRecord = patientService.getPatientRecord(orderGroup.getPatientId());
+        final PatientRecord patientRecord = patientReader.findById(
+            orderGroup.getPatientId()).orElse(null);
         if (patientRecord == null) {
             log.error("PatientRecord not found: ", orderGroup.getPatientId());
             return GetOrderGroupResp.newBuilder()
@@ -284,7 +288,7 @@ public class MedicationService {
         }
 
         // 获取当前病人
-        final PatientRecord patientRecord = patientService.getPatientRecord(req.getPatientId());
+        final PatientRecord patientRecord = patientReader.findById(req.getPatientId()).orElse(null);
         if (patientRecord == null) {
             log.error("PatientRecord not found: ", req.getPatientId());
             return NewOrderGroupResp.newBuilder()
@@ -1666,7 +1670,7 @@ public class MedicationService {
         Long pid = req.getPid();
 
         // 查找患者
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("PatientRecord not found: ", pid);
             return GetDosageGroupExtResp.newBuilder()
@@ -2111,6 +2115,7 @@ public class MedicationService {
     private MedicationConfig medConfig;
     private UserQuery userQuery;
     private PatientService patientService;
+    private final PatientReader patientReader;
     private OrderGroupGenerator ordGroupGenerator;
     private OrderExecutor ordExecutor;
     private MedicationDictionary medDict;

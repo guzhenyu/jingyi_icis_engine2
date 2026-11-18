@@ -64,7 +64,7 @@ public class NursingRecordService {
     public NursingRecordService(
         @Autowired ConfigProtoService protoService,
         @Autowired UserQuery userQuery,
-        @Autowired PatientService patientService,
+        @Autowired PatientReader patientReader,
         @Autowired MedReportUtils medReportUtils,
         @Autowired MonitoringConfig monitoringConfig,
         @Autowired PatientMonitoringService patientMonitoringService,
@@ -96,7 +96,7 @@ public class NursingRecordService {
         this.protoService = protoService;
         this.configPb = protoService.getConfig().getNursingRecord();
         this.userQuery = userQuery;
-        this.patientService = patientService;
+        this.patientReader = patientReader;
         this.medReportUtils = medReportUtils;
         this.monitoringConfig = monitoringConfig;
         this.patientMonitoringService = patientMonitoringService;
@@ -192,7 +192,7 @@ public class NursingRecordService {
                     return AddNursingRecordResp.newBuilder().setRt(protoService.getReturnCode(
                         StatusCode.NURSING_RECORD_ALREADY_EXISTS)).build();
                 }
-                PatientRecord patient = patientService.getPatientRecord(patientId);
+                PatientRecord patient = patientReader.findById(patientId).orElse(null);
                 if (patient == null) {
                     return AddNursingRecordResp.newBuilder().setRt(protoService.getReturnCode(
                         StatusCode.PATIENT_NOT_FOUND)).build();
@@ -250,7 +250,7 @@ public class NursingRecordService {
             NursingRecord old = records.get(0);
             LocalDateTime oldTime = old.getEffectiveTime();
             LocalDateTime newTime = targetTime == null ? formatTime(oldTime) : targetTime;
-            PatientRecord patient = patientService.getPatientRecord(old.getPatientId());
+            PatientRecord patient = patientReader.findById(old.getPatientId()).orElse(null);
             if (patient == null) return nursingRecordResponse(StatusCode.PATIENT_NOT_FOUND);
 
             NursingRecord duplicate = recordRepo
@@ -333,7 +333,7 @@ public class NursingRecordService {
         return withNursingRecordLocks(List.of(req.getId()), null, (records, snapshotPlan) -> {
             if (records.isEmpty()) return nursingRecordResponse(StatusCode.OK);
             NursingRecord record = records.get(0);
-            PatientRecord patient = patientService.getPatientRecord(record.getPatientId());
+            PatientRecord patient = patientReader.findById(record.getPatientId()).orElse(null);
             if (patient == null) return nursingRecordResponse(StatusCode.PATIENT_NOT_FOUND);
 
             LocalDateTime nowUtc = TimeUtils.getNowUtc();
@@ -465,7 +465,7 @@ public class NursingRecordService {
         }
 
         // 获取患者信息
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return GetNursingRecordShortcutsResp.newBuilder()
@@ -589,7 +589,7 @@ public class NursingRecordService {
         }
 
         // 获取患者信息
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return GetNursingRecordShortcuts2Resp.newBuilder()
@@ -985,7 +985,7 @@ public class NursingRecordService {
     private final ConfigProtoService protoService;
     private final NursingRecordConfigPB configPb;
     private final UserQuery userQuery;
-    private final PatientService patientService;
+    private final PatientReader patientReader;
     private final MedReportUtils medReportUtils;
     private final MonitoringConfig monitoringConfig;
     private final PatientMonitoringService patientMonitoringService;

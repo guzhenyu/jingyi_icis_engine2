@@ -38,6 +38,7 @@ public class PatientShiftService {
         @Autowired ConfigProtoService protoService,
         @Autowired UserQuery userQuery,
         @Autowired PatientService patientService,
+        @Autowired PatientReader patientReader,
         @Autowired PatientShiftRecordRepository psrRepo
     ) {
         this.ZONE_ID = protoService.getConfig().getZoneId();
@@ -45,6 +46,7 @@ public class PatientShiftService {
         this.protoService = protoService;
         this.userQuery = userQuery;
         this.patientService = patientService;
+        this.patientReader = patientReader;
         this.psrRepo = psrRepo;
     }
 
@@ -62,7 +64,7 @@ public class PatientShiftService {
 
         // 获取病人信息
         final Long pid = req.getPid();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("PatientRecord not found: ", pid);
             return GetPatientShiftRecordsResp.newBuilder()
@@ -111,7 +113,7 @@ public class PatientShiftService {
 
         // 获取病人信息
         final Long pid = req.getPid();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("PatientRecord not found: ", pid);
             return PatientShiftRecordExistsResp.newBuilder()
@@ -158,7 +160,7 @@ public class PatientShiftService {
 
         // 获取病人信息
         final Long pid = req.getPid();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("PatientRecord not found: ", pid);
             return AddPatientShiftRecordResp.newBuilder()
@@ -231,7 +233,7 @@ public class PatientShiftService {
 
         // 获取病人信息
         final Long pid = req.getPid();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("PatientRecord not found: ", pid);
             return GenericResp.newBuilder()
@@ -325,5 +327,6 @@ public class PatientShiftService {
     private final ConfigProtoService protoService;
     private final UserQuery userQuery;
     private final PatientService patientService;
+    private final PatientReader patientReader;
     private final PatientShiftRecordRepository psrRepo;
 }

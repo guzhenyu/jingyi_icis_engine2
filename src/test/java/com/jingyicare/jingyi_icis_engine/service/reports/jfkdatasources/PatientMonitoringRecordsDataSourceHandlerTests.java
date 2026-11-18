@@ -13,6 +13,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
@@ -35,7 +36,7 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.ValueMetaPB;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientMonitoringRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
-import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindowResolver;
@@ -195,16 +196,16 @@ public class PatientMonitoringRecordsDataSourceHandlerTests {
     }
 
     private JfkDataSourceSupport mockSupport() {
-        PatientService patientService = mock(PatientService.class);
+        PatientReader patientReader = mock(PatientReader.class);
         PatientRecord patient = new PatientRecord();
         patient.setId(10001L);
         patient.setDeptId("patient-dept");
-        when(patientService.getPatientRecord(10001L)).thenReturn(patient);
+        when(patientReader.findById(10001L)).thenReturn(Optional.of(patient));
 
         JfkDataSourceSupport support = mock(JfkDataSourceSupport.class);
         when(support.getStatusMsgList()).thenReturn(Collections.nCopies(400, "status"));
         when(support.getZoneId()).thenReturn("UTC");
-        when(support.getPatientService()).thenReturn(patientService);
+        when(support.getPatientReader()).thenReturn(patientReader);
         doCallRealMethod().when(support).addArrayOutput(any(), any(), any());
         doCallRealMethod().when(support).resolvePatientDayContext(any(), any());
         doCallRealMethod().when(support).resolveStatisticsDayWindow(any(), any());

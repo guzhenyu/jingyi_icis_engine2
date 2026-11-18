@@ -43,7 +43,7 @@ import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.medications.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
-import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.ah2report.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
@@ -59,7 +59,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
     public XiuningAh2ReportData(
         @Autowired ConfigProtoService protoService,
         @Autowired ConfigShiftUtils configShiftUtils,
-        @Autowired PatientService patientService,
+        @Autowired PatientReader patientReader,
         @Autowired MonitoringConfig monitoringConfig,
         @Autowired PatientMonitoringService patientMonitoringService,
         @Autowired BalanceCalculator balanceCalculator,
@@ -88,7 +88,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         this.BALANCE_GROUP_TYPE_ID = monitoringConfig.getBalanceGroupTypeId();
         this.medOrderGroupSettingsPb = protoService.getConfig().getMedication().getOrderGroupSettings();
         this.configShiftUtils = configShiftUtils;
-        this.patientService = patientService;
+        this.patientReader = patientReader;
         this.monitoringConfig = monitoringConfig;
         this.patientMonitoringService = patientMonitoringService;
         this.balanceCalculator = balanceCalculator;
@@ -133,7 +133,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
             );
         }
 
-        PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             return new Pair<>(
                 ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.PATIENT_NOT_FOUND), null
@@ -1673,7 +1673,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
     private final List<String> statusCodeMsgs;
     private final Integer BALANCE_GROUP_TYPE_ID;
     private final ConfigShiftUtils configShiftUtils;
-    private final PatientService patientService;
+    private final PatientReader patientReader;
     private final MonitoringConfig monitoringConfig;
     private final PatientMonitoringService patientMonitoringService;
     private final BalanceCalculator balanceCalculator;

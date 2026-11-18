@@ -3,9 +3,14 @@ package com.jingyicare.jingyi_icis_engine.service.patients.bed;
 import static com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums.BED_TYPE_FIXED;
 import static com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums.BED_TYPE_TEMP;
 
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
@@ -13,10 +18,13 @@ import lombok.extern.slf4j.Slf4j;
 
 import com.jingyicare.jingyi_icis_engine.entity.patients.BedConfig;
 import com.jingyicare.jingyi_icis_engine.entity.patients.BedCount;
+import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.repository.patients.BedConfigRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patients.BedCountRepository;
 import com.jingyicare.jingyi_icis_engine.service.certs.CertificateReader;
 import com.jingyicare.jingyi_icis_engine.service.certs.CertificateReader.BedLimits;
+import com.jingyicare.jingyi_icis_engine.utils.Pair;
+import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 
 @Service
 @Slf4j
@@ -44,6 +52,27 @@ public class BedMetaReader {
         return bedConfigRepo.findByHisBedNumberInAndIsDeletedFalse(hisBedNumbers);
     }
 
+    public Pair<StatusCode, Map<BedKey, String>> findDisplayBedNumbers(Collection<BedKey> beds) {
+        Set<BedKey> requestedBeds = beds.stream()
+            .filter(bed -> !StrUtils.isBlank(bed.deptId())
+                && !StrUtils.isBlank(bed.hisBedNumber()))
+            .collect(Collectors.toSet());
+        List<String> hisBedNumbers = requestedBeds.stream()
+            .map(BedKey::hisBedNumber).distinct().toList();
+        Map<BedKey, String> displayBedNumbers = new HashMap<>();
+        for (BedConfig config : findActiveBedsByHisNumbers(hisBedNumbers)) {
+            BedKey key = new BedKey(config.getDepartmentId(), config.getHisBedNumber());
+            if (!requestedBeds.contains(key)) continue;
+            String previous = displayBedNumbers.putIfAbsent(key, config.getDisplayBedNumber());
+            if (previous != null) {
+                log.error("有效床位配置重复，科室={}，HIS 床号={}，显示床号=[{}, {}]",
+                    key.deptId(), key.hisBedNumber(), previous, config.getDisplayBedNumber());
+                return new Pair<>(StatusCode.INTERNAL_EXCEPTION, Map.of());
+            }
+        }
+        return new Pair<>(StatusCode.OK, displayBedNumbers);
+    }
+
     // 质控按生效时间从早到晚应用科室床位数变更。
     public List<BedCount> findBedCountHistory(String deptId) {
         return bedCountRepo.findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeAsc(deptId);
@@ -66,6 +95,8 @@ public class BedMetaReader {
             fixedBeds, limits.maxFixedBeds(), tempBeds, limits.maxTempBeds());
         return false;
     }
+
+    public record BedKey(String deptId, String hisBedNumber) {}
 
     private final BedConfigRepository bedConfigRepo;
     private final BedCountRepository bedCountRepo;

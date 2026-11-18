@@ -46,7 +46,7 @@ public class PatientOverviewService {
         @Autowired ConfigProtoService protoService,
         @Autowired ConfigShiftUtils shiftUtils,
         @Autowired UserQuery userQuery,
-        @Autowired PatientService patientService,
+        @Autowired PatientReader patientReader,
         @Autowired MonitoringConfig monConfig,
         @Autowired PatientMonitoringService patientMonitoringService,
         @Autowired PatientMonitoringTimePointRepository monTimepointRepo,
@@ -70,7 +70,7 @@ public class PatientOverviewService {
         this.protoService = protoService;
         this.shiftUtils = shiftUtils;
         this.userQuery = userQuery;
-        this.patientService = patientService;
+        this.patientReader = patientReader;
         this.monConfig = monConfig;
         this.patientMonitoringService = patientMonitoringService;
 
@@ -101,7 +101,7 @@ public class PatientOverviewService {
 
         // 获取当前病人科室
         Long pid = req.getPid();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return GetVitalDetailsResp.newBuilder()
@@ -235,7 +235,7 @@ public class PatientOverviewService {
 
         // 获取当前病人科室
         Long pid = req.getPid();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return GetDailyBalanceResp.newBuilder()
@@ -298,7 +298,7 @@ public class PatientOverviewService {
 
         // 获取当前病人科室
         Long pid = req.getPid();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return GenericResp.newBuilder()
@@ -364,7 +364,7 @@ public class PatientOverviewService {
 
         // 获取当前病人科室
         Long pid = req.getPid();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return GetTargetBalancesResp.newBuilder()
@@ -448,7 +448,7 @@ public class PatientOverviewService {
 
         // 获取当前病人科室
         Long pid = req.getPid();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return GetMedicationOrderViewsResp.newBuilder()
@@ -603,7 +603,7 @@ public class PatientOverviewService {
 
         // 获取当前病人
         Long pid = req.getPid();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return GetTubeViewsResp.newBuilder()
@@ -699,7 +699,7 @@ public class PatientOverviewService {
     private final ConfigProtoService protoService;
     private final ConfigShiftUtils shiftUtils;
     private final UserQuery userQuery;
-    private final PatientService patientService;
+    private final PatientReader patientReader;
     private final MonitoringConfig monConfig;
     private final PatientMonitoringService patientMonitoringService;
 

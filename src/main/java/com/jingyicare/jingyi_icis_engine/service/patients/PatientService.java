@@ -27,8 +27,11 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.service.certs.*;
+import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
+import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.patients.bed.BedMetaReader;
+import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceBindingService;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
 import com.jingyicare.jingyi_icis_engine.service.therapies.SepsisAndSepticShockBundleService;
 import com.jingyicare.jingyi_icis_engine.service.users.*;
@@ -59,7 +62,9 @@ public class PatientService {
         @Autowired PatientRecordRepository repository,
         @Autowired BedMetaReader bedMetaReader,
         @Autowired DiagnosisHistoryRepository diagnosisHistoryRepository,
-        @Autowired PatientDeviceRepository patientDeviceRepository,
+        @Autowired DeviceBindingService deviceBindingService,
+        @Autowired PatientReader patientReader,
+        @Autowired LockExecutor lockExecutor,
         @Autowired ReadmissionHistoryRepository readmissionHistoryRepository,
         @Autowired PatientSettingsRepository patientSettingsRepository,
         @Autowired SepsisAndSepticShockBundleService sepsisAndSepticShockBundleService
@@ -112,7 +117,9 @@ public class PatientService {
         this.patientRecordRepository = repository;
         this.bedMetaReader = bedMetaReader;
         this.diagnosisHistoryRepository = diagnosisHistoryRepository;
-        this.patientDeviceRepository = patientDeviceRepository;
+        this.deviceBindingService = deviceBindingService;
+        this.patientReader = patientReader;
+        this.lockExecutor = lockExecutor;
         this.readmissionHistoryRepository = readmissionHistoryRepository;
         this.patientSettingsRepository = patientSettingsRepository;
         this.sepsisAndSepticShockBundleService = sepsisAndSepticShockBundleService;
@@ -132,7 +139,7 @@ public class PatientService {
         String deptId = req.getDeptId();
 
         GetInlinePatientsV2Resp.Builder builder = GetInlinePatientsV2Resp.newBuilder();
-        Map<String, BedConfig> bedConfigMap = patientConfig.getBedConfigMap(deptId);
+        Map<String, BedConfig> bedConfigMap = patientReader.getBedConfigMap(deptId);
 
         // Simplify by calling a common method for each patient status
         addPatientTableForStatus(
@@ -220,7 +227,7 @@ public class PatientService {
         final DisplayFieldSettingsPB settings = patientConfig.getPatientSettingsPB(deptId, 4);
 
         // 获取床位映射
-        Map<String, BedConfig> bedConfigMap = patientConfig.getBedConfigMap(req.getDeptId());
+        Map<String, BedConfig> bedConfigMap = patientReader.getBedConfigMap(req.getDeptId());
 
         // 设置表头
         addPatientTableHeader(settings, patientTableBuilder);
@@ -565,115 +572,76 @@ public class PatientService {
             .build();
     }
 
-    @Transactional
     public GenericResp dischargePatient(String dischargePatientReqJson) {
         final DischargePatientReq req;
         try {
-            DischargePatientReq.Builder builder = DischargePatientReq.newBuilder();
-            JsonFormat.parser().merge(dischargePatientReqJson, builder);
-            req = builder.build();
+            req = ProtoUtils.parseJsonToProto(
+                dischargePatientReqJson, DischargePatientReq.newBuilder());
         } catch (Exception e) {
-            log.error("Failed to convert string to proto: {}\n", dischargePatientReqJson);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
+            log.error("解析患者出科请求失败", e);
+            return ReturnCodeUtils.genericResponse(statusCodeMsgs, StatusCode.PARSE_JSON_FAILED);
         }
-
-        // 获取当前用户信息
         CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
-            log.error("Account not found");
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-        final LocalDateTime nowUtc = TimeUtils.getNowUtc();
-
-        // 获取病人信息
-        PatientRecord patient = patientRecordRepository.findById(req.getId()).orElse(null);
-        if (patient == null) {
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
-                .build();
-        } else if (patient.getAdmissionStatus() != ADMISSION_STATUS_PRE_DISCHARGE) {
-            log.error("Invalid patient admission status: {}, id {}", patient.getAdmissionStatus(), patient.getId());
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.INTERNAL_EXCEPTION))
-                .build();
+            return ReturnCodeUtils.genericResponse(statusCodeMsgs, StatusCode.ACCOUNT_NOT_FOUND);
         }
 
-        final LocalDateTime dischargeTime = TimeUtils.fromIso8601String(req.getDischargeTime(), "UTC");
-        if (dischargeTime == null) {
-            log.error("Discharge time is null");
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.INVALID_TIME_FORMAT)).build();
-        }
-        if (dischargeTime.isAfter(nowUtc)) {
-            log.error("Discharge time is after now");
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.DISCHARGE_TIME_IS_AFTER_NOW))
-                .build();
-        }
-        patient.setDischargeTime(dischargeTime);
+        StatusCode status = lockExecutor.execute(
+            List.of(LockKeys.patientDeviceBindings(req.getId())), () -> {
+                PatientRecord patient = patientReader.findById(req.getId()).orElse(null);
+                if (patient == null) return StatusCode.PATIENT_NOT_FOUND;
+                if (!Objects.equals(patient.getAdmissionStatus(), ADMISSION_STATUS_PRE_DISCHARGE)) {
+                    log.error("患者出科状态无效，患者={}，状态={}",
+                        patient.getId(), patient.getAdmissionStatus());
+                    return StatusCode.INTERNAL_EXCEPTION;
+                }
 
-        patient.setDischargeType(req.getDischargeType());
-        if (req.getDischargeType() == DISCHARGE_TYPE_TRANSFER_ID) {
-            String deptName = req.getToDeptName();
-            if (StrUtils.isBlank(deptName)) {
-                return GenericResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.DISCHARGE_TYPE_TRANSFER_NEEDS_TARGET_DEPT_NAME))
-                    .build();
-            }
-            patient.setToDeptName(deptName);
-        } else if (req.getDischargeType() == DISCHARGE_TYPE_DEATH_ID) {
-            LocalDateTime deathTime = TimeUtils.fromIso8601String(req.getDeathTime(), "UTC");
-            if (deathTime == null) {
-                return GenericResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.DISCHARGE_TYPE_DEATH_NEEDS_DEATH_TIME))
-                    .build();
-            }
-            patient.setDeathTime(deathTime);
-        } else if (req.getDischargeType() == DISCHARGE_TYPE_EXIT_HOSPITAL_ID) {
-            LocalDateTime exitTime = TimeUtils.fromIso8601String(
-                req.getHisDischargeTimeIso8601(), "UTC"
-            );
-            if (exitTime == null) {
-                return GenericResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.DISCHARGE_TYPE_EXIT_HOSPITAL_NEEDS_EXIT_TIME))
-                    .build();
-            }
-            patient.setHisDischargeTime(exitTime);
-        } else {
-            log.error("Invalid discharge type: {}", req.getDischargeType());
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.INVALID_DISCHARGE_TYPE))
-                .build();
-        }
+                LocalDateTime nowUtc = TimeUtils.getNowUtc();
+                LocalDateTime dischargeTime = TimeUtils.fromIso8601String(
+                    req.getDischargeTime(), "UTC");
+                if (dischargeTime == null) return StatusCode.INVALID_TIME_FORMAT;
+                if (dischargeTime.isAfter(nowUtc)) return StatusCode.DISCHARGE_TIME_IS_AFTER_NOW;
 
-        patient.setAdmissionStatus(ADMISSION_STATUS_DISCHARGED);
-        patientRecordRepository.save(patient);
+                LocalDateTime deathTime = TimeUtils.fromIso8601String(req.getDeathTime(), "UTC");
+                LocalDateTime exitTime = TimeUtils.fromIso8601String(
+                    req.getHisDischargeTimeIso8601(), "UTC");
+                int dischargeType = req.getDischargeType();
+                if (dischargeType == DISCHARGE_TYPE_TRANSFER_ID) {
+                    if (StrUtils.isBlank(req.getToDeptName())) {
+                        return StatusCode.DISCHARGE_TYPE_TRANSFER_NEEDS_TARGET_DEPT_NAME;
+                    }
+                } else if (dischargeType == DISCHARGE_TYPE_DEATH_ID) {
+                    if (deathTime == null) {
+                        return StatusCode.DISCHARGE_TYPE_DEATH_NEEDS_DEATH_TIME;
+                    }
+                } else if (dischargeType == DISCHARGE_TYPE_EXIT_HOSPITAL_ID) {
+                    if (exitTime == null) {
+                        return StatusCode.DISCHARGE_TYPE_EXIT_HOSPITAL_NEEDS_EXIT_TIME;
+                    }
+                } else {
+                    return StatusCode.INVALID_DISCHARGE_TYPE;
+                }
 
-        // 解绑所有已经绑定设备
-        List<PatientDevice> patientDevs = patientDeviceRepository
-            .findByPatientIdAndUnbindingTimeNullAndIsDeletedFalse(patient.getId());
-        StatusCode statusCode = StatusCode.OK;
-        for (PatientDevice patientDev : patientDevs) {
-            statusCode = PatientDevUtils.unbindDevice(
-                patientDev, dischargeTime, account.autoAcctId(), account.acctName(), nowUtc);
-            if (statusCode != StatusCode.OK) {
-                log.error("Failed to unbind device: {}", patientDev.getId());
-                return GenericResp.newBuilder()
-                    .setRt(protoService.getReturnCode(statusCode))
-                    .build();
-            }
-        }
-        patientDeviceRepository.saveAll(patientDevs);
+                // 整批解绑校验成功后才修改患者；两张表在同一锁事务中提交。
+                StatusCode unbindingStatus = deviceBindingService
+                    .unbindAllForDischargeInTransaction(
+                        patient.getId(), dischargeTime, account, nowUtc);
+                if (unbindingStatus != StatusCode.OK) return unbindingStatus;
 
-        // 床位记录表中更新换床时间（终止时间）
-
-        return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .build();
+                patient.setDischargeTime(dischargeTime);
+                patient.setDischargeType(dischargeType);
+                if (dischargeType == DISCHARGE_TYPE_TRANSFER_ID) {
+                    patient.setToDeptName(req.getToDeptName());
+                } else if (dischargeType == DISCHARGE_TYPE_DEATH_ID) {
+                    patient.setDeathTime(deathTime);
+                } else {
+                    patient.setHisDischargeTime(exitTime);
+                }
+                patient.setAdmissionStatus(ADMISSION_STATUS_DISCHARGED);
+                patientRecordRepository.save(patient);
+                return StatusCode.OK;
+            });
+        return ReturnCodeUtils.genericResponse(statusCodeMsgs, status);
     }
 
     @Transactional
@@ -688,7 +656,7 @@ public class PatientService {
         // todo(guzhenyu): 病人基本信息的来源不限于PatientRecord，还有其他表
 
         final String bedNumberStr = patient.getHisBedNumber();
-        BedConfig bedConfig = patientConfig.getBedConfigMap(patient.getDeptId()).get(bedNumberStr);
+        BedConfig bedConfig = patientReader.getBedConfigMap(patient.getDeptId()).get(bedNumberStr);
 
         Integer age = patient.getIcuDateOfBirth() == null ? -1 : TimeUtils.getAge(patient.getIcuDateOfBirth());
         String hisAdmissionTimeStr = patient.getHisAdmissionTime() == null ? "" :
@@ -812,8 +780,8 @@ public class PatientService {
             return GetPatientInfoV2Resp.newBuilder().setRt(rt).build();
         }
 
-        Map<String, BedConfig> bedConfigMap = patientConfig.getBedConfigMap(patient.getDeptId());
-        PatientInfoPB patientInfo = toPatientInfoPB(patient, bedConfigMap);
+        Map<String, BedConfig> bedConfigMap = patientReader.getBedConfigMap(patient.getDeptId());
+        PatientRecordPB patientInfo = toPatientRecordPB(patient, bedConfigMap);
         return GetPatientInfoV2Resp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
             .setPatientInfo(patientInfo)
@@ -1360,28 +1328,6 @@ public class PatientService {
     }
 
     @Transactional
-    public PatientRecord getPatientRecord(Long patientId) {
-        Optional<PatientRecord> optPatient = patientRecordRepository.findById(patientId);
-        if (!optPatient.isPresent()) {
-            log.error("Patient record not found for patientId: {}", patientId);
-            return null;
-        }
-
-        PatientRecord patient = optPatient.get();
-        if (patient.getAdmissionTime() == null) {
-            log.error("Admission time not found for patientId: {}", patientId);
-            return null;
-        }
-
-        if (StrUtils.isBlank(patient.getDeptId())) {
-            log.error("Dept id not found for patientId: {}", patientId);
-            return null;
-        }
-
-        return patient;
-    }
-
-    @Transactional
     public List<PatientRecord> getPatientRecords(String deptId, LocalDateTime queryStartUtc, LocalDateTime queryEndUtc) {
         // 查找条件
         // - 科室ID
@@ -1436,7 +1382,7 @@ public class PatientService {
     }
 
     public PatientShift getShiftSettings(Long patientId) {
-        final PatientRecord patientRecord = getPatientRecord(patientId);
+        final PatientRecord patientRecord = patientReader.findById(patientId).orElse(null);
         if (patientRecord == null) {
             log.error("PatientRecord not found: ", patientId);
             return new PatientShift(StatusCode.PATIENT_NOT_FOUND, null, null);
@@ -1834,8 +1780,10 @@ public class PatientService {
         */
     }
 
-    private PatientInfoPB toPatientInfoPB(PatientRecord patient, Map<String, BedConfig> bedConfigMap) {
-        PatientInfoPB.Builder builder = PatientInfoPB.newBuilder();
+    private PatientRecordPB toPatientRecordPB(
+        PatientRecord patient, Map<String, BedConfig> bedConfigMap
+    ) {
+        PatientRecordPB.Builder builder = PatientRecordPB.newBuilder();
 
         builder.setPid(patient.getId() != null ? patient.getId() : 0);
         builder.setHisMrn(patient.getHisMrn());
@@ -1937,7 +1885,7 @@ public class PatientService {
         return builder.build();
     }
 
-    private void updatePatientRecord(PatientRecord patient, PatientInfoPB patientInfo) {
+    private void updatePatientRecord(PatientRecord patient, PatientRecordPB patientInfo) {
         // 以下字段不可更新
         // patient.setHisMrn(patientInfo.getHisMrn().isEmpty() ? null : patientInfo.getHisMrn());
         // patient.setHisPatientId(patientInfo.getHisPatientId().isEmpty() ? null : patientInfo.getHisPatientId());
@@ -2165,7 +2113,9 @@ public class PatientService {
     private PatientRecordRepository patientRecordRepository;
     private final BedMetaReader bedMetaReader;
     private DiagnosisHistoryRepository diagnosisHistoryRepository;
-    private PatientDeviceRepository patientDeviceRepository;
+    private final DeviceBindingService deviceBindingService;
+    private final PatientReader patientReader;
+    private final LockExecutor lockExecutor;
     private ReadmissionHistoryRepository readmissionHistoryRepository;
     private PatientSettingsRepository patientSettingsRepository;
     private SepsisAndSepticShockBundleService sepsisAndSepticShockBundleService;

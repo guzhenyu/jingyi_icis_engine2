@@ -34,7 +34,6 @@ import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DevicePB;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
-import com.jingyicare.jingyi_icis_engine.service.patients.PatientDeviceService;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
@@ -224,7 +223,7 @@ class DeviceServiceTests extends TestsBase {
 
     @Test
     void deletionWaitsForBindingAndKeepsTheBoundDevice(
-        @Autowired PatientDeviceService bindingService,
+        @Autowired DeviceBindingService bindingService,
         @Autowired PlatformTransactionManager transactionManager
     ) throws Exception {
         signIn();
@@ -238,16 +237,33 @@ class DeviceServiceTests extends TestsBase {
             """, Long.class, "test-device-service-binding", DEPT, "01");
         BindPatientDeviceReq bind = BindPatientDeviceReq.newBuilder()
             .setPid(pid).setDeviceId(id).setBindingTimeIso8601("2025-03-09T09:00+08:00").build();
-        try (ExecutorService pool = Executors.newSingleThreadExecutor()) {
+        try (ExecutorService pool = Executors.newFixedThreadPool(2)) {
             TransactionTemplate transaction = new TransactionTemplate(transactionManager);
-            Future<Integer> deletion = transaction.execute(status -> {
-                assertThat(bindingService.bindPatientDevice(ProtoUtils.protoToJson(bind))
-                    .getRt().getCode()).isEqualTo(StatusCode.OK_VALUE);
-                Future<Integer> call = pool.submit(() -> deleteAsAdmin(id));
+            List<Future<Integer>> requests = transaction.execute(status -> {
+                assertThat(service.lockDeviceById(id)).isPresent();
+                Future<Integer> binding = pool.submit(() -> {
+                    signIn();
+                    try {
+                        return bindingService.bindPatientDevice(ProtoUtils.protoToJson(bind))
+                            .getRt().getCode();
+                    } finally {
+                        SecurityContextHolder.clearContext();
+                    }
+                });
+                // 绑定入口在独立事务中先排队取得设备行锁。
                 awaitLockWaiters(1);
-                return call;
+                Future<Integer> deletion = pool.submit(() -> deleteAsAdmin(id));
+                await().atMost(10, TimeUnit.SECONDS).untilAsserted(() ->
+                    assertThat(jdbc.queryForObject("""
+                        SELECT count(*) FROM pg_stat_activity
+                        WHERE datname = current_database() AND wait_event_type = 'Lock'
+                            AND query LIKE 'SELECT id FROM device_infos WHERE id = % FOR UPDATE'
+                        """, Integer.class)).isEqualTo(2));
+                return List.of(binding, deletion);
             });
-            assertThat(deletion.get(10, TimeUnit.SECONDS))
+            assertThat(requests.get(0).get(10, TimeUnit.SECONDS))
+                .isEqualTo(StatusCode.OK_VALUE);
+            assertThat(requests.get(1).get(10, TimeUnit.SECONDS))
                 .isEqualTo(StatusCode.DEVICE_ALREADY_BINDED_VALUE);
             assertThat(jdbc.queryForObject("""
                 SELECT count(*) FROM device_infos d JOIN patient_devices b ON b.device_id = d.id

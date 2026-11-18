@@ -37,7 +37,7 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class PatientSyncService {
     public PatientSyncService(
         ConfigurableApplicationContext context,
-        @Autowired PatientConfig patientConfig,
+        @Autowired PatientReader patientReader,
         @Autowired PatientSyncUtils patientSyncUtils,
         @Autowired RbacDepartmentRepository deptRepo,
         @Autowired PatientRecordRepository patientRepo,
@@ -47,7 +47,7 @@ public class PatientSyncService {
         @Autowired EntityManager entityManager
     ) {
         this.context = context;
-        this.patientConfig = patientConfig;
+        this.patientReader = patientReader;
         this.patientSyncUtils = patientSyncUtils;
         this.deptRepo = deptRepo;
         this.patientRepo = patientRepo;
@@ -267,7 +267,7 @@ public class PatientSyncService {
         HisPatientRecord hisRecord, Map<String, PatientSyncInfo> syncInfoMap
     ) {
         // 如果hisRecord的床位号不在我们的配置中，则不创建
-        Map<String, BedConfig> bedConfigMap = patientConfig.getBedConfigMap(hisRecord.getDeptCode());
+        Map<String, BedConfig> bedConfigMap = patientReader.getBedConfigMap(hisRecord.getDeptCode());
         BedConfig bedConfig = bedConfigMap.get(hisRecord.getBedNumber());
         if (bedConfig == null || Objects.equals(bedConfig.getBedType(), BED_TYPE_TEMP)) {
             log.warn("Bed number {} not found in config for department {}, skipping creation", 
@@ -310,7 +310,7 @@ public class PatientSyncService {
     private int syncThreadJoinTimeoutSeconds;
 
     private final ConfigurableApplicationContext context;
-    private final PatientConfig patientConfig;
+    private final PatientReader patientReader;
     private final PatientSyncUtils patientSyncUtils;
     private final RbacDepartmentRepository deptRepo;
     private final PatientRecordRepository patientRepo;

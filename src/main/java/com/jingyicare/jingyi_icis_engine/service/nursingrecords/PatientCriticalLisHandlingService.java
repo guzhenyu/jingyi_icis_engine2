@@ -37,7 +37,7 @@ public class PatientCriticalLisHandlingService {
     public PatientCriticalLisHandlingService(
         @Autowired ConfigProtoService protoService,
         @Autowired UserQuery userQuery,
-        @Autowired PatientService patientService,
+        @Autowired PatientReader patientReader,
         @Autowired SettingService settingService,
         @Autowired NursingRecordUtils nursingRecordUtils,
         @Autowired PatientNursingReportInvalidationService pnrUtils,
@@ -52,7 +52,7 @@ public class PatientCriticalLisHandlingService {
 
         this.protoService = protoService;
         this.userQuery = userQuery;
-        this.patientService = patientService;
+        this.patientReader = patientReader;
         this.settingService = settingService;
         this.nursingRecordUtils = nursingRecordUtils;
         this.pnrUtils = pnrUtils;
@@ -87,7 +87,7 @@ public class PatientCriticalLisHandlingService {
 
         // 获取患者信息
         Long pid = req.getPid();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return GetPatientCriticalLisHandlingsResp.newBuilder()
@@ -184,7 +184,7 @@ public class PatientCriticalLisHandlingService {
 
         // 获取患者信息
         Long pid = req.getHandling().getPid();
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("Patient not found.");
             return SavePatientCriticalLisHandlingResp.newBuilder()
@@ -478,7 +478,7 @@ public class PatientCriticalLisHandlingService {
 
     private final ConfigProtoService protoService;
     private final UserQuery userQuery;
-    private final PatientService patientService;
+    private final PatientReader patientReader;
     private final SettingService settingService;
     private final NursingRecordUtils nursingRecordUtils;
     private final PatientNursingReportInvalidationService pnrUtils;

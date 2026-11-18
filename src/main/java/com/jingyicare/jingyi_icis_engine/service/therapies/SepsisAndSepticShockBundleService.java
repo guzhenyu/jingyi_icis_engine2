@@ -33,7 +33,7 @@ import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.therapies.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
-import com.jingyicare.jingyi_icis_engine.service.patients.PatientConfig;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.settings.IcuQcConfigService;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -55,7 +55,7 @@ public class SepsisAndSepticShockBundleService {
         ConfigProtoService protoService,
         IcuQcConfigService icuQcConfigService,
         UserQuery userQuery,
-        PatientConfig patientConfig,
+        PatientReader patientReader,
         PatientRecordRepository patientRecordRepo,
         DiagnosisHistoryRepository diagnosisHistoryRepo,
         PatientMonitoringRecordRepository patientMonitoringRecordRepo,
@@ -69,7 +69,7 @@ public class SepsisAndSepticShockBundleService {
         this.protoService = protoService;
         this.icuQcConfigService = icuQcConfigService;
         this.userQuery = userQuery;
-        this.patientConfig = patientConfig;
+        this.patientReader = patientReader;
         this.patientRecordRepo = patientRecordRepo;
         this.diagnosisHistoryRepo = diagnosisHistoryRepo;
         this.patientMonitoringRecordRepo = patientMonitoringRecordRepo;
@@ -178,7 +178,7 @@ public class SepsisAndSepticShockBundleService {
             .map(PatientRecord::getDeptId)
             .filter(Objects::nonNull)
             .distinct()
-            .collect(Collectors.toMap(Function.identity(), patientConfig::getBedConfigMap));
+            .collect(Collectors.toMap(Function.identity(), patientReader::getBedConfigMap));
 
         List<AlarmPB> alarms = new ArrayList<>();
         for (Long pid : pids) {
@@ -1182,7 +1182,7 @@ public class SepsisAndSepticShockBundleService {
     private final ConfigProtoService protoService;
     private final IcuQcConfigService icuQcConfigService;
     private final UserQuery userQuery;
-    private final PatientConfig patientConfig;
+    private final PatientReader patientReader;
     private final PatientRecordRepository patientRecordRepo;
     private final DiagnosisHistoryRepository diagnosisHistoryRepo;
     private final PatientMonitoringRecordRepository patientMonitoringRecordRepo;

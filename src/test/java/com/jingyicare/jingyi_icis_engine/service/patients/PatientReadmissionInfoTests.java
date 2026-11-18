@@ -16,7 +16,7 @@ import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.PatientBasicsPB;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.PatientTablePB;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.Patient;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.PatientConfigPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.PatientEnumsV2;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.EnumValue;
 import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordRepository;
@@ -36,7 +36,7 @@ class PatientReadmissionInfoTests {
         ConfigProtoService protoService = mock(ConfigProtoService.class);
         when(protoService.getConfig()).thenReturn(Config.newBuilder()
             .setZoneId("Asia/Shanghai")
-            .setPatient(Patient.newBuilder()
+            .setPatient(PatientConfigPB.newBuilder()
                 .setGracePeriodHoursToReadmit(48)
                 .setEnumsV2(PatientEnumsV2.newBuilder()
                     .addDischargeType(enumValue(1, "转出"))
@@ -50,7 +50,7 @@ class PatientReadmissionInfoTests {
         patientService = new PatientService(
             null, protoService, new PatientEnums(protoConfig),
             null, null, null, null, null, null, null, null,
-            patientRepo, null, null, null, null, null, null);
+            patientRepo, null, null, null, null, null, null, null, null);
     }
 
     @ParameterizedTest

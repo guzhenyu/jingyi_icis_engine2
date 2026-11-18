@@ -47,6 +47,7 @@ public class NursingOrderService {
         @Autowired UserQuery userQuery,
         @Autowired ConfigShiftUtils shiftUtils,
         @Autowired PatientService patientService,
+        @Autowired PatientReader patientReader,
         @Autowired MedicationConfig medConfig,
         @Autowired NursingOrderConfig orderConfig,
         @Autowired NursingOrderSyncService nursingOrderSyncService,
@@ -63,6 +64,7 @@ public class NursingOrderService {
         this.userQuery = userQuery;
         this.shiftUtils = shiftUtils;
         this.patientService = patientService;
+        this.patientReader = patientReader;
         this.medConfig = medConfig;
         this.orderConfig = orderConfig;
         this.nursingOrderSyncService = nursingOrderSyncService;
@@ -738,7 +740,7 @@ public class NursingOrderService {
             req.getQueryEndIso8601(), "UTC").minusMinutes(1);
 
         // 查询病人
-        final PatientRecord patientRecord = patientService.getPatientRecord(pid);
+        final PatientRecord patientRecord = patientReader.findById(pid).orElse(null);
         if (patientRecord == null) {
             log.error("PatientRecord not found: ", pid);
             return GetNursingOrderDetailsResp.newBuilder()
@@ -836,7 +838,7 @@ public class NursingOrderService {
                 .build();
         }
 
-        final PatientRecord patientRecord = patientService.getPatientRecord(req.getPid());
+        final PatientRecord patientRecord = patientReader.findById(req.getPid()).orElse(null);
         if (patientRecord == null) {
             log.error("PatientRecord not found: {}", req.getPid());
             return GetNursingOrdersResp.newBuilder()
@@ -883,7 +885,7 @@ public class NursingOrderService {
         }
 
         // 查询病人
-        final PatientRecord patientRecord = patientService.getPatientRecord(order.getPid());
+        final PatientRecord patientRecord = patientReader.findById(order.getPid()).orElse(null);
         if (patientRecord == null) {
             log.error("PatientRecord not found: ", order.getPid());
             return GetNursingOrderResp.newBuilder()
@@ -1528,6 +1530,7 @@ public class NursingOrderService {
     private final UserQuery userQuery;
     private final ConfigShiftUtils shiftUtils;
     private final PatientService patientService;
+    private final PatientReader patientReader;
     private final MedicationConfig medConfig;
     private final NursingOrderConfig orderConfig;
     private final NursingOrderSyncService nursingOrderSyncService;

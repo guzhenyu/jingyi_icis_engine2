@@ -17,6 +17,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
@@ -49,7 +50,7 @@ import com.jingyicare.jingyi_icis_engine.repository.medications.MedicationOrderG
 import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.service.medications.MedicationConfig;
 import com.jingyicare.jingyi_icis_engine.service.medications.MedMonitoringService;
-import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindowResolver;
@@ -258,7 +259,7 @@ public class MedexeRecordsDataSourceHandlerTests {
     @Test
     public void handleReturnsPatientNotFoundBeforeResolvingWindow() {
         TestContext ctx = new TestContext();
-        when(ctx.patientService.getPatientRecord(10001L)).thenReturn(null);
+        when(ctx.patientReader.findById(10001L)).thenReturn(Optional.empty());
 
         var result = ctx.handler().handle(input());
 
@@ -289,7 +290,8 @@ public class MedexeRecordsDataSourceHandlerTests {
         boolean hasPatientWithoutDept) {
         TestContext ctx = new TestContext();
         if (hasPatientWithoutDept) {
-            when(ctx.patientService.getPatientRecord(10001L)).thenReturn(new PatientRecord());
+            when(ctx.patientReader.findById(10001L))
+                .thenReturn(Optional.of(new PatientRecord()));
         }
         when(ctx.balanceStatsShiftRepo
             .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("request-dept"))
@@ -312,7 +314,7 @@ public class MedexeRecordsDataSourceHandlerTests {
         assertThat(output).hasSize(27);
         assertThat(output.values()).allSatisfy(values -> assertThat(values).isEmpty());
         verifyNoInteractions(ctx.statRepo);
-        if (!hasPatientWithoutDept) verifyNoInteractions(ctx.patientService, ctx.exeRecordRepo);
+        if (!hasPatientWithoutDept) verifyNoInteractions(ctx.patientReader, ctx.exeRecordRepo);
     }
 
     private static JfkDataSourcePB input() {
@@ -487,7 +489,7 @@ public class MedexeRecordsDataSourceHandlerTests {
 
     private static class TestContext {
         private final JfkDataSourceSupport support = mock(JfkDataSourceSupport.class);
-        private final PatientService patientService = mock(PatientService.class);
+        private final PatientReader patientReader = mock(PatientReader.class);
         private final BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
         private final MedicationExecutionRecordRepository exeRecordRepo = mock(MedicationExecutionRecordRepository.class);
         private final MedicationExecutionRecordStatRepository statRepo = mock(MedicationExecutionRecordStatRepository.class);
@@ -503,10 +505,10 @@ public class MedexeRecordsDataSourceHandlerTests {
             PatientRecord patient = new PatientRecord();
             patient.setId(10001L);
             patient.setDeptId("patient-dept");
-            when(patientService.getPatientRecord(10001L)).thenReturn(patient);
+            when(patientReader.findById(10001L)).thenReturn(Optional.of(patient));
             when(support.getStatusMsgList()).thenReturn(Collections.nCopies(400, "status"));
             when(support.getZoneId()).thenReturn("Asia/Shanghai");
-            when(support.getPatientService()).thenReturn(patientService);
+            when(support.getPatientReader()).thenReturn(patientReader);
             doCallRealMethod().when(support).resolveStatisticsDayWindow(any(), any());
             doCallRealMethod().when(support).addArrayOutput(any(), any(), any());
             ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",

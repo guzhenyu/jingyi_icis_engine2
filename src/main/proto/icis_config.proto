@@ -32,7 +32,7 @@ message Config {
     config.IcisCommonPB common = 3;
     config.UserConfigPB user = 4;
     config.ShiftConfigPB shift = 5;
-    config.Patient patient = 6;
+    config.PatientConfigPB patient = 6;
     config.MedicationConfigPB medication = 7;
     config.TubePB tube = 8;
     config.MonitoringPB monitoring = 9;

@@ -19,7 +19,7 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.GenericValuePB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.ValueMetaPB;
 import com.jingyicare.jingyi_icis_engine.repository.skincares.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
-import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -31,7 +31,7 @@ public class SkincareService {
     public SkincareService(
         @Autowired ConfigProtoService protoService,
         @Autowired UserQuery userQuery,
-        @Autowired PatientService patientService,
+        @Autowired PatientReader patientReader,
         @Autowired SkincareTypeRepository skincareTypeRepo,
         @Autowired SkincareTypeAttributeRepository skincareTypeAttrRepo,
         @Autowired PatientSkincarePlanRepository patientSkincarePlanRepo,
@@ -46,7 +46,7 @@ public class SkincareService {
 
         this.protoService = protoService;
         this.userQuery = userQuery;
-        this.patientService = patientService;
+        this.patientReader = patientReader;
         this.skincareTypeRepo = skincareTypeRepo;
         this.skincareTypeAttrRepo = skincareTypeAttrRepo;
         this.patientSkincarePlanRepo = patientSkincarePlanRepo;
@@ -470,7 +470,7 @@ public class SkincareService {
         }
 
         if (req.getPid() > 0) {
-            PatientRecord patient = patientService.getPatientRecord(req.getPid());
+            PatientRecord patient = patientReader.findById(req.getPid()).orElse(null);
             if (patient == null) {
                 return GetPatientSkincarePlansResp.newBuilder()
                     .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
@@ -527,7 +527,7 @@ public class SkincareService {
         }
 
         PatientSkincarePlanPB planPb = req.getPlan();
-        PatientRecord patient = patientService.getPatientRecord(planPb.getPid());
+        PatientRecord patient = patientReader.findById(planPb.getPid()).orElse(null);
         if (patient == null) {
             return AddPatientSkincarePlanResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
@@ -624,7 +624,7 @@ public class SkincareService {
                 .build();
         }
 
-        PatientRecord patient = patientService.getPatientRecord(planPb.getPid());
+        PatientRecord patient = patientReader.findById(planPb.getPid()).orElse(null);
         if (patient == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
@@ -968,7 +968,7 @@ public class SkincareService {
         }
 
         if (req.getPid() > 0) {
-            PatientRecord patient = patientService.getPatientRecord(req.getPid());
+            PatientRecord patient = patientReader.findById(req.getPid()).orElse(null);
             if (patient == null) {
                 return GetPatientSkincareRecordsResp.newBuilder()
                     .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
@@ -1026,7 +1026,7 @@ public class SkincareService {
         }
 
         PatientSkincareRecordPB recordPb = req.getRecord();
-        PatientRecord patient = patientService.getPatientRecord(recordPb.getPid());
+        PatientRecord patient = patientReader.findById(recordPb.getPid()).orElse(null);
         if (patient == null) {
             return AddPatientSkincareRecordResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
@@ -1126,7 +1126,7 @@ public class SkincareService {
                 .build();
         }
 
-        PatientRecord patient = patientService.getPatientRecord(recordPb.getPid());
+        PatientRecord patient = patientReader.findById(recordPb.getPid()).orElse(null);
         if (patient == null) {
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
@@ -1852,7 +1852,7 @@ public class SkincareService {
 
     private final ConfigProtoService protoService;
     private final UserQuery userQuery;
-    private final PatientService patientService;
+    private final PatientReader patientReader;
     private final SkincareTypeRepository skincareTypeRepo;
     private final SkincareTypeAttributeRepository skincareTypeAttrRepo;
     private final PatientSkincarePlanRepository patientSkincarePlanRepo;

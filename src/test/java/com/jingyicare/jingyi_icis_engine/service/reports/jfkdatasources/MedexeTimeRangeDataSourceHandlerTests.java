@@ -14,6 +14,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
@@ -31,7 +32,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkFieldDataPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
-import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 
@@ -164,14 +165,14 @@ public class MedexeTimeRangeDataSourceHandlerTests {
 
     @Test
     public void handleUsesPatientDeptWhenPidIsPresent() {
-        PatientService patientService = mock(PatientService.class);
+        PatientReader patientReader = mock(PatientReader.class);
         PatientRecord patient = new PatientRecord();
         patient.setId(10001L);
         patient.setDeptId("patient-dept");
-        when(patientService.getPatientRecord(10001L)).thenReturn(patient);
+        when(patientReader.findById(10001L)).thenReturn(Optional.of(patient));
 
         JfkDataSourceSupport support = mockSupport();
-        when(support.getPatientService()).thenReturn(patientService);
+        when(support.getPatientReader()).thenReturn(patientReader);
         BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
         MedexeTimeRangeDataSourceHandler handler =
             new MedexeTimeRangeDataSourceHandler(support);
@@ -199,10 +200,10 @@ public class MedexeTimeRangeDataSourceHandlerTests {
     @ValueSource(booleans = {false, true})
     public void handleFallsBackToInputDeptWhenPatientOrPatientDeptIsMissing(boolean patientExists) {
         JfkDataSourceSupport support = mockSupport();
-        PatientService patientService = mock(PatientService.class);
-        when(support.getPatientService()).thenReturn(patientService);
-        when(patientService.getPatientRecord(10001L)).thenReturn(patientExists ? new PatientRecord(
-            ) : null);
+        PatientReader patientReader = mock(PatientReader.class);
+        when(support.getPatientReader()).thenReturn(patientReader);
+        when(patientReader.findById(10001L)).thenReturn(
+            patientExists ? Optional.of(new PatientRecord()) : Optional.empty());
         BalanceStatsShiftRepository repo = mock(BalanceStatsShiftRepository.class);
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
             new StatisticsDayWindowResolver(repo));
