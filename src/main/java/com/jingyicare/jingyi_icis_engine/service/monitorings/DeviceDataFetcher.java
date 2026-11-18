@@ -300,11 +300,11 @@ public class DeviceDataFetcher {
         }
 
         // 获取设备绑定历史[{deviceId, from, to}]
-        List<DeviceInfoWithBindingPB> devBindings = patientConfig.getPatientDeviceBindingHistory(
+        List<DeviceWithBindingsPB> devBindings = patientConfig.getPatientDeviceBindingHistory(
             ctx.patientRecord, null, ctx.from, ctx.to
         );
-        for (DeviceInfoWithBindingPB devBinding : devBindings) {
-            for (DeviceBindingPB binding : devBinding.getBindingList()) {
+        for (DeviceWithBindingsPB devBinding : devBindings) {
+            for (DeviceBindingRecordPB binding : devBinding.getBindingList()) {
                 LocalDateTime start = TimeUtils.fromIso8601String(binding.getBindingTimeIso8601(), "UTC");
                 LocalDateTime approxStart = start;
                 if (start.isBefore(ctx.from)) start = ctx.from;

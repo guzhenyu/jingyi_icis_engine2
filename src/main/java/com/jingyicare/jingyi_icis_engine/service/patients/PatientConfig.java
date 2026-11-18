@@ -157,7 +157,7 @@ public class PatientConfig {
         return getBedConfigPB(bedConfig, patient);
     }
 
-    public Pair<StatusCode, Map<Integer/*device_id*/, DeviceBindingPB>> getBindedDevices() {
+    public Pair<StatusCode, Map<Integer/*device_id*/, DeviceBindingRecordPB>> getBindedDevices() {
         List<PatientDevice> patientDevList = patientDevRepo.findAllByIsDeletedFalseAndUnbindingTimeIsNull();
         Map<Long, PatientRecord> patientNameMap = getPatientMap(patientDevList);
         Pair<StatusCode, Map<String/*deptId + hisBed*/, String/*displayBed*/>> bedNumberResult =
@@ -167,7 +167,7 @@ public class PatientConfig {
         }
         Map<String/*deptId + hisBed*/, String/*displayBed*/> bedNumberMap = bedNumberResult.getSecond();
 
-        Map<Integer, DeviceBindingPB> bindingMap = patientDevList
+        Map<Integer, DeviceBindingRecordPB> bindingMap = patientDevList
             .stream()
             .map(pd -> {
                 PatientRecord patient = patientNameMap.get(pd.getPatientId());
@@ -175,7 +175,7 @@ public class PatientConfig {
                 String displayBed = patient == null ? "" : bedNumberMap.getOrDefault(
                     getBedNumberKey(patient.getDeptId(), patient.getHisBedNumber()), patient.getHisBedNumber());
 
-                return DeviceBindingPB.newBuilder()
+                return DeviceBindingRecordPB.newBuilder()
                     .setId(pd.getId())
                     .setPatientId(pd.getPatientId())
                     .setPatientName(patientName)
@@ -187,11 +187,11 @@ public class PatientConfig {
                     )
                     .build();
             })
-            .collect(Collectors.toMap(DeviceBindingPB::getDeviceId, Function.identity()));
+            .collect(Collectors.toMap(DeviceBindingRecordPB::getDeviceId, Function.identity()));
         return new Pair<>(StatusCode.OK, bindingMap);
     }
 
-    public Pair<StatusCode, Pair<List<DeviceBindingPB>, Boolean>> getDeviceBindingHistory(
+    public Pair<StatusCode, Pair<List<DeviceBindingRecordPB>, Boolean>> getDeviceBindingHistory(
         Integer deviceId, LocalDateTime from, LocalDateTime to
     ) {
         if (from == null) from = TimeUtils.getLocalTime(1900, 1, 1);
@@ -218,7 +218,8 @@ public class PatientConfig {
         }
         Map<String/*deptId + hisBed*/, String/*displayBed*/> bedNumberMap = bedNumberResult.getSecond();
 
-        return new Pair<>(StatusCode.OK, new Pair<List<DeviceBindingPB>, Boolean>(patientDevList
+        return new Pair<>(StatusCode.OK, new Pair<List<DeviceBindingRecordPB>, Boolean>(
+            patientDevList
             .stream()
             .sorted(Comparator.comparing(PatientDevice::getBindingTime))
             .map(pd -> {
@@ -227,7 +228,7 @@ public class PatientConfig {
                 String displayBed = patient == null ? "" : bedNumberMap.getOrDefault(
                     getBedNumberKey(patient.getDeptId(), patient.getHisBedNumber()), patient.getHisBedNumber());
 
-                return DeviceBindingPB.newBuilder()
+                return DeviceBindingRecordPB.newBuilder()
                     .setId(pd.getId())
                     .setPatientId(pd.getPatientId())
                     .setPatientName(patientName)
@@ -277,7 +278,7 @@ public class PatientConfig {
             .orElse(null);
     }
 
-    public List<DeviceInfoWithBindingPB> getPatientDeviceBindingHistory(
+    public List<DeviceWithBindingsPB> getPatientDeviceBindingHistory(
         PatientRecord patient, Integer devType, LocalDateTime from, LocalDateTime to
     ) {
         Long patientId = patient.getId();
@@ -306,9 +307,9 @@ public class PatientConfig {
         }
         devices.addAll(deviceService.findDevicesByIds(remainingDevIds));
 
-        Map<Integer, List<DeviceBindingPB>> bindingMap = bindings.stream()
+        Map<Integer, List<DeviceBindingRecordPB>> bindingMap = bindings.stream()
             .sorted(Comparator.comparing(PatientDevice::getBindingTime))
-            .map(binding -> DeviceBindingPB.newBuilder()
+            .map(binding -> DeviceBindingRecordPB.newBuilder()
                 .setId(binding.getId())
                 .setPatientId(patientId)
                 .setPatientName(patient.getIcuName())
@@ -317,13 +318,13 @@ public class PatientConfig {
                 .setUnbindingTimeIso8601(
                     TimeUtils.toIso8601String(binding.getUnbindingTime(), ZONE_ID))
                 .build())
-            .collect(Collectors.groupingBy(DeviceBindingPB::getDeviceId));
+            .collect(Collectors.groupingBy(DeviceBindingRecordPB::getDeviceId));
 
         return devices.stream()
             .filter(device -> matchesDeviceType(device, devType))
             .sorted(DEVICE_ORDER)
-            .map(device -> DeviceInfoWithBindingPB.newBuilder()
-                .setDevice(DeviceMapper.toDeviceInfoPB(device))
+            .map(device -> DeviceWithBindingsPB.newBuilder()
+                .setDevice(DeviceMapper.toDevicePB(device))
                 .setIsBinding(inUseDevIds.contains(device.getId()))
                 .addAllBinding(bindingMap.get(device.getId()))
                 .build())

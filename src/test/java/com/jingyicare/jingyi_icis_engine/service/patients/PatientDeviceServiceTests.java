@@ -264,15 +264,16 @@ public class PatientDeviceServiceTests extends TestsBase {
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         // 添加设备信息
-        DeviceInfoPB devInfoPB1 = newDevInfoPB(devDeptId1, 101, DEVICE_TYPE_MONITOR);
-        DeviceInfoPB devInfoPB2 = newDevInfoPB(devDeptId1, 102, DEVICE_TYPE_MONITOR);
+        DevicePB devInfoPB1 = newDevInfoPB(devDeptId1, 101, DEVICE_TYPE_MONITOR);
+        DevicePB devInfoPB2 = newDevInfoPB(devDeptId1, 102, DEVICE_TYPE_MONITOR);
         devInfoPB2 = devInfoPB2.toBuilder().setDeviceBedNumber("devBedNumber1401").build();  // name to be updated
-        DeviceInfoPB devInfoPB3 = newDevInfoPB(devDeptId1, 103, DEVICE_TYPE_VENTILATOR);
-        DeviceInfoPB devInfoPB4 = newDevInfoPB(devDeptId2, 104, DEVICE_TYPE_MONITOR);
-        DeviceInfoPB devInfoPB5 = newDevInfoPB(devDeptId2, 105, DEVICE_TYPE_MONITOR);  // 待删除
+        DevicePB devInfoPB3 = newDevInfoPB(devDeptId1, 103, DEVICE_TYPE_VENTILATOR);
+        DevicePB devInfoPB4 = newDevInfoPB(devDeptId2, 104, DEVICE_TYPE_MONITOR);
+        DevicePB devInfoPB5 = newDevInfoPB(devDeptId2, 105, DEVICE_TYPE_MONITOR);  // 待删除
 
         List<Integer> devIds = new ArrayList<>();
-        for (DeviceInfoPB devInfo : List.of(devInfoPB1, devInfoPB2, devInfoPB3, devInfoPB4, devInfoPB5)) {
+        for (DevicePB devInfo : List.of(
+            devInfoPB1, devInfoPB2, devInfoPB3, devInfoPB4, devInfoPB5)) {
             AddDeviceInfoReq addDevReq = AddDeviceInfoReq.newBuilder().setDeviceInfo(devInfo).build();
             String addDevReqJson = ProtoUtils.protoToJson(addDevReq);
             AddDeviceInfoResp addDevResp = deviceService.addDeviceInfo(addDevReqJson);
@@ -281,7 +282,7 @@ public class PatientDeviceServiceTests extends TestsBase {
         }
 
         // 更新设备信息
-        DeviceInfoPB devInfoToUpdate = devInfoPB2.toBuilder()
+        DevicePB devInfoToUpdate = devInfoPB2.toBuilder()
             .setId(devIds.get(1)).setDeviceName("device-name-102-updated").build();
         AddDeviceInfoReq updateDevReq = AddDeviceInfoReq.newBuilder().setDeviceInfo(devInfoToUpdate).build();
         String updateDevReqJson = ProtoUtils.protoToJson(updateDevReq);
@@ -326,7 +327,7 @@ public class PatientDeviceServiceTests extends TestsBase {
         GetDeviceInfoResp getDevResp = patientDeviceService.getDeviceInfo(getDevReqJson);
         assertThat(getDevResp.getRt().getCode()).isEqualTo(0);
         Map<String/*devName*/, Boolean/*isBinding*/> deviceNames = new HashMap<>();
-        for (DeviceInfoWithBindingPB inlineDev : getDevResp.getInlineDevList()) {
+        for (DeviceWithBindingsPB inlineDev : getDevResp.getInlineDevList()) {
             deviceNames.put(inlineDev.getDevice().getDeviceName(), inlineDev.getIsBinding());
         }
         // 验证增，改
@@ -349,7 +350,7 @@ public class PatientDeviceServiceTests extends TestsBase {
         getDevResp = patientDeviceService.getDeviceInfo(getDevReqJson);
         assertThat(getDevResp.getRt().getCode()).isEqualTo(0);
         deviceNames.clear();
-        for (DeviceInfoWithBindingPB inlineDev : getDevResp.getInlineDevList()) {
+        for (DeviceWithBindingsPB inlineDev : getDevResp.getInlineDevList()) {
             deviceNames.put(inlineDev.getDevice().getDeviceName(), inlineDev.getIsBinding());
         }
         assertThat(deviceNames.size()).isEqualTo(2);
@@ -369,7 +370,7 @@ public class PatientDeviceServiceTests extends TestsBase {
     @Test
     @WithMockUser(username = "admin", roles = "1")
     public void softDeletedDeviceAllowsHistoryAndUnbinding(@Autowired JdbcTemplate jdbc) {
-        DeviceInfoPB device = newDevInfoPB(devDeptId3, 29411, DEVICE_TYPE_MONITOR)
+        DevicePB device = newDevInfoPB(devDeptId3, 29411, DEVICE_TYPE_MONITOR)
             .toBuilder().setDeviceBedNumber("原固定床位").build();
         AddDeviceInfoReq add = AddDeviceInfoReq.newBuilder().setDeviceInfo(device).build();
         AddDeviceInfoResp added = deviceService.addDeviceInfo(ProtoUtils.protoToJson(add));
@@ -442,10 +443,10 @@ public class PatientDeviceServiceTests extends TestsBase {
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
         // 添加设备信息
-        DeviceInfoPB devInfoPB1 = newDevInfoPB(devDeptId3, 201, DEVICE_TYPE_MONITOR);
-        DeviceInfoPB devInfoPB2 = newDevInfoPB(devDeptId3, 202, DEVICE_TYPE_VENTILATOR);
+        DevicePB devInfoPB1 = newDevInfoPB(devDeptId3, 201, DEVICE_TYPE_MONITOR);
+        DevicePB devInfoPB2 = newDevInfoPB(devDeptId3, 202, DEVICE_TYPE_VENTILATOR);
         List<Integer> devIds = new ArrayList<>();
-        for (DeviceInfoPB devInfo : List.of(devInfoPB1, devInfoPB2)) {
+        for (DevicePB devInfo : List.of(devInfoPB1, devInfoPB2)) {
             AddDeviceInfoReq addDevReq = AddDeviceInfoReq.newBuilder().setDeviceInfo(devInfo).build();
             String addDevReqJson = ProtoUtils.protoToJson(addDevReq);
             AddDeviceInfoResp addDevResp = deviceService.addDeviceInfo(addDevReqJson);
@@ -624,7 +625,7 @@ public class PatientDeviceServiceTests extends TestsBase {
         SecurityContextHolder.getContext().setAuthentication(authentication);
         final String upstreamRuleDeptId = "10099";
 
-        DeviceInfoPB directCentral = newDevInfoPB(
+        DevicePB directCentral = newDevInfoPB(
             upstreamRuleDeptId, 301, DEVICE_TYPE_CENTRAL_STATION).toBuilder()
             .setSourceMode(1)
             .setSourceTopology(2)
@@ -636,7 +637,7 @@ public class PatientDeviceServiceTests extends TestsBase {
         assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         int directCentralId = addResp.getId();
 
-        DeviceInfoPB indirectCentral = newDevInfoPB(
+        DevicePB indirectCentral = newDevInfoPB(
             upstreamRuleDeptId, 302, DEVICE_TYPE_CENTRAL_STATION).toBuilder()
             .setSourceMode(3)
             .setSourceTopology(2)
@@ -648,7 +649,7 @@ public class PatientDeviceServiceTests extends TestsBase {
         assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         int indirectCentralId = addResp.getId();
 
-        DeviceInfoPB downstreamDevice = newDevInfoPB(upstreamRuleDeptId, 303, DEVICE_TYPE_MONITOR)
+        DevicePB downstreamDevice = newDevInfoPB(upstreamRuleDeptId, 303, DEVICE_TYPE_MONITOR)
             .toBuilder()
             .setSourceMode(3)
             .setSourceTopology(2)
@@ -659,7 +660,7 @@ public class PatientDeviceServiceTests extends TestsBase {
         );
         assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
-        DeviceInfoPB directWithUpstream = newDevInfoPB(upstreamRuleDeptId, 304, DEVICE_TYPE_MONITOR)
+        DevicePB directWithUpstream = newDevInfoPB(upstreamRuleDeptId, 304, DEVICE_TYPE_MONITOR)
             .toBuilder()
             .setSourceMode(1)
             .setSourceTopology(1)
@@ -670,7 +671,7 @@ public class PatientDeviceServiceTests extends TestsBase {
         );
         assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.DEVICE_SOURCE_CONFIG_INVALID.ordinal());
 
-        DeviceInfoPB upstreamNotSource = newDevInfoPB(upstreamRuleDeptId, 305, DEVICE_TYPE_MONITOR)
+        DevicePB upstreamNotSource = newDevInfoPB(upstreamRuleDeptId, 305, DEVICE_TYPE_MONITOR)
             .toBuilder()
             .setSourceMode(3)
             .setSourceTopology(2)
@@ -682,8 +683,8 @@ public class PatientDeviceServiceTests extends TestsBase {
         assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.DEVICE_SOURCE_CONFIG_INVALID.ordinal());
     }
 
-    private DeviceInfoPB newDevInfoPB(String deptId, Integer devId, Integer devType) {
-        return DeviceInfoPB.newBuilder()
+    private DevicePB newDevInfoPB(String deptId, Integer devId, Integer devType) {
+        return DevicePB.newBuilder()
             .setDepartmentId(deptId)
             .setDeviceSn("device-sn-" + devId)
             .setDeviceBedNumber("")

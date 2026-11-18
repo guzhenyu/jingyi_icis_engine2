@@ -31,7 +31,7 @@ import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.BindPatientDeviceReq;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.DeleteDeviceInfoReq;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.GetDeviceInfoReq;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceInfoPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DevicePB;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientDeviceService;
@@ -54,16 +54,16 @@ class DeviceServiceTests extends TestsBase {
 
     @Test
     void concurrentAddsUnderSameDepartmentAndNameReturnNameConflict() throws Exception {
-        DeviceInfoPB first = device(DEPT, "重名设备", "192.0.2.201");
-        DeviceInfoPB second = first.toBuilder().setDeviceIp("192.0.2.202").build();
+        DevicePB first = device(DEPT, "重名设备", "192.0.2.201");
+        DevicePB second = first.toBuilder().setDeviceIp("192.0.2.202").build();
         assertCompetingAdds(first, second, "device_infos:" + DEPT + ":重名设备",
             StatusCode.DEVICE_INFO_ALREADY_EXISTS);
     }
 
     @Test
     void concurrentAddsInDifferentDepartmentsWithSameIpReturnIpConflict() throws Exception {
-        DeviceInfoPB first = device(DEPT, "设备甲", "192.0.2.203");
-        DeviceInfoPB second = device(OTHER_DEPT, "设备乙", first.getDeviceIp());
+        DevicePB first = device(DEPT, "设备甲", "192.0.2.203");
+        DevicePB second = device(OTHER_DEPT, "设备乙", first.getDeviceIp());
         assertCompetingAdds(first, second, "device_ip:192.0.2.203",
             StatusCode.DEVICE_IP_ALREADY_USED);
     }
@@ -127,16 +127,16 @@ class DeviceServiceTests extends TestsBase {
         signIn();
         int originalId = insertDevice(
             DEPT, "原设备", null, DeviceEnums.DEVICE_TYPE_MONITOR, false);
-        DeviceInfoPB device = device(DEPT, "新设备", "192.0.2.204").toBuilder()
+        DevicePB device = device(DEPT, "新设备", "192.0.2.204").toBuilder()
             .setId(originalId).build();
         AddDeviceInfoResp added = service.addDeviceInfo(request(device));
         assertThat(added.getRt().getCode()).isEqualTo(StatusCode.OK_VALUE);
         assertThat(added.getId()).isNotEqualTo(originalId);
 
-        DeviceInfoPB missing = device.toBuilder().clearId().build();
+        DevicePB missing = device.toBuilder().clearId().build();
         assertThat(service.updateDeviceInfo(request(missing)).getRt().getCode())
             .isEqualTo(StatusCode.DEVICE_INFO_NOT_EXISTS_VALUE);
-        DeviceInfoPB updated = device.toBuilder()
+        DevicePB updated = device.toBuilder()
             .setId(added.getId()).setDeviceSn("SN-204").build();
         assertThat(service.updateDeviceInfo(request(updated)).getRt().getCode())
             .isEqualTo(StatusCode.OK_VALUE);
@@ -147,17 +147,17 @@ class DeviceServiceTests extends TestsBase {
     @Test
     void renameAndSoftDeleteReleaseNamesAndAllowMultipleDevicesWithoutIp() {
         signIn();
-        DeviceInfoPB original = device(DEPT, "原名", "");
+        DevicePB original = device(DEPT, "原名", "");
         AddDeviceInfoResp created = service.addDeviceInfo(request(original));
         assertThat(created.getRt().getCode()).isEqualTo(StatusCode.OK_VALUE);
-        DeviceInfoPB moved = device(OTHER_DEPT, "新名", "").toBuilder()
+        DevicePB moved = device(OTHER_DEPT, "新名", "").toBuilder()
             .setId(created.getId()).build();
         assertThat(service.updateDeviceInfo(request(moved)).getRt().getCode())
             .isEqualTo(StatusCode.OK_VALUE);
         assertThat(service.addDeviceInfo(request(original)).getRt().getCode())
             .isEqualTo(StatusCode.OK_VALUE);
 
-        DeviceInfoPB replacement = moved.toBuilder().clearId().build();
+        DevicePB replacement = moved.toBuilder().clearId().build();
         assertThat(service.addDeviceInfo(request(replacement)).getRt().getCode())
             .isEqualTo(StatusCode.DEVICE_INFO_ALREADY_EXISTS_VALUE);
         String deleteRequest = ProtoUtils.protoToJson(
@@ -174,7 +174,7 @@ class DeviceServiceTests extends TestsBase {
     @Test
     void deleteReplansWhenNameChangesWhileWaitingForItsLock() throws Exception {
         signIn();
-        DeviceInfoPB original = device(DEPT, "等待删除的设备", "");
+        DevicePB original = device(DEPT, "等待删除的设备", "");
         AddDeviceInfoResp created = service.addDeviceInfo(request(original));
         assertThat(created.getRt().getCode()).isEqualTo(StatusCode.OK_VALUE);
         String newName = "并发改名-" + UUID.randomUUID();
@@ -228,7 +228,7 @@ class DeviceServiceTests extends TestsBase {
         @Autowired PlatformTransactionManager transactionManager
     ) throws Exception {
         signIn();
-        DeviceInfoPB device = device(DEPT, "正在绑定的设备", "");
+        DevicePB device = device(DEPT, "正在绑定的设备", "");
         AddDeviceInfoResp added = service.addDeviceInfo(request(device));
         assertThat(added.getRt().getCode()).isEqualTo(StatusCode.OK_VALUE);
         int id = added.getId();
@@ -261,7 +261,7 @@ class DeviceServiceTests extends TestsBase {
     }
 
     private void assertCompetingAdds(
-        DeviceInfoPB first, DeviceInfoPB second, String key, StatusCode conflict
+        DevicePB first, DevicePB second, String key, StatusCode conflict
     ) throws Exception {
         try (ExecutorService pool = Executors.newFixedThreadPool(2)) {
             List<Future<Integer>> calls = executor.execute(List.of(key), () -> {
@@ -288,7 +288,7 @@ class DeviceServiceTests extends TestsBase {
                 """, Integer.class, holder)).isEqualTo(count));
     }
 
-    private int addAsAdmin(DeviceInfoPB device) {
+    private int addAsAdmin(DevicePB device) {
         signIn();
         try {
             return service.addDeviceInfo(request(device)).getRt().getCode();
@@ -322,12 +322,12 @@ class DeviceServiceTests extends TestsBase {
                 AuthorityUtils.createAuthorityList("ROLE_1")));
     }
 
-    private String request(DeviceInfoPB device) {
+    private String request(DevicePB device) {
         return ProtoUtils.protoToJson(AddDeviceInfoReq.newBuilder().setDeviceInfo(device).build());
     }
 
-    private DeviceInfoPB device(String dept, String name, String ip) {
-        return DeviceInfoPB.newBuilder().setDepartmentId(dept).setDeviceName(name).setDeviceIp(ip)
+    private DevicePB device(String dept, String name, String ip) {
+        return DevicePB.newBuilder().setDepartmentId(dept).setDeviceName(name).setDeviceIp(ip)
             .setDeviceType(DeviceEnums.DEVICE_TYPE_MONITOR)
             .setSourceMode(DeviceEnums.SOURCE_MODE_INBOUND_SERVER)
             .setSourceTopology(DeviceEnums.SOURCE_TOPOLOGY_SINGLE_DEVICE)

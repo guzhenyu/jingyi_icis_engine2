@@ -1,4 +1,4 @@
-# DeviceInfoPB source_mode 迁移需求
+# DevicePB source_mode 迁移需求
 
 本文只整理需求和执行注意点，本次不修改 Java、proto、SQL 或前端代码。
 
@@ -10,7 +10,7 @@
 - `source_mode = 2`：`OUTBOUND_CLIENT`，采集程序主动连设备或中央站。
 - `source_mode = 3`：`NON_DIRECT_CONNECT`，本设备不直接通信，由上游 source 代采集。
 
-后续 `jingyi_icis_engine2` 和 `jingyi_icis_frontend` 需要适配新的 `DeviceInfoPB`，不再依赖 `enabled_as_source`。
+后续 `jingyi_icis_engine2` 和 `jingyi_icis_frontend` 需要适配新的 `DevicePB`，不再依赖 `enabled_as_source`。
 
 ## 字段约束
 
@@ -36,10 +36,10 @@ PDS 常用配置：
 
 `jingyi_icis_engine2/src/main/proto/config/icis_device.proto`
 
-`DeviceInfoPB` 目标结构：
+`DevicePB` 目标结构：
 
 ```proto
-message DeviceInfoPB {
+message DevicePB {
     reserved 9, 11, 12, 13, 14, 17;
 
     int32 id = 1;
@@ -132,9 +132,9 @@ CHECK (
   - `enabledAsSource`
 - `DeviceInfo` 新增：
   - `pdsIpSeq`
-- `PatientConfig.toDeviceInfoPB(...)` 不再 set 旧字段，新增 `setPdsIpSeq(...)`。
+- `PatientConfig.toDevicePB(...)` 不再 set 旧字段，新增 `setPdsIpSeq(...)`。
 - `PatientConfig.toDeviceInfo(...)` 不再读取旧字段，新增保存 `pdsIpSeq`。
-- `ProtoUtils` 当前显式保留 `DeviceInfoPB.enabled_as_source = 17` 和 `upstream_device_id = 18` 的默认值；迁移后应移除 field 17，保留 field 18，并按需要增加 field 19，确保 JSON 输出 `upstreamDeviceId: 0` / `pdsIpSeq: 0` 的默认值策略一致。
+- `ProtoUtils` 当前显式保留 `DevicePB.enabled_as_source = 17` 和 `upstream_device_id = 18` 的默认值；迁移后应移除 field 17，保留 field 18，并按需要增加 field 19，确保 JSON 输出 `upstreamDeviceId: 0` / `pdsIpSeq: 0` 的默认值策略一致。
 
 ### PatientDeviceService
 
@@ -181,7 +181,7 @@ source_mode = 3:
 - `/api/device/updatedeviceinfo`
 - `/api/device/deletedeviceinfo`
 
-请求/响应结构仍通过 `config.DeviceInfoPB` 承载设备信息。迁移后前端提交的 `deviceInfo` 不再包含：
+请求/响应结构仍通过 `config.DevicePB` 承载设备信息。迁移后前端提交的 `deviceInfo` 不再包含：
 
 - `networkProtocol`
 - `serialProtocol`
@@ -189,7 +189,7 @@ source_mode = 3:
 - `manufacturer`
 - `enabledAsSource`
 
-后端返回的 `DeviceInfoPB` 应包含：
+后端返回的 `DevicePB` 应包含：
 
 - `sourceMode`
 - `sourceTopology`

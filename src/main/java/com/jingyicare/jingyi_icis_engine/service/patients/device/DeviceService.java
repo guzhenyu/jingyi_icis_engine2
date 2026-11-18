@@ -26,7 +26,7 @@ import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.AddDeviceInfoResp;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.DeleteDeviceInfoReq;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.GetDeviceInfoReq;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceInfoPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DevicePB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
 import com.jingyicare.jingyi_icis_engine.repository.patients.DeviceInfoJdbc;
 import com.jingyicare.jingyi_icis_engine.repository.patients.DeviceInfoJdbc.DeviceKey;
@@ -106,7 +106,7 @@ public class DeviceService {
         CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) return addError(StatusCode.ACCOUNT_NOT_FOUND);
 
-        DeviceInfoPB device = normalizeDeviceInfo(req.getDeviceInfo());
+        DevicePB device = normalizeDeviceInfo(req.getDeviceInfo());
         Integer upstreamId = upstreamIdToLock(device);
         Supplier<Map<Integer, DeviceKey>> loadKeys = () -> upstreamId == null
             ? Map.of() : DeviceInfoJdbc.findActiveKeys(jdbcTemplate, null, upstreamId);
@@ -143,7 +143,7 @@ public class DeviceService {
             return genericResponse(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND);
         }
 
-        DeviceInfoPB device = normalizeDeviceInfo(req.getDeviceInfo());
+        DevicePB device = normalizeDeviceInfo(req.getDeviceInfo());
         int id = device.getId();
         Integer upstreamId = upstreamIdToLock(device);
         Supplier<Map<Integer, DeviceKey>> loadKeys =
@@ -176,12 +176,12 @@ public class DeviceService {
             });
     }
 
-    private static Integer upstreamIdToLock(DeviceInfoPB device) {
+    private static Integer upstreamIdToLock(DevicePB device) {
         return device.getSourceMode() == SOURCE_MODE_NON_DIRECT_CONNECT
             && device.getUpstreamDeviceId() > 0 ? device.getUpstreamDeviceId() : null;
     }
 
-    private static List<String> deviceLockKeys(DeviceInfoPB device, Collection<DeviceKey> keys) {
+    private static List<String> deviceLockKeys(DevicePB device, Collection<DeviceKey> keys) {
         List<String> lockKeys = new ArrayList<>();
         lockKeys.add(LockKeys.deviceInfo(device.getDepartmentId(), device.getDeviceName()));
         // IP 按全院查重；没有 IP 的设备落库为 NULL，可同时存在。
@@ -192,7 +192,7 @@ public class DeviceService {
         return lockKeys;
     }
 
-    private static DeviceInfo toModifiedDeviceEntity(DeviceInfoPB device, CurrentAccount account) {
+    private static DeviceInfo toModifiedDeviceEntity(DevicePB device, CurrentAccount account) {
         DeviceInfo entity = DeviceMapper.toDeviceInfoEntity(device);
         entity.setModifiedBy(account.autoAcctId());
         entity.setModifiedByAccountName(account.acctName());
@@ -246,7 +246,7 @@ public class DeviceService {
         return genericResponse(statusCodeMsgList, status);
     }
 
-    private static DeviceInfoPB normalizeDeviceInfo(DeviceInfoPB device) {
+    private static DevicePB normalizeDeviceInfo(DevicePB device) {
         if (device.getSourceMode() == SOURCE_MODE_INBOUND_SERVER) {
             return device.toBuilder().clearDevicePort().build();
         }
@@ -258,7 +258,7 @@ public class DeviceService {
     }
 
     private StatusCode validateDeviceSourceConfig(
-        DeviceInfoPB device, Integer id, Map<Integer, DeviceKey> plan
+        DevicePB device, Integer id, Map<Integer, DeviceKey> plan
     ) {
         int mode = device.getSourceMode();
         int topology = device.getSourceTopology();
@@ -290,7 +290,7 @@ public class DeviceService {
         return StatusCode.OK;
     }
 
-    private static StatusCode invalidSourceConfig(DeviceInfoPB device) {
+    private static StatusCode invalidSourceConfig(DevicePB device) {
         log.warn("设备来源配置无效：科室={}，设备={}，来源模式={}，拓扑={}，上游设备={}",
             device.getDepartmentId(), device.getDeviceName(), device.getSourceMode(),
             device.getSourceTopology(), device.getUpstreamDeviceId());

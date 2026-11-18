@@ -8,15 +8,15 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import com.jingyicare.jingyi_icis_engine.entity.patients.DeviceData;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceInfoPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DevicePB;
 import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceEnums;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
 class DeviceDebuggerTests {
     @Test
     void formatsDeviceInfosAsPbTextSeparatedByNewlines() {
-        DeviceInfoPB firstPb = DeviceInfoPB.newBuilder().setId(1).setDeviceName("monitor").build();
-        DeviceInfoPB secondPb = DeviceInfoPB.newBuilder().setId(2).setDeviceName("ventilator").build();
+        DevicePB firstPb = DevicePB.newBuilder().setId(1).setDeviceName("monitor").build();
+        DevicePB secondPb = DevicePB.newBuilder().setId(2).setDeviceName("ventilator").build();
 
         String result = DeviceDebugger.formatDeviceInfos(List.of(firstPb, secondPb));
 

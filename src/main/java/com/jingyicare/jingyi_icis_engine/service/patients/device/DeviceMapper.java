@@ -3,13 +3,13 @@ package com.jingyicare.jingyi_icis_engine.service.patients.device;
 import java.util.Objects;
 
 import com.jingyicare.jingyi_icis_engine.entity.patients.DeviceInfo;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceInfoPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DevicePB;
 
 public final class DeviceMapper {
     private DeviceMapper() {}
 
-    public static DeviceInfoPB toDeviceInfoPB(DeviceInfo dev) {
-        return DeviceInfoPB.newBuilder()
+    public static DevicePB toDevicePB(DeviceInfo dev) {
+        return DevicePB.newBuilder()
             .setId(dev.getId())
             .setDepartmentId(dev.getDepartmentId())
             .setDeviceSn(dev.getDeviceSn())
@@ -26,7 +26,7 @@ public final class DeviceMapper {
             .build();
     }
 
-    public static DeviceInfo toDeviceInfoEntity(DeviceInfoPB device) {
+    public static DeviceInfo toDeviceInfoEntity(DevicePB device) {
         return DeviceInfo.builder()
             .departmentId(device.getDepartmentId())
             .deviceSn(device.getDeviceSn())

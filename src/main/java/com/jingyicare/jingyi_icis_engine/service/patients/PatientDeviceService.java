@@ -73,28 +73,28 @@ public class PatientDeviceService {
                 .build();
         }
 
-        Pair<StatusCode, Map<Integer/*device_id*/, DeviceBindingPB>> bindingResult =
+        Pair<StatusCode, Map<Integer/*device_id*/, DeviceBindingRecordPB>> bindingResult =
             patientConfig.getBindedDevices();
         if (bindingResult.getFirst() != StatusCode.OK) {
             return GetDeviceInfoResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, bindingResult.getFirst()))
                 .build();
         }
-        Map<Integer/*device_id*/, DeviceBindingPB> bindingMap = bindingResult.getSecond();
+        Map<Integer/*device_id*/, DeviceBindingRecordPB> bindingMap = bindingResult.getSecond();
 
-        List<DeviceInfoWithBindingPB> inlineDevList = new ArrayList<>();
+        List<DeviceWithBindingsPB> inlineDevList = new ArrayList<>();
         for (DeviceInfo dev : deviceService.searchActiveDevices(req)) {
-            DeviceBindingPB binding = bindingMap.get(dev.getId());
-            DeviceInfoWithBindingPB.Builder builder = DeviceInfoWithBindingPB.newBuilder()
-                .setDevice(DeviceMapper.toDeviceInfoPB(dev));
+            DeviceBindingRecordPB binding = bindingMap.get(dev.getId());
+            DeviceWithBindingsPB.Builder builder = DeviceWithBindingsPB.newBuilder()
+                .setDevice(DeviceMapper.toDevicePB(dev));
             if (binding != null) builder.setIsBinding(true).addBinding(binding);
             inlineDevList.add(builder.build());
         }
         // 移动设备在前，同组中空闲设备在前，最后按设备 ID 排序。
         inlineDevList.sort(Comparator
-            .comparing((DeviceInfoWithBindingPB d) ->
+            .comparing((DeviceWithBindingsPB d) ->
                 !StrUtils.isBlank(d.getDevice().getDeviceBedNumber()))
-            .thenComparing(DeviceInfoWithBindingPB::getIsBinding)
+            .thenComparing(DeviceWithBindingsPB::getIsBinding)
             .thenComparingInt(d -> d.getDevice().getId()));
 
         return GetDeviceInfoResp.newBuilder()
@@ -118,14 +118,14 @@ public class PatientDeviceService {
         
         LocalDateTime from = TimeUtils.fromIso8601String(req.getQueryStartIso8601(), "UTC");
         LocalDateTime to = TimeUtils.fromIso8601String(req.getQueryEndIso8601(), "UTC");
-        Pair<StatusCode, Pair<List<DeviceBindingPB>, Boolean>> bindingResult = patientConfig.getDeviceBindingHistory(
-            req.getDeviceId(), from, to);
+        Pair<StatusCode, Pair<List<DeviceBindingRecordPB>, Boolean>> bindingResult =
+            patientConfig.getDeviceBindingHistory(req.getDeviceId(), from, to);
         if (bindingResult.getFirst() != StatusCode.OK) {
             return GetDeviceBindingHistoryResp.newBuilder()
                 .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, bindingResult.getFirst()))
                 .build();
         }
-        Pair<List<DeviceBindingPB>, Boolean> bindingInfo = bindingResult.getSecond();
+        Pair<List<DeviceBindingRecordPB>, Boolean> bindingInfo = bindingResult.getSecond();
         return GetDeviceBindingHistoryResp.newBuilder()
             .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
             .setIsBinding(bindingInfo.getSecond())

@@ -3508,15 +3508,15 @@ message GetDeviceInfoReq {
     string device_name = 5;
 }
 
-message DeviceInfoWithBindingPB {
-    config.DeviceInfoPB device = 1;
+message DeviceWithBindingsPB {
+    config.DevicePB device = 1;
     bool is_binding = 2;  // 是否绑定
-    repeated config.DeviceBindingPB binding = 3;  // 当前绑定信息
+    repeated config.DeviceBindingRecordPB binding = 3;  // 当前绑定信息
 }
 
 message GetDeviceInfoResp {
     shared.ReturnCode rt = 1;
-    repeated DeviceInfoWithBindingPB inline_dev = 2;
+    repeated DeviceWithBindingsPB inline_dev = 2;
 }
 
 /*
@@ -3533,7 +3533,7 @@ message GetDeviceBindingHistoryReq {
 message GetDeviceBindingHistoryResp {
     shared.ReturnCode rt = 1;
     bool is_binding = 2;  // 是否绑定
-    repeated config.DeviceBindingPB binding = 3;
+    repeated config.DeviceBindingRecordPB binding = 3;
 }
 
 /*
@@ -3550,7 +3550,7 @@ message GetPatientDeviceBindingHistoryReq {
 
 message GetPatientDeviceBindingHistoryResp {
     shared.ReturnCode rt = 1;
-    repeated DeviceInfoWithBindingPB binding = 2;
+    repeated DeviceWithBindingsPB binding = 2;
 }
 
 /*
@@ -3559,7 +3559,7 @@ message GetPatientDeviceBindingHistoryResp {
  *  output: AddDeviceInfoResp
  */
 message AddDeviceInfoReq {
-    config.DeviceInfoPB device_info = 1;
+    config.DevicePB device_info = 1;
 }
 
 message AddDeviceInfoResp {

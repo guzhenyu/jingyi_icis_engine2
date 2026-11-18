@@ -6,7 +6,7 @@ import org.springframework.stereotype.Service;
 
 import com.jingyicare.jingyi_icis_engine.entity.patients.DeviceData;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.GetDeviceInfoReq;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceInfoPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DevicePB;
 import com.jingyicare.jingyi_icis_engine.repository.patients.DeviceDataRepository;
 import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceMapper;
 import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceService;
@@ -23,9 +23,9 @@ public class DeviceDebugger {
     }
 
     public String listDevInfos() {
-        List<DeviceInfoPB> deviceInfos = deviceService
+        List<DevicePB> deviceInfos = deviceService
             .searchActiveDevices(GetDeviceInfoReq.getDefaultInstance()).stream()
-            .map(DeviceMapper::toDeviceInfoPB)
+            .map(DeviceMapper::toDevicePB)
             .toList();
         return formatDeviceInfos(deviceInfos);
     }
@@ -37,7 +37,7 @@ public class DeviceDebugger {
             .orElse("");
     }
 
-    static String formatDeviceInfos(List<DeviceInfoPB> deviceInfos) {
+    static String formatDeviceInfos(List<DevicePB> deviceInfos) {
         StringBuilder result = new StringBuilder();
         deviceInfos.forEach(deviceInfo -> {
             result.append(ProtoUtils.protoToTxt(deviceInfo));

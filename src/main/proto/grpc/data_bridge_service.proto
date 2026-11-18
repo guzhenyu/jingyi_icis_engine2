@@ -63,7 +63,7 @@ message GetInIcuPatientsResp {
 
 message GetAllDevicesResp {
     com.jingyicare.jingyi_icis_engine.proto.shared.ReturnCode rt = 1; // 返回码
-    repeated com.jingyicare.jingyi_icis_engine.proto.config.DeviceInfoPB device = 2; // 设备列表
+    repeated com.jingyicare.jingyi_icis_engine.proto.config.DevicePB device = 2; // 设备列表
 }
 
 message HisPatientPB {

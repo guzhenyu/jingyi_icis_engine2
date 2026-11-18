@@ -619,15 +619,15 @@ public class ProtoUtils {
         //    .exists = 2
         fields.add(PatientShiftRecordExistsResp.getDescriptor().findFieldByNumber(2));
 
-        // DeviceInfoWithBindingPB
+        // DeviceWithBindingsPB
         //    .is_binding = 2
-        fields.add(DeviceInfoWithBindingPB.getDescriptor().findFieldByNumber(2));
+        fields.add(DeviceWithBindingsPB.getDescriptor().findFieldByNumber(2));
 
-        // DeviceInfoPB
+        // DevicePB
         //    .upstream_device_id = 18
-        fields.add(DeviceInfoPB.getDescriptor().findFieldByNumber(18));
+        fields.add(DevicePB.getDescriptor().findFieldByNumber(18));
         //    .pds_ip_seq = 19
-        fields.add(DeviceInfoPB.getDescriptor().findFieldByNumber(19));
+        fields.add(DevicePB.getDescriptor().findFieldByNumber(19));
 
         // GetDeviceBindingHistoryResp
         //    .is_binding = 2

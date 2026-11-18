@@ -41,7 +41,7 @@ message BedCountPB {
     int32 count = 4;     // 床位数量
 }
 
-message DeviceInfoPB {
+message DevicePB {
     reserved 9, 11, 12, 13, 14, 17;
 
     int32 id = 1;
@@ -60,7 +60,7 @@ message DeviceInfoPB {
     int32 pds_ip_seq = 19;  // PDS realtime 目标监护仪的 ipSeq；第一版床旁 target 默认 0
 }
 
-message DeviceBindingPB {
+message DeviceBindingRecordPB {
     int64 id = 1;
     int64 patient_id = 2;
     string patient_name = 3;
