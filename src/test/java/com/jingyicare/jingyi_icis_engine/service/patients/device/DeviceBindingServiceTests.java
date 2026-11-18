@@ -6,6 +6,7 @@ import static org.awaitility.Awaitility.await;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -25,6 +26,7 @@ import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.BindPatientDeviceReq;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
@@ -39,6 +41,62 @@ class DeviceBindingServiceTests extends TestsBase {
             """, DEPT);
         jdbc.update("DELETE FROM device_infos WHERE department_id = ?", DEPT);
         jdbc.update("DELETE FROM patient_records WHERE dept_id = ?", DEPT);
+    }
+
+    @Test
+    void dischargedPatientCannotBindOrTakeOverDevice() {
+        long dischargedPatientId = insertPatient("已出科患者");
+        long originalPatientId = insertPatient("设备原患者");
+        int freeDeviceId = insertDevice("出科后空闲设备");
+        int boundDeviceId = insertDevice("出科后转绑设备");
+        long originalBindingId = insertBinding(
+            originalPatientId, boundDeviceId, BINDING_TIME, null);
+        Map<String, Object> originalBinding = jdbc.queryForMap(
+            "SELECT * FROM patient_devices WHERE id = ?", originalBindingId);
+        jdbc.update("UPDATE patient_records SET admission_status = ? WHERE id = ?",
+            PatientEnums.ADMISSION_STATUS_DISCHARGED, dischargedPatientId);
+
+        for (int deviceId : List.of(freeDeviceId, boundDeviceId)) {
+            assertThat(bindAsAdmin(dischargedPatientId, deviceId, BINDING_TIME.plusHours(1)))
+                .isEqualTo(StatusCode.PATIENT_NOT_IN_ICU_VALUE);
+        }
+
+        assertThat(activeBindingCount(dischargedPatientId)).isZero();
+        assertThat(jdbc.queryForMap("SELECT * FROM patient_devices WHERE id = ?",
+            originalBindingId)).isEqualTo(originalBinding);
+    }
+
+    @Test
+    void bindingWaitingForDischargeRejectsAfterPatientStatusCommits() throws Exception {
+        long patientId = insertPatient("等待出科提交患者");
+        int deviceId = insertDevice("等待出科提交设备");
+        jdbc.update("UPDATE patient_records SET admission_status = ? WHERE id = ?",
+            PatientEnums.ADMISSION_STATUS_PRE_DISCHARGE, patientId);
+
+        try (ExecutorService pool = Executors.newSingleThreadExecutor()) {
+            Future<Integer> call = executor.execute(
+                List.of(LockKeys.patientDeviceBindings(patientId)), () -> {
+                    Future<Integer> request = pool.submit(() ->
+                        bindAsAdmin(patientId, deviceId, BINDING_TIME.plusHours(1)));
+                    awaitLockWaiters(1);
+                    // 模拟出科事务持有患者锁，在绑定请求等待期间提交出科状态。
+                    jdbc.update("UPDATE patient_records SET admission_status = ? WHERE id = ?",
+                        PatientEnums.ADMISSION_STATUS_DISCHARGED, patientId);
+                    return request;
+                });
+            assertThat(call.get(10, TimeUnit.SECONDS))
+                .isEqualTo(StatusCode.PATIENT_NOT_IN_ICU_VALUE);
+        }
+        assertThat(activeBindingCount(patientId)).isZero();
+    }
+
+    @Test
+    void missingPatientCannotBindDevice() {
+        int deviceId = insertDevice("患者不存在设备");
+
+        assertThat(bindAsAdmin(Long.MAX_VALUE, deviceId, BINDING_TIME))
+            .isEqualTo(StatusCode.PATIENT_NOT_FOUND_VALUE);
+        assertThat(activeBindingCount(Long.MAX_VALUE)).isZero();
     }
 
     @Test

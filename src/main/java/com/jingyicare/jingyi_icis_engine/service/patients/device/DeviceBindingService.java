@@ -35,6 +35,7 @@ import com.jingyicare.jingyi_icis_engine.repository.patients.PatientDeviceReposi
 import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceBindingReader.BindingHistory;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
@@ -180,6 +181,12 @@ public class DeviceBindingService {
                 DeviceInfo device = deviceService.lockDeviceById(deviceId).orElse(null);
                 if (device == null || Boolean.TRUE.equals(device.getIsDeleted())) {
                     return bindingResponse(StatusCode.DEVICE_INFO_NOT_EXISTS);
+                }
+                // 出科与绑定共用患者锁，必须在锁内确认目标患者尚未出科。
+                PatientRecord patient = patientReader.findById(patientId).orElse(null);
+                if (patient == null) return bindingResponse(StatusCode.PATIENT_NOT_FOUND);
+                if (PatientEnums.ADMISSION_STATUS_DISCHARGED.equals(patient.getAdmissionStatus())) {
+                    return bindingResponse(StatusCode.PATIENT_NOT_IN_ICU);
                 }
                 List<PatientDevice> bindings = bindingReader.findActiveBindingsByDeviceId(deviceId);
                 if (bindings.size() > 1) {
