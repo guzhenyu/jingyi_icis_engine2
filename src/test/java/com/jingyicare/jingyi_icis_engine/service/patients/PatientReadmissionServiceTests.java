@@ -26,14 +26,14 @@ import com.jingyicare.jingyi_icis_engine.repository.patients.SurgeryHistoryRepos
 
 public class PatientReadmissionServiceTests {
     @Test
-    public void testReadmitPatientStillMergesPatientAndHistoriesIndependentlyOfScheduledSync() {
-        PatientSyncUtils patientSyncUtils = mock(PatientSyncUtils.class);
+    public void testReadmitPatientMergesPatientAndMigratesHistories() {
+        PatientSyncService patientSyncService = mock(PatientSyncService.class);
         PatientRecordRepository patientRepo = mock(PatientRecordRepository.class);
         DiagnosisHistoryRepository diagnosisRepo = mock(DiagnosisHistoryRepository.class);
         SurgeryHistoryRepository surgeryRepo = mock(SurgeryHistoryRepository.class);
         HisPatientRecordRepository hisPatientRepo = mock(HisPatientRecordRepository.class);
         PatientReadmissionService service = new PatientReadmissionService(
-            patientSyncUtils,
+            patientSyncService,
             patientRepo,
             diagnosisRepo,
             surgeryRepo,
@@ -52,7 +52,7 @@ public class PatientReadmissionServiceTests {
         HisPatientRecord hisPatientRecord = new HisPatientRecord();
         when(hisPatientRepo.findByPidAndAdmissionStatus("readmission-his-pid", 1))
             .thenReturn(Optional.of(hisPatientRecord));
-        when(patientSyncUtils.updatePatientRecord(
+        when(patientSyncService.updatePatientRecord(
             same(hisPatientRecord), same(dischargedPatient), anyMap()
         )).thenReturn(true);
 
@@ -71,7 +71,7 @@ public class PatientReadmissionServiceTests {
         assertThat(statusCode).isEqualTo(StatusCode.OK);
         assertThat(surgeries).allMatch(surgery -> surgery.getPatientId().equals(dischargedPatient.getId()));
         assertThat(diagnoses).allMatch(diagnosis -> diagnosis.getPatientId().equals(dischargedPatient.getId()));
-        verify(patientSyncUtils).updatePatientRecord(
+        verify(patientSyncService).updatePatientRecord(
             same(hisPatientRecord), same(dischargedPatient), anyMap()
         );
         verify(patientRepo).save(dischargedPatient);

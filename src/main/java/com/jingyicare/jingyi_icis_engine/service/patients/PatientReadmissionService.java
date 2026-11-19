@@ -4,7 +4,6 @@ import static com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums.*;
 
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,19 +19,18 @@ import com.jingyicare.jingyi_icis_engine.repository.patients.DiagnosisHistoryRep
 import com.jingyicare.jingyi_icis_engine.repository.patients.HisPatientRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patients.SurgeryHistoryRepository;
-import com.jingyicare.jingyi_icis_engine.service.patients.PatientSyncUtils.PatientSyncInfo;
 
 @Service
 @Slf4j
 public class PatientReadmissionService {
     public PatientReadmissionService(
-        PatientSyncUtils patientSyncUtils,
+        PatientSyncService patientSyncService,
         PatientRecordRepository patientRepo,
         DiagnosisHistoryRepository diagnosisRepo,
         SurgeryHistoryRepository surgeryRepo,
         HisPatientRecordRepository hisPatientRepo
     ) {
-        this.patientSyncUtils = patientSyncUtils;
+        this.patientSyncService = patientSyncService;
         this.patientRepo = patientRepo;
         this.diagnosisRepo = diagnosisRepo;
         this.surgeryRepo = surgeryRepo;
@@ -42,7 +40,7 @@ public class PatientReadmissionService {
     // 患者重返：
     // 1. 在 patient_bed_history 中增加两条记录，重返出科 + 重返入科
     // 2. 将原来 dischargedPatient 的入科状态改成"入科"
-    // 3. 通过newPatient(由刷新服务产生)找到对应的HisPatientRecord，更新对应的 dischargedPatient
+    // 3. 通过待入科记录找到 HIS 记录，更新已出科记录
     // 4. 将更新后的 dischargedPatient 保存到数据库，删除 newPatient
     @Transactional
     public StatusCode readmitPatient(PatientRecord dischargedPatient, PatientRecord newPatient) {
@@ -60,9 +58,8 @@ public class PatientReadmissionService {
             return StatusCode.READMISSION_PATIENT_NOT_FOUND;
         }
 
-        Map<String, PatientSyncInfo> syncInfoMap = new HashMap<>();
-        boolean toUpdate = patientSyncUtils.updatePatientRecord(
-            hisPatientRecord, dischargedPatient, syncInfoMap
+        boolean toUpdate = patientSyncService.updatePatientRecord(
+            hisPatientRecord, dischargedPatient, new HashMap<>()
         );
         if (toUpdate) {
             patientRepo.save(dischargedPatient);
@@ -88,7 +85,7 @@ public class PatientReadmissionService {
         return StatusCode.OK;
     }
 
-    private final PatientSyncUtils patientSyncUtils;
+    private final PatientSyncService patientSyncService;
     private final PatientRecordRepository patientRepo;
     private final DiagnosisHistoryRepository diagnosisRepo;
     private final SurgeryHistoryRepository surgeryRepo;

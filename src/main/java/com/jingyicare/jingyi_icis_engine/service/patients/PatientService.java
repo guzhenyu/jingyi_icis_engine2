@@ -1137,21 +1137,10 @@ public class PatientService {
             .build();
     }
 
-    @Transactional
     public SyncHisPatientResp syncHisPatient(String syncHisPatientReqJson) {
-        if (!patientSyncService.isSyncEnabled()) {
-            log.warn("Patient synchronization request rejected because synchronization is disabled");
-            return SyncHisPatientResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PATIENT_SYNC_DISABLED))
-                .setAdmittedHisPatientCount(0)
-                .build();
-        }
-
         final SyncHisPatientReq req;
         try {
-            SyncHisPatientReq.Builder builder = SyncHisPatientReq.newBuilder();
-            JsonFormat.parser().merge(syncHisPatientReqJson, builder);
-            req = builder.build();
+            req = ProtoUtils.parseJsonToProto(syncHisPatientReqJson, SyncHisPatientReq.newBuilder());
         } catch (Exception e) {
             log.error("Failed to convert string to proto: {}", e);
             return SyncHisPatientResp.newBuilder()
@@ -1160,11 +1149,7 @@ public class PatientService {
                 .build();
         }
 
-        // 执行同步
-        patientSyncService.syncPatientRecords(req.getForceSync());
-
-        // 获取已入科病人数量
-        Integer admittedCount = patientSyncService.getInIcuHisPatientRecords().size();
+        int admittedCount = patientSyncService.syncPatientRecords(req.getForceSync());
 
         return SyncHisPatientResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))

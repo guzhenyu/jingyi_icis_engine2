@@ -66,6 +66,10 @@ public final class LockKeys {
         return "patient_device_bindings:" + patientId;
     }
 
+    public static String patientSync() {
+        return "patient_sync";
+    }
+
     // 锁表的 resource_key 为 VARCHAR(255)，完整拼接后按 Unicode 码点截取前 255 个字符。
     private static String truncateResourceKey(String key) {
         if (key.codePointCount(0, key.length()) <= MAX_RESOURCE_KEY_LENGTH) {

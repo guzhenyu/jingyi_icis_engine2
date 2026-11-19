@@ -7,6 +7,9 @@
 - `his_patient_records.discharged_dept_name`
 - `his_patient_records.discharge_time`
 
+惠美字段映射和补丁建议基于旧版 `icis_j3` 链路。现行链路由 CIG 负责日常患者事件，Engine
+只在前端触发全局人工对账时按活动集合比较在科状态。现行入口参见[同步说明](README.md)。
+
 ## 1. 必须区分两类“离开 ICU”事件
 
 ### 1.1 转出 ICU，但仍在医院
@@ -78,7 +81,7 @@
 
 ### 3.1 同步代码表面映射
 
-[`PatientSyncService.updatePatientRecord()`](../../src/main/java/com/jingyicare/jingyi_icis_engine/service/patients/PatientSyncService.java#L634) 中存在：
+[`PatientSyncService.updatePatientRecord()`](../../src/main/java/com/jingyicare/jingyi_icis_engine/service/patients/PatientSyncService.java) 中存在：
 
 | 源字段 | 目标字段 | 赋值条件 |
 | --- | --- | --- |
@@ -109,9 +112,9 @@ patient_records.admission_status = 2  // 待出科
 patient_records.discharge_time = TimeUtils.getNowUtc()  // 同步发现时间
 ```
 
-相关分支见 [`PatientSyncService.syncPatientRecords()`](../../src/main/java/com/jingyicare/jingyi_icis_engine/service/patients/PatientSyncService.java#L168)。因此当前自动结果如下：
+相关分支见 [`PatientSyncService.syncPatientRecords()`](../../src/main/java/com/jingyicare/jingyi_icis_engine/service/patients/PatientSyncService.java)。旧定时同步使用的归并规则现用于人工对账：
 
-| 目标字段 | 自动结果 |
+| 目标字段 | 人工对账结果 |
 | --- | --- |
 | `admission_status` | 变为 `2/待出科`，不是直接变为 `3/已出科` |
 | `discharge_time` | 同步执行时刻，不是惠美 `disch_date` 或转科时间 |
@@ -121,7 +124,8 @@ patient_records.discharge_time = TimeUtils.getNowUtc()  // 同步发现时间
 
 之后护士确认出科时，`PatientService` 会根据请求设置出科时间和出科类型；选择“转出”时要求并设置目标科室名称。当前确认出科流程仍不设置 `discharged_dept_id`。
 
-另有一个边界行为：定时任务以 `forceSync=false` 调用时，如果整个 `his_patient_records` 查询不到任何 ICU 活动记录，方法会提前返回，不执行集合差异；强制同步时才会继续。这可能让最后一名 ICU 患者的自动待出科延迟或缺失。
+全局查不到 ICU 活动记录时，前端普通刷新以 `forceSync=false` 调用，返回 `OK/0` 且不执行集合差异。
+用户确认后前端以 `forceSync=true` 调用，允许空名单继续对账，把符合条件的病例标记为待出科。
 
 ## 4. 为什么不能直接把所有 `TransferInfo` 映射成出科字段
 
@@ -182,5 +186,5 @@ TransferInfo.t_in_date   -> discharge_time
 | ICU 直接出院 | 目标待出科；类型为出院；使用惠美 `disch_date` |
 | 普通科室之间转科 | 不应误触发某个 ICU 患者出科 |
 | 同 MRN 多次住院 | 必须按 `his_encounter_id` 取本次住院退出详情 |
-| ICU 仅剩最后一名患者出科 | 定时同步也应执行退出差异，不能因活动源集合为空提前返回 |
+| ICU 仅剩最后一名患者出科 | 全局活动名单为空时普通刷新返回 `OK/0`，不修改患者数据，确认强制同步后才执行退出差异 |
 

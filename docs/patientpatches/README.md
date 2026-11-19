@@ -2,17 +2,22 @@
 
 ## 1. 范围
 
-本文档基于 2026-07-23 工作区中的以下实现整理：
+第 2 至 6 节记录 2026-07-23 工作区中的旧链路和字段分析：
 
 - `icis_j3`：惠美 XML 解析、`HisPatientPB` 组装以及 `his_patient_records` 写入。
 - `jingyi_icis_engine2`（Java 包名仍为 `jingyi_icis_engine`）：`PatientSyncService` 从 `his_patient_records` 同步到 `patient_records`。
+
+现行链路由 CIG 负责处理日常患者事件。Engine 仅保留登录后从前端触发的全局人工对账
+`POST /api/patient/synchispatient`，维护患者档案和在科状态。普通刷新使用 `forceSync=false`，
+HIS 活动名单为空时返回 `OK/0`，不修改患者数据；用户确认后发送 `forceSync=true` 才继续。
+人工对账不再从 HIS 病例补录手术摘要或手术史。
 
 详细说明分为两组：
 
 - [惠美入科相关字段](huimei-admission-fields.md)
 - [惠美出科相关字段](huimei-discharge-fields.md)
 
-## 2. 总体数据链路
+## 2. 旧版数据链路
 
 ```text
 惠美 ADT XML
@@ -48,7 +53,7 @@
 2. `dept_code` 属于重症系统配置的科室；
 3. `discharge_time IS NULL`。
 
-参见 [`PatientSyncService.getInIcuHisPatientRecords()`](../../src/main/java/com/jingyicare/jingyi_icis_engine/service/patients/PatientSyncService.java#L253)。
+参见 [`PatientSyncService.getInIcuHisPatientRecords()`](../../src/main/java/com/jingyicare/jingyi_icis_engine/service/patients/PatientSyncService.java)。
 
 惠美 `DischargeInfoAdd/Update` 会同时写入 `admission_status=3` 和非空 `discharge_time`。因此该记录不会进入 `updatePatientRecord()`，后面的 `discharged_dept_id`、`discharged_dept_name`、`discharge_time` 复制代码在正常出院场景下不可达。引擎只是通过活动集合差异把原 `patient_records` 标记为“待出科”，并把 `discharge_time` 设置为当前时间。
 
