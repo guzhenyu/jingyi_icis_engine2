@@ -37,6 +37,8 @@ import com.jingyicare.jingyi_icis_engine.entity.nursingrecords.NursingRecordTemp
 import com.jingyicare.jingyi_icis_engine.entity.users.Department;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringGroupPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingRecord.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.DisplayFieldSettingsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.DepartmentPB;
@@ -46,6 +48,7 @@ import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.BgaMetaService;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringMetaService;
 import com.jingyicare.jingyi_icis_engine.service.nursingrecords.NursingOrderTemplateService;
 import com.jingyicare.jingyi_icis_engine.service.scores.ScoreMetaService;
 import com.jingyicare.jingyi_icis_engine.service.settings.SettingsStore;
@@ -58,6 +61,11 @@ class DepartmentInitializationTests extends TestsBase {
         for (String deptId : List.of(FIRST, SECOND)) {
             jdbc.update("DELETE FROM dept_system_settings WHERE dept_id = ?", deptId);
             jdbc.update("DELETE FROM bga_params WHERE dept_id = ?", deptId);
+            jdbc.update("""
+                DELETE FROM dept_monitoring_group_params WHERE dept_monitoring_group_id IN
+                    (SELECT id FROM dept_monitoring_groups WHERE dept_id = ?)
+                """, deptId);
+            jdbc.update("DELETE FROM dept_monitoring_groups WHERE dept_id = ?", deptId);
             jdbc.update("DELETE FROM dept_score_groups WHERE dept_id = ?", deptId);
             jdbc.update("DELETE FROM nursing_record_templates WHERE entity_id = ?", deptId);
             jdbc.update("DELETE FROM nursing_record_template_groups WHERE entity_id = ?", deptId);
@@ -173,7 +181,7 @@ class DepartmentInitializationTests extends TestsBase {
         when(invalid.getConfig()).thenReturn(invalidConfig.build());
         DepartmentCommand command = new DepartmentCommand(
             deptRepo, rbacDeptRepo, rbacDeptAcctRepo, deptAcctRepo,
-            bga, scores, templates, locks, invalid, settingsStore);
+            bga, monitoring, scores, templates, locks, invalid, settingsStore);
 
         assertThatThrownBy(() -> command.initDept(FIRST, UserQuery.SYSTEM_ACCOUNT_ID))
             .isInstanceOf(IllegalArgumentException.class);
@@ -188,6 +196,7 @@ class DepartmentInitializationTests extends TestsBase {
         doAnswer(invocation -> {
             Iterable<NursingRecordTemplate> templates = invocation.getArgument(0);
             templateRepo.saveAllAndFlush(templates);
+            assertMonitoringDefaults(FIRST);
             throw new IllegalStateException("模拟护理模板保存失败");
         }).when(failing).saveAll(any());
         NursingOrderTemplateService failingTemplates = new NursingOrderTemplateService(
@@ -231,6 +240,8 @@ class DepartmentInitializationTests extends TestsBase {
 
     @Test
     void moduleInitializersRequireTheCallerTransaction() {
+        assertThatThrownBy(() -> monitoring.initDept(FIRST))
+            .isInstanceOf(IllegalTransactionStateException.class);
         assertThatThrownBy(() -> bga.initDept(FIRST))
             .isInstanceOf(IllegalTransactionStateException.class);
         assertThatThrownBy(() -> scores.initDept(FIRST))
@@ -241,7 +252,7 @@ class DepartmentInitializationTests extends TestsBase {
 
     @ParameterizedTest
     @ValueSource(strings = {
-        "department", "bga", "score", "templateGroup", "template",
+        "department", "bga", "monitoring", "score", "templateGroup", "template",
         "patientsInIcu", "patientsPendingAdmission", "patientsPendingDischarged",
         "patientsDischarged"
     })
@@ -253,6 +264,7 @@ class DepartmentInitializationTests extends TestsBase {
         String key = switch (resource) {
             case "department" -> LockKeys.department(FIRST);
             case "bga" -> LockKeys.bgaParam(FIRST);
+            case "monitoring" -> LockKeys.deptMonitoringGroups(FIRST);
             case "score" -> LockKeys.deptScoreGroup(FIRST);
             case "templateGroup" -> LockKeys.nursingRecordTemplateGroup(1, FIRST, group.getName());
             case "patientsInIcu" -> LockKeys.deptSystemSettings(
@@ -321,6 +333,7 @@ class DepartmentInitializationTests extends TestsBase {
     }
 
     private void assertDefaults(String deptId) {
+        assertMonitoringDefaults(deptId);
         List<Map<String, Object>> settingsRows = patientSettingsRows(deptId);
         Map<Integer, String> storedSettings = new HashMap<>();
         for (Map<String, Object> row : settingsRows) {
@@ -352,12 +365,64 @@ class DepartmentInitializationTests extends TestsBase {
                 NursingRecordTemplateGroupPB::getNursingRecordTemplateCount).sum());
     }
 
+    private void assertMonitoringDefaults(String deptId) {
+        MonitoringPB monitoringConfig = config.getConfig().getMonitoring();
+        assertMonitoringGroups(deptId, monitoringConfig.getEnums().getGroupTypeBalance().getId(),
+            monitoringConfig.getBalanceGroupList());
+        assertMonitoringGroups(deptId,
+            monitoringConfig.getEnums().getGroupTypeMonitoring().getId(),
+            monitoringConfig.getMonitoringGroupList());
+    }
+
+    private void assertMonitoringGroups(
+        String deptId, int groupType, List<MonitoringGroupPB> expectedGroups
+    ) {
+        List<Map<String, Object>> groups = jdbc.queryForList("""
+            SELECT id, name, display_order, sum_type_pb, modified_by, modified_at
+            FROM dept_monitoring_groups WHERE dept_id = ? AND group_type = ?
+                AND is_deleted = false ORDER BY display_order, id
+            """, deptId, groupType);
+        assertThat(groups).hasSize(expectedGroups.size());
+        for (int i = 0; i < expectedGroups.size(); i++) {
+            Map<String, Object> group = groups.get(i);
+            MonitoringGroupPB expected = expectedGroups.get(i);
+            assertThat(group).containsEntry("name", expected.getName())
+                .containsEntry("display_order", i)
+                .containsEntry("sum_type_pb",
+                    ProtoUtils.encodeValueMeta(expected.getSumValueMeta()))
+                .containsEntry("modified_by", UserQuery.SYSTEM_ACCOUNT_ID);
+            assertThat(group.get("modified_at")).isNotNull();
+            List<Map<String, Object>> params = jdbc.queryForList("""
+                SELECT monitoring_param_code, display_order, modified_by, modified_at
+                FROM dept_monitoring_group_params
+                WHERE dept_monitoring_group_id = ? AND is_deleted = false
+                ORDER BY display_order, id
+                """, group.get("id"));
+            assertThat(params).hasSize(expected.getMonitoringParamCount());
+            for (int j = 0; j < params.size(); j++) {
+                assertThat(params.get(j))
+                    .containsEntry("monitoring_param_code",
+                        expected.getMonitoringParam(j).getCode())
+                    .containsEntry("display_order", j + 1)
+                    .containsEntry("modified_by", UserQuery.SYSTEM_ACCOUNT_ID);
+                assertThat(params.get(j).get("modified_at")).isNotNull();
+            }
+        }
+    }
+
     private List<List<Integer>> defaultIds(String deptId) {
         return List.of(
             jdbc.queryForList("SELECT function_id FROM dept_system_settings "
                 + "WHERE dept_id = ? ORDER BY function_id", Integer.class, deptId),
             jdbc.queryForList("SELECT id FROM bga_params WHERE dept_id = ? ORDER BY id",
                 Integer.class, deptId),
+            jdbc.queryForList("SELECT id FROM dept_monitoring_groups "
+                + "WHERE dept_id = ? ORDER BY id", Integer.class, deptId),
+            jdbc.queryForList("""
+                SELECT p.id FROM dept_monitoring_group_params p
+                JOIN dept_monitoring_groups g ON g.id = p.dept_monitoring_group_id
+                WHERE g.dept_id = ? ORDER BY p.id
+                """, Integer.class, deptId),
             jdbc.queryForList("SELECT id FROM dept_score_groups WHERE dept_id = ? ORDER BY id",
                 Integer.class, deptId),
             jdbc.queryForList("SELECT id FROM nursing_record_template_groups "
@@ -382,7 +447,7 @@ class DepartmentInitializationTests extends TestsBase {
         DepartmentRepository repository, NursingOrderTemplateService templateService
     ) {
         return new DepartmentCommand(repository, rbacDeptRepo, rbacDeptAcctRepo, deptAcctRepo,
-            bga, scores, templateService, locks, config, settingsStore);
+            bga, monitoring, scores, templateService, locks, config, settingsStore);
     }
 
     private static final String FIRST = "department-init-tests-first";
@@ -395,6 +460,7 @@ class DepartmentInitializationTests extends TestsBase {
     @Autowired private ProtoConfig config;
     @Autowired private UserQuery userQuery;
     @Autowired private BgaMetaService bga;
+    @Autowired private MonitoringMetaService monitoring;
     @Autowired private ScoreMetaService scores;
     @Autowired private SettingsStore settingsStore;
     @Autowired private NursingOrderTemplateService templates;

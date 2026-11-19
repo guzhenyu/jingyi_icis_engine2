@@ -28,6 +28,8 @@ import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
+import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.testutils.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -495,6 +497,8 @@ public class MonitoringServiceTests extends TestsBase {
                 new UsernamePasswordAuthenticationToken(accountId, null, authorities);
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
+        initDepartments();
+
         // 查询部门deptId3的观察项分组
         String queryReqJson = ProtoUtils.protoToJson(GetDeptMonitoringGroupsReq.newBuilder()
                 .setDepartmentId(deptId3)
@@ -754,6 +758,12 @@ public class MonitoringServiceTests extends TestsBase {
         }
 
         monitoringMetaService.initMonitoringParams();
+        for (String departmentId : List.of(deptId, deptId2, deptId3, deptId4)) {
+            lockExecutor.execute(List.of(LockKeys.deptMonitoringGroups(departmentId)), () -> {
+                monitoringMetaService.initDept(departmentId);
+                return null;
+            });
+        }
     }
 
     private final Integer BALANCE_TYPE_IN;
@@ -778,4 +788,5 @@ public class MonitoringServiceTests extends TestsBase {
 
     private final RbacDepartmentRepository rbacDepartmentRepo;
     private final PatientRecordRepository patientRecordRepo;
+    @Autowired private LockExecutor lockExecutor;
 }

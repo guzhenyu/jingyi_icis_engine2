@@ -30,6 +30,8 @@ import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
+import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.medications.*;
 import com.jingyicare.jingyi_icis_engine.testutils.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -536,7 +538,10 @@ public class PatientMonitoringServiceTests extends TestsBase {
         rbacDepartmentRepo.save(dept);
 
         // 2. 初始化监测参数
-        monitoringConfig.initDeptMonitoringParams(deptId);
+        lockExecutor.execute(List.of(LockKeys.deptMonitoringGroups(deptId)), () -> {
+            monitoringMetaService.initDept(deptId);
+            return null;
+        });
 
         // 3. 查询已存在的分组
         List<DeptMonitoringGroup> deptGroups = deptMonitoringGroupRepo.findByDeptIdAndIsDeletedFalse(deptId);
@@ -673,6 +678,8 @@ public class PatientMonitoringServiceTests extends TestsBase {
     private final PatientMonitoringTimePointRepository patientMonitoringTimePointRepo;
     private final PatientMonitoringRecordRepository patientMonitoringRecordRepo;
     private final RbacDepartmentRepository rbacDepartmentRepo;
+
+    @Autowired private LockExecutor lockExecutor;
 
     private PatientTestUtils patientTestUtils;
     private MedicationTestUtils medTestUtils;

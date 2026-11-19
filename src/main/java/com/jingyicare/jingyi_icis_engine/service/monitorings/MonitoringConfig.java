@@ -1,6 +1,5 @@
 package com.jingyicare.jingyi_icis_engine.service.monitorings;
 
-import jakarta.persistence.EntityManager;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -67,7 +66,6 @@ public class MonitoringConfig {
         @Autowired PatientMonitoringGroupRepository patientMonitoringGroupRepository,
         @Autowired PatientMonitoringGroupParamRepository patientMonitoringGroupParamRepository,
         @Autowired DeptSystemSettingsRepository deptSettingRepository,
-        @Autowired EntityManager entityManager,
         @Value("${monitoring.enable_drainage:true}") boolean enableDrainage,
         @Value("${monitoring.enable_drainage_params:true}") boolean enableDrainageParams
     ) {
@@ -80,7 +78,6 @@ public class MonitoringConfig {
         this.BALANCE_OUT_ID = monitoringPb.getEnums().getBalanceOut().getId();
         this.BALANCE_NET_ID = monitoringPb.getEnums().getBalanceNet().getId();
         this.GROUP_TYPE_BALANCE_ID = monitoringPb.getEnums().getGroupTypeBalance().getId();
-        this.GROUP_TYPE_MONITORING_ID = monitoringPb.getEnums().getGroupTypeMonitoring().getId();
         this.OUT_GROUP_NAME = monitoringPb.getBalanceOutGroupName();
         this.DRAINAGE_TUBE_PREFIX = "tube_" + StrUtils.toPinyinInitials(protoService.getConfig().getTube().getDrainageTubeType()) + "_";
         this.tubeParamList = protoService.getConfig().getTube().getTubeSetting().getParamList();
@@ -99,7 +96,6 @@ public class MonitoringConfig {
         this.patientMonitoringGroupRepository = patientMonitoringGroupRepository;
         this.patientMonitoringGroupParamRepository = patientMonitoringGroupParamRepository;
         this.deptSettingRepository = deptSettingRepository;
-        this.entityManager = entityManager;
         this.enableDrainage = enableDrainage;
         this.enableDrainageParams = enableDrainageParams;
     }
@@ -374,21 +370,6 @@ public class MonitoringConfig {
     public List<MonitoringGroupBetaPB> getMonitoringGroups(
         Long pid, String deptId, int groupType, List<String> balanceOutTubeParamCodes, String accountId
     ) {
-        for (int i = 0; i < MAX_RETRIES; i++) {
-            try {
-                // getpatientmonitoringgroups和getpatientmonitoringrecords会并发执行，同时调用本函数：
-                // - 当pid没有初始化时，两次调用会同时初始化，第二次调用的会导致插入失败；
-                // - 通过捕获该异常，重新调用，发现pid已经初始化，则第二次调用的会成功
-                initDeptMonitoringParams(deptId);
-                break; // 成功初始化后跳出循环
-            } catch (Exception e) {
-                log.error("Failed to initialize dept monitoring params for deptId: {}, attempt: {}", deptId, i + 1, e);
-                if (i == MAX_RETRIES - 1) {
-                    throw e; // 最后一次尝试仍然失败则抛出异常
-                }
-            }
-        }
-
         Map<String, MonitoringParam> paramMap = buildMonitoringParamMap(deptId);
 
         // 获取病人所在的部门观察项分组，以及分组对应的参数
@@ -426,7 +407,8 @@ public class MonitoringConfig {
                 log.error("MonitoringParam not found for code {}, deptId {}", code, deptId);
                 continue;
             }
-            param.setTypePb(deptParam.getTypePb());
+            // 科室配置只覆盖返回副本，避免脏检查将其写回全局参数。
+            paramMap.put(code, param.toBuilder().typePb(deptParam.getTypePb()).build());
         }
         return paramMap;
     }
@@ -639,147 +621,6 @@ public class MonitoringConfig {
         return monitoringGroups;
     }
 
-    @Transactional
-    public List<DeptMonitoringGroup> resetDeptMonitoringGroups(String deptId, String accountId) {
-        List<DeptMonitoringGroup> existingGroups = deptMonitoringGroupRepository.findByDeptIdAndIsDeletedFalse(deptId);
-        if (existingGroups.isEmpty()) {
-            log.info("No existing monitoring groups found for department {}, initializing...", deptId);
-            initDeptMonitoringParams(deptId);
-            return existingGroups;
-        }
-
-        // 检查分组是否有患者在使用：如果没有患者在使用，则不需要重置；如果有患者在使用，由于患者在使用的分组不允许修改，因此需要重置部门分组。
-        List<Integer> deptGroupIds = existingGroups.stream().map(DeptMonitoringGroup::getId).toList();
-        List<PatientMonitoringGroup> patientGroups = patientMonitoringGroupRepository
-            .findByDeptMonitoringGroupIdInAndIsDeletedFalse(deptGroupIds);
-        if (patientGroups.isEmpty()) return existingGroups;
-
-        // 复制现有的部门监控组
-        List<DeptMonitoringGroup> copiedGroups = new ArrayList<>();
-        LocalDateTime now = TimeUtils.getNowUtc();
-        for (DeptMonitoringGroup existingGroup : existingGroups) {
-            DeptMonitoringGroup copiedGroup = existingGroup
-                .toBuilder()
-                .id(null)
-                .modifiedBy(accountId)
-                .modifiedAt(now)
-                .build();
-            copiedGroups.add(copiedGroup);
-        }
-
-        // 复制现有的部门监控组参数
-        List<DeptMonitoringGroupParam> existingGroupParams = deptMonitoringGroupParamRepository
-            .findByDeptMonitoringGroupIdInAndIsDeletedFalse(deptGroupIds);
-
-        // 删除现有的部门监控组
-        for (DeptMonitoringGroup existingGroup : existingGroups) {
-            existingGroup.setIsDeleted(true);
-            existingGroup.setDeletedBy(accountId);
-            existingGroup.setDeletedAt(now);
-        }
-        deptMonitoringGroupRepository.saveAll(existingGroups);
-        entityManager.flush(); // 确保删除操作生效
-        Map<String, Integer> existingGroupIdMap = existingGroups.stream()
-            .collect(Collectors.toMap(DeptMonitoringGroup::getName, DeptMonitoringGroup::getId));
-
-        // 保存复制的检查部门分组；生成旧部门监控组id到新部门监控组id的映射
-        copiedGroups = deptMonitoringGroupRepository.saveAll(copiedGroups);
-        entityManager.flush(); // 确保保存操作生效
-        Map<Integer, Integer> oldNewGroupIdMap = new HashMap<>();
-        for (DeptMonitoringGroup copiedGroup : copiedGroups) {
-            String groupName = copiedGroup.getName();
-            Integer existingGroupId = existingGroupIdMap.get(groupName);
-            if (existingGroupId == null) {
-                log.error("No existing group found for name: {}", groupName);
-                continue;
-            }
-            Integer newGroupId = copiedGroup.getId();
-            oldNewGroupIdMap.put(existingGroupId, newGroupId);
-        }
-
-        // 更新部门监控组参数
-        List<DeptMonitoringGroupParam> copiedGroupParams = new ArrayList<>();
-        for (DeptMonitoringGroupParam existingParam : existingGroupParams) {
-            Integer newDeptGroupId = oldNewGroupIdMap.get(existingParam.getDeptMonitoringGroupId());
-            if (newDeptGroupId == null) {
-                log.error("No new group found for old group id: {}", existingParam.getDeptMonitoringGroupId());
-                continue;
-            }
-            DeptMonitoringGroupParam copiedParam = existingParam
-                .toBuilder()
-                .id(null)
-                .deptMonitoringGroupId(newDeptGroupId)
-                .modifiedBy(accountId)
-                .modifiedAt(now)
-                .build();
-            copiedGroupParams.add(copiedParam);
-        }
-        deptMonitoringGroupParamRepository.saveAll(copiedGroupParams);
-
-        return copiedGroups;
-    }
-
-    @Transactional(isolation = Isolation.SERIALIZABLE)
-    public void initDeptMonitoringParams(String deptId) {
-        List<DeptMonitoringGroup> existingGroups = deptMonitoringGroupRepository.findByDeptIdAndIsDeletedFalse(deptId);
-        if (!existingGroups.isEmpty()) return;
-
-        initDeptMonitoringParamsImpl(deptId);
-    }
-
-    public void initDeptMonitoringParamsImpl(String deptId) {
-        List<MonitoringGroupPB> balanceGroups = monitoringPb.getBalanceGroupList();
-        List<MonitoringGroupPB> monitoringGroups = monitoringPb.getMonitoringGroupList();
-        insertDeptGroups(deptId, balanceGroups, GROUP_TYPE_BALANCE_ID);
-        insertDeptGroups(deptId, monitoringGroups, GROUP_TYPE_MONITORING_ID);
-
-        log.info("Department {} monitoring groups initialization completed.", deptId);
-    }
-
-    private void insertDeptGroups(String deptId, List<MonitoringGroupPB> groupPBs, int groupType) {
-        LocalDateTime now = TimeUtils.getNowUtc();
-        for (int i = 0; i < groupPBs.size(); i++) {
-            MonitoringGroupPB groupPB = groupPBs.get(i);
-
-            DeptMonitoringGroup group = DeptMonitoringGroup.builder()
-                .deptId(deptId)
-                .name(groupPB.getName())
-                .groupType(groupType)
-                .displayOrder(i)
-                .sumTypePb(ProtoUtils.encodeValueMeta(groupPB.getSumValueMeta()))
-                .isDeleted(false)
-                .modifiedBy("system")
-                .modifiedAt(now)
-                .build();
-
-            DeptMonitoringGroup savedGroup = deptMonitoringGroupRepository.save(group);
-            log.info("Initialized dept_monitoring_group: deptId={}, groupName={}, groupType={}",
-                deptId, groupPB.getName(), groupType);
-
-            insertDeptGroupParams(savedGroup.getId(), groupPB.getMonitoringParamList(), now);
-        }
-    }
-
-    private void insertDeptGroupParams(Integer groupId, List<MonitoringGroupParamPB> paramPBs, LocalDateTime now) {
-        for (int index = 0; index < paramPBs.size(); index++) {
-            MonitoringGroupParamPB paramPB = paramPBs.get(index);
-
-            DeptMonitoringGroupParam param = DeptMonitoringGroupParam.builder()
-                .deptMonitoringGroupId(groupId)
-                .monitoringParamCode(paramPB.getCode())
-                .displayOrder(index + 1)  // 1-based
-                .isDeleted(false)
-                .modifiedBy("system")
-                .modifiedAt(now)
-                .build();
-
-            deptMonitoringGroupParamRepository.save(param);
-
-            log.info("Initialized dept_monitoring_group_param: groupId={}, paramCode={}, displayOrder={}",
-                groupId, paramPB.getCode(), index + 1);
-        }
-    }
-
     public DeptMonitoringSettingsPB getDeptMonitoringSettings(String deptId) {
         DeptSystemSettingsId settingsId = new DeptSystemSettingsId(
             deptId, SystemSettingFunctionId.GET_DEPT_MONITORING_SETTINGS.getNumber());
@@ -817,7 +658,6 @@ public class MonitoringConfig {
     private final Integer BALANCE_OUT_ID;
     private final Integer BALANCE_NET_ID;
     private final Integer GROUP_TYPE_BALANCE_ID;
-    private final Integer GROUP_TYPE_MONITORING_ID;
     private final String OUT_GROUP_NAME;
     private final String DRAINAGE_TUBE_PREFIX;
     private final List<MonitoringParamPB> tubeParamList;
@@ -837,5 +677,4 @@ public class MonitoringConfig {
     private final PatientMonitoringGroupRepository patientMonitoringGroupRepository;
     private final PatientMonitoringGroupParamRepository patientMonitoringGroupParamRepository;
     private final DeptSystemSettingsRepository deptSettingRepository;
-    private final EntityManager entityManager;
 }

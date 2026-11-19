@@ -42,6 +42,7 @@ import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.BgaMetaService;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringMetaService;
 import com.jingyicare.jingyi_icis_engine.service.nursingrecords.NursingOrderTemplateService;
 import com.jingyicare.jingyi_icis_engine.service.scores.ScoreMetaService;
 import com.jingyicare.jingyi_icis_engine.service.settings.SettingsStore;
@@ -90,6 +91,13 @@ class DepartmentCommandTests extends TestsBase {
         jdbc.update("DELETE FROM rbac_roles WHERE id = ?", ROLE);
         for (String code : List.of(FIRST, SECOND, THIRD, FOURTH)) {
             jdbc.update("DELETE FROM dept_system_settings WHERE dept_id = ?", code);
+            jdbc.update("""
+                DELETE FROM dept_monitoring_group_params WHERE dept_monitoring_group_id IN
+                    (SELECT id FROM dept_monitoring_groups WHERE dept_id = ?)
+                """, code);
+            jdbc.update("DELETE FROM dept_monitoring_groups WHERE dept_id = ?", code);
+            jdbc.update("DELETE FROM app_transaction_locks WHERE resource_key = ?",
+                LockKeys.deptMonitoringGroups(code));
             jdbc.update("DELETE FROM departments WHERE dept_id = ?", code);
             jdbc.update("DELETE FROM rbac_departments WHERE dept_id = ?", code);
             jdbc.update("DELETE FROM app_transaction_locks WHERE resource_key = ?",
@@ -182,7 +190,8 @@ class DepartmentCommandTests extends TestsBase {
         }).when(failing).save(any(RbacDepartment.class));
         DepartmentCommand command = new DepartmentCommand(
             deptRepo, failing, membershipRepo, businessMembershipRepo, bgaMetaService,
-            scoreMetaService, nursingTemplateService, locks, config, settingsStore);
+            monitoringMetaService, scoreMetaService, nursingTemplateService, locks,
+            config, settingsStore);
 
         assertThatThrownBy(() -> command.updateDepartment(firstId(), FIRST, UPDATED_NAME,
             "新简称", "", "", "测试医院", OPERATOR)).hasMessage("模拟RBAC保存失败");
@@ -201,7 +210,8 @@ class DepartmentCommandTests extends TestsBase {
         }).when(failing).deleteById(FIRST);
         DepartmentCommand command = new DepartmentCommand(
             deptRepo, failing, membershipRepo, businessMembershipRepo, bgaMetaService,
-            scoreMetaService, nursingTemplateService, locks, config, settingsStore);
+            monitoringMetaService, scoreMetaService, nursingTemplateService, locks,
+            config, settingsStore);
 
         assertThatThrownBy(() -> command.deleteDepartment(FIRST, OPERATOR))
             .hasMessage("模拟RBAC删除失败");
@@ -355,6 +365,7 @@ class DepartmentCommandTests extends TestsBase {
     @Autowired private LockExecutor locks;
     @Autowired private ProtoConfig config;
     @Autowired private SettingsStore settingsStore;
+    @Autowired private MonitoringMetaService monitoringMetaService;
     @MockBean private BgaMetaService bgaMetaService;
     @MockBean private ScoreMetaService scoreMetaService;
     @MockBean private NursingOrderTemplateService nursingTemplateService;

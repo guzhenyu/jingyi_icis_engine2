@@ -96,10 +96,11 @@ public final class LockKeys {
         return "monitoring_params";
     }
 
-    public static String deptMonitoringParams(String deptId, String paramCode) {
+    // 同一科室的分组和参数配置共用此锁，覆盖 dept_monitoring_groups、
+    // dept_monitoring_group_params 和 dept_monitoring_params。
+    public static String deptMonitoringGroups(String deptId) {
         StrUtils.requireNonBlank(deptId, "deptId");
-        StrUtils.requireNonBlank(paramCode, "paramCode");
-        return "dept_monitoring_params:" + deptId + ":" + paramCode;
+        return "dept_monitoring_groups:" + deptId;
     }
 
     public static String bgaParam(String deptId) {

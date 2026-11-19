@@ -30,7 +30,9 @@ import com.jingyicare.jingyi_icis_engine.repository.medications.*;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
-import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
+import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
+import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringMetaService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.PatientMonitoringService;
 import com.jingyicare.jingyi_icis_engine.testutils.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -46,7 +48,7 @@ class MedicationIntakeRescheduleTests extends TestsBase {
     @Autowired private ConfigProtoService protoService;
     @Autowired private MedicationService medService;
     @Autowired private PatientMonitoringService monitoringService;
-    @Autowired private MonitoringConfig monitoringConfig;
+    @Autowired private MonitoringMetaService monitoringMetaService;
     @Autowired private PatientRecordRepository patientRepo;
     @Autowired private AdministrationRouteRepository routeRepo;
     @Autowired private MedicationOrderGroupRepository groupRepo;
@@ -69,7 +71,10 @@ class MedicationIntakeRescheduleTests extends TestsBase {
         patient = PatientTestUtils.newPatientRecord(NEXT_PID.incrementAndGet(), 1, DEPT_ID);
         patient.setAdmissionTime(DAY.minusDays(1));
         patient = patientRepo.save(patient);
-        monitoringConfig.initDeptMonitoringParams(DEPT_ID);
+        lockExecutor.execute(List.of(LockKeys.deptMonitoringGroups(DEPT_ID)), () -> {
+            monitoringMetaService.initDept(DEPT_ID);
+            return null;
+        });
         // Match the reported ward's hourly and accumulated balance columns.
         DeptMonitoringGroup netGroup = monitoringGroupRepo.findByDeptIdAndIsDeletedFalse(DEPT_ID).stream()
             .filter(group -> group.getName().equals(protoService.getConfig().getMonitoring().getBalanceNetGroupName()))
@@ -301,4 +306,6 @@ class MedicationIntakeRescheduleTests extends TestsBase {
     private static LocalDateTime at(int hour, int minute) {
         return TimeUtils.fromIso8601String(String.format("2025-09-17T%02d:%02d+08:00", hour, minute), "UTC");
     }
+
+    @Autowired private LockExecutor lockExecutor;
 }

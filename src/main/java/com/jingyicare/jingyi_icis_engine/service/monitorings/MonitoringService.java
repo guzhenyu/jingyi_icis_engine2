@@ -12,6 +12,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,6 +31,8 @@ import com.jingyicare.jingyi_icis_engine.entity.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
+import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.tubes.*;
 import com.jingyicare.jingyi_icis_engine.service.users.*;
@@ -45,6 +48,9 @@ public class MonitoringService {
         @Autowired PatientReader patientReader,
         @Autowired PatientTubeImpl patientTubeImpl,
         @Autowired MonitoringConfig monitoringConfig,
+        @Autowired MonitoringMetaService monitoringMetaService,
+        @Autowired LockExecutor lockExecutor,
+        @Autowired JdbcTemplate jdbcTemplate,
         @Autowired MonitoringParamRepository monitoringParamRepository,
         @Autowired DeptMonitoringParamRepository deptMonitoringParamRepository,
         @Autowired MonitoringParamHistoryRepository monitoringParamHistoryRepository,
@@ -66,6 +72,9 @@ public class MonitoringService {
         this.patientReader = patientReader;
         this.patientTubeImpl = patientTubeImpl;
         this.monitoringConfig = monitoringConfig;
+        this.monitoringMetaService = monitoringMetaService;
+        this.lockExecutor = lockExecutor;
+        this.jdbcTemplate = jdbcTemplate;
 
         this.monitoringParamRepository = monitoringParamRepository;
         this.deptMonitoringParamRepository = deptMonitoringParamRepository;
@@ -202,13 +211,12 @@ public class MonitoringService {
             .build();
     }
 
-    @Transactional
     public GenericResp updateDeptMonitoringParam(String updateDeptMonitoringParamReqJson) {
         final UpdateDeptMonitoringParamReq req;
 
-        // Step 1: Parse JSON to Proto
         try {
-            req = ProtoUtils.parseJsonToProto(updateDeptMonitoringParamReqJson, UpdateDeptMonitoringParamReq.newBuilder());
+            req = ProtoUtils.parseJsonToProto(
+                updateDeptMonitoringParamReqJson, UpdateDeptMonitoringParamReq.newBuilder());
         } catch (Exception e) {
             log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
             return GenericResp.newBuilder()
@@ -220,7 +228,6 @@ public class MonitoringService {
         final String code = req.getCode();
         final ValueMetaPB valueMeta = req.getValueMeta();
 
-        // Step 2: Validate parameters
         if (departmentId.isBlank()) {
             log.warn("Invalid request: departmentId is empty.");
             return GenericResp.newBuilder()
@@ -243,47 +250,49 @@ public class MonitoringService {
                 .build();
         }
 
-        // Step 3: Check if code exists in monitoring_params
-        Optional<MonitoringParam> optionalMonitoringParam = monitoringParamRepository.findByCode(code);
-        if (optionalMonitoringParam.isEmpty()) {
-            log.warn("MonitoringParam with code: {} does not exist. User: {}",
-                code, account.autoAcctId());
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.MONITORING_PARAM_CODE_NOT_EXIST))
-                .build();
-        }
-
-        MonitoringParamPB monitoringParamPb = MonitoringParamPB.newBuilder()
-            .setCode(code)
-            .setName(optionalMonitoringParam.get().getName())
-            .setValueMeta(valueMeta)
-            .setBalanceType(optionalMonitoringParam.get().getBalanceType())
-            .build();
-        StatusCode statusCode = monitoringConfig.isValidParamPb(monitoringParamPb);
-        if (statusCode != StatusCode.OK) {
-            log.warn("Invalid MonitoringParamPB {} in request. User: {}",
-                monitoringParamPb, account.autoAcctId());
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(statusCode))
-                .build();
-        }
-
-        // Step 4: Check and update in dept_monitoring_params
-        Optional<DeptMonitoringParam> optionalDeptMonitoringParam =
-            deptMonitoringParamRepository.findByIdDeptIdAndIdCode(departmentId, code);
-
         String newTypePb = ProtoUtils.encodeValueMeta(valueMeta);
-        if (optionalDeptMonitoringParam.isPresent()) {
-            DeptMonitoringParam existingParam = optionalDeptMonitoringParam.get();
-            if (!existingParam.getTypePb().equals(newTypePb)) {
-                // Save to history if content differs
+        return lockExecutor.execute(List.of(LockKeys.deptMonitoringGroups(departmentId)), () -> {
+            // 共享锁只保护当前全局参数行的校验依据，各科室可同时读取同一参数。
+            MonitoringParam monitoringParam = monitoringParamRepository
+                .findForShareByCode(code).orElse(null);
+            if (monitoringParam == null) {
+                log.warn("MonitoringParam with code: {} does not exist. User: {}",
+                    code, account.autoAcctId());
+                return GenericResp.newBuilder()
+                    .setRt(protoService.getReturnCode(StatusCode.MONITORING_PARAM_CODE_NOT_EXIST))
+                    .build();
+            }
+
+            MonitoringParamPB monitoringParamPb = MonitoringParamPB.newBuilder()
+                .setCode(code)
+                .setName(monitoringParam.getName())
+                .setValueMeta(valueMeta)
+                .setBalanceType(monitoringParam.getBalanceType())
+                .build();
+            StatusCode statusCode = monitoringConfig.isValidParamPb(monitoringParamPb);
+            if (statusCode != StatusCode.OK) {
+                log.warn("Invalid MonitoringParamPB {} in request. User: {}",
+                    monitoringParamPb, account.autoAcctId());
+                return GenericResp.newBuilder()
+                    .setRt(protoService.getReturnCode(statusCode))
+                    .build();
+            }
+
+            DeptMonitoringParam existingParam = deptMonitoringParamRepository
+                .findByIdDeptIdAndIdCode(departmentId, code).orElse(null);
+            if (existingParam == null) {
+                DeptMonitoringParam newParam = DeptMonitoringParam.builder()
+                    .id(new DeptMonitoringParamId(code, departmentId))
+                    .typePb(newTypePb)
+                    .build();
+                deptMonitoringParamRepository.save(newParam);
+                log.info("Inserted DeptMonitoringParam for code: {}, departmentId: {}. User: {}",
+                    code, departmentId, account.autoAcctId());
+            } else if (!existingParam.getTypePb().equals(newTypePb)) {
                 saveDeptParamToHistory(
                     existingParam, "Updated by user request", account.autoAcctId(), false);
-
-                // Update the existing record
                 existingParam.setTypePb(newTypePb);
                 deptMonitoringParamRepository.save(existingParam);
-
                 log.info("Updated DeptMonitoringParam for code: {}, departmentId: {}. User: {}",
                     code, departmentId, account.autoAcctId());
             } else {
@@ -291,24 +300,11 @@ public class MonitoringService {
                     + "User: {}",
                     code, departmentId, account.autoAcctId());
             }
-        } else {
-            // Insert a new record if it doesn't exist
-            DeptMonitoringParam newParam = DeptMonitoringParam.builder()
-                .id(DeptMonitoringParamId.builder()
-                    .code(code)
-                    .deptId(departmentId)
-                    .build())
-                .typePb(newTypePb)
+
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.OK))
                 .build();
-
-            deptMonitoringParamRepository.save(newParam);
-            log.info("Inserted new DeptMonitoringParam for code: {}, departmentId: {}. User: {}",
-                code, departmentId, account.autoAcctId());
-        }
-
-        return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .build();
+        });
     }
 
     @Transactional(isolation = Isolation.SERIALIZABLE)
@@ -342,7 +338,8 @@ public class MonitoringService {
     public AddDeptMonitoringGroupResp addDeptMonitoringGroup(String addDeptMonitoringGroupReqJson) {
         final AddDeptMonitoringGroupReq req;
         try {
-            req = ProtoUtils.parseJsonToProto(addDeptMonitoringGroupReqJson, AddDeptMonitoringGroupReq.newBuilder());
+            req = ProtoUtils.parseJsonToProto(
+                addDeptMonitoringGroupReqJson, AddDeptMonitoringGroupReq.newBuilder());
         } catch (Exception e) {
             log.error("Failed to parse AddDeptMonitoringGroupReq JSON: {}", e.getMessage());
             return AddDeptMonitoringGroupResp.newBuilder()
@@ -363,6 +360,10 @@ public class MonitoringService {
 
         // 提取关键参数
         String deptId = req.getDepartmentId();
+        if (deptId.isBlank()) {
+            return AddDeptMonitoringGroupResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.DEPT_IS_EMPTY)).build();
+        }
         String groupName = req.getName();
         Integer groupType = req.getGroupType();
 
@@ -375,35 +376,39 @@ public class MonitoringService {
                     .build();
         }
 
-        // 如有必要，初始化/重置部门分组
-        monitoringConfig.resetDeptMonitoringGroups(deptId, account.autoAcctId());
+        return lockExecutor.execute(List.of(LockKeys.deptMonitoringGroups(deptId)), () -> {
+            // 如有必要，初始化/重置部门分组
+            monitoringMetaService.resetDeptMonitoringGroups(deptId, account.autoAcctId());
 
-        // 新增分组
-        Pair<StatusCode, Integer> result = addDeptMonitoringGroupImpl(
-            deptId, groupName, groupType, req.getSumValueMeta(), account.autoAcctId()
-        );
-        StatusCode statusCode = result.getFirst();
+            // 新增分组
+            Pair<StatusCode, Integer> result = addDeptMonitoringGroupImpl(
+                deptId, groupName, groupType, req.getSumValueMeta(), account.autoAcctId()
+            );
+            StatusCode statusCode = result.getFirst();
 
-        AddDeptMonitoringGroupResp.Builder resp = AddDeptMonitoringGroupResp.newBuilder();
-        resp.setRt(protoService.getReturnCode(statusCode));
-        if (statusCode == StatusCode.OK) resp.setId(result.getSecond());
-        return resp.build();
+            AddDeptMonitoringGroupResp.Builder resp = AddDeptMonitoringGroupResp.newBuilder();
+            resp.setRt(protoService.getReturnCode(statusCode));
+            if (statusCode == StatusCode.OK) resp.setId(result.getSecond());
+            return resp.build();
+        });
     }
 
-    @Transactional
     private Pair<StatusCode, Integer> addDeptMonitoringGroupImpl(
         String deptId, String groupName, Integer groupType, ValueMetaPB sumMeta, String accountId
     ) {
         // 检查是否已存在相同的 deptId 和 name 的监控分组
-        boolean groupExists = deptMonitoringGroupRepository.findByDeptIdAndNameAndIsDeletedFalse(deptId, groupName).isPresent();
+        boolean groupExists = deptMonitoringGroupRepository
+            .findByDeptIdAndNameAndIsDeletedFalse(deptId, groupName).isPresent();
         if (groupExists) {
-            log.error("Monitoring group already exists for deptId: {}, name: {}. User: [{}]", deptId, groupName, accountId);
+            log.error("Monitoring group already exists for deptId: {}, name: {}. User: [{}]",
+                deptId, groupName, accountId);
             return new Pair<>(StatusCode.MONITORING_GROUP_EXIST, null);
         }
 
         // 获取当前最大的 displayOrder
         Integer displayOrder = 1;
-        for (DeptMonitoringGroup group : deptMonitoringGroupRepository.findByDeptIdAndIsDeletedFalse(deptId)) {
+        for (DeptMonitoringGroup group : deptMonitoringGroupRepository
+            .findByDeptIdAndIsDeletedFalse(deptId)) {
             if (group.getDisplayOrder() >= displayOrder) {
                 displayOrder = group.getDisplayOrder() + 1;
             }
@@ -424,15 +429,16 @@ public class MonitoringService {
         // 保存到数据库
         newGroup = deptMonitoringGroupRepository.save(newGroup);
 
-        log.info("User [{}] successfully added department monitoring group: {}, ID: {}", accountId, groupName, newGroup.getId());
+        log.info("User [{}] successfully added department monitoring group: {}, ID: {}",
+            accountId, groupName, newGroup.getId());
         return new Pair<>(StatusCode.OK, newGroup.getId());
     }
 
-    @Transactional
     public GenericResp updateDeptMonGroupName(String updateDeptMonGroupNameReqJson) {
         final UpdateDeptMonGroupNameReq req;
         try {
-            req = ProtoUtils.parseJsonToProto(updateDeptMonGroupNameReqJson, UpdateDeptMonGroupNameReq.newBuilder());
+            req = ProtoUtils.parseJsonToProto(
+                updateDeptMonGroupNameReqJson, UpdateDeptMonGroupNameReq.newBuilder());
         } catch (Exception e) {
             log.error("Failed to parse JSON: {}", e.getMessage());
             return GenericResp.newBuilder()
@@ -457,42 +463,55 @@ public class MonitoringService {
                     .build();
         }
 
-        DeptMonitoringGroup existingGroup = deptMonitoringGroupRepository
-            .findByIdAndIsDeletedFalse(req.getId()).orElse(null);
-        if (existingGroup == null) {
-            log.error("Monitoring group not found for ID: {}", req.getId());
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.DEPT_MONITORING_GROUP_NOT_EXIST))
-                .build();
-        }
+        return lockExecutor.executePlannedIfPresent(
+            () -> MonitoringGroupJdbc.findActiveGroupDeptId(jdbcTemplate, req.getId()),
+            deptId -> List.of(LockKeys.deptMonitoringGroups(deptId)),
+            deptId -> Objects.equals(deptId,
+                MonitoringGroupJdbc.findActiveGroupDeptId(jdbcTemplate, req.getId())),
+            deptId -> {
+                DeptMonitoringGroup existingGroup = deptMonitoringGroupRepository
+                    .findByIdAndIsDeletedFalse(req.getId()).orElse(null);
+                if (existingGroup == null) {
+                    log.error("Monitoring group not found for ID: {}", req.getId());
+                    return GenericResp.newBuilder()
+                        .setRt(protoService.getReturnCode(
+                            StatusCode.DEPT_MONITORING_GROUP_NOT_EXIST))
+                        .build();
+                }
 
-        DeptMonitoringGroup dupDeptMonGroup = deptMonitoringGroupRepository
-            .findByDeptIdAndNameAndIsDeletedFalse(existingGroup.getDeptId(), req.getName())
-            .orElse(null);
-        if (dupDeptMonGroup != null && !dupDeptMonGroup.getId().equals(req.getId())) {
-            log.warn("Duplicate monitoring group name '{}' found in department ID: {}", req.getName(), req.getId());
-            return GenericResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.DEPT_MONITORING_GROUP_NAME_DUPLICATE))
+                DeptMonitoringGroup dupDeptMonGroup = deptMonitoringGroupRepository
+                    .findByDeptIdAndNameAndIsDeletedFalse(existingGroup.getDeptId(), req.getName())
+                    .orElse(null);
+                if (dupDeptMonGroup != null && !dupDeptMonGroup.getId().equals(req.getId())) {
+                    log.warn("Duplicate monitoring group name '{}' found in department ID: {}",
+                        req.getName(), req.getId());
+                    return GenericResp.newBuilder()
+                            .setRt(protoService.getReturnCode(
+                                StatusCode.DEPT_MONITORING_GROUP_NAME_DUPLICATE))
+                            .build();
+                }
+
+                // 更新监控分组名称
+                log.info("User [{}] is updating monitoring group name to '{}' for ID: {}",
+                    account.autoAcctId(), req.getName(), req.getId());
+                existingGroup.setName(req.getName());
+                existingGroup.setModifiedBy(account.autoAcctId());
+                existingGroup.setModifiedAt(TimeUtils.getNowUtc());
+                deptMonitoringGroupRepository.save(existingGroup);
+
+                return GenericResp.newBuilder()
+                    .setRt(protoService.getReturnCode(StatusCode.OK))
                     .build();
-        }
-
-        // 更新监控分组名称
-        log.info("User [{}] is updating monitoring group name to '{}' for ID: {}",
-            account.autoAcctId(), req.getName(), req.getId());
-        existingGroup.setName(req.getName());
-        existingGroup.setModifiedBy(account.autoAcctId());
-        existingGroup.setModifiedAt(TimeUtils.getNowUtc());
-        deptMonitoringGroupRepository.save(existingGroup);
-
-        return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .build();
+            }, GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.DEPT_MONITORING_GROUP_NOT_EXIST))
+                .build());
     }
 
     public GenericResp deleteDeptMonitoringGroup(String deleteDeptMonitoringGroupReqJson) {
         final DeleteDeptMonitoringGroupReq req;
         try {
-            req = ProtoUtils.parseJsonToProto(deleteDeptMonitoringGroupReqJson, DeleteDeptMonitoringGroupReq.newBuilder());
+            req = ProtoUtils.parseJsonToProto(
+                deleteDeptMonitoringGroupReqJson, DeleteDeptMonitoringGroupReq.newBuilder());
         } catch (Exception e) {
             log.error("Failed to parse DeleteDeptMonitoringGroupReq JSON: {}", e.getMessage());
             return GenericResp.newBuilder()
@@ -514,55 +533,73 @@ public class MonitoringService {
         // 提取关键参数
         Integer groupId = req.getId();
 
-        // 检查分组是否可删除
-        Pair<StatusCode, DeptMonitoringGroup> deletableCheck =
-            deptGroupDeletable(groupId, account.autoAcctId());
-        StatusCode statusCode = deletableCheck.getFirst();
-        if (statusCode != StatusCode.OK) {
-            log.error("Group deletion check failed: {}", statusCode);
-            return GenericResp.newBuilder().setRt(protoService.getReturnCode(statusCode)).build();
-        }
-        if (deletableCheck.getSecond() == null) {
-            log.error("Group with ID {} is not found. User: [{}]", groupId, account.autoAcctId());
-            return GenericResp.newBuilder().setRt(protoService.getReturnCode(statusCode)).build();
-        }
-        DeptMonitoringGroup groupToDel = deletableCheck.getSecond();
-        String deptId = groupToDel.getDeptId();
-        String groupNameToDel = groupToDel.getName();
+        return lockExecutor.executePlannedIfPresent(
+            () -> MonitoringGroupJdbc.findActiveGroupDeptId(jdbcTemplate, groupId),
+            deptId -> List.of(LockKeys.deptMonitoringGroups(deptId)),
+            deptId -> Objects.equals(deptId,
+                MonitoringGroupJdbc.findActiveGroupDeptId(jdbcTemplate, groupId)),
+            deptId -> {
+                // 检查分组是否可删除
+                Pair<StatusCode, DeptMonitoringGroup> deletableCheck =
+                    deptGroupDeletable(groupId, account.autoAcctId());
+                StatusCode statusCode = deletableCheck.getFirst();
+                if (statusCode != StatusCode.OK) {
+                    log.error("Group deletion check failed: {}", statusCode);
+                    return GenericResp.newBuilder()
+                        .setRt(protoService.getReturnCode(statusCode))
+                        .build();
+                }
+                if (deletableCheck.getSecond() == null) {
+                    log.error("Group with ID {} is not found. User: [{}]",
+                        groupId, account.autoAcctId());
+                    return GenericResp.newBuilder()
+                        .setRt(protoService.getReturnCode(statusCode))
+                        .build();
+                }
+                DeptMonitoringGroup groupToDel = deletableCheck.getSecond();
+                String groupNameToDel = groupToDel.getName();
 
-        // 必要时重置部门分组
-        monitoringConfig.resetDeptMonitoringGroups(deptId, account.autoAcctId());
+                // 必要时重置部门分组
+                monitoringMetaService.resetDeptMonitoringGroups(deptId, account.autoAcctId());
 
-        // 执行删除操作
-        deleteDeptMonitoringGroupImpl(deptId, groupNameToDel, account.autoAcctId());
+                // 执行删除操作
+                deleteDeptMonitoringGroupImpl(deptId, groupNameToDel, account.autoAcctId());
 
-        return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .build();
+                return GenericResp.newBuilder()
+                    .setRt(protoService.getReturnCode(StatusCode.OK))
+                    .build();
+            }, GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.OK)).build());
     }
 
-    @Transactional
-    private Pair<StatusCode, DeptMonitoringGroup> deptGroupDeletable(Integer groupId, String accountId) {
+    private Pair<StatusCode, DeptMonitoringGroup> deptGroupDeletable(
+        Integer groupId, String accountId
+    ) {
         // 检查 group_type 是否为不可编辑的平衡分组
-        DeptMonitoringGroup group = deptMonitoringGroupRepository.findByIdAndIsDeletedFalse(groupId).orElse(null);
+        DeptMonitoringGroup group = deptMonitoringGroupRepository
+            .findByIdAndIsDeletedFalse(groupId).orElse(null);
         if (group == null) {
-            log.info("No active department monitoring group found for id: {}. User: [{}]", groupId, accountId);
+            log.info("No active department monitoring group found for id: {}. User: [{}]",
+                groupId, accountId);
             return new Pair<>(StatusCode.OK, null);
         }
 
         if (group.getGroupType() == GROUP_TYPE_BALANCE_ID) {
-            log.error("Group type 'balance' is not editable. Group ID: {}, User: [{}]", groupId, accountId);
+            log.error("Group type 'balance' is not editable. Group ID: {}, User: [{}]",
+                groupId, accountId);
             return new Pair<>(StatusCode.GROUP_TYPE_BALANCE_NOT_EDITABLE, null);
         }
 
         return new Pair<>(StatusCode.OK, group);
     }
 
-    @Transactional
-    private void deleteDeptMonitoringGroupImpl(String deptId, String groupNameToDel, String accountId) {
-        DeptMonitoringGroup group = deptMonitoringGroupRepository.findByDeptIdAndNameAndIsDeletedFalse(deptId, groupNameToDel).orElse(null);
+    private void deleteDeptMonitoringGroupImpl(
+        String deptId, String groupNameToDel, String accountId
+    ) {
+        DeptMonitoringGroup group = deptMonitoringGroupRepository
+            .findByDeptIdAndNameAndIsDeletedFalse(deptId, groupNameToDel).orElse(null);
         if (group == null) {
-            log.info("No active department monitoring group found for deptId {}, groupName {}, User {}",
+            log.info("未找到有效科室分组，科室 {}，分组 {}，用户 {}",
                 deptId, groupNameToDel, accountId);
             return;
         }
@@ -572,15 +609,15 @@ public class MonitoringService {
         group.setDeletedBy(accountId);
         group.setDeletedAt(TimeUtils.getNowUtc());
         deptMonitoringGroupRepository.save(group);
-        log.info("User [{}] successfully deleted department monitoring group with deptId {}, groupName {}",
+        log.info("用户 [{}] 已删除科室分组，科室 {}，分组 {}",
             accountId, deptId, groupNameToDel);
     }
 
-    @Transactional
     public GenericResp reorderDeptMonitoringGroup(String reorderDeptMonitoringGroupReqJson) {
         final ReorderDeptMonitoringGroupReq req;
         try {
-            req = ProtoUtils.parseJsonToProto(reorderDeptMonitoringGroupReqJson, ReorderDeptMonitoringGroupReq.newBuilder());
+            req = ProtoUtils.parseJsonToProto(
+                reorderDeptMonitoringGroupReqJson, ReorderDeptMonitoringGroupReq.newBuilder());
         } catch (Exception e) {
             log.error("Failed to parse ReorderDeptMonitoringGroupReq JSON: {}", e.getMessage());
             return GenericResp.newBuilder()
@@ -600,7 +637,7 @@ public class MonitoringService {
             account.autoAcctId(), req);
 
         // 校验请求参数
-        if (req.getDepartmentId().isEmpty()) {
+        if (req.getDepartmentId().isBlank()) {
             log.error("Department ID is empty. User: [{}]", account.autoAcctId());
             return GenericResp.newBuilder()
                     .setRt(protoService.getReturnCode(StatusCode.DEPT_IS_EMPTY))
@@ -614,67 +651,75 @@ public class MonitoringService {
         }
 
         try {
-            // 检查 department_id 是否存在
-            boolean deptExists = deptMonitoringGroupRepository.existsByDeptIdAndIsDeletedFalse(req.getDepartmentId());
-            if (!deptExists) {
-                log.error("Invalid department ID [{}]. User: [{}]",
-                    req.getDepartmentId(), account.autoAcctId());
+            return lockExecutor.execute(
+                List.of(LockKeys.deptMonitoringGroups(req.getDepartmentId())), () -> {
+                // 检查 department_id 是否存在
+                boolean deptExists = deptMonitoringGroupRepository
+                    .existsByDeptIdAndIsDeletedFalse(req.getDepartmentId());
+                if (!deptExists) {
+                    log.error("Invalid department ID [{}]. User: [{}]",
+                        req.getDepartmentId(), account.autoAcctId());
+                    return GenericResp.newBuilder()
+                            .setRt(protoService.getReturnCode(
+                                StatusCode.MONITORING_GROUP_INVALID_DEPARTMENT))
+                            .build();
+                }
+
+                // 获取数据库中现有的分组
+                List<DeptMonitoringGroup> groups = deptMonitoringGroupRepository
+                    .findByDeptIdAndIsDeletedFalse(req.getDepartmentId());
+
+                Map<Integer, DeptMonitoringGroup> groupMap = groups.stream()
+                        .collect(Collectors.toMap(DeptMonitoringGroup::getId, group -> group));
+
+                // 校验传入的分组 ID 是否全部有效
+                for (MonitoringGroupOrder order : req.getGroupOrderList()) {
+                    if (!groupMap.containsKey(order.getMonitoringGroupId())) {
+                        log.error("Invalid monitoring group ID [{}] in reorder request. User: [{}]",
+                            order.getMonitoringGroupId(), account.autoAcctId());
+                        return GenericResp.newBuilder()
+                                .setRt(protoService.getReturnCode(
+                                    StatusCode.MONITORING_GROUP_NOT_EXIST))
+                                .build();
+                    }
+
+                    DeptMonitoringGroup group = groupMap.get(order.getMonitoringGroupId());
+                    if (group.getGroupType() == GROUP_TYPE_BALANCE_ID) {
+                        log.error("Group type 'balance' is not editable. Group ID: {}, User: [{}]",
+                            group.getId(), account.autoAcctId());
+                        return GenericResp.newBuilder()
+                                .setRt(protoService.getReturnCode(
+                                    StatusCode.GROUP_TYPE_BALANCE_NOT_EDITABLE))
+                                .build();
+                    }
+                }
+
+                // 更新显示顺序，仅更新有变化的分组
+                List<DeptMonitoringGroup> updatedGroups = new ArrayList<>();
+                for (MonitoringGroupOrder order : req.getGroupOrderList()) {
+                    DeptMonitoringGroup group = groupMap.get(order.getMonitoringGroupId());
+                    if (group.getDisplayOrder() != order.getDisplayOrder()) {
+                        group.setDisplayOrder(order.getDisplayOrder());
+                        group.setModifiedBy(account.autoAcctId());
+                        group.setModifiedAt(TimeUtils.getNowUtc());
+                        updatedGroups.add(group);
+                    }
+                }
+
+                // 批量保存更新后的分组
+                if (!updatedGroups.isEmpty()) {
+                    deptMonitoringGroupRepository.saveAll(updatedGroups);
+                    log.info("Updated display orders for {} groups in department: {}. User: [{}]",
+                        updatedGroups.size(), req.getDepartmentId(), account.autoAcctId());
+                } else {
+                    log.info("No changes in display order for department: {}. User: [{}]",
+                        req.getDepartmentId(), account.autoAcctId());
+                }
+
                 return GenericResp.newBuilder()
-                        .setRt(protoService.getReturnCode(StatusCode.MONITORING_GROUP_INVALID_DEPARTMENT))
+                        .setRt(protoService.getReturnCode(StatusCode.OK))
                         .build();
-            }
-
-            // 获取数据库中现有的分组
-            List<DeptMonitoringGroup> groups = deptMonitoringGroupRepository.findByDeptIdAndIsDeletedFalse(req.getDepartmentId());
-
-            Map<Integer, DeptMonitoringGroup> groupMap = groups.stream()
-                    .collect(Collectors.toMap(DeptMonitoringGroup::getId, group -> group));
-
-            // 校验传入的分组 ID 是否全部有效
-            for (MonitoringGroupOrder order : req.getGroupOrderList()) {
-                if (!groupMap.containsKey(order.getMonitoringGroupId())) {
-                    log.error("Invalid monitoring group ID [{}] in reorder request. User: [{}]",
-                        order.getMonitoringGroupId(), account.autoAcctId());
-                    return GenericResp.newBuilder()
-                            .setRt(protoService.getReturnCode(StatusCode.MONITORING_GROUP_NOT_EXIST))
-                            .build();
-                }
-
-                DeptMonitoringGroup group = groupMap.get(order.getMonitoringGroupId());
-                if (group.getGroupType() == GROUP_TYPE_BALANCE_ID) {
-                    log.error("Group type 'balance' is not editable. Group ID: {}, User: [{}]",
-                        group.getId(), account.autoAcctId());
-                    return GenericResp.newBuilder()
-                            .setRt(protoService.getReturnCode(StatusCode.GROUP_TYPE_BALANCE_NOT_EDITABLE))
-                            .build();
-                }
-            }
-
-            // 更新显示顺序，仅更新有变化的分组
-            List<DeptMonitoringGroup> updatedGroups = new ArrayList<>();
-            for (MonitoringGroupOrder order : req.getGroupOrderList()) {
-                DeptMonitoringGroup group = groupMap.get(order.getMonitoringGroupId());
-                if (group.getDisplayOrder() != order.getDisplayOrder()) {
-                    group.setDisplayOrder(order.getDisplayOrder());
-                    group.setModifiedBy(account.autoAcctId());
-                    group.setModifiedAt(TimeUtils.getNowUtc());
-                    updatedGroups.add(group);
-                }
-            }
-
-            // 批量保存更新后的分组
-            if (!updatedGroups.isEmpty()) {
-                deptMonitoringGroupRepository.saveAll(updatedGroups);
-                log.info("Updated display orders for {} groups in department: {}. User: [{}]",
-                    updatedGroups.size(), req.getDepartmentId(), account.autoAcctId());
-            } else {
-                log.info("No changes in display order for department: {}. User: [{}]",
-                    req.getDepartmentId(), account.autoAcctId());
-            }
-
-            return GenericResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.OK))
-                    .build();
+            });
         } catch (Exception e) {
             log.error("Failed to reorder department monitoring groups. User: [{}], Request: {}, "
                 + "Error: {}",
@@ -685,11 +730,14 @@ public class MonitoringService {
         }
     }
 
-    public AddDeptMonitoringGroupParamResp addDeptMonitoringGroupParam(String addDeptMonitoringGroupParamReqJson) {
-        // Parse JSON to Proto
+    public AddDeptMonitoringGroupParamResp addDeptMonitoringGroupParam(
+        String addDeptMonitoringGroupParamReqJson
+    ) {
+        // 解析请求
         AddDeptMonitoringGroupParamReq req;
         try {
-            req = ProtoUtils.parseJsonToProto(addDeptMonitoringGroupParamReqJson, AddDeptMonitoringGroupParamReq.newBuilder());
+            req = ProtoUtils.parseJsonToProto(
+                addDeptMonitoringGroupParamReqJson, AddDeptMonitoringGroupParamReq.newBuilder());
         } catch (Exception e) {
             log.error("Failed to parse JSON: {}", e.getMessage());
             return AddDeptMonitoringGroupParamResp.newBuilder()
@@ -708,45 +756,55 @@ public class MonitoringService {
 
         // 提取关键参数
         String deptId = req.getDeptId();
-        Integer groupId = req.getDeptMonitoringGroupId();
-        String code = req.getCode();
-
-        // 检查分组和参数是否可以添加
-        Pair<StatusCode, DeptMonitoringGroup> groupCheck = isDeptMonitoringGroupParamAddable(deptId, groupId, code);
-        StatusCode statusCode = groupCheck.getFirst();
-        if (statusCode != StatusCode.OK) {
-            log.error("Failed to add monitoring group parameter: {}", statusCode);
+        if (deptId.isBlank()) {
             return AddDeptMonitoringGroupParamResp.newBuilder()
-                .setRt(protoService.getReturnCode(statusCode))
-                .build();
+                .setRt(protoService.getReturnCode(StatusCode.DEPT_IS_EMPTY)).build();
         }
-        String groupName = groupCheck.getSecond().getName();
+        return lockExecutor.execute(List.of(LockKeys.deptMonitoringGroups(deptId)), () -> {
+            Integer groupId = req.getDeptMonitoringGroupId();
+            String code = req.getCode();
 
-        // 如有必要, 初始化/重置部门分组
-        List<DeptMonitoringGroup> latestGroups =
-            monitoringConfig.resetDeptMonitoringGroups(deptId, account.autoAcctId());
-        for (DeptMonitoringGroup group : latestGroups) {
-            if (groupName.equals(group.getName())) {
-                groupId = group.getId();
-                break;
+            // 检查分组和参数是否可以添加
+            Pair<StatusCode, DeptMonitoringGroup> groupCheck =
+                isDeptMonitoringGroupParamAddable(deptId, groupId, code);
+            StatusCode statusCode = groupCheck.getFirst();
+            if (statusCode != StatusCode.OK) {
+                log.error("Failed to add monitoring group parameter: {}", statusCode);
+                return AddDeptMonitoringGroupParamResp.newBuilder()
+                    .setRt(protoService.getReturnCode(statusCode))
+                    .build();
             }
-        }
+            String groupName = groupCheck.getSecond().getName();
 
-        // 添加分组参数
-        Pair<StatusCode, Integer/*paramId*/> addResult =
-            addDeptMonitoringGroupParamImpl(deptId, groupId, code, account.autoAcctId());
-        statusCode = addResult.getFirst();
+            // 如有必要, 初始化/重置部门分组
+            List<DeptMonitoringGroup> latestGroups =
+                monitoringMetaService.resetDeptMonitoringGroups(deptId, account.autoAcctId());
+            for (DeptMonitoringGroup group : latestGroups) {
+                if (groupName.equals(group.getName())) {
+                    groupId = group.getId();
+                    break;
+                }
+            }
 
-        AddDeptMonitoringGroupParamResp.Builder resp = AddDeptMonitoringGroupParamResp.newBuilder()
-                .setRt(protoService.getReturnCode(statusCode));
-        if (statusCode == StatusCode.OK) resp.setId(addResult.getSecond());
-        return resp.build();
+            // 添加分组参数
+            Pair<StatusCode, Integer/*paramId*/> addResult =
+                addDeptMonitoringGroupParamImpl(deptId, groupId, code, account.autoAcctId());
+            statusCode = addResult.getFirst();
+
+            AddDeptMonitoringGroupParamResp.Builder resp =
+                AddDeptMonitoringGroupParamResp.newBuilder()
+                    .setRt(protoService.getReturnCode(statusCode));
+            if (statusCode == StatusCode.OK) resp.setId(addResult.getSecond());
+            return resp.build();
+        });
     }
 
-    @Transactional
-    private Pair<StatusCode, DeptMonitoringGroup> isDeptMonitoringGroupParamAddable(String deptId, Integer groupId, String code) {
+    private Pair<StatusCode, DeptMonitoringGroup> isDeptMonitoringGroupParamAddable(
+        String deptId, Integer groupId, String code
+    ) {
         // 检查对应分组是否存在
-        DeptMonitoringGroup deptGroup = deptMonitoringGroupRepository.findByIdAndDeptId(groupId, deptId).orElse(null);
+        DeptMonitoringGroup deptGroup = deptMonitoringGroupRepository
+            .findByIdAndDeptId(groupId, deptId).orElse(null);
         if (deptGroup == null) {
             log.error("Monitoring group not found for ID: {}", groupId);
             return new Pair<>(StatusCode.MONITORING_GROUP_NOT_EXIST, null);
@@ -763,28 +821,31 @@ public class MonitoringService {
         boolean paramExists = deptMonitoringGroupParamRepository
             .existsByDeptMonitoringGroupIdAndMonitoringParamCodeAndIsDeletedFalse(groupId, code);
         if (paramExists) {
-            log.error("Monitoring group parameter already exists for group ID: {}, code: {}", groupId, code);
+            log.error("Monitoring group parameter already exists for group ID: {}, code: {}",
+                groupId, code);
             return new Pair<>(StatusCode.MONITORING_GROUP_PARAM_EXIST, deptGroup);
         }
 
         // 检查参数的出入量类型是否与出入量分组类型相匹配
-        if (deptGroup.getName().equals(monitoringPb.getBalanceInGroupName()) && param.getBalanceType() == BALANCE_OUT_ID) {
-            log.error("Balance type mismatch: balance_out parameter cannot be added to balance_in group.");
+        if (deptGroup.getName().equals(monitoringPb.getBalanceInGroupName())
+            && param.getBalanceType() == BALANCE_OUT_ID) {
+            log.error("出入量类型不匹配：出量参数不能加入入量分组。");
             return new Pair<>(StatusCode.GROUP_PARAM_BALANCE_NOT_MATCH, deptGroup);
         }
-        if (deptGroup.getName().equals(monitoringPb.getBalanceOutGroupName()) && param.getBalanceType() == BALANCE_IN_ID) {
-            log.error("Balance type mismatch: balance_in parameter cannot be added to balance_out group.");
+        if (deptGroup.getName().equals(monitoringPb.getBalanceOutGroupName())
+            && param.getBalanceType() == BALANCE_IN_ID) {
+            log.error("出入量类型不匹配：入量参数不能加入出量分组。");
             return new Pair<>(StatusCode.GROUP_PARAM_BALANCE_NOT_MATCH, deptGroup);
         }
 
         return new Pair<>(StatusCode.OK, deptGroup);
     }
 
-    @Transactional
     private Pair<StatusCode, Integer/*paramId*/> addDeptMonitoringGroupParamImpl(
         String deptId, Integer groupId, String code, String accountId
     ) {
-        Pair<StatusCode, DeptMonitoringGroup> groupCheck = isDeptMonitoringGroupParamAddable(deptId, groupId, code);
+        Pair<StatusCode, DeptMonitoringGroup> groupCheck =
+            isDeptMonitoringGroupParamAddable(deptId, groupId, code);
         StatusCode statusCode = groupCheck.getFirst();
         if (statusCode != StatusCode.OK) return new Pair<>(statusCode, null);
 
@@ -813,11 +874,14 @@ public class MonitoringService {
         return new Pair<>(StatusCode.OK, newParam.getId());
     }
 
-    @Transactional
-    public GenericResp deleteDeptMonitoringGroupParam(String deleteDeptMonitoringGroupParamReqJson) {
+    public GenericResp deleteDeptMonitoringGroupParam(
+        String deleteDeptMonitoringGroupParamReqJson
+    ) {
         DeleteDeptMonitoringGroupParamReq req;
         try {
-            req = ProtoUtils.parseJsonToProto(deleteDeptMonitoringGroupParamReqJson, DeleteDeptMonitoringGroupParamReq.newBuilder());
+            req = ProtoUtils.parseJsonToProto(
+                deleteDeptMonitoringGroupParamReqJson,
+                DeleteDeptMonitoringGroupParamReq.newBuilder());
         } catch (Exception e) {
             log.error("Failed to parse JSON: {}", e.getMessage());
             return GenericResp.newBuilder()
@@ -837,36 +901,49 @@ public class MonitoringService {
         // 提取关键参数
         Integer paramId = req.getId();
 
-        // 如果必要，更新部门分组
-        Pair<DeptMonitoringGroupParam, DeptMonitoringGroup> deletablePair = isDeptMonitoringGroupParamDeletable(paramId);
-        if (deletablePair == null) {
-            return GenericResp.newBuilder().setRt(protoService.getReturnCode(StatusCode.OK)).build();
-        }
-        DeptMonitoringGroupParam deptMonitoringGroupParam = deletablePair.getFirst();
-        String paramCode = deptMonitoringGroupParam.getMonitoringParamCode();
-        DeptMonitoringGroup deptMonitoringGroup = deletablePair.getSecond();
-        String deptId = deptMonitoringGroup.getDeptId();
-        String groupName = deptMonitoringGroup.getName();
-        monitoringConfig.resetDeptMonitoringGroups(deptId, account.autoAcctId());
+        return lockExecutor.executePlannedIfPresent(
+            () -> MonitoringGroupJdbc.findGroupParamDeptId(jdbcTemplate, paramId),
+            deptId -> List.of(LockKeys.deptMonitoringGroups(deptId)),
+            deptId -> Objects.equals(deptId,
+                MonitoringGroupJdbc.findGroupParamDeptId(jdbcTemplate, paramId)),
+            deptId -> {
+                // 如果必要，更新部门分组
+                Pair<DeptMonitoringGroupParam, DeptMonitoringGroup> deletablePair =
+                    isDeptMonitoringGroupParamDeletable(paramId);
+                if (deletablePair == null) {
+                    return GenericResp.newBuilder().setRt(protoService.getReturnCode(
+                        StatusCode.OK)).build();
+                }
+                DeptMonitoringGroupParam deptMonitoringGroupParam = deletablePair.getFirst();
+                String paramCode = deptMonitoringGroupParam.getMonitoringParamCode();
+                DeptMonitoringGroup deptMonitoringGroup = deletablePair.getSecond();
+                String groupName = deptMonitoringGroup.getName();
+                monitoringMetaService.resetDeptMonitoringGroups(deptId, account.autoAcctId());
 
-        // 执行删除操作
-        deleteDeptMonitoringGroupParamImpl(deptId, groupName, paramCode, account.autoAcctId());
-        return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .build();
+                // 执行删除操作
+                deleteDeptMonitoringGroupParamImpl(
+                    deptId, groupName, paramCode, account.autoAcctId());
+                return GenericResp.newBuilder()
+                    .setRt(protoService.getReturnCode(StatusCode.OK))
+                    .build();
+            }, GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.OK)).build());
     }
 
-    @Transactional
-    private Pair<DeptMonitoringGroupParam, DeptMonitoringGroup> isDeptMonitoringGroupParamDeletable(Integer paramId) {
+    private Pair<DeptMonitoringGroupParam, DeptMonitoringGroup> isDeptMonitoringGroupParamDeletable(
+        Integer paramId
+    ) {
         // 检查参数是否存在
-        DeptMonitoringGroupParam param = deptMonitoringGroupParamRepository.findByIdAndIsDeletedFalse(paramId).orElse(null);
+        DeptMonitoringGroupParam param = deptMonitoringGroupParamRepository
+            .findByIdAndIsDeletedFalse(paramId).orElse(null);
         if (param == null) {
             log.error("Monitoring group parameter not found for ID: {}", paramId);
             return null;
         }
 
         // 查找对应的分组
-        DeptMonitoringGroup group = deptMonitoringGroupRepository.findById(param.getDeptMonitoringGroupId()).orElse(null);
+        DeptMonitoringGroup group = deptMonitoringGroupRepository
+            .findById(param.getDeptMonitoringGroupId()).orElse(null);
         if (group == null) {
             log.error("Monitoring group not found for ID: {}", param.getDeptMonitoringGroupId());
             return null;
@@ -875,13 +952,14 @@ public class MonitoringService {
         return new Pair<>(param, group);
     }
 
-    @Transactional
-    private void deleteDeptMonitoringGroupParamImpl(String deptId, String groupName, String paramCode, String accountId) {
+    private void deleteDeptMonitoringGroupParamImpl(
+        String deptId, String groupName, String paramCode, String accountId
+    ) {
         // 查找对应的部门监控分组
         DeptMonitoringGroup deptGroup = deptMonitoringGroupRepository
             .findByDeptIdAndNameAndIsDeletedFalse(deptId, groupName).orElse(null);
         if (deptGroup == null) {
-            log.info("No active department monitoring group found for deptId {}, groupName {}, User {}",
+            log.info("未找到有效科室分组，科室 {}，分组 {}，用户 {}",
                 deptId, groupName, accountId);
             return;
         }
@@ -889,9 +967,10 @@ public class MonitoringService {
 
         // 查找对应的部门监控分组参数
         DeptMonitoringGroupParam param = deptMonitoringGroupParamRepository
-            .findByDeptMonitoringGroupIdAndMonitoringParamCodeAndIsDeletedFalse(groupId, paramCode).orElse(null);
+            .findByDeptMonitoringGroupIdAndMonitoringParamCodeAndIsDeletedFalse(groupId, paramCode)
+            .orElse(null);
         if (param == null) {
-            log.info("No active department monitoring group parameter found for groupId {}, paramCode {}, User {}",
+            log.info("未找到有效的科室分组参数，分组 {}，参数 {}，用户 {}",
                 groupId, paramCode, accountId);
             return;
         }
@@ -902,17 +981,20 @@ public class MonitoringService {
         param.setDeletedAt(TimeUtils.getNowUtc());
         deptMonitoringGroupParamRepository.save(param);
 
-        log.info("Successfully deleted monitoring group parameter deptId {}, groupName {}, paramCode {}, User: {}",
+        log.info("已删除科室分组参数，科室 {}，分组 {}，参数 {}，用户 {}",
             deptId, groupName, paramCode, accountId);
         return;
     }
 
-    @Transactional
-    public GenericResp reorderDeptMonitoringGroupParam(String reorderDeptMonitoringGroupParamReqJson) {
-        // Parse JSON to Proto
+    public GenericResp reorderDeptMonitoringGroupParam(
+        String reorderDeptMonitoringGroupParamReqJson
+    ) {
+        // 解析请求
         ReorderDeptMonitoringGroupParamReq req;
         try {
-            req = ProtoUtils.parseJsonToProto(reorderDeptMonitoringGroupParamReqJson, ReorderDeptMonitoringGroupParamReq.newBuilder());
+            req = ProtoUtils.parseJsonToProto(
+                reorderDeptMonitoringGroupParamReqJson,
+                ReorderDeptMonitoringGroupParamReq.newBuilder());
         } catch (Exception e) {
             log.error("Failed to parse JSON: {}", e.getMessage());
             return GenericResp.newBuilder()
@@ -920,7 +1002,7 @@ public class MonitoringService {
                     .build();
         }
 
-        // Get the current account ID
+        // 获取当前用户
         final CurrentAccount account = userQuery.getCurrentAccount();
         if (account == null) {
             log.error("Account ID is empty.");
@@ -929,82 +1011,93 @@ public class MonitoringService {
                     .build();
         }
 
-        // Validate department ID
+        // 校验科室 ID
         final String deptId = req.getDeptId();
-        if (deptId == null || deptId.isEmpty()) {
+        if (deptId == null || deptId.isBlank()) {
             log.error("Department ID is empty. User: {}", account.autoAcctId());
             return GenericResp.newBuilder()
                     .setRt(protoService.getReturnCode(StatusCode.DEPT_IS_EMPTY))
                     .build();
         }
 
-        boolean deptExists = deptMonitoringGroupRepository.existsByDeptIdAndIsDeletedFalse(deptId);
-        if (!deptExists) {
-            log.error("Department ID does not exist: {}. User: {}", deptId, account.autoAcctId());
-            return GenericResp.newBuilder()
-                    .setRt(protoService.getReturnCode(StatusCode.MONITORING_GROUP_INVALID_DEPARTMENT))
-                    .build();
-        }
+        return lockExecutor.execute(List.of(LockKeys.deptMonitoringGroups(deptId)), () -> {
+            boolean deptExists = deptMonitoringGroupRepository
+                .existsByDeptIdAndIsDeletedFalse(deptId);
+            if (!deptExists) {
+                log.error("Department ID does not exist: {}. User: {}",
+                    deptId, account.autoAcctId());
+                return GenericResp.newBuilder()
+                        .setRt(protoService.getReturnCode(
+                            StatusCode.MONITORING_GROUP_INVALID_DEPARTMENT))
+                        .build();
+            }
 
-        // Fetch DeptMonitoringGroup IDs
-        List<Integer> groupIds = deptMonitoringGroupRepository.findByDeptIdAndIsDeletedFalse(deptId).stream()
-                .map(DeptMonitoringGroup::getId)
-                .toList();
+            // 获取科室分组 ID
+            List<Integer> groupIds = deptMonitoringGroupRepository
+                .findByDeptIdAndIsDeletedFalse(deptId).stream()
+                    .map(DeptMonitoringGroup::getId)
+                    .toList();
 
-        if (groupIds.isEmpty()) {
-            log.info("No monitoring groups found for department: {}. User: {}",
+            if (groupIds.isEmpty()) {
+                log.info("No monitoring groups found for department: {}. User: {}",
+                    deptId, account.autoAcctId());
+                return GenericResp.newBuilder()
+                        .setRt(protoService.getReturnCode(StatusCode.OK))
+                        .build();
+            }
+
+            // 获取组内参数
+            List<DeptMonitoringGroupParam> params = deptMonitoringGroupParamRepository
+                .findByDeptMonitoringGroupIdInAndIsDeletedFalse(groupIds);
+            Map<Integer, DeptMonitoringGroupParam> existingParams = params.stream()
+                    .collect(Collectors.toMap(DeptMonitoringGroupParam::getId, param -> param));
+
+            // 读取新的参数顺序
+            Map<Integer, Integer> newOrderMap = req.getParamOrderList().stream()
+                    .collect(
+                        Collectors.toMap(MonitoringGroupParamOrder::getId,
+                            MonitoringGroupParamOrder::getDisplayOrder));
+
+            // 更新前校验所有参数 ID
+            for (Integer id : newOrderMap.keySet()) {
+                if (!existingParams.containsKey(id)) {
+                    log.error("Monitoring group param not found for ID: {}. User: {}",
+                        id, account.autoAcctId());
+                    return GenericResp.newBuilder()
+                            .setRt(protoService.getReturnCode(
+                                StatusCode.MONITORING_GROUP_PARAM_NOT_EXIST))
+                            .build();
+                }
+            }
+
+            // 所有参数有效后更新顺序
+            for (Map.Entry<Integer, Integer> entry : newOrderMap.entrySet()) {
+                int id = entry.getKey();
+                int newOrder = entry.getValue();
+
+                DeptMonitoringGroupParam param = existingParams.get(id);
+
+                // 仅更新顺序发生变化的参数
+                if (param.getDisplayOrder() != newOrder) {
+                    param.setDisplayOrder(newOrder);
+                    param.setModifiedBy(account.autoAcctId()); // 记录修改人
+                    param.setModifiedAt(TimeUtils.getNowUtc()); // 记录修改时间
+                    deptMonitoringGroupParamRepository.save(param);
+                    log.info("Updated display order for param ID: {} to {}, modified by: {}",
+                        id, newOrder, account.autoAcctId());
+                }
+            }
+
+            // 记录并返回结果
+            log.info("科室分组参数排序已更新，科室 {}，修改"
+                + "by: {}",
                 deptId, account.autoAcctId());
             return GenericResp.newBuilder()
                     .setRt(protoService.getReturnCode(StatusCode.OK))
                     .build();
-        }
-
-        // Fetch all related DeptMonitoringGroupParams
-        List<DeptMonitoringGroupParam> params = deptMonitoringGroupParamRepository.findByDeptMonitoringGroupIdInAndIsDeletedFalse(groupIds);
-        Map<Integer, DeptMonitoringGroupParam> existingParams = params.stream()
-                .collect(Collectors.toMap(DeptMonitoringGroupParam::getId, param -> param));
-
-        // Validate and update param orders
-        Map<Integer, Integer> newOrderMap = req.getParamOrderList().stream()
-                .collect(Collectors.toMap(MonitoringGroupParamOrder::getId, MonitoringGroupParamOrder::getDisplayOrder));
-
-        // Validate all param IDs before updating
-        for (Integer id : newOrderMap.keySet()) {
-            if (!existingParams.containsKey(id)) {
-                log.error("Monitoring group param not found for ID: {}. User: {}",
-                    id, account.autoAcctId());
-                return GenericResp.newBuilder()
-                        .setRt(protoService.getReturnCode(StatusCode.MONITORING_GROUP_PARAM_NOT_EXIST))
-                        .build();
-            }
-        }
-
-        // Update display orders only if all parameters are valid
-        for (Map.Entry<Integer, Integer> entry : newOrderMap.entrySet()) {
-            int id = entry.getKey();
-            int newOrder = entry.getValue();
-
-            DeptMonitoringGroupParam param = existingParams.get(id);
-
-            // Update only if the display order has changed
-            if (param.getDisplayOrder() != newOrder) {
-                param.setDisplayOrder(newOrder);
-                param.setModifiedBy(account.autoAcctId()); // Set modified_by
-                param.setModifiedAt(TimeUtils.getNowUtc()); // Set modified_at
-                deptMonitoringGroupParamRepository.save(param);
-                log.info("Updated display order for param ID: {} to {}, modified by: {}",
-                    id, newOrder, account.autoAcctId());
-            }
-        }
-
-        // Log and respond
-        log.info("Successfully reordered monitoring group parameters for department: {}, modified "
-            + "by: {}",
-            deptId, account.autoAcctId());
-        return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.OK))
-                .build();
+        });
     }
+
 
     @Transactional(isolation = Isolation.SERIALIZABLE)
     public GetPatientMonitoringGroupsResp getPatientMonitoringGroups(String getPatientMonitoringGroupsReqJson) {
@@ -1293,6 +1386,9 @@ public class MonitoringService {
     private final PatientTubeImpl patientTubeImpl;
 
     private final MonitoringConfig monitoringConfig;
+    private final MonitoringMetaService monitoringMetaService;
+    private final LockExecutor lockExecutor;
+    private final JdbcTemplate jdbcTemplate;
 
     private final MonitoringParamRepository monitoringParamRepository;
     private final DeptMonitoringParamRepository deptMonitoringParamRepository;

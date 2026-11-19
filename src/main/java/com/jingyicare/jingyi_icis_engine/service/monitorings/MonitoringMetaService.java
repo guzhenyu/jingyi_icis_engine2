@@ -1,29 +1,43 @@
 package com.jingyicare.jingyi_icis_engine.service.monitorings;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 
+import lombok.extern.slf4j.Slf4j;
+
+import com.jingyicare.jingyi_icis_engine.entity.monitorings.DeptMonitoringGroup;
+import com.jingyicare.jingyi_icis_engine.entity.monitorings.DeptMonitoringGroupParam;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.DeptMonitoringParam;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.MonitoringParam;
+import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientMonitoringGroup;
 import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
+import com.jingyicare.jingyi_icis_engine.repository.monitorings.DeptMonitoringGroupParamRepository;
+import com.jingyicare.jingyi_icis_engine.repository.monitorings.DeptMonitoringGroupRepository;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.DeptMonitoringParamRepository;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.MonitoringParamHistoryRepository;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.MonitoringParamRepository;
+import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientMonitoringGroupRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
+import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
+import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
 @Service
 @Slf4j
@@ -34,6 +48,9 @@ public class MonitoringMetaService {
         MonitoringParamRepository monitoringParamRepository,
         DeptMonitoringParamRepository deptMonitoringParamRepository,
         MonitoringParamHistoryRepository monitoringParamHistoryRepository,
+        DeptMonitoringGroupRepository deptMonitoringGroupRepository,
+        DeptMonitoringGroupParamRepository deptMonitoringGroupParamRepository,
+        PatientMonitoringGroupRepository patientMonitoringGroupRepository,
         LockExecutor lockExecutor
     ) {
         this.protoService = protoService;
@@ -41,8 +58,121 @@ public class MonitoringMetaService {
         this.monitoringParamRepository = monitoringParamRepository;
         this.deptMonitoringParamRepository = deptMonitoringParamRepository;
         this.monitoringParamHistoryRepository = monitoringParamHistoryRepository;
+        this.deptMonitoringGroupRepository = deptMonitoringGroupRepository;
+        this.deptMonitoringGroupParamRepository = deptMonitoringGroupParamRepository;
+        this.patientMonitoringGroupRepository = patientMonitoringGroupRepository;
         this.lockExecutor = lockExecutor;
         this.monitoringPb = protoService.getConfig().getMonitoring();
+    }
+
+    // 调用方统一持有 LockKeys.deptMonitoringGroups(deptId) 并提供事务。
+    @Transactional(propagation = Propagation.MANDATORY)
+    public void initDept(String deptId) {
+        StrUtils.requireNonBlank(deptId, "deptId");
+        // 已有分组代表科室已配置，不覆盖自定义内容或恢复主动删除的分组。
+        if (deptMonitoringGroupRepository.existsByDeptIdAndIsDeletedFalse(deptId)) return;
+
+        insertDeptGroups(deptId, monitoringPb.getBalanceGroupList(),
+            monitoringPb.getEnums().getGroupTypeBalance().getId());
+        insertDeptGroups(deptId, monitoringPb.getMonitoringGroupList(),
+            monitoringPb.getEnums().getGroupTypeMonitoring().getId());
+        log.info("Department {} monitoring groups initialization completed.", deptId);
+    }
+
+    private void insertDeptGroups(
+        String deptId, List<MonitoringGroupPB> groupPbs, int groupType
+    ) {
+        LocalDateTime now = TimeUtils.getNowUtc();
+        List<DeptMonitoringGroupParam> params = new ArrayList<>();
+        for (int i = 0; i < groupPbs.size(); i++) {
+            MonitoringGroupPB groupPb = groupPbs.get(i);
+            DeptMonitoringGroup group = deptMonitoringGroupRepository.save(
+                DeptMonitoringGroup.builder()
+                    .deptId(deptId)
+                    .name(groupPb.getName())
+                    .groupType(groupType)
+                    .displayOrder(i)
+                    .sumTypePb(ProtoUtils.encodeValueMeta(groupPb.getSumValueMeta()))
+                    .isDeleted(false)
+                    .modifiedBy(UserQuery.SYSTEM_ACCOUNT_ID)
+                    .modifiedAt(now)
+                    .build());
+            for (int index = 0; index < groupPb.getMonitoringParamCount(); index++) {
+                MonitoringGroupParamPB paramPb = groupPb.getMonitoringParam(index);
+                params.add(DeptMonitoringGroupParam.builder()
+                    .deptMonitoringGroupId(group.getId())
+                    .monitoringParamCode(paramPb.getCode())
+                    .displayOrder(index + 1)
+                    .isDeleted(false)
+                    .modifiedBy(UserQuery.SYSTEM_ACCOUNT_ID)
+                    .modifiedAt(now)
+                    .build());
+            }
+        }
+        if (!params.isEmpty()) deptMonitoringGroupParamRepository.saveAll(params);
+    }
+
+    // 与科室分组和组内参数的变更共用一把锁、同一个事务。
+    @Transactional(propagation = Propagation.MANDATORY)
+    public List<DeptMonitoringGroup> resetDeptMonitoringGroups(String deptId, String accountId) {
+        List<DeptMonitoringGroup> existingGroups =
+            deptMonitoringGroupRepository.findByDeptIdAndIsDeletedFalse(deptId);
+        if (existingGroups.isEmpty()) {
+            initDept(deptId);
+            return deptMonitoringGroupRepository.findByDeptIdAndIsDeletedFalse(deptId);
+        }
+
+        // 已被患者引用的科室分组保留历史版本，编辑时复制一套新的分组和参数。
+        List<Integer> deptGroupIds = existingGroups.stream().map(DeptMonitoringGroup::getId)
+            .toList();
+        List<PatientMonitoringGroup> patientGroups = patientMonitoringGroupRepository
+            .findByDeptMonitoringGroupIdInAndIsDeletedFalse(deptGroupIds);
+        if (patientGroups.isEmpty()) return existingGroups;
+
+        List<DeptMonitoringGroup> copiedGroups = new ArrayList<>();
+        LocalDateTime now = TimeUtils.getNowUtc();
+        for (DeptMonitoringGroup existingGroup : existingGroups) {
+            copiedGroups.add(existingGroup.toBuilder().id(null)
+                .modifiedBy(accountId).modifiedAt(now).build());
+        }
+        List<DeptMonitoringGroupParam> existingGroupParams = deptMonitoringGroupParamRepository
+            .findByDeptMonitoringGroupIdInAndIsDeletedFalse(deptGroupIds);
+
+        for (DeptMonitoringGroup existingGroup : existingGroups) {
+            existingGroup.setIsDeleted(true);
+            existingGroup.setDeletedBy(accountId);
+            existingGroup.setDeletedAt(now);
+        }
+        // 先将旧组标记为已删除，释放有效组名的唯一约束，再插入新版本。
+        deptMonitoringGroupRepository.saveAllAndFlush(existingGroups);
+        Map<String, Integer> existingGroupIdMap = existingGroups.stream()
+            .collect(Collectors.toMap(DeptMonitoringGroup::getName, DeptMonitoringGroup::getId));
+
+        copiedGroups = deptMonitoringGroupRepository.saveAll(copiedGroups);
+        Map<Integer, Integer> oldNewGroupIdMap = new HashMap<>();
+        for (DeptMonitoringGroup copiedGroup : copiedGroups) {
+            Integer existingGroupId = existingGroupIdMap.get(copiedGroup.getName());
+            if (existingGroupId == null) {
+                log.error("No existing group found for name: {}", copiedGroup.getName());
+                continue;
+            }
+            oldNewGroupIdMap.put(existingGroupId, copiedGroup.getId());
+        }
+
+        List<DeptMonitoringGroupParam> copiedGroupParams = new ArrayList<>();
+        for (DeptMonitoringGroupParam existingParam : existingGroupParams) {
+            Integer newGroupId = oldNewGroupIdMap.get(existingParam.getDeptMonitoringGroupId());
+            if (newGroupId == null) {
+                log.error("No new group found for old group id: {}",
+                    existingParam.getDeptMonitoringGroupId());
+                continue;
+            }
+            copiedGroupParams.add(existingParam.toBuilder().id(null)
+                .deptMonitoringGroupId(newGroupId)
+                .modifiedBy(accountId).modifiedAt(now).build());
+        }
+        deptMonitoringGroupParamRepository.saveAll(copiedGroupParams);
+        return copiedGroups;
     }
 
     public void initMonitoringParams() {
@@ -215,8 +345,7 @@ public class MonitoringMetaService {
         try {
             List<String> lockKeys = departmentId.isEmpty()
                 ? List.of(LockKeys.monitoringParam())
-                : List.of(LockKeys.monitoringParam(),
-                    LockKeys.deptMonitoringParams(departmentId, code));
+                : List.of(LockKeys.deptMonitoringGroups(departmentId));
             return lockExecutor.execute(lockKeys, () -> {
                 if (!departmentId.isEmpty()) {
                     Optional<DeptMonitoringParam> optionalDeptParam =
@@ -236,8 +365,9 @@ public class MonitoringMetaService {
                     return response(StatusCode.OK);
                 }
 
+                // 先锁定全局参数行，再检查科室引用，防止检查后又新增引用。
                 Optional<MonitoringParam> optionalParam =
-                    monitoringParamRepository.findByCode(code);
+                    monitoringParamRepository.findForUpdateByCode(code);
                 if (optionalParam.isEmpty()) {
                     log.info("MonitoringParam not found for code: {}. User: {}",
                         code, account.autoAcctId());
@@ -280,6 +410,9 @@ public class MonitoringMetaService {
     private final MonitoringParamRepository monitoringParamRepository;
     private final DeptMonitoringParamRepository deptMonitoringParamRepository;
     private final MonitoringParamHistoryRepository monitoringParamHistoryRepository;
+    private final DeptMonitoringGroupRepository deptMonitoringGroupRepository;
+    private final DeptMonitoringGroupParamRepository deptMonitoringGroupParamRepository;
+    private final PatientMonitoringGroupRepository patientMonitoringGroupRepository;
     private final LockExecutor lockExecutor;
     private final MonitoringPB monitoringPb;
 }

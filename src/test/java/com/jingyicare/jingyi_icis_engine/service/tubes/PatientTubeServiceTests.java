@@ -25,6 +25,8 @@ import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordReposi
 import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
 import com.jingyicare.jingyi_icis_engine.repository.tubes.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
+import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.testutils.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -793,6 +795,10 @@ public class PatientTubeServiceTests extends TestsBase {
         dept1.setDeptName("dept-1");
         rbacDepartmentRepo.save(dept1);
         monitoringMetaService.initMonitoringParams();
+        lockExecutor.execute(List.of(LockKeys.deptMonitoringGroups(deptId)), () -> {
+            monitoringMetaService.initDept(deptId);
+            return null;
+        });
     }
 
     private static final Lock lock = new ReentrantLock();
@@ -845,4 +851,6 @@ public class PatientTubeServiceTests extends TestsBase {
     private final PatientRecordRepository patientRepo;
     private final RbacDepartmentRepository rbacDepartmentRepo;
     private final PatientTestUtils patientTestUtils;
+
+    @Autowired private LockExecutor lockExecutor;
 }

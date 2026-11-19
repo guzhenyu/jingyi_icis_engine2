@@ -49,9 +49,12 @@ import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringParamPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
+import com.jingyicare.jingyi_icis_engine.repository.monitorings.DeptMonitoringGroupParamRepository;
+import com.jingyicare.jingyi_icis_engine.repository.monitorings.DeptMonitoringGroupRepository;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.DeptMonitoringParamRepository;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.MonitoringParamHistoryRepository;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.MonitoringParamRepository;
+import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientMonitoringGroupRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.WebApiService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
@@ -340,10 +343,8 @@ class MonitoringMetaServiceTests extends TestsBase {
         MonitoringParam original = seedParam();
         DeptMonitoringParam deptParam = department ? seedDeptParam(original) : null;
         String contentionKey = department
-            ? LockKeys.deptMonitoringParams(DEPT_ID, FIRST_CODE) : LockKeys.monitoringParam();
-        List<String> expectedKeys = department
-            ? List.of(LockKeys.monitoringParam(), contentionKey)
-            : List.of(LockKeys.monitoringParam());
+            ? LockKeys.deptMonitoringGroups(DEPT_ID) : LockKeys.monitoringParam();
+        List<String> expectedKeys = List.of(contentionKey);
         Supplier<Integer> delete = () -> service.deleteMonitoringParam(deleteRequest(department))
             .getRt().getCode();
         assertThat(runContending(List.of(contentionKey), delete, delete))
@@ -385,6 +386,49 @@ class MonitoringMetaServiceTests extends TestsBase {
             .isEqualTo(StatusCode.OK_VALUE);
         assertThat(repository.findByCode(FIRST_CODE)).isEmpty();
         assertThat(historyCount()).isEqualTo(1);
+    }
+
+    @Test
+    void globalDeleteWaitsForDeptCreationAndThenReportsExistingConfig() throws Exception {
+        MonitoringParam original = seedParam();
+        CountDownLatch created = new CountDownLatch(1);
+        CountDownLatch commit = new CountDownLatch(1);
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            Future<DeptMonitoringParam> create = pool.submit(() -> executor.execute(
+                List.of(LockKeys.deptMonitoringGroups(DEPT_ID)), () -> {
+                    MonitoringParam parent = repository.findForShareByCode(FIRST_CODE)
+                        .orElseThrow();
+                    DeptMonitoringParam deptParam = seedDeptParam(parent);
+                    created.countDown();
+                    try {
+                        assertTrue(commit.await(30, TimeUnit.SECONDS), "等待提交测试事务超时");
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        throw new IllegalStateException(e);
+                    }
+                    return deptParam;
+                }));
+            assertTrue(created.await(10, TimeUnit.SECONDS), "科室参数未完成未提交写入");
+            Future<Integer> delete = pool.submit(() ->
+                service.deleteMonitoringParam(deleteRequest(false)).getRt().getCode());
+
+            assertTrue(waitForBlockedRequests("monitoring_params", 1),
+                "全局删除应等待科室新增持有的父行共享锁");
+            assertThat(delete.isDone()).isFalse();
+            commit.countDown();
+
+            DeptMonitoringParam deptParam = create.get(15, TimeUnit.SECONDS);
+            assertThat(delete.get(15, TimeUnit.SECONDS))
+                .isEqualTo(StatusCode.MONITORING_PARAM_HAS_DEPT_CONFIG_VALUE);
+            assertThat(repository.findByCode(FIRST_CODE)).contains(original);
+            assertThat(deptRepository.findById(deptParam.getId())).contains(deptParam);
+            assertThat(historyCount()).isZero();
+        } finally {
+            commit.countDown();
+            pool.shutdownNow();
+            assertTrue(pool.awaitTermination(15, TimeUnit.SECONDS));
+        }
     }
 
     @Test
@@ -434,7 +478,8 @@ class MonitoringMetaServiceTests extends TestsBase {
             }).when(trackedParams).delete(any(MonitoringParam.class));
         }
         service = new MonitoringMetaService(protoService, userQuery, trackedParams,
-            trackedDeptParams, historyRepo, serviceExecutor);
+            trackedDeptParams, historyRepo, deptGroupRepository, deptGroupParamRepository,
+            patientGroupRepository, serviceExecutor);
 
         assertThat(service.deleteMonitoringParam(deleteRequest(department)).getRt().getCode())
             .isEqualTo(StatusCode.INTERNAL_EXCEPTION_VALUE);
@@ -514,7 +559,7 @@ class MonitoringMetaServiceTests extends TestsBase {
             .when(configured).getConfig();
         return new MonitoringMetaService(
             configured, userQuery, paramRepository, deptRepository, historyRepository,
-            serviceExecutor);
+            deptGroupRepository, deptGroupParamRepository, patientGroupRepository, serviceExecutor);
     }
 
     private MonitoringParam seedParam() {
@@ -589,14 +634,18 @@ class MonitoringMetaServiceTests extends TestsBase {
     }
 
     private boolean waitForBlockedRequests() throws InterruptedException {
+        return waitForBlockedRequests("app_transaction_locks", 2);
+    }
+
+    private boolean waitForBlockedRequests(String table, int count) throws InterruptedException {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10);
         while (System.nanoTime() < deadline) {
             Integer waiting = jdbcTemplate.queryForObject("""
                 SELECT COUNT(*) FROM pg_stat_activity
                 WHERE datname = current_database() AND wait_event_type = 'Lock'
-                  AND query LIKE '%app_transaction_locks%'
-                """, Integer.class);
-            if (waiting != null && waiting >= 2) return true;
+                  AND query LIKE ?
+                """, Integer.class, "%" + table + "%");
+            if (waiting != null && waiting >= count) return true;
             Thread.sleep(50);
         }
         return false;
@@ -630,11 +679,10 @@ class MonitoringMetaServiceTests extends TestsBase {
     private List<String> monitoringLockKeys() {
         return jdbcTemplate.queryForList("""
             SELECT resource_key FROM app_transaction_locks
-            WHERE resource_key = ? OR resource_key LIKE ? OR resource_key IN (?, ?)
+            WHERE resource_key = ? OR resource_key LIKE ? OR resource_key = ?
             ORDER BY resource_key
             """, String.class, LockKeys.monitoringParam(), LockKeys.monitoringParam() + ":%",
-            LockKeys.deptMonitoringParams(DEPT_ID, FIRST_CODE),
-            LockKeys.deptMonitoringParams(DEPT_ID, SECOND_CODE));
+            LockKeys.deptMonitoringGroups(DEPT_ID));
     }
 
     private void cleanParams() {
@@ -646,10 +694,9 @@ class MonitoringMetaServiceTests extends TestsBase {
             FIRST_CODE, SECOND_CODE);
         jdbcTemplate.update("""
             DELETE FROM app_transaction_locks WHERE resource_key = ? OR resource_key LIKE ?
-              OR resource_key IN (?, ?)
+              OR resource_key = ?
             """, LockKeys.monitoringParam(), LockKeys.monitoringParam() + ":%",
-            LockKeys.deptMonitoringParams(DEPT_ID, FIRST_CODE),
-            LockKeys.deptMonitoringParams(DEPT_ID, SECOND_CODE));
+            LockKeys.deptMonitoringGroups(DEPT_ID));
     }
 
     private static final String ACCOUNT = "monitoring-meta-tests-user";
@@ -667,6 +714,9 @@ class MonitoringMetaServiceTests extends TestsBase {
     @Autowired private MonitoringParamRepository repository;
     @Autowired private DeptMonitoringParamRepository deptRepository;
     @Autowired private MonitoringParamHistoryRepository historyRepo;
+    @Autowired private DeptMonitoringGroupRepository deptGroupRepository;
+    @Autowired private DeptMonitoringGroupParamRepository deptGroupParamRepository;
+    @Autowired private PatientMonitoringGroupRepository patientGroupRepository;
     @Autowired private LockExecutor executor;
     @Autowired private JdbcTemplate jdbcTemplate;
 }
