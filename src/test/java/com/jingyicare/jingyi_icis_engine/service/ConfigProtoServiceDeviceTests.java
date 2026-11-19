@@ -81,7 +81,7 @@ class ConfigProtoServiceDeviceTests {
         ConfigurableApplicationContext context = mock(ConfigurableApplicationContext.class);
         ConfigProtoService service = new ConfigProtoService(config.build(), null, null, null);
         PatientConfig patientConfig = new PatientConfig(
-            context, service, null, null);
+            context, service);
 
         try (MockedStatic<LogUtils> logUtils = mockStatic(LogUtils.class)) {
             patientConfig.checkIntegrity();

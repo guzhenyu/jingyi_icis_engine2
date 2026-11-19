@@ -1,5 +1,7 @@
 package com.jingyicare.jingyi_icis_engine.service.users;
 
+import static com.jingyicare.jingyi_icis_engine.service.settings.SettingsStore.*;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,16 +12,19 @@ import lombok.extern.slf4j.Slf4j;
 import com.jingyicare.jingyi_icis_engine.entity.users.Department;
 import com.jingyicare.jingyi_icis_engine.entity.users.RbacDepartment;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.DisplayFieldSettingsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.DepartmentPB;
 import com.jingyicare.jingyi_icis_engine.repository.users.DepartmentAccountRepository;
 import com.jingyicare.jingyi_icis_engine.repository.users.DepartmentRepository;
 import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentAccountRepository;
 import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
+import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.BgaMetaService;
 import com.jingyicare.jingyi_icis_engine.service.nursingrecords.NursingOrderTemplateService;
 import com.jingyicare.jingyi_icis_engine.service.scores.ScoreMetaService;
+import com.jingyicare.jingyi_icis_engine.service.settings.SettingsStore;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
 @Service
@@ -33,7 +38,9 @@ public class DepartmentCommand {
         BgaMetaService bgaMetaService,
         ScoreMetaService scoreMetaService,
         NursingOrderTemplateService nursingOrderTemplateService,
-        LockExecutor lockExecutor
+        LockExecutor lockExecutor,
+        ProtoConfig protoConfig,
+        SettingsStore settingsStore
     ) {
         this.deptRepo = deptRepo;
         this.rbacDeptRepo = rbacDeptRepo;
@@ -43,6 +50,8 @@ public class DepartmentCommand {
         this.scoreMetaService = scoreMetaService;
         this.nursingOrderTemplateService = nursingOrderTemplateService;
         this.lockExecutor = lockExecutor;
+        this.protoConfig = protoConfig;
+        this.settingsStore = settingsStore;
     }
 
     // 目录锁保护名称唯一和至少保留一个科室；科室锁与账号归属操作互斥。
@@ -96,17 +105,62 @@ public class DepartmentCommand {
         List<String> lockKeys = new ArrayList<>(List.of(
             LockKeys.department(deptId), LockKeys.bgaParam(deptId),
             LockKeys.deptScoreGroup(deptId)));
+        List<DisplayFieldSettingsPB> patientSettings = protoConfig.getConfig().getPatient()
+            .getDefaultDisplayFieldSettingsList();
+        lockKeys.addAll(getPatientSettingsLockKeys(deptId, patientSettings));
         lockKeys.addAll(nursingOrderTemplateService.getInitDeptLockKeys(deptId));
         return lockExecutor.execute(lockKeys, () -> {
             Department dept = deptRepo.findByDeptIdAndIsDeletedFalse(deptId).orElse(null);
             if (dept == null) return StatusCode.DEPARTMENT_NOT_FOUND;
 
+            initPatientDisplaySettings(deptId, patientSettings, modifiedByAutoAcctId);
             bgaMetaService.initDept(deptId);
             scoreMetaService.initDept(deptId);
             nursingOrderTemplateService.initDept(deptId);
             log.info("Department initialized: {}, by {}", dept, modifiedByAutoAcctId);
             return StatusCode.OK;
         });
+    }
+
+    private List<String> getPatientSettingsLockKeys(
+        String deptId, List<DisplayFieldSettingsPB> patientSettings
+    ) {
+        List<String> lockKeys = new ArrayList<>();
+        for (DisplayFieldSettingsPB settings : patientSettings) {
+            // 直接读取数值，未知枚举也能给出明确校验错误，不能写入其他功能的设置。
+            int functionId = settings.getFunctionIdValue();
+            switch (functionId) {
+                case GET_PATIENTS_IN_ICU, GET_PATIENTS_PENDING_ADMISSION,
+                    GET_PATIENTS_PENDING_DISCHARGED, GET_PATIENTS_DISCHARGED ->
+                    lockKeys.add(LockKeys.deptSystemSettings(deptId, functionId));
+                default -> throw new IllegalArgumentException(
+                    "Invalid patient display settings functionId: " + functionId);
+            }
+        }
+        return lockKeys;
+    }
+
+    // 由 initDept 持有科室设置锁并提供事务。
+    private void initPatientDisplaySettings(
+        String deptId, List<DisplayFieldSettingsPB> patientSettings, String modifiedByAutoAcctId
+    ) {
+        for (DisplayFieldSettingsPB settings : patientSettings) {
+            int functionId = settings.getFunctionIdValue();
+            // 只按数据库记录判定缺失，不触发默认回退，也不解析已有配置。
+            if (settingsStore.hasDeptSettings(deptId, functionId)) continue;
+            switch (functionId) {
+                case GET_PATIENTS_IN_ICU -> settingsStore.savePatientsInIcuSettingsPB(
+                    deptId, settings, modifiedByAutoAcctId);
+                case GET_PATIENTS_PENDING_ADMISSION ->
+                    settingsStore.savePatientsPendingAdmissionSettingsPB(
+                        deptId, settings, modifiedByAutoAcctId);
+                case GET_PATIENTS_PENDING_DISCHARGED ->
+                    settingsStore.savePatientsPendingDischargedSettingsPB(
+                        deptId, settings, modifiedByAutoAcctId);
+                case GET_PATIENTS_DISCHARGED -> settingsStore.savePatientsDischargedSettingsPB(
+                    deptId, settings, modifiedByAutoAcctId);
+            }
+        }
     }
 
     public StatusCode updateDepartment(
@@ -186,4 +240,6 @@ public class DepartmentCommand {
     private final ScoreMetaService scoreMetaService;
     private final NursingOrderTemplateService nursingOrderTemplateService;
     private final LockExecutor lockExecutor;
+    private final ProtoConfig protoConfig;
+    private final SettingsStore settingsStore;
 }

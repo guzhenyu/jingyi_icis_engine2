@@ -32,6 +32,7 @@ import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.patients.bed.BedMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceBindingService;
+import com.jingyicare.jingyi_icis_engine.service.settings.SettingsStore;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
 import com.jingyicare.jingyi_icis_engine.service.therapies.SepsisAndSepticShockBundleService;
 import com.jingyicare.jingyi_icis_engine.service.users.*;
@@ -53,6 +54,7 @@ public class PatientService {
         @Autowired PatientEnums patientEnums,
         @Autowired ConfigShiftUtils shiftUtils,
         @Autowired PatientConfig patientConfig,
+        @Autowired SettingsStore settingsStore,
         @Autowired PatientSyncService patientSyncService,
         @Autowired PatientReadmissionService patientReadmissionService,
         @Autowired PatientDeviceService patientDeviceService,
@@ -104,6 +106,7 @@ public class PatientService {
         this.DISCHARGE_TYPE_EXIT_HOSPITAL_ID = dischargeType.getId();
 
         this.protoService = protoService;
+        this.settingsStore = settingsStore;
         this.patientEnums = patientEnums;
         this.statusCodeMsgs = protoService.getConfig().getText().getStatusCodeMsgList();
         this.shiftUtils = shiftUtils;
@@ -143,13 +146,16 @@ public class PatientService {
 
         // Simplify by calling a common method for each patient status
         addPatientTableForStatus(
-            deptId, ADMISSION_STATUS_ADMITTED, patientConfig.getPatientSettingsPB(deptId, 1),
+            deptId, ADMISSION_STATUS_ADMITTED,
+            settingsStore.getPatientsInIcuSettingsPB(deptId),
             bedConfigMap, builder);
         addPatientTableForStatus(
-            deptId, ADMISSION_STATUS_PRE_ADMISSION, patientConfig.getPatientSettingsPB(deptId, 2),
+            deptId, ADMISSION_STATUS_PRE_ADMISSION,
+            settingsStore.getPatientsPendingAdmissionSettingsPB(deptId),
             bedConfigMap, builder);
         addPatientTableForStatus(
-            deptId, ADMISSION_STATUS_PRE_DISCHARGE, patientConfig.getPatientSettingsPB(deptId, 3),
+            deptId, ADMISSION_STATUS_PRE_DISCHARGE,
+            settingsStore.getPatientsPendingDischargedSettingsPB(deptId),
             bedConfigMap, builder);
 
         appendSepticShockAlarms(builder);
@@ -224,7 +230,8 @@ public class PatientService {
         String deptId = req.getDeptId();
 
         PatientTablePB.Builder patientTableBuilder = PatientTablePB.newBuilder();
-        final DisplayFieldSettingsPB settings = patientConfig.getPatientSettingsPB(deptId, 4);
+        final DisplayFieldSettingsPB settings =
+            settingsStore.getPatientsDischargedSettingsPB(deptId);
 
         // 获取床位映射
         Map<String, BedConfig> bedConfigMap = patientReader.getBedConfigMap(req.getDeptId());
@@ -642,65 +649,6 @@ public class PatientService {
                 return StatusCode.OK;
             });
         return ReturnCodeUtils.genericResponse(statusCodeMsgs, status);
-    }
-
-    @Transactional
-    public GetPatientInfoResp getPatientInfo(Long patientId) {
-        PatientRecord patient = patientRecordRepository.findById(patientId).
-            orElse(null);
-        if (patient == null) {
-            ReturnCode rt = protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND);
-            return GetPatientInfoResp.newBuilder().setRt(rt).build();
-        }
-
-        // todo(guzhenyu): 病人基本信息的来源不限于PatientRecord，还有其他表
-
-        final String bedNumberStr = patient.getHisBedNumber();
-        BedConfig bedConfig = patientReader.getBedConfigMap(patient.getDeptId()).get(bedNumberStr);
-
-        Integer age = patient.getIcuDateOfBirth() == null ? -1 : TimeUtils.getAge(patient.getIcuDateOfBirth());
-        String hisAdmissionTimeStr = patient.getHisAdmissionTime() == null ? "" :
-            TimeUtils.toIso8601String(patient.getHisAdmissionTime(), ZONE_ID);
-        String primaryCareDoctorId = patient.getPrimaryCareDoctorId();
-        String primaryCareDoctor = primaryCareDoctorId == null ?
-            "" : userQuery.getNameByAccountId(primaryCareDoctorId);
-        if (primaryCareDoctor == null) primaryCareDoctor = "";
-        String allergies = patient.getAllergies();
-        Integer admissionStatus = patient.getAdmissionStatus();
-        String admissionStatusStr = admissionStatus == null ? "未知" :
-            ((admissionStatus == ADMISSION_STATUS_ADMITTED ||
-                admissionStatus == ADMISSION_STATUS_PRE_ADMISSION) ?
-                "在科" :
-                ((admissionStatus == ADMISSION_STATUS_PRE_DISCHARGE ||
-                    admissionStatus == ADMISSION_STATUS_DISCHARGED) ?
-                    "已出科" :
-                    "未知")
-            );
-
-        return GetPatientInfoResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .setId(patient.getId())
-            .setIcuName(patient.getIcuName())
-            .setIcuGender(patient.getIcuGender())
-            .setIcuDateOfBirth(TimeUtils.toIso8601String(patient.getIcuDateOfBirth(), ZONE_ID))
-            .setHisMrn(patient.getHisMrn())
-            .setBedNumberStr(bedConfig == null ? bedNumberStr : bedConfig.getDisplayBedNumber())
-            .setAge(age)
-            .setHisAdmissionTime(hisAdmissionTimeStr)
-            .setPrimaryCareDoctor(primaryCareDoctor)
-            .setAllergies(allergies == null ? "" : allergies)
-            .setAdmissionStatus(admissionStatus)
-            .setAdmissionStatusStr(admissionStatusStr)
-            .setAdmissionTime(TimeUtils.toIso8601String(patient.getAdmissionTime(), ZONE_ID))
-            .addAllAdmissionType(getAdmissionTypeValues(patient))
-            .setIsPlannedAdmission(patient.getIsPlannedAdmission() ? 1 : 0)
-            .setUnplannedAdmissionReason(patient.getUnplannedAdmissionReason())
-            .setDiagnosis(patient.getDiagnosis())
-            .setDischargeTime(TimeUtils.toIso8601String(patient.getDischargeTime(), ZONE_ID))
-            .setDischargeType(patient.getDischargeType())
-            .setToDeptName(patient.getToDeptName())
-            .setDeathTime(TimeUtils.toIso8601String(patient.getDeathTime(), ZONE_ID))
-            .build();
     }
 
     @Transactional
@@ -2041,6 +1989,7 @@ public class PatientService {
     private final Integer DISCHARGE_TYPE_EXIT_HOSPITAL_ID;
     private final Integer GRACE_PERIOD_HOURS_TO_READMIT;
 
+    private final SettingsStore settingsStore;
     private ConfigProtoService protoService;
     private List<String> statusCodeMsgs;
     private ConfigShiftUtils shiftUtils;

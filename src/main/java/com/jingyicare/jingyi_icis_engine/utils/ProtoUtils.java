@@ -167,6 +167,19 @@ public class ProtoUtils {
         }
     }
 
+    public static DisplayFieldSettingsPB decodeDisplayFieldSettings(String data) {
+        try {
+            return DisplayFieldSettingsPB.parseFrom(Base64.getDecoder().decode(data));
+        } catch (Exception e) {
+            log.error("Failed to parse DisplayFieldSettingsPB", e);
+            return null;
+        }
+    }
+
+    public static String encodeDisplayFieldSettings(DisplayFieldSettingsPB settings) {
+        return Base64.getEncoder().encodeToString(settings.toByteArray());
+    }
+
     public static ShiftSettingsPB decodeShiftSettings(String data) {
         try {
             byte[] decodedData = Base64.getDecoder().decode(data);
@@ -494,23 +507,6 @@ public class ProtoUtils {
         fields.add(GetUsernameResp.getDescriptor().findFieldByNumber(2));
         // EnumValue.id
         fields.add(EnumValue.getDescriptor().findFieldByNumber(1));
-        // GetPatientInfoResp
-        //     .icu_gender
-        //     .admission_status
-        //     .admission_type
-        //     .is_planned_admission
-        //     .unplanned_admission_reason
-        //     .discharge_type
-        //     .to_dept_name
-        fields.add(GetPatientInfoResp.getDescriptor().findFieldByNumber(5));
-        fields.add(GetPatientInfoResp.getDescriptor().findFieldByNumber(9));
-        fields.add(GetPatientInfoResp.getDescriptor().findFieldByNumber(11));
-        fields.add(GetPatientInfoResp.getDescriptor().findFieldByNumber(12));
-        fields.add(GetPatientInfoResp.getDescriptor().findFieldByNumber(13));
-        fields.add(GetPatientInfoResp.getDescriptor().findFieldByNumber(15));
-        fields.add(GetPatientInfoResp.getDescriptor().findFieldByNumber(16));
-        fields.add(GetPatientInfoResp.getDescriptor().findFieldByNumber(17));
-
         // OrderGroupPB
         //     route_group_id
         fields.add(OrderGroupPB.getDescriptor().findFieldByNumber(1));

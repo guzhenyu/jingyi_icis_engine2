@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentCaptor;
+import org.springframework.context.ConfigurableApplicationContext;
 
 import com.jingyicare.jingyi_icis_engine.entity.reports.DragableFormTemplate;
 import com.jingyicare.jingyi_icis_engine.entity.settings.DeptSystemSettings;
@@ -53,7 +54,8 @@ class ArchiveConfigServiceTests {
             return action.get();
         });
         service = new SettingService(config, users,
-            new SettingsStore(settingsRepo, mock(SystemSettingsRepository.class)),
+            new SettingsStore(settingsRepo, mock(SystemSettingsRepository.class),
+                mock(ConfigurableApplicationContext.class), config),
             new JfkTemplateReader(templates), lockExecutor);
         when(users.getCurrentAccount())
             .thenReturn(new CurrentAccount("admin", "admin", "1"));

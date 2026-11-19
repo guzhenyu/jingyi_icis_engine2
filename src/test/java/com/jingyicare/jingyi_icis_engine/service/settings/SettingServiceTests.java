@@ -16,8 +16,10 @@ import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.context.ConfigurableApplicationContext;
 
 import com.google.protobuf.util.JsonFormat;
+
 import com.jingyicare.jingyi_icis_engine.entity.settings.DeptSystemSettings;
 import com.jingyicare.jingyi_icis_engine.entity.settings.DeptSystemSettingsId;
 import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
@@ -29,6 +31,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.AppSettingTyp
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.AppSettingsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.SystemSettingFunctionId;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisText.Text;
+import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
 import com.jingyicare.jingyi_icis_engine.repository.settings.DeptSystemSettingsRepository;
 import com.jingyicare.jingyi_icis_engine.repository.settings.SystemSettingsRepository;
 import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
@@ -56,7 +59,8 @@ class SettingServiceTests {
         service = new SettingService(
             protoConfig,
             userQuery,
-            new SettingsStore(deptSettingsRepo, mock(SystemSettingsRepository.class)),
+            new SettingsStore(deptSettingsRepo, mock(SystemSettingsRepository.class),
+                mock(ConfigurableApplicationContext.class), protoConfig),
             mock(JfkTemplateReader.class),
             lockExecutor
         );
@@ -75,7 +79,7 @@ class SettingServiceTests {
 
     @Test
     void rejectsBlankDepartmentBeforeAcquiringSettingsLocks() {
-        var response = service.updateAppSettings("{\"changedType\":[7],\"deptId\":\"  \"}");
+        GenericResp response = service.updateAppSettings("{\"changedType\":[7],\"deptId\":\"  \"}");
         assertThat(response.getRt().getCode()).isEqualTo(StatusCode.DEPT_IS_EMPTY_VALUE);
         verifyNoInteractions(lockExecutor, deptSettingsRepo);
     }
@@ -102,12 +106,14 @@ class SettingServiceTests {
             .addChangedType(AppSettingTypeEnum.AST_ENABLE_CA)
             .setSettings(AppSettingsPB.newBuilder().setEnableCa(true))
             .build();
-        var response = service.updateAppSettings(JsonFormat.printer().print(request));
+        GenericResp response = service.updateAppSettings(JsonFormat.printer().print(request));
 
         assertThat(response.getRt().getCode()).isEqualTo(StatusCode.OK_VALUE);
-        ArgumentCaptor<DeptSystemSettings> captor = ArgumentCaptor.forClass(DeptSystemSettings.class);
+        ArgumentCaptor<DeptSystemSettings> captor =
+            ArgumentCaptor.forClass(DeptSystemSettings.class);
         verify(deptSettingsRepo).save(captor.capture());
-        AppGeneralSettingsPB updated = ProtoUtils.decodeAppGeneralSettings(captor.getValue().getSettingsPb());
+        AppGeneralSettingsPB updated = ProtoUtils.decodeAppGeneralSettings(
+            captor.getValue().getSettingsPb());
         assertThat(updated.getEnableCa()).isTrue();
         assertThat(updated.getJfkUseNativePrint()).isTrue();
         assertThat(updated.getPrintAgentIpPort()).isEqualTo("10.0.0.8:9123");

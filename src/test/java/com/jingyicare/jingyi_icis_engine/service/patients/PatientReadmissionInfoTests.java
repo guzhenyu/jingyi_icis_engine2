@@ -49,7 +49,7 @@ class PatientReadmissionInfoTests {
         patientRepo = mock(PatientRecordRepository.class);
         patientService = new PatientService(
             null, protoService, new PatientEnums(protoConfig),
-            null, null, null, null, null, null, null, null,
+            null, null, null, null, null, null, null, null, null,
             patientRepo, null, null, null, null, null, null, null, null);
     }
 

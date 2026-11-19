@@ -955,46 +955,6 @@ message DischargePatientReq {
 }
 
 /*
- * /api/patient/getpatientinfo
- *  input: GetPatientInfoReq
- *  output: GetPatientInfoResp
- */
-message GetPatientInfoReq {
-    int64 id = 1;
-}
-
-message GetPatientInfoResp {
-    shared.ReturnCode rt = 1;
-    int64 id = 2;
-
-    // 病人基本信息
-    string icu_name = 3;
-    int32 icu_gender = 4;
-    string icu_date_of_birth = 5;
-    string his_mrn = 6;
-    string bed_number_str = 7;
-    int32 age = 8;
-
-    // 入科信息
-    string his_admission_time = 9;
-    string primary_care_doctor = 10;
-    string allergies = 11;
-    int32 admission_status = 12;
-    string admission_status_str = 13;
-    string admission_time = 14;
-    repeated int32 admission_type = 15;
-    int32 is_planned_admission = 16;
-    string unplanned_admission_reason = 17;
-    string diagnosis = 18;
-
-    // 出科信息
-    string discharge_time = 19;
-    int32 discharge_type = 20;
-    string to_dept_name = 21;
-    string death_time = 22;
-}
-
-/*
  * /api/patient/getpatientinfov2
  *  input: GetPatientInfoV2Req
  *  output: GetPatientInfoV2Resp

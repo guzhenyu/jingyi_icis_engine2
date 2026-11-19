@@ -2,6 +2,8 @@ package com.jingyicare.jingyi_icis_engine.service.settings;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mockStatic;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -9,7 +11,11 @@ import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.MockedStatic;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -19,6 +25,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.MedOrderGro
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.DeptMonitoringSettingsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingRecord.NursingRecordSettingsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingScore.ScoreSettingsPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.DisplayFieldSettingsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.AppGeneralSettingsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.AppSettingsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.DeptArchiveSettings;
@@ -31,6 +38,8 @@ import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.users.menu.MenuMeta;
 import com.jingyicare.jingyi_icis_engine.service.users.menu.MenuService;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
+import com.jingyicare.jingyi_icis_engine.utils.LogUtils;
+import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
 class SettingsStoreTests extends TestsBase {
     @BeforeEach
@@ -56,6 +65,95 @@ class SettingsStoreTests extends TestsBase {
                     LockKeys.systemSettings(SettingsStore.GET_APP_LOGO));
             }
         }
+    }
+
+    @Test
+    void roundTripsPatientSettingsWithoutMixingFunctionsOrDepartments() {
+        List<DisplayFieldSettingsPB> settings = PATIENT_FUNCTION_IDS.stream()
+            .map(functionId -> DisplayFieldSettingsPB.newBuilder()
+                .setFunctionIdValue(functionId).setFunctionName("患者列表" + functionId)
+                .addTable(DisplayFieldSettingsPB.Table.newBuilder().setTableName("患者信息")
+                    .addRequiredCol(DisplayFieldSettingsPB.HeaderColumn.newBuilder()
+                        .setColumnId("icu_name").setColumnName("姓名"))
+                    .addColIdToDisplay("icu_name"))
+                .build())
+            .toList();
+        List<String> keys = PATIENT_FUNCTION_IDS.stream()
+            .map(id -> LockKeys.deptSystemSettings(DEPT, id)).toList();
+        lockExecutor.execute(keys, () -> {
+            for (DisplayFieldSettingsPB value : settings) {
+                savePatientSettings(DEPT, value, "first-user");
+            }
+            return null;
+        });
+
+        assertThat(jdbcTemplate.queryForList("""
+            SELECT function_id FROM dept_system_settings WHERE dept_id = ?
+            """, Integer.class, DEPT)).containsExactlyInAnyOrderElementsOf(PATIENT_FUNCTION_IDS);
+        for (DisplayFieldSettingsPB value : settings) {
+            int functionId = value.getFunctionIdValue();
+            DisplayFieldSettingsPB expected = value.toBuilder()
+                .setTable(0, value.getTable(0).toBuilder().addColNameToDisplay("姓名")).build();
+            assertThat(getPatientSettings(DEPT, functionId)).isEqualTo(expected);
+            assertThat(store.hasDeptSettings(DEPT, functionId)).isTrue();
+            assertThat(storedPatientSettings(functionId)).isEqualTo(value);
+            DisplayFieldSettingsPB other = getPatientSettings(OTHER_DEPT, functionId);
+            assertThat(other.getFunctionIdValue()).isEqualTo(functionId);
+            assertThat(other).isNotEqualTo(expected);
+            assertThat(store.hasDeptSettings(OTHER_DEPT, functionId)).isFalse();
+        }
+        assertThat(jdbcTemplate.queryForObject("""
+            SELECT COUNT(*) FROM dept_system_settings
+            WHERE dept_id = ? AND modified_by = ? AND modified_at IS NOT NULL
+            """, Integer.class, DEPT, "first-user")).isEqualTo(4);
+
+        LocalDateTime marker = LocalDateTime.of(2020, 1, 1, 0, 0);
+        jdbcTemplate.update("UPDATE dept_system_settings SET modified_at = ? WHERE dept_id = ?",
+            marker, DEPT);
+        for (DisplayFieldSettingsPB value : settings) {
+            int functionId = value.getFunctionIdValue();
+            DisplayFieldSettingsPB updated = value.toBuilder()
+                .setFunctionName("更新的患者列表" + functionId).build();
+            lockExecutor.execute(List.of(LockKeys.deptSystemSettings(DEPT, functionId)), () -> {
+                savePatientSettings(DEPT, updated, "second-user");
+                return null;
+            });
+            DisplayFieldSettingsPB expected = updated.toBuilder()
+                .setTable(0, updated.getTable(0).toBuilder().addColNameToDisplay("姓名")).build();
+            assertThat(getPatientSettings(DEPT, functionId)).isEqualTo(expected);
+            assertThat(storedPatientSettings(functionId)).isEqualTo(updated);
+            assertThat(jdbcTemplate.queryForObject("""
+                SELECT COUNT(*) FROM dept_system_settings
+                WHERE dept_id = ? AND function_id = ? AND modified_by = ? AND modified_at > ?
+                """, Integer.class, DEPT, functionId, "second-user", marker)).isEqualTo(1);
+        }
+        assertThat(departmentSettingCount()).isEqualTo(4);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 2, 3, 4})
+    void patientSettingsDistinguishMissingRowsFromInvalidBase64AndInvalidProtobuf(int functionId) {
+        assertThat(getPatientSettings(DEPT, functionId).getFunctionIdValue())
+            .isEqualTo(functionId);
+        assertThat(store.hasDeptSettings(DEPT, functionId)).isFalse();
+        assertThat(departmentSettingCount()).isZero();
+        jdbcTemplate.update("""
+            INSERT INTO dept_system_settings
+                (dept_id, function_id, settings_pb, modified_at, modified_by)
+            VALUES (?, ?, ?, ?, ?)
+            """, DEPT, functionId, "broken!", LocalDateTime.now(), "previous-user");
+        assertThat(store.hasDeptSettings(DEPT, functionId)).isTrue();
+        assertPatientSettingsFailure(functionId);
+        // 合法 Base64 中包含截断的 protobuf 字符串字段。
+        jdbcTemplate.update("""
+            UPDATE dept_system_settings SET settings_pb = ?
+            WHERE dept_id = ? AND function_id = ?
+            """, "EgE=", DEPT, functionId);
+        assertThat(store.hasDeptSettings(DEPT, functionId)).isTrue();
+        assertPatientSettingsFailure(functionId);
+        assertThat(jdbcTemplate.queryForObject("""
+            SELECT settings_pb FROM dept_system_settings WHERE dept_id = ? AND function_id = ?
+            """, String.class, DEPT, functionId)).isEqualTo("EgE=");
     }
 
     @Test
@@ -246,6 +344,55 @@ class SettingsStoreTests extends TestsBase {
         }
     }
 
+    private void assertPatientSettingsFailure(int functionId) {
+        // 截断原有退出策略，确保损坏配置不会被默认值静默替代。
+        try (MockedStatic<LogUtils> logUtils = mockStatic(LogUtils.class)) {
+            logUtils.when(() -> LogUtils.flushAndQuit(any(ConfigurableApplicationContext.class)))
+                .thenThrow(new IllegalStateException("模拟终止无效配置读取"));
+            assertThatThrownBy(() -> getPatientSettings(DEPT, functionId))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("模拟终止无效配置读取");
+            logUtils.verify(() -> LogUtils.flushAndQuit(any(ConfigurableApplicationContext.class)));
+        }
+    }
+
+    private DisplayFieldSettingsPB storedPatientSettings(int functionId) {
+        String encoded = jdbcTemplate.queryForObject("""
+            SELECT settings_pb FROM dept_system_settings WHERE dept_id = ? AND function_id = ?
+            """, String.class, DEPT, functionId);
+        return ProtoUtils.decodeDisplayFieldSettings(encoded);
+    }
+
+    private DisplayFieldSettingsPB getPatientSettings(String deptId, int functionId) {
+        return switch (functionId) {
+            case SettingsStore.GET_PATIENTS_IN_ICU -> store.getPatientsInIcuSettingsPB(deptId);
+            case SettingsStore.GET_PATIENTS_PENDING_ADMISSION ->
+                store.getPatientsPendingAdmissionSettingsPB(deptId);
+            case SettingsStore.GET_PATIENTS_PENDING_DISCHARGED ->
+                store.getPatientsPendingDischargedSettingsPB(deptId);
+            case SettingsStore.GET_PATIENTS_DISCHARGED ->
+                store.getPatientsDischargedSettingsPB(deptId);
+            default -> throw new IllegalArgumentException("无效患者列表功能编号：" + functionId);
+        };
+    }
+
+    private void savePatientSettings(
+        String deptId, DisplayFieldSettingsPB settings, String modifiedBy
+    ) {
+        switch (settings.getFunctionIdValue()) {
+            case SettingsStore.GET_PATIENTS_IN_ICU ->
+                store.savePatientsInIcuSettingsPB(deptId, settings, modifiedBy);
+            case SettingsStore.GET_PATIENTS_PENDING_ADMISSION ->
+                store.savePatientsPendingAdmissionSettingsPB(deptId, settings, modifiedBy);
+            case SettingsStore.GET_PATIENTS_PENDING_DISCHARGED ->
+                store.savePatientsPendingDischargedSettingsPB(deptId, settings, modifiedBy);
+            case SettingsStore.GET_PATIENTS_DISCHARGED ->
+                store.savePatientsDischargedSettingsPB(deptId, settings, modifiedBy);
+            default -> throw new IllegalArgumentException(
+                "无效患者列表功能编号：" + settings.getFunctionIdValue());
+        }
+    }
+
     private int insertTemplate(String deptId, String name, boolean deleted) {
         return jdbcTemplate.queryForObject("""
             INSERT INTO dragable_form_templates(dept_id, name, template_pb, is_deleted)
@@ -287,6 +434,9 @@ class SettingsStoreTests extends TestsBase {
 
     private static final String DEPT = "settings-store-tests";
     private static final String OTHER_DEPT = "settings-store-other-tests";
+    private static final List<Integer> PATIENT_FUNCTION_IDS = List.of(
+        SettingsStore.GET_PATIENTS_IN_ICU, SettingsStore.GET_PATIENTS_PENDING_ADMISSION,
+        SettingsStore.GET_PATIENTS_PENDING_DISCHARGED, SettingsStore.GET_PATIENTS_DISCHARGED);
     private static final List<Integer> FUNCTION_IDS = List.of(
         SettingsStore.GET_MEDICAL_ORDER_SETTINGS, SettingsStore.GET_DEPT_MENU_SETTINGS,
         SettingsStore.GET_DEPT_MONITORING_SETTINGS, SettingsStore.GET_DEPT_NURSING_RECORD_SETTINGS,

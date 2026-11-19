@@ -345,12 +345,6 @@ public class WebApiService {
         return resp;
     }
 
-    public GetPatientInfoResp getPatientInfo(Long patientId) {
-        GetPatientInfoResp resp = patientService.getPatientInfo(patientId);
-        // resp = metricService.recordApiMetrics(resp, GetPatientInfoResp::getRt);
-        return resp;
-    }
-
     public GetPatientInfoV2Resp getPatientInfoV2(String getPatientInfoV2ReqJson) {
         GetPatientInfoV2Resp resp = patientService.getPatientInfoV2(getPatientInfoV2ReqJson);
         // resp = metricService.recordApiMetrics(resp, GetPatientInfoV2Resp::getRt);

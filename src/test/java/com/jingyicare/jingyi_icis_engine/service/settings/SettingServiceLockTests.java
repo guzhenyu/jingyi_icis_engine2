@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -303,7 +304,7 @@ class SettingServiceLockTests extends TestsBase {
             return deptSettingsRepo.save(entity);
         }).when(failingRepository).save(any(DeptSystemSettings.class));
         SettingService failingService = new SettingService(protoConfig, users,
-            new SettingsStore(failingRepository, systemSettingsRepo),
+            new SettingsStore(failingRepository, systemSettingsRepo, context, protoConfig),
             new JfkTemplateReader(templates), executor);
         var request = UpdateAppSettingsReq.newBuilder().setDeptId(DEPT_ID)
             .addChangedType(AppSettingTypeEnum.AST_NURSING_RECORD_OVERWRITE_CREATED_BY)
@@ -423,6 +424,7 @@ class SettingServiceLockTests extends TestsBase {
     @Autowired private LockExecutor executor;
     @Autowired private JdbcTemplate jdbcTemplate;
     @Autowired private ProtoConfig protoConfig;
+    @Autowired private ConfigurableApplicationContext context;
     @Autowired private UserQuery users;
     @Autowired private SettingsStore settingsStore;
     @Autowired private DeptSystemSettingsRepository deptSettingsRepo;

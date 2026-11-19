@@ -233,11 +233,6 @@ public class IcisController {
         return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.dischargePatient(dischargePatientReqJson)));
     }
 
-    @GetMapping("/patient/getpatientinfo")
-    public ResponseEntity<String> getPatientInfo(@RequestParam("id") Long patientId) {
-        return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getPatientInfo(patientId)));
-    }
-
     @PostMapping("/patient/getpatientinfov2")
     public ResponseEntity<String> getPatientInfoV2(@RequestBody String getPatientInfoV2ReqJson) {
         return ResponseEntity.ok(ProtoUtils.protoToJson(webApiService.getPatientInfoV2(getPatientInfoV2ReqJson)));

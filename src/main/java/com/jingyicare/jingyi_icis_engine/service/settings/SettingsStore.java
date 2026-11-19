@@ -1,9 +1,18 @@
 package com.jingyicare.jingyi_icis_engine.service.settings;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.stereotype.Component;
+
+import lombok.extern.slf4j.Slf4j;
 
 import com.jingyicare.jingyi_icis_engine.entity.settings.DeptSystemSettings;
 import com.jingyicare.jingyi_icis_engine.entity.settings.DeptSystemSettingsId;
@@ -12,18 +21,33 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisMedication.MedOrderGro
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.DeptMonitoringSettingsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingRecord.NursingRecordSettingsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingScore.ScoreSettingsPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.DisplayFieldSettingsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.AppGeneralSettingsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.DeptArchiveSettings;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.SystemSettingFunctionId;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.MenuConfigPB;
 import com.jingyicare.jingyi_icis_engine.repository.settings.DeptSystemSettingsRepository;
 import com.jingyicare.jingyi_icis_engine.repository.settings.SystemSettingsRepository;
+import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
+import com.jingyicare.jingyi_icis_engine.utils.LogUtils;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
-/** 设置的类型化存取；默认值、业务校验、修改人及锁事务由调用方编排。 */
+/**
+ * 设置的类型化存取；患者显示配置读取包含默认回退、列名生成及校验。
+ * 其他设置的默认值和业务校验，以及写入的修改人和锁事务由调用方编排。
+ */
 @Component
+@Slf4j
 public class SettingsStore {
+    public static final int GET_PATIENTS_IN_ICU =
+        SystemSettingFunctionId.GET_PATIENTS_IN_ICU_VALUE;
+    public static final int GET_PATIENTS_PENDING_ADMISSION =
+        SystemSettingFunctionId.GET_PATIENTS_PENDING_ADMISSION_VALUE;
+    public static final int GET_PATIENTS_PENDING_DISCHARGED =
+        SystemSettingFunctionId.GET_PATIENTS_PENDING_DISCHARGED_VALUE;
+    public static final int GET_PATIENTS_DISCHARGED =
+        SystemSettingFunctionId.GET_PATIENTS_DISCHARGED_VALUE;
     public static final int GET_MEDICAL_ORDER_SETTINGS =
         SystemSettingFunctionId.GET_MEDICAL_ORDER_SETTINGS_VALUE;
     public static final int GET_DEPT_MENU_SETTINGS =
@@ -41,10 +65,63 @@ public class SettingsStore {
 
     public SettingsStore(
         DeptSystemSettingsRepository deptSettingsRepo,
-        SystemSettingsRepository systemSettingsRepo
+        SystemSettingsRepository systemSettingsRepo,
+        ConfigurableApplicationContext context,
+        ProtoConfig protoConfig
     ) {
         this.deptSettingsRepo = deptSettingsRepo;
         this.systemSettingsRepo = systemSettingsRepo;
+        this.context = context;
+        this.protoConfig = protoConfig;
+    }
+
+    /** 仅检查数据库记录是否存在，不应用默认回退，也不解码已有配置。 */
+    public boolean hasDeptSettings(String deptId, int functionId) {
+        return deptSettingsRepo.existsById(new DeptSystemSettingsId(deptId, functionId));
+    }
+
+    public DisplayFieldSettingsPB getPatientsInIcuSettingsPB(String deptId) {
+        return getPatientSettingsPB(deptId, GET_PATIENTS_IN_ICU);
+    }
+
+    public void savePatientsInIcuSettingsPB(
+        String deptId, DisplayFieldSettingsPB settings, String modifiedBy
+    ) {
+        saveDeptSettings(deptId, GET_PATIENTS_IN_ICU, settings, modifiedBy,
+            ProtoUtils::encodeDisplayFieldSettings);
+    }
+
+    public DisplayFieldSettingsPB getPatientsPendingAdmissionSettingsPB(String deptId) {
+        return getPatientSettingsPB(deptId, GET_PATIENTS_PENDING_ADMISSION);
+    }
+
+    public void savePatientsPendingAdmissionSettingsPB(
+        String deptId, DisplayFieldSettingsPB settings, String modifiedBy
+    ) {
+        saveDeptSettings(deptId, GET_PATIENTS_PENDING_ADMISSION, settings, modifiedBy,
+            ProtoUtils::encodeDisplayFieldSettings);
+    }
+
+    public DisplayFieldSettingsPB getPatientsPendingDischargedSettingsPB(String deptId) {
+        return getPatientSettingsPB(deptId, GET_PATIENTS_PENDING_DISCHARGED);
+    }
+
+    public void savePatientsPendingDischargedSettingsPB(
+        String deptId, DisplayFieldSettingsPB settings, String modifiedBy
+    ) {
+        saveDeptSettings(deptId, GET_PATIENTS_PENDING_DISCHARGED, settings, modifiedBy,
+            ProtoUtils::encodeDisplayFieldSettings);
+    }
+
+    public DisplayFieldSettingsPB getPatientsDischargedSettingsPB(String deptId) {
+        return getPatientSettingsPB(deptId, GET_PATIENTS_DISCHARGED);
+    }
+
+    public void savePatientsDischargedSettingsPB(
+        String deptId, DisplayFieldSettingsPB settings, String modifiedBy
+    ) {
+        saveDeptSettings(deptId, GET_PATIENTS_DISCHARGED, settings, modifiedBy,
+            ProtoUtils::encodeDisplayFieldSettings);
     }
 
     public MenuConfigPB getMenuConfigPB(String deptId) {
@@ -140,6 +217,68 @@ public class SettingsStore {
         systemSettingsRepo.save(entity);
     }
 
+    private DisplayFieldSettingsPB getPatientSettingsPB(String deptId, int functionId) {
+        DisplayFieldSettingsPB settings;
+        try {
+            settings = getDeptSettings(
+                deptId, functionId, ProtoUtils::decodeDisplayFieldSettings);
+        } catch (Exception e) {
+            log.error("Failed to load patient settings: deptId={}, functionId={}",
+                deptId, functionId, e);
+            LogUtils.flushAndQuit(context);
+            return null;
+        }
+        if (settings == null) {
+            settings = protoConfig.getConfig().getPatient().getDefaultDisplayFieldSettingsList()
+                .stream().filter(value -> value.getFunctionIdValue() == functionId)
+                .findFirst().orElse(null);
+        }
+        if (settings == null) {
+            log.error("Missing default patient settings: functionId={}", functionId);
+            LogUtils.flushAndQuit(context);
+            return null;
+        }
+
+        List<String> tableNames = new ArrayList<>();
+        Map<String, DisplayFieldSettingsPB.Table> tableMap = new HashMap<>();
+        for (DisplayFieldSettingsPB.Table table : settings.getTableList()) {
+            Map<String, String> columnNames = new HashMap<>();
+            for (DisplayFieldSettingsPB.HeaderColumn column : table.getRequiredColList()) {
+                columnNames.put(column.getColumnId(), column.getColumnName());
+            }
+            for (DisplayFieldSettingsPB.HeaderColumn column : table.getOptionalColList()) {
+                columnNames.put(column.getColumnId(), column.getColumnName());
+            }
+
+            // 列名是派生字段，每次按显示列顺序重建，避免读后保存导致重复追加。
+            DisplayFieldSettingsPB.Table.Builder tableBuilder = table.toBuilder()
+                .clearColNameToDisplay();
+            Set<String> displayedColumnIds = new HashSet<>(table.getColIdToDisplayList());
+            for (String columnId : table.getColIdToDisplayList()) {
+                String columnName = columnNames.get(columnId);
+                if (columnName == null) {
+                    log.error("Column ID not found in patient settings: {}", columnId);
+                    LogUtils.flushAndQuit(context);
+                    return null;
+                }
+                tableBuilder.addColNameToDisplay(columnName);
+            }
+            for (DisplayFieldSettingsPB.HeaderColumn column : table.getRequiredColList()) {
+                if (!displayedColumnIds.contains(column.getColumnId())) {
+                    log.error("Required patient column is not displayed: {}", column.getColumnId());
+                    LogUtils.flushAndQuit(context);
+                    return null;
+                }
+            }
+            tableNames.add(table.getTableName());
+            tableMap.put(table.getTableName(), tableBuilder.build());
+        }
+
+        DisplayFieldSettingsPB.Builder builder = settings.toBuilder().clearTable();
+        for (String tableName : tableNames) builder.addTable(tableMap.get(tableName));
+        return builder.build();
+    }
+
     private <T> T getDeptSettings(String deptId, int functionId, Function<String, T> decoder) {
         DeptSystemSettingsId id = new DeptSystemSettingsId(deptId, functionId);
         DeptSystemSettings entity = deptSettingsRepo.findById(id).orElse(null);
@@ -172,4 +311,6 @@ public class SettingsStore {
 
     private final DeptSystemSettingsRepository deptSettingsRepo;
     private final SystemSettingsRepository systemSettingsRepo;
+    private final ConfigurableApplicationContext context;
+    private final ProtoConfig protoConfig;
 }

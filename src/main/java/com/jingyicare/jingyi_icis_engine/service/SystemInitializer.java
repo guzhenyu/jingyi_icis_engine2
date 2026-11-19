@@ -66,7 +66,6 @@ public class SystemInitializer {
 
         monitoringMetaService.initMonitoringParams();
         userConfig.initialize();
-        patientConfig.initialize();
         medicationConfig.initialize();
         doctorConfig.initialize();
         lisConfig.initialize();
@@ -97,7 +96,6 @@ public class SystemInitializer {
         log.info("Checking system consistency");
 
         userConfig.refresh();
-        patientConfig.refresh();
         medicationConfig.refresh();
         monitoringConfig.refresh();
         doctorConfig.refresh();
