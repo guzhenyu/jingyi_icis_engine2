@@ -137,6 +137,18 @@ public class PatientMonitoringService {
                 .build();
         }
 
+        PatientRecord patient = patientReader.findById(pid).orElse(null);
+        if (patient == null) {
+            return GetPatientMonitoringRecordsResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
+                .build();
+        }
+        if (!Objects.equals(patient.getDeptId(), deptId)) {
+            return GetPatientMonitoringRecordsResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.PATIENT_DEPT_MISMATCH))
+                .build();
+        }
+
         Pair<LocalDateTime, LocalDateTime> queryUtcTimeRange = monitoringConfig.normalizePmrQueryTimeRange(
             groupType, deptId, startTime, endTime
         );

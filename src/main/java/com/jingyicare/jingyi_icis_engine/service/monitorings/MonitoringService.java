@@ -49,6 +49,7 @@ public class MonitoringService {
         @Autowired PatientTubeImpl patientTubeImpl,
         @Autowired MonitoringConfig monitoringConfig,
         @Autowired MonitoringMetaService monitoringMetaService,
+        @Autowired PatientMonitoringMetaService patientMonitoringMetaService,
         @Autowired LockExecutor lockExecutor,
         @Autowired JdbcTemplate jdbcTemplate,
         @Autowired MonitoringParamRepository monitoringParamRepository,
@@ -73,6 +74,7 @@ public class MonitoringService {
         this.patientTubeImpl = patientTubeImpl;
         this.monitoringConfig = monitoringConfig;
         this.monitoringMetaService = monitoringMetaService;
+        this.patientMonitoringMetaService = patientMonitoringMetaService;
         this.lockExecutor = lockExecutor;
         this.jdbcTemplate = jdbcTemplate;
 
@@ -1099,7 +1101,6 @@ public class MonitoringService {
     }
 
 
-    @Transactional(isolation = Isolation.SERIALIZABLE)
     public GetPatientMonitoringGroupsResp getPatientMonitoringGroups(String getPatientMonitoringGroupsReqJson) {
         GetPatientMonitoringGroupsReq req;
         try {
@@ -1157,7 +1158,6 @@ public class MonitoringService {
             .build();
     }
 
-    @Transactional
     public GenericResp updatePatientMonitoringGroup(String updatePatientMonitoringGroupReqJson) {
         // Parse JSON to Proto
         UpdatePatientMonitoringGroupReq req;
@@ -1178,6 +1178,19 @@ public class MonitoringService {
                     .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
                     .build();
         }
+        long pid = req.getPid();
+        if (pid <= 0) {
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
+                .build();
+        }
+        return lockExecutor.execute(List.of(LockKeys.patientMonitoringGroups(pid)),
+            () -> updatePatientMonitoringGroupLocked(req, account.autoAcctId()));
+    }
+
+    private GenericResp updatePatientMonitoringGroupLocked(
+        UpdatePatientMonitoringGroupReq req, String accountId
+    ) {
         final LocalDateTime now = TimeUtils.getNowUtc();
 
         // 提取关键参数
@@ -1187,29 +1200,48 @@ public class MonitoringService {
         final Map<String, MonitoringGroupParamPB> newParamMap = newParamList.stream()
             .collect(Collectors.toMap(MonitoringGroupParamPB::getCode, param -> param));
 
-        // 获取对应的部门观察项分组和参数
-        DeptMonitoringGroup deptGroup = deptMonitoringGroupRepository.findById(deptGroupId).orElse(null);
+        PatientRecord patient = patientReader.findById(pid).orElse(null);
+        if (patient == null) {
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
+                .build();
+        }
+
+        DeptMonitoringGroup deptGroup = deptMonitoringGroupRepository.findById(deptGroupId)
+            .orElse(null);
         if (deptGroup == null) {
             log.error("DeptMonitoringGroup not found for ID: {}", deptGroupId);
             return GenericResp.newBuilder()
                     .setRt(protoService.getReturnCode(StatusCode.MONITORING_GROUP_NOT_EXIST))
                     .build();
         }
-        List<DeptMonitoringGroupParam> deptGroupParams = deptMonitoringGroupParamRepository
-                .findByDeptMonitoringGroupIdAndIsDeletedFalse(deptGroupId);
-        Map<String, Integer> deptCodeOrderMap = deptGroupParams.stream().collect(Collectors.toMap(
-            DeptMonitoringGroupParam::getMonitoringParamCode, DeptMonitoringGroupParam::getDisplayOrder));
+        if (!Objects.equals(patient.getDeptId(), deptGroup.getDeptId())) {
+            return GenericResp.newBuilder()
+                .setRt(protoService.getReturnCode(StatusCode.PATIENT_DEPT_MISMATCH))
+                .build();
+        }
 
-        // 获取患者的观察项分组和参数
+        // 已绑定的历史组仍可编辑。未绑定的已删除分组不触发初始化。
         PatientMonitoringGroup patientGroup = patientMonitoringGroupRepository
             .findByDeptMonitoringGroupIdAndPidAndIsDeletedFalse(deptGroupId, pid)
             .orElse(null);
+        if (patientGroup == null && !deptGroup.getIsDeleted()) {
+            patientGroup = patientMonitoringMetaService
+                .findOrInitGroupsForLockedPatient(patient, accountId).stream()
+                .filter(group -> deptGroupId.equals(group.getDeptMonitoringGroupId()))
+                .findFirst().orElse(null);
+        }
         if (patientGroup == null) {
             log.info("No PatientMonitoringGroup found for pid: {}, group_id: {}", pid, deptGroupId);
             return GenericResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.PATIENT_MONITORING_GROUP_NOT_FOUND))
                 .build();
         }
+        List<DeptMonitoringGroupParam> deptGroupParams = deptMonitoringGroupParamRepository
+            .findByDeptMonitoringGroupIdAndIsDeletedFalse(deptGroupId);
+        Map<String, Integer> deptCodeOrderMap = deptGroupParams.stream().collect(Collectors.toMap(
+            DeptMonitoringGroupParam::getMonitoringParamCode,
+            DeptMonitoringGroupParam::getDisplayOrder));
         List<PatientMonitoringGroupParam> patientGroupParams = patientMonitoringGroupParamRepository
             .findByPatientMonitoringGroupIdAndIsDeletedFalse(patientGroup.getId());
         Map<String, PatientMonitoringGroupParam> patientGroupParamMap = patientGroupParams.stream()
@@ -1228,7 +1260,7 @@ public class MonitoringService {
             if (deptPatientParamsMatch) {
                 for (PatientMonitoringGroupParam param : patientGroupParams) {
                     param.setIsDeleted(true);
-                    param.setDeletedBy(account.autoAcctId());
+                    param.setDeletedBy(accountId);
                     param.setDeletedAt(now);
                 }
                 patientMonitoringGroupParamRepository.saveAll(patientGroupParams);
@@ -1254,7 +1286,7 @@ public class MonitoringService {
                     .monitoringParamCode(reqParam.getCode())
                     .displayOrder(reqParam.getDisplayOrder())
                     .isDeleted(false)
-                    .modifiedBy(account.autoAcctId())
+                    .modifiedBy(accountId)
                     .modifiedAt(now)
                     .build();
                 paramsToUpdate.add(newParam);
@@ -1263,7 +1295,7 @@ public class MonitoringService {
                 // 更新已存在的参数
                 if (!existingParam.getDisplayOrder().equals(reqParam.getDisplayOrder())) {
                     existingParam.setDisplayOrder(reqParam.getDisplayOrder());
-                    existingParam.setModifiedBy(account.autoAcctId());
+                    existingParam.setModifiedBy(accountId);
                     existingParam.setModifiedAt(now);
                     paramsToUpdate.add(existingParam);
                     log.info("Updated PatientMonitoringGroupParam: {}, new order: {}", existingParam.getId(), reqParam.getDisplayOrder());
@@ -1274,11 +1306,11 @@ public class MonitoringService {
             if (!newParamMap.containsKey(param.getMonitoringParamCode())) {
                 // 标记为删除
                 param.setIsDeleted(true);
-                param.setDeletedBy(account.autoAcctId());
+                param.setDeletedBy(accountId);
                 param.setDeletedAt(now);
                 paramsToUpdate.add(param);
                 log.info("Marked PatientMonitoringGroupParam as deleted: {}, user: {}",
-                    param.getId(), account.autoAcctId());
+                    param.getId(), accountId);
             }
         }
         // 保存所有更新的参数
@@ -1317,54 +1349,12 @@ public class MonitoringService {
             .map(PatientRecord::getId).toList();
 
         for (Long pid : pids) {
-            Boolean needSync = deleteMismatchedPatientGroups(deptId, pid, account.autoAcctId());
-            if (!needSync) continue;
-
-            monitoringConfig.getMonitoringGroups(
-                pid, deptId, GROUP_TYPE_BALANCE_ID, new ArrayList<>(), account.autoAcctId());
+            patientMonitoringMetaService.syncFromDepartment(pid, deptId, account.autoAcctId());
         }
 
         return GenericResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
             .build();
-    }
-
-    @Transactional
-    private Boolean deleteMismatchedPatientGroups(String deptId, Long pid, String accountId) {
-        // 获取部门观察项分组
-        List<DeptMonitoringGroup> deptGroups = deptMonitoringGroupRepository.findByDeptIdAndIsDeletedFalse(deptId);
-        List<PatientMonitoringGroup> patientGroups = patientMonitoringGroupRepository.findByPidAndIsDeletedFalse(pid);
-        List<Integer> patientGroupIds = patientGroups.stream()
-            .map(PatientMonitoringGroup::getId).toList();
-        List<PatientMonitoringGroupParam> patientGroupParams = new ArrayList<>();
-        if (!patientGroupIds.isEmpty()) {
-            patientGroupParams = patientMonitoringGroupParamRepository
-                .findByPatientMonitoringGroupIdInAndIsDeletedFalse(patientGroupIds);
-        }
-
-        // 如果部门分组和患者分组不是一一对应，或者病人分组参数不为空，需要将患者分组标记为删除
-        boolean needSync = false;
-        Set<Integer> deptGroupIds = deptGroups.stream()
-            .map(DeptMonitoringGroup::getId).collect(Collectors.toSet());
-        Set<Integer> patientGroupIdsSet = patientGroups.stream()
-            .map(PatientMonitoringGroup::getDeptMonitoringGroupId).collect(Collectors.toSet());
-        if (deptGroupIds.size() != patientGroupIdsSet.size() ||
-            !deptGroupIds.containsAll(patientGroupIdsSet) ||
-            !patientGroupParams.isEmpty()
-        ) {
-            needSync = true;
-        }
-        if (needSync) {
-            LocalDateTime now = TimeUtils.getNowUtc();
-            // 标记患者分组为删除
-            for (PatientMonitoringGroup group : patientGroups) {
-                group.setIsDeleted(true);
-                group.setDeletedBy(accountId);
-                group.setDeletedAt(now);
-            }
-            patientMonitoringGroupRepository.saveAll(patientGroups);
-        }
-        return needSync;
     }
 
     private void saveDeptParamToHistory(DeptMonitoringParam deptParam, String reason, String accountId, Boolean isDeleted) {
@@ -1387,6 +1377,7 @@ public class MonitoringService {
 
     private final MonitoringConfig monitoringConfig;
     private final MonitoringMetaService monitoringMetaService;
+    private final PatientMonitoringMetaService patientMonitoringMetaService;
     private final LockExecutor lockExecutor;
     private final JdbcTemplate jdbcTemplate;
 

@@ -103,6 +103,14 @@ public final class LockKeys {
         return "dept_monitoring_groups:" + deptId;
     }
 
+    // 同一患者的监测分组及组内参数元数据共用此锁。
+    public static String patientMonitoringGroups(long pid) {
+        if (pid <= 0) {
+            throw new IllegalArgumentException("pid must be positive");
+        }
+        return "patient_monitoring_groups:" + pid;
+    }
+
     public static String bgaParam(String deptId) {
         StrUtils.requireNonBlank(deptId, "deptId");
         return "bga_params:" + deptId;

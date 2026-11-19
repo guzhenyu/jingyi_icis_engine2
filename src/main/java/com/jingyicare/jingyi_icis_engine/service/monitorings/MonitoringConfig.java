@@ -8,14 +8,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 
-import ch.qos.logback.classic.LoggerContext;
-import lombok.*;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.logging.log4j.LogManager;
-import org.slf4j.LoggerFactory;
 
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
@@ -63,7 +58,7 @@ public class MonitoringConfig {
         @Autowired DeptMonitoringParamRepository deptMonitoringParamRepository,
         @Autowired DeptMonitoringGroupRepository deptMonitoringGroupRepository,
         @Autowired DeptMonitoringGroupParamRepository deptMonitoringGroupParamRepository,
-        @Autowired PatientMonitoringGroupRepository patientMonitoringGroupRepository,
+        @Autowired PatientMonitoringMetaService patientMonitoringMetaService,
         @Autowired PatientMonitoringGroupParamRepository patientMonitoringGroupParamRepository,
         @Autowired DeptSystemSettingsRepository deptSettingRepository,
         @Value("${monitoring.enable_drainage:true}") boolean enableDrainage,
@@ -93,7 +88,7 @@ public class MonitoringConfig {
         this.deptMonitoringParamRepository = deptMonitoringParamRepository;
         this.deptMonitoringGroupRepository = deptMonitoringGroupRepository;
         this.deptMonitoringGroupParamRepository = deptMonitoringGroupParamRepository;
-        this.patientMonitoringGroupRepository = patientMonitoringGroupRepository;
+        this.patientMonitoringMetaService = patientMonitoringMetaService;
         this.patientMonitoringGroupParamRepository = patientMonitoringGroupParamRepository;
         this.deptSettingRepository = deptSettingRepository;
         this.enableDrainage = enableDrainage;
@@ -372,22 +367,11 @@ public class MonitoringConfig {
     ) {
         Map<String, MonitoringParam> paramMap = buildMonitoringParamMap(deptId);
 
-        // 获取病人所在的部门观察项分组，以及分组对应的参数
-        Pair<List<DeptMonitoringGroup>, Map<Integer, List<MonitoringGroupParamPB>>> pair = null;
-        for (int i = 0; i < MAX_RETRIES; i++) {
-            // getpatientmonitoringgroups和getpatientmonitoringrecords会并发执行，同时调用本函数：
-            // - 当pid没有初始化时，两次调用会同时初始化，第二次调用的会导致插入失败；
-            // - 通过捕获该异常，重新调用，发现pid已经初始化，则第二次调用的会成功
-            try {
-                pair = getGroupsAndParams(pid, deptId, groupType, accountId);
-                break; // 成功获取后跳出循环
-            } catch (Exception e) {
-                log.error("Failed to get groups and params for pid: {}, deptId: {}, groupType: {}, attempt: {}", pid, deptId, groupType, i + 1, e);
-                if (i == MAX_RETRIES - 1) {
-                    throw e; // 最后一次尝试仍然失败则抛出异常
-                }
-            }
-        }
+        // 患者绑定和组内参数在同一把业务锁下读取。
+        Pair<List<DeptMonitoringGroup>, Map<Integer, List<MonitoringGroupParamPB>>> pair =
+            pid == null || pid <= 0 ? getGroupsAndParams(pid, deptId, groupType, accountId)
+                : patientMonitoringMetaService.readUnderLock(pid,
+                    () -> getGroupsAndParams(pid, deptId, groupType, accountId));
         List<DeptMonitoringGroup> deptGroups = pair.getFirst();
         Map<Integer, List<MonitoringGroupParamPB>> deptGroupParams = pair.getSecond();
 
@@ -431,7 +415,6 @@ public class MonitoringConfig {
             ));
     }
 
-    @Transactional(isolation = Isolation.SERIALIZABLE)
     private Pair<List<DeptMonitoringGroup>, Map<Integer, List<MonitoringGroupParamPB>>> getGroupsAndParams(
         Long pid, String deptId, int groupType, String accountId
     ) {
@@ -452,32 +435,9 @@ public class MonitoringConfig {
         }
 
         // 计算病人分组及参数
-        List<PatientMonitoringGroup> patientGroups = patientMonitoringGroupRepository
-            .findByPidAndIsDeletedFalse(pid);
-        if (patientGroups.isEmpty()) {
-            // 初始化病人分组
-            List<Integer> deptGroupIds = new ArrayList<>();
-            LocalDateTime now = TimeUtils.getNowUtc();
-            for (DeptMonitoringGroup deptGroup : deptMonitoringGroupRepository.findByDeptIdAndIsDeletedFalse(deptId)) {
-                patientGroups.add(PatientMonitoringGroup.builder()
-                    .deptMonitoringGroupId(deptGroup.getId())
-                    .pid(pid)
-                    .isDeleted(false)
-                    .modifiedBy(accountId)
-                    .modifiedAt(now)
-                    .build());
-                if (deptGroup.getGroupType() == groupType) {
-                    deptGroups.add(deptGroup);  // **
-                    deptGroupIds.add(deptGroup.getId());
-                }
-            }
-            patientGroups = patientMonitoringGroupRepository.saveAll(patientGroups);
-
-            // 获取部门分组参数 origDeptGroupParams
-            origDeptGroupParams = getDeptGroupParams(deptGroupIds);  // **
-
-            return new Pair<>(deptGroups, origDeptGroupParams);
-        }
+        List<PatientMonitoringGroup> patientGroups = patientMonitoringMetaService
+            .findOrInitGroups(pid, deptId, accountId);
+        if (patientGroups.isEmpty()) return new Pair<>(deptGroups, origDeptGroupParams);
 
         // 如果病人已有分组，则获得对应的部门分组；找到病人参数
         List<Integer> allDeptGroupIds = new ArrayList<>();
@@ -652,8 +612,6 @@ public class MonitoringConfig {
         deptSettingRepository.save(entity);
     }
 
-    private static Integer MAX_RETRIES = 6;
-
     private final Integer BALANCE_IN_ID;
     private final Integer BALANCE_OUT_ID;
     private final Integer BALANCE_NET_ID;
@@ -674,7 +632,7 @@ public class MonitoringConfig {
     private final DeptMonitoringParamRepository deptMonitoringParamRepository;
     private final DeptMonitoringGroupRepository deptMonitoringGroupRepository;
     private final DeptMonitoringGroupParamRepository deptMonitoringGroupParamRepository;
-    private final PatientMonitoringGroupRepository patientMonitoringGroupRepository;
+    private final PatientMonitoringMetaService patientMonitoringMetaService;
     private final PatientMonitoringGroupParamRepository patientMonitoringGroupParamRepository;
     private final DeptSystemSettingsRepository deptSettingRepository;
 }

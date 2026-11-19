@@ -132,6 +132,16 @@ class LockKeysTests {
     }
 
     @Test
+    void shouldScopePatientMonitoringConfigurationToOneKey() {
+        LocalDateTime time = LocalDateTime.of(2026, 11, 19, 12, 0);
+        assertThat(LockKeys.patientMonitoringGroups(42L))
+            .isEqualTo("patient_monitoring_groups:42")
+            .isNotEqualTo(LockKeys.patientMonitoringGroups(43L))
+            .isNotEqualTo(LockKeys.deptMonitoringGroups("42"))
+            .isNotEqualTo(LockKeys.patientMonitoringRecord(42L, "gcs", time));
+    }
+
+    @Test
     void shouldScopeScoreKeysToDepartmentAndCode() {
         assertThat(LockKeys.deptScoreGroup("icu"))
             .isEqualTo("dept_score_groups:icu");
@@ -218,6 +228,8 @@ class LockKeysTests {
     @ParameterizedTest
     @ValueSource(longs = {0L, -1L})
     void shouldRejectNonPositivePatientIds(long pid) {
+        assertThatIllegalArgumentException().isThrownBy(() ->
+            LockKeys.patientMonitoringGroups(pid));
         assertThatIllegalArgumentException().isThrownBy(() ->
             LockKeys.nursingRecord(pid, LocalDateTime.of(2026, 11, 3, 12, 0)));
         assertThatIllegalArgumentException().isThrownBy(() ->

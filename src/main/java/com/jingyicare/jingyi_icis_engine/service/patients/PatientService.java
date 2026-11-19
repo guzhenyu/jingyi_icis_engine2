@@ -29,7 +29,6 @@ import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.service.certs.*;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
-import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.patients.bed.BedMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceBindingService;
 import com.jingyicare.jingyi_icis_engine.service.settings.SettingsStore;
@@ -60,7 +59,6 @@ public class PatientService {
         @Autowired PatientDeviceService patientDeviceService,
         @Autowired UserQuery userQuery,
         @Autowired CertificateService certService,
-        @Autowired MonitoringConfig monitoringConfig,
         @Autowired PatientRecordRepository repository,
         @Autowired BedMetaReader bedMetaReader,
         @Autowired DiagnosisHistoryRepository diagnosisHistoryRepository,
@@ -116,7 +114,6 @@ public class PatientService {
         this.patientDeviceService = patientDeviceService;
         this.userQuery = userQuery;
         this.certService = certService;
-        this.monitoringConfig = monitoringConfig;
         this.patientRecordRepository = repository;
         this.bedMetaReader = bedMetaReader;
         this.diagnosisHistoryRepository = diagnosisHistoryRepository;
@@ -565,13 +562,6 @@ public class PatientService {
             patient.setUnplannedAdmissionReason(req.getUnplannedAdmissionReason());
             patient.setAdmissionStatus(ADMISSION_STATUS_ADMITTED);
             patientRecordRepository.save(patient);
-
-            // 初始化观察项(部门+病人)
-            monitoringConfig.getMonitoringGroups(
-                patient.getId(), patient.getDeptId(),
-                monitoringConfig.getBalanceGroupTypeId(),
-                new ArrayList<>(), account.autoAcctId()
-            );
         }
 
         return GenericResp.newBuilder()
@@ -1995,7 +1985,6 @@ public class PatientService {
     private ConfigShiftUtils shiftUtils;
     private UserQuery userQuery;
     private CertificateService certService;
-    private MonitoringConfig monitoringConfig;
 
     private PatientEnumsV2 enumsV2;
     private PatientConfig patientConfig;

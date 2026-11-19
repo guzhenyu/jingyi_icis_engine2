@@ -65,9 +65,12 @@
 - 锁须覆盖共享状态检查、序号分配及写入；与共享状态无关的纯计算尽量放在锁外。
 - 动态锁的预读 Supplier 和锁后复查统一调用 `XXXJdbc`，通过 `JdbcTemplate`
   读取数据库，避免 JPA 一级缓存影响锁计划校验。
-- `XXXJdbc` 放在 `repository/<业务模块>/` 下，提供静态查询方法；
-  Service 负责锁与业务流程编排，实际业务数据访问使用 `JpaRepository`。
-- 事务由 `LockExecutor` 统一管理，调用入口不添加外层 `@Transactional`；
+- `XXXJdbc` 放在 `repository/<业务模块>/` 下，提供静态查询和行锁方法，
+  如 `repository/patients/DeviceInfoJdbc`。
+- 数据库行锁由 `XXXJdbc` 使用 `JdbcTemplate` 执行显式加锁 SQL，如 `SELECT ... FOR UPDATE`。
+  不在 Reader 或 JPA Repository 中获取行锁。Service 负责锁与业务流程编排，
+  取锁与受保护的 `JpaRepository` 读写必须在同一事务内完成。
+- 使用 `LockExecutor` 时由其统一管理事务，调用入口不添加外层 `@Transactional`；
   调整锁边界时保持既定的并发与回滚语义。
 
 ## 测试
