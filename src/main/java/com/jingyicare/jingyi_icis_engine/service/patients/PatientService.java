@@ -704,62 +704,6 @@ public class PatientService {
     }
 
     @Transactional
-    public GenericResp updatePatientInfo(String updatePatientInfoReqJson) {
-        final UpdatePatientInfoReq req;
-        try {
-            UpdatePatientInfoReq.Builder builder = UpdatePatientInfoReq.newBuilder();
-            JsonFormat.parser().merge(updatePatientInfoReqJson, builder);
-            req = builder.build();
-        } catch (Exception e) {
-            log.error("Failed to convert string to proto, {} ", updatePatientInfoReqJson);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        PatientRecord patient = patientRecordRepository.findById(req.getId()).
-            orElse(null);
-        if (patient == null) {
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
-                .build();
-        }
-
-        if (patient.getAdmissionStatus() != ADMISSION_STATUS_DISCHARGED &&
-            (!StrUtils.isBlank(req.getDischargeTime()) ||
-             req.getDischargeType() > 0 ||
-             !StrUtils.isBlank(req.getToDeptName()) ||
-             !StrUtils.isBlank(req.getDeathTime()))
-        ) {
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PATIENT_IS_NOT_DISCHARGED))
-                .build();
-        }
-
-        patient.setAdmissionTime(TimeUtils.fromIso8601String(req.getAdmissionTime(), "UTC"));
-        setAdmissionTypeValues(patient, req.getAdmissionTypeList());
-        patient.setIsPlannedAdmission(req.getIsPlannedAdmission() > 0);
-        patient.setUnplannedAdmissionReason(req.getUnplannedAdmissionReason());
-
-        if (patient.getAdmissionStatus() != ADMISSION_STATUS_DISCHARGED) {
-            patient.setDischargeTime(null);
-            patient.setDischargeType(null);
-            patient.setToDeptName("");
-            patient.setDeathTime(null);
-        } else {
-            patient.setDischargeTime(TimeUtils.fromIso8601String(req.getDischargeTime(), "UTC"));
-            patient.setDischargeType(req.getDischargeType());
-            patient.setToDeptName(req.getToDeptName());
-            patient.setDeathTime(TimeUtils.fromIso8601String(req.getDeathTime(), "UTC"));
-        }
-        patientRecordRepository.save(patient);
-
-        return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .build();
-    }
-
-    @Transactional
     public GetPatientInfoV2Resp getPatientInfoV2(String getPatientInfoV2ReqJson) {
         final GetPatientInfoV2Req req;
         try {

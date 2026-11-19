@@ -1009,27 +1009,6 @@ message GetPatientInfoV2Resp {
 }
 
 /*
- * /api/patient/updatepatientinfo
- *  input: UpdatePatientInfoReq
- *  output: GenericResp
- */
-message UpdatePatientInfoReq {
-    int64 id = 1;  // patient_records.id
-
-    // 入科信息
-    string admission_time = 2;
-    repeated int32 admission_type = 3;
-    int32 is_planned_admission = 4;
-    string unplanned_admission_reason = 5;
-
-    // 出科信息
-    string discharge_time = 6;
-    int32 discharge_type = 7;
-    string to_dept_name = 8;
-    string death_time = 9;
-}
-
-/*
  * /api/patient/updatepatientinfov2
  *  input: UpdatePatientInfoV2Req
  *  output: GenericResp

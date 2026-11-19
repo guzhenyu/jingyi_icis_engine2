@@ -351,12 +351,6 @@ public class WebApiService {
         return resp;
     }
 
-    public GenericResp updatePatientInfo(String updatePatientInfoReqJson) {
-        GenericResp resp = patientService.updatePatientInfo(updatePatientInfoReqJson);
-        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
-        return resp;
-    }
-
     public GetPatientInfoV2Resp getPatientInfoV2(String getPatientInfoV2ReqJson) {
         GetPatientInfoV2Resp resp = patientService.getPatientInfoV2(getPatientInfoV2ReqJson);
         // resp = metricService.recordApiMetrics(resp, GetPatientInfoV2Resp::getRt);
