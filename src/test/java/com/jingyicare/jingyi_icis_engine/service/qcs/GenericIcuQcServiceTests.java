@@ -28,28 +28,22 @@ import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.scores.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
-import com.jingyicare.jingyi_icis_engine.service.settings.IcuQcConfigService;
-import com.jingyicare.jingyi_icis_engine.service.patients.*;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
 import com.jingyicare.jingyi_icis_engine.service.patients.bed.BedMetaReader;
+import com.jingyicare.jingyi_icis_engine.service.settings.IcuQcConfigService;
 import com.jingyicare.jingyi_icis_engine.service.therapies.SepsisAndSepticShockBundleService;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 public class GenericIcuQcServiceTests {
     @Test
     void septicShockBundleCompletionRateUsesAdmissionTimeAndQcAlarmFilter() {
-        ConfigProtoService protoService = mock(ConfigProtoService.class);
-        IcuQcConfigService icuQcConfigService = mock(IcuQcConfigService.class);
         PatientService patientService = mock(PatientService.class);
-        PatientConfig patientConfig = mock(PatientConfig.class);
         PatientReader patientReader = mock(PatientReader.class);
         SepsisAndSepticShockBundleService septicShockBundleService =
             mock(SepsisAndSepticShockBundleService.class);
-        DepartmentRepository deptRepo = mock(DepartmentRepository.class);
 
-        when(protoService.getConfig()).thenReturn(testConfig());
-        when(icuQcConfigService.getIcuQcConfigPb()).thenReturn(testQcConfig());
-        when(deptRepo.findByDeptIdAndIsDeletedFalse("99999")).thenReturn(Optional.of(dept("99999")));
-        when(patientConfig.getDischargeTypeDeadId()).thenReturn(-1);
         when(patientReader.getBedConfigMap("99999")).thenReturn(Map.of(
             "H-900001", bedConfig("99999", "H-900001", "B1"),
             "H-900002", bedConfig("99999", "H-900002", "B2"),
@@ -58,6 +52,7 @@ public class GenericIcuQcServiceTests {
         PatientRecord beforePeriod = patient(900000L, "99999", LocalDateTime.of(2024, 12, 31, 23, 0));
         PatientRecord h1MissingInJan = patient(900001L, "99999", LocalDateTime.of(2025, 1, 10, 8, 0));
         PatientRecord completeH1InJan = patient(900002L, "99999", LocalDateTime.of(2025, 1, 20, 8, 0));
+        completeH1InJan.setDischargeType(PatientEnums.DISCHARGE_TYPE_DEAD);
         PatientRecord needBundleFalseInJan = patient(900003L, "99999", LocalDateTime.of(2025, 1, 25, 8, 0));
         PatientRecord h1MissingInFeb = patient(900004L, "99999", LocalDateTime.of(2025, 2, 5, 8, 0));
         PatientRecord atQueryEnd = patient(900005L, "99999", LocalDateTime.of(2025, 3, 1, 0, 0));
@@ -83,23 +78,8 @@ public class GenericIcuQcServiceTests {
                 septicShockCase(900004L, h1UnfinishedBundle(900004L)),
                 septicShockCase(900005L, h1UnfinishedBundle(900005L))));
 
-        GenericIcuQcService service = new GenericIcuQcService(
-            protoService,
-            icuQcConfigService,
-            patientService,
-            patientConfig,
-            patientReader,
-            septicShockBundleService,
-            mock(BedUtilizationCalc.class),
-            deptRepo,
-            mock(DepartmentAccountRepository.class),
-            mock(AccountRepository.class),
-            mock(RbacRoleRepository.class),
-            mock(BedMetaReader.class),
-            mock(ApacheIIScoreRepository.class),
-            mock(VTECapriniScoreRepository.class),
-            mock(VTEPaduaScoreRepository.class),
-            mock(PatientScoreRepository.class));
+        GenericIcuQcService service = createService(
+            patientService, patientReader, septicShockBundleService);
 
         GetGenericIcuQcReq req = GetGenericIcuQcReq.newBuilder()
             .setDeptId("99999")
@@ -122,18 +102,86 @@ public class GenericIcuQcServiceTests {
         assertThat(janItem.getDetailList()).hasSize(2);
         assertThat(janItem.getDetail(0).getDisplayBedNumber()).isEqualTo("B1");
         assertThat(janItem.getDetail(0).getPatient().getPatientName()).isEqualTo("patient-900001");
+        assertThat(janItem.getDetail(0).getPatient().getIsDead()).isFalse();
         assertThat(janItem.getDetail(0).getPatient().getAdmissionTimeIso8601()).isEqualTo("2025-01-10T08:00Z");
         assertThat(janItem.getDetail(0).getBundleCompleted()).isFalse();
         assertThat(janItem.getDetail(0).getH1Completed()).isFalse();
         assertThat(janItem.getDetail(0).getH3Completed()).isTrue();
         assertThat(janItem.getDetail(0).getH6Completed()).isTrue();
         assertThat(janItem.getDetail(1).getDisplayBedNumber()).isEqualTo("B2");
+        assertThat(janItem.getDetail(1).getPatient().getIsDead()).isTrue();
         assertThat(janItem.getDetail(1).getBundleCompleted()).isTrue();
         assertThat(janItem.getDetail(1).getIsInNumerator()).isTrue();
 
         verify(septicShockBundleService).buildSepticShockCasesReadOnly(List.of(
             900000L, 900001L, 900002L, 900003L, 900004L, 900005L));
         verify(septicShockBundleService, never()).buildSepticShockCases(any());
+    }
+
+    @Test
+    void unplannedAdmissionRateRecognizesSurgeryInLegacyAndMultipleAdmissionTypes() {
+        PatientService patientService = mock(PatientService.class);
+        LocalDateTime admissionTime = LocalDateTime.of(2025, 1, 10, 8, 0);
+        PatientRecord legacySurgery = patient(910001L, "99999", admissionTime);
+        legacySurgery.setAdmissionType(3);
+        legacySurgery.setIsPlannedAdmission(false);
+        PatientRecord multipleTypes = patient(910002L, "99999", admissionTime.plusHours(1));
+        multipleTypes.setAdmissionType(2);
+        multipleTypes.setAdmissionTypes("2,3");
+        multipleTypes.setIsPlannedAdmission(true);
+        PatientRecord transfer = patient(910003L, "99999", admissionTime.plusHours(2));
+        transfer.setAdmissionType(3);
+        transfer.setAdmissionTypes("2,4");
+        when(patientService.getPatientRecords(
+            eq("99999"), any(LocalDateTime.class), any(LocalDateTime.class)))
+            .thenReturn(List.of(legacySurgery, multipleTypes, transfer));
+        GenericIcuQcService service = createService(
+            patientService, mock(PatientReader.class), mock(SepsisAndSepticShockBundleService.class));
+        GetGenericIcuQcReq req = GetGenericIcuQcReq.newBuilder()
+            .setDeptId("99999")
+            .setQueryStartIso8601("2025-01-01T00:00:00.000Z")
+            .setQueryEndIso8601("2025-02-01T00:00:00.000Z")
+            .addItemCode(Consts.ICU_14_UNPLANNED_ICU_ADMISSION_RATE)
+            .build();
+
+        GetGenericIcuQcResp resp = service.getGenericIcuQc(ProtoUtils.protoToJson(req));
+
+        assertThat(resp.getRt().getCode()).isEqualTo(StatusCode.OK_VALUE);
+        IcuQcPatientMetricItemPB total = resp.getUnplannedIcuAdmissionRate().getTotalItem();
+        assertThat(total.getNumerator()).isEqualTo(1.0);
+        assertThat(total.getDenominator()).isEqualTo(2.0);
+        assertThat(total.getRatio()).isEqualTo(0.5);
+        assertThat(total.getDetailList()).extracting(detail -> detail.getPatient().getPatientId())
+            .containsExactly(910001L, 910002L);
+    }
+
+    private GenericIcuQcService createService(
+        PatientService patientService,
+        PatientReader patientReader,
+        SepsisAndSepticShockBundleService septicShockBundleService
+    ) {
+        ConfigProtoService protoService = mock(ConfigProtoService.class);
+        IcuQcConfigService icuQcConfigService = mock(IcuQcConfigService.class);
+        DepartmentRepository deptRepo = mock(DepartmentRepository.class);
+        when(protoService.getConfig()).thenReturn(testConfig());
+        when(icuQcConfigService.getIcuQcConfigPb()).thenReturn(testQcConfig());
+        when(deptRepo.findByDeptIdAndIsDeletedFalse("99999")).thenReturn(Optional.of(dept("99999")));
+        return new GenericIcuQcService(
+            protoService,
+            icuQcConfigService,
+            patientService,
+            patientReader,
+            septicShockBundleService,
+            mock(BedUtilizationCalc.class),
+            deptRepo,
+            mock(DepartmentAccountRepository.class),
+            mock(AccountRepository.class),
+            mock(RbacRoleRepository.class),
+            mock(BedMetaReader.class),
+            mock(ApacheIIScoreRepository.class),
+            mock(VTECapriniScoreRepository.class),
+            mock(VTEPaduaScoreRepository.class),
+            mock(PatientScoreRepository.class));
     }
 
     private Config testConfig() {
@@ -151,6 +199,10 @@ public class GenericIcuQcServiceTests {
                 .setCode(Consts.ICU_5_SEPTIC_SHOCK_BUNDLE_COMPLETION_RATE)
                 .setName("感染性休克患者集束化治疗（bundle）完成率")
                 .setCalcFormula("bundle完成率")
+                .build())
+            .addItem(QcItemPB.newBuilder()
+                .setCode(Consts.ICU_14_UNPLANNED_ICU_ADMISSION_RATE)
+                .setName("非计划转入ICU率")
                 .build())
             .addStatsDeptId("99999")
             .setSepsisSepticShockDiagnosis(SepsisSepticShockDiagnosisConfigPB.newBuilder()

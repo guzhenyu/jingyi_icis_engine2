@@ -53,9 +53,9 @@ HIS 活动名单为空时返回 `OK/0`，不修改患者数据；用户确认后
 2. `dept_code` 属于重症系统配置的科室；
 3. `discharge_time IS NULL`。
 
-参见 [`PatientSyncService.getInIcuHisPatientRecords()`](../../src/main/java/com/jingyicare/jingyi_icis_engine/service/patients/PatientSyncService.java)。
+参见 [`PatientSyncService.getInIcuHisPatientRecords()`](../../src/main/java/com/jingyicare/jingyi_icis_engine/service/patients/write/PatientSyncService.java)。
 
-惠美 `DischargeInfoAdd/Update` 会同时写入 `admission_status=3` 和非空 `discharge_time`。因此该记录不会进入 `updatePatientRecord()`，后面的 `discharged_dept_id`、`discharged_dept_name`、`discharge_time` 复制代码在正常出院场景下不可达。引擎只是通过活动集合差异把原 `patient_records` 标记为“待出科”，并把 `discharge_time` 设置为当前时间。
+惠美 `DischargeInfoAdd/Update` 会同时写入 `admission_status=3` 和非空 `discharge_time`。因此该记录不会进入 `applyHisFields()`，后面的 `discharged_dept_id`、`discharged_dept_name`、`discharge_time` 复制代码在正常出院场景下不可达。引擎只是通过活动集合差异把原 `patient_records` 标记为“待出科”，并把 `discharge_time` 设置为当前时间。
 
 惠美转出 ICU 也存在类似结果：`TransferInfoAdd/Update` 将同一条源记录的 `dept_code` 更新为 `t_in_dept_code`。当目标科室不是 ICU 时，源记录因科室条件被排除，引擎同样只会把目标患者标记为“待出科”。
 
@@ -76,5 +76,5 @@ HIS 活动名单为空时返回 `OK/0`，不修改患者数据；用户确认后
 - 惠美 ICU 入科补丁标志：[`HuimeiAdtXmlParser`](../../../icis_j3/src/main/java/com/jingyicare/icis_j3/xml/platform/huimei/adt/HuimeiAdtXmlParser.java)
 - 惠美记录定位和科室变更策略：[`HuimeiPatientRecordWritePolicy`](../../../icis_j3/src/main/java/com/jingyicare/icis_j3/data/write/HuimeiPatientRecordWritePolicy.java)
 - `HisPatientPB -> his_patient_records`：[`icis_j3 PatientRecordSyncService`](../../../icis_j3/src/main/java/com/jingyicare/icis_j3/data/write/PatientRecordSyncService.java)
-- `his_patient_records -> patient_records`：[`jingyi_icis_engine PatientSyncService`](../../src/main/java/com/jingyicare/jingyi_icis_engine/service/patients/PatientSyncService.java)
+- `his_patient_records -> patient_records`：[`jingyi_icis_engine PatientSyncService`](../../src/main/java/com/jingyicare/jingyi_icis_engine/service/patients/write/PatientSyncService.java)
 

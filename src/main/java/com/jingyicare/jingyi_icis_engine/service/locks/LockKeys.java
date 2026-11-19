@@ -66,7 +66,8 @@ public final class LockKeys {
         return "patient_device_bindings:" + patientId;
     }
 
-    public static String patientSync() {
+    // 人工对账和其他患者主档写入口共用原有的 patient_sync 锁。
+    public static String patientRecords() {
         return "patient_sync";
     }
 

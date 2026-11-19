@@ -92,7 +92,7 @@ AND discharge_time IS NULL
 | `icu_admission_time` | `admission_time` | 仅当源非空且目标为空时复制 |
 | 不存在 | `admission_source_dept_id` | 不同步 |
 
-字段代码见 [`PatientSyncService.updatePatientRecord()`](../../src/main/java/com/jingyicare/jingyi_icis_engine/service/patients/PatientSyncService.java#L557)。
+字段代码见 [`PatientSyncService.applyHisFields()`](../../src/main/java/com/jingyicare/jingyi_icis_engine/service/patients/write/PatientSyncService.java)。
 
 ### 3.3 状态不是一对一复制
 
@@ -123,7 +123,7 @@ AND discharge_time IS NULL
 3. `HisPatientPB` 只有 `admission_source_dept_name`，没有 `admission_source_dept_id`；
 4. `his_patient_records` 实体和表结构没有 `admission_source_dept_id`；
 5. 引擎 `HisPatientRecord` 也没有该字段；
-6. `PatientSyncService.updatePatientRecord()` 只设置来源科室名称，从未调用 `setAdmissionSourceDeptId()`。
+6. `PatientSyncService.applyHisFields()` 只设置来源科室名称，从未调用 `setAdmissionSourceDeptId()`。
 
 目标实体虽然有 [`PatientRecord.admissionSourceDeptId`](../../src/main/java/com/jingyicare/jingyi_icis_engine/entity/patients/PatientRecord.java#L379)，但在当前主代码中没有任何自动赋值点。
 

@@ -15,7 +15,6 @@ import com.jingyicare.jingyi_icis_engine.entity.patients.BedConfig;
 import com.jingyicare.jingyi_icis_engine.entity.patients.HisPatientRecord;
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientBedHistory;
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
-import com.jingyicare.jingyi_icis_engine.entity.patients.SurgeryHistory;
 import com.jingyicare.jingyi_icis_engine.entity.users.RbacDepartment;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.SyncHisPatientResp;
@@ -26,6 +25,7 @@ import com.jingyicare.jingyi_icis_engine.repository.patients.PatientBedHistoryRe
 import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patients.SurgeryHistoryRepository;
 import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
+import com.jingyicare.jingyi_icis_engine.service.patients.write.PatientSyncService;
 import com.jingyicare.jingyi_icis_engine.testutils.PatientTestUtils;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 
@@ -70,6 +70,45 @@ class PatientSyncServiceTests extends TestsBase {
         assertThat(synced.getHisBedNumber()).isEqualTo("hisBedNumber2099");
         assertThat(synced.getFromDeptId()).isEqualTo("fromDeptId2001");
         assertThat(synced.getFromDeptName()).isEqualTo("fromDeptName2001");
+    }
+
+    @Test
+    void testInvalidBedLeavesPatientUnchangedAndOtherPatientStillSyncs() {
+        String deptId = "sync-invalid-bed";
+        setupDepartment(deptId);
+        setupBed(deptId, "hisBedNumber2002", "device-2002", "display-2002");
+        setupBed(deptId, "hisBedNumber2003", "device-2003", "display-2003");
+
+        PatientRecord rejected = PatientTestUtils.newPatientRecord(
+            2002L, PatientEnums.ADMISSION_STATUS_ADMITTED, deptId);
+        rejected.setDiagnosis(null);
+        rejected.setHisEncounterId(null);
+        rejected.setDischargeTime(null);
+        long rejectedPid = patientRepo.save(rejected).getId();
+
+        HisPatientRecord rejectedHis = PatientTestUtils.newHisPatientRecord(
+            2002L, PatientEnums.ADMISSION_STATUS_ADMITTED, deptId);
+        rejectedHis.setBedNumber("nonexistent-bed");
+        rejectedHis.setName("HIS修改姓名");
+        hisPatientRepo.save(rejectedHis);
+
+        HisPatientRecord acceptedHis = PatientTestUtils.newHisPatientRecord(
+            2003L, PatientEnums.ADMISSION_STATUS_ADMITTED, deptId);
+        hisPatientRepo.save(acceptedHis);
+
+        assertThat(patientSyncService.syncPatientRecords(false)).isEqualTo(2);
+
+        PatientRecord unchanged = patientRepo.findById(rejectedPid).orElseThrow();
+        assertThat(unchanged.getHisBedNumber()).isEqualTo("hisBedNumber2002");
+        assertThat(unchanged.getIcuName()).isEqualTo("icuName2002");
+        assertThat(unchanged.getDiagnosis()).isBlank();
+        assertThat(unchanged.getHisEncounterId()).isBlank();
+        assertThat(unchanged.getAdmissionStatus()).isEqualTo(PatientEnums.ADMISSION_STATUS_ADMITTED);
+        assertThat(bedHistoryRepo.findByPatientId(rejectedPid)).isEmpty();
+        assertThat(diagnosisRepo.findByPatientIdAndIsDeletedFalse(rejectedPid)).isEmpty();
+        assertThat(patientRepo.findByMrnOrName("mrn2003")).singleElement()
+            .satisfies(patient -> assertThat(patient.getAdmissionStatus())
+                .isEqualTo(PatientEnums.ADMISSION_STATUS_PRE_ADMISSION));
     }
 
     @Test
@@ -135,6 +174,40 @@ class PatientSyncServiceTests extends TestsBase {
         assertThat(synced.getHisEncounterId()).isEqualTo(latest.getHisEncounterId());
         assertThat(synced.getAdmissionStatus())
             .isEqualTo(PatientEnums.ADMISSION_STATUS_PRE_ADMISSION);
+    }
+
+    @Test
+    void testDuplicateLocalMrnKeepsDiagnosisWithMatchedCase() {
+        String deptId = "sync-duplicate-local";
+        setupDepartment(deptId);
+        setupBed(deptId, "hisBedNumber2004", "device-2004", "display-2004");
+        PatientRecord first = PatientTestUtils.newPatientRecord(
+            2004L, PatientEnums.ADMISSION_STATUS_ADMITTED, deptId);
+        PatientRecord duplicate = PatientTestUtils.newPatientRecord(
+            2005L, PatientEnums.ADMISSION_STATUS_ADMITTED, deptId);
+        duplicate.setHisMrn(first.getHisMrn());
+        duplicate.setHisPatientId(first.getHisPatientId());
+        duplicate.setHisBedNumber(first.getHisBedNumber());
+        first.setDiagnosis(null);
+        duplicate.setDiagnosis(null);
+        List<Long> pids = List.of(
+            patientRepo.save(first).getId(), patientRepo.save(duplicate).getId());
+        hisPatientRepo.save(PatientTestUtils.newHisPatientRecord(
+            2004L, PatientEnums.ADMISSION_STATUS_ADMITTED, deptId));
+
+        assertThat(patientSyncService.syncPatientRecords(false)).isEqualTo(1);
+
+        List<PatientRecord> patients = patientRepo.findByIdIn(pids);
+        assertThat(patients).filteredOn(patient ->
+            PatientEnums.ADMISSION_STATUS_ADMITTED.equals(patient.getAdmissionStatus()))
+            .singleElement().satisfies(patient -> assertThat(
+                diagnosisRepo.findByPatientIdAndIsDeletedFalse(patient.getId()))
+                .singleElement().satisfies(history ->
+                    assertThat(history.getDiagnosis()).isEqualTo("diagnosis2004")));
+        assertThat(patients).filteredOn(patient ->
+            PatientEnums.ADMISSION_STATUS_PRE_DISCHARGE.equals(patient.getAdmissionStatus()))
+            .singleElement().satisfies(patient -> assertThat(
+                diagnosisRepo.findByPatientIdAndIsDeletedFalse(patient.getId())).isEmpty());
     }
 
     @Test
@@ -208,37 +281,6 @@ class PatientSyncServiceTests extends TestsBase {
             Long.class, "patient_sync")).isEqualTo(1L);
     }
 
-    @Test
-    void testReadmissionMergesExistingHistoryWithoutRunningManualSync() {
-        String deptId = "sync-readmission";
-        PatientRecord departed = PatientTestUtils.newPatientRecord(
-            29001L, PatientEnums.ADMISSION_STATUS_DISCHARGED, deptId);
-        PatientRecord pending = PatientTestUtils.newPatientRecord(
-            29002L, PatientEnums.ADMISSION_STATUS_PRE_ADMISSION, deptId);
-        pending.setHisMrn(departed.getHisMrn());
-        pending.setHisPatientId(departed.getHisPatientId());
-        pending.setHisBedNumber(departed.getHisBedNumber());
-        departed = patientRepo.save(departed);
-        pending = patientRepo.save(pending);
-
-        HisPatientRecord source = PatientTestUtils.newHisPatientRecord(
-            29002L, PatientEnums.ADMISSION_STATUS_ADMITTED, deptId);
-        source.setMrn(pending.getHisMrn());
-        source.setPid(pending.getHisPatientId());
-        source.setBedNumber(pending.getHisBedNumber());
-        hisPatientRepo.save(source);
-        SurgeryHistory existingSurgery = surgeryRepo.save(SurgeryHistory.builder()
-            .patientId(pending.getId()).name("既有手术").build());
-
-        assertThat(patientReadmissionService.readmitPatient(departed, pending))
-            .isEqualTo(StatusCode.OK);
-
-        assertThat(patientRepo.findById(departed.getId())).isPresent();
-        assertThat(patientRepo.findById(pending.getId())).isEmpty();
-        assertThat(surgeryRepo.findByPatientId(departed.getId()))
-            .extracting(SurgeryHistory::getId).containsExactly(existingSurgery.getId());
-    }
-
     private void setupDepartment(String deptId) {
         RbacDepartment dept = new RbacDepartment();
         dept.setDeptId(deptId);
@@ -259,7 +301,6 @@ class PatientSyncServiceTests extends TestsBase {
 
     @Autowired private PatientService patientService;
     @Autowired private PatientSyncService patientSyncService;
-    @Autowired private PatientReadmissionService patientReadmissionService;
     @Autowired private RbacDepartmentRepository deptRepo;
     @Autowired private HisPatientRecordRepository hisPatientRepo;
     @Autowired private PatientRecordRepository patientRepo;

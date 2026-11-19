@@ -77,6 +77,8 @@ public class ConfigProtoService {
             .setPatientEnums(config.getPatient().getEnumsV2().toBuilder()
                 .clearBloodType().addAllBloodType(PatientEnums.BLOOD_TYPES)
                 .clearBloodRh().addAllBloodRh(PatientEnums.BLOOD_RHS))
+            .addAllPatientAdmissionTypes(patientEnums.getAdmissionTypes())
+            .addAllPatientDischargeTypes(patientEnums.getDischargeTypes())
             .setTubeEnums(config.getTube().getEnums())
             .setTubeTypeList(config.getTube().getTypeList())
             .setTubeAttrList(config.getTube().getAttributeList())

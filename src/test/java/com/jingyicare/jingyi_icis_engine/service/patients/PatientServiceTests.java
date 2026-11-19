@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
@@ -50,7 +51,6 @@ public class PatientServiceTests extends TestsBase {
     }
 
     @Test
-    @org.springframework.transaction.annotation.Transactional
     public void testNewPatientUsesHisBedNumberWhenAnotherBedDisplaysIt() {
         String deptId = "10013";
         String accountId = "manual-entry-bed-test";
@@ -60,13 +60,15 @@ public class PatientServiceTests extends TestsBase {
         otherBed.setDisplayBedNumber("HIS-01");
         bedConfigRepo.save(selectedBed);
         bedConfigRepo.save(otherBed);
+        String mrn = "new-patient-his-bed";
+        String displayOnlyMrn = "new-patient-display-bed";
 
         rbacAccountRepo.save(new RbacAccount(accountId, "手工建档测试用户", ""));
         SecurityContextHolder.getContext().setAuthentication(
             new UsernamePasswordAuthenticationToken(accountId, null, Collections.emptyList()));
         try {
             NewPatientReq request = NewPatientReq.newBuilder()
-                .setDeptId(deptId).setHisMrn("new-patient-his-bed")
+                .setDeptId(deptId).setHisMrn(mrn)
                 .setBedNumberStr(selectedBed.getHisBedNumber())
                 .setAdmissionTime("2025-01-01T10:00:00+08:00").build();
 
@@ -77,88 +79,126 @@ public class PatientServiceTests extends TestsBase {
                 deptId, request.getHisMrn(), ADMISSION_STATUS_ADMITTED))
                 .extracting(PatientRecord::getHisBedNumber).containsExactly("HIS-01");
 
-            NewPatientReq displayOnly = request.toBuilder().setHisMrn("new-patient-display-bed")
+            NewPatientReq displayOnly = request.toBuilder().setHisMrn(displayOnlyMrn)
                 .setBedNumberStr(selectedBed.getDisplayBedNumber()).build();
             GenericResp missing = patientService.newPatient(ProtoUtils.protoToJson(displayOnly));
             assertThat(missing.getRt().getCode())
                 .isEqualTo(StatusCode.BED_CONFIG_NOT_EXISTS.getNumber());
         } finally {
             SecurityContextHolder.clearContext();
+            patientRecordRepo.deleteAll(patientRecordRepo.findByHisMrnInAndAdmissionStatusIn(
+                List.of(mrn, displayOnlyMrn), List.of(ADMISSION_STATUS_ADMITTED)));
+            bedConfigRepo.delete(selectedBed);
+            bedConfigRepo.delete(otherBed);
+            rbacAccountRepo.deleteById(accountId);
         }
     }
 
     @Test
-    @org.springframework.transaction.annotation.Transactional
     public void testPatientInfoBloodTypes() throws Exception {
         PatientRecord patient = patientTestUtils.newPatientRecord(
             99010L, ADMISSION_STATUS_ADMITTED, "10013");
         patient.setId(null);
         patient.setBloodType("A");
         patient.setBloodRh("RH阳性");
-        PatientConfig.clearDischargeFields(patient);
+        patient.setDischargeType(null);
+        patient.setDeathTime(null);
+        patient.setHisDischargeTime(null);
+        patient.setDischargeDiagnosis(null);
+        patient.setToDeptName(null);
+        patient.setDischargeTime(null);
         patient.setAttendingDoctorId(null);
         patient.setPrimaryCareDoctorId(null);
         patient.setAdmittingDoctorId(null);
         patient.setResponsibleNurseId(null);
-        patient = patientRecordRepo.save(patient);
+        long pid = patientRecordRepo.save(patient).getId();
 
-        String request = ProtoUtils.protoToJson(
-            GetPatientInfoV2Req.newBuilder().setId(patient.getId()).build());
-        GetPatientInfoV2Resp response = patientService.getPatientInfoV2(request);
-        assertThat(response.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
-        assertThat(response.getPatientInfo().getBloodType()).isEqualTo(PatientEnums.BLOOD_TYPE_A);
-        assertThat(response.getPatientInfo().getBloodRh())
-            .isEqualTo(PatientEnums.BLOOD_RH_POSITIVE);
+        try {
+            String request = ProtoUtils.protoToJson(
+                GetPatientInfoV2Req.newBuilder().setId(pid).build());
+            GetPatientInfoV2Resp response = patientService.getPatientInfoV2(request);
+            assertThat(response.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+            assertThat(response.getPatientInfo().getBloodType()).isEqualTo(PatientEnums.BLOOD_TYPE_A);
+            assertThat(response.getPatientInfo().getBloodRh())
+                .isEqualTo(PatientEnums.BLOOD_RH_POSITIVE);
 
-        // 保存历史中文值后采用规范名称；从数据库重新加载验证写入。
-        GenericResp saved = patientService.updatePatientInfoV2(ProtoUtils.protoToJson(
-            UpdatePatientInfoV2Req.newBuilder().setPatientInfo(response.getPatientInfo()).build()));
-        assertThat(saved.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
-        patientRecordRepo.flush();
-        entityManager.clear();
-        patient = patientRecordRepo.findById(patient.getId()).orElseThrow();
-        assertThat(patient.getBloodType()).isEqualTo("A");
-        assertThat(patient.getBloodRh()).isEqualTo("RH+");
+            // 保存历史中文值后采用规范名称；从数据库重新加载验证写入。
+            GenericResp saved = patientService.updatePatientInfoV2(ProtoUtils.protoToJson(
+                UpdatePatientInfoV2Req.newBuilder().setPatientInfo(response.getPatientInfo())
+                    .build()));
+            assertThat(saved.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+            patient = patientRecordRepo.findById(pid).orElseThrow();
+            assertThat(patient.getBloodType()).isEqualTo("A");
+            assertThat(patient.getBloodRh()).isEqualTo("RH+");
 
-        PatientRecordPB selected = response.getPatientInfo().toBuilder()
-            .setBloodType(PatientEnums.BLOOD_TYPE_AB)
-            .setBloodRh(PatientEnums.BLOOD_RH_NEGATIVE).build();
-        saved = patientService.updatePatientInfoV2(ProtoUtils.protoToJson(
-            UpdatePatientInfoV2Req.newBuilder().setPatientInfo(selected).build()));
-        assertThat(saved.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
-        patientRecordRepo.flush();
-        entityManager.clear();
-        patient = patientRecordRepo.findById(patient.getId()).orElseThrow();
-        assertThat(patient.getBloodType()).isEqualTo("AB");
-        assertThat(patient.getBloodRh()).isEqualTo("RH-");
-        response = patientService.getPatientInfoV2(request);
-        assertThat(response.getPatientInfo().getBloodType()).isEqualTo(PatientEnums.BLOOD_TYPE_AB);
-        assertThat(response.getPatientInfo().getBloodRh())
-            .isEqualTo(PatientEnums.BLOOD_RH_NEGATIVE);
+            PatientRecordPB selected = response.getPatientInfo().toBuilder()
+                .setBloodType(PatientEnums.BLOOD_TYPE_AB)
+                .setBloodRh(PatientEnums.BLOOD_RH_NEGATIVE).build();
+            saved = patientService.updatePatientInfoV2(ProtoUtils.protoToJson(
+                UpdatePatientInfoV2Req.newBuilder().setPatientInfo(selected).build()));
+            assertThat(saved.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+            patient = patientRecordRepo.findById(pid).orElseThrow();
+            assertThat(patient.getBloodType()).isEqualTo("AB");
+            assertThat(patient.getBloodRh()).isEqualTo("RH-");
+            response = patientService.getPatientInfoV2(request);
+            assertThat(response.getPatientInfo().getBloodType())
+                .isEqualTo(PatientEnums.BLOOD_TYPE_AB);
+            assertThat(response.getPatientInfo().getBloodRh())
+                .isEqualTo(PatientEnums.BLOOD_RH_NEGATIVE);
 
-        // 前端清空单选后，JSON 会省略这两个字段。
-        String cleared = com.google.protobuf.util.JsonFormat.printer().print(
-            UpdatePatientInfoV2Req.newBuilder().setPatientInfo(
-                selected.toBuilder().clearBloodType().clearBloodRh()).build());
-        assertThat(cleared).doesNotContain("bloodType", "bloodRh");
-        saved = patientService.updatePatientInfoV2(cleared);
-        assertThat(saved.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
-        patientRecordRepo.flush();
-        entityManager.clear();
-        patient = patientRecordRepo.findById(patient.getId()).orElseThrow();
-        assertThat(patient.getBloodType()).isEmpty();
-        assertThat(patient.getBloodRh()).isEmpty();
-        response = patientService.getPatientInfoV2(request);
-        assertThat(response.getPatientInfo().getBloodType()).isZero();
-        assertThat(response.getPatientInfo().getBloodRh()).isZero();
+            // 前端清空单选后，JSON 会省略这两个字段。
+            String cleared = com.google.protobuf.util.JsonFormat.printer().print(
+                UpdatePatientInfoV2Req.newBuilder().setPatientInfo(
+                    selected.toBuilder().clearBloodType().clearBloodRh()).build());
+            assertThat(cleared).doesNotContain("bloodType", "bloodRh");
+            saved = patientService.updatePatientInfoV2(cleared);
+            assertThat(saved.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+            patient = patientRecordRepo.findById(pid).orElseThrow();
+            assertThat(patient.getBloodType()).isEmpty();
+            assertThat(patient.getBloodRh()).isEmpty();
+            response = patientService.getPatientInfoV2(request);
+            assertThat(response.getPatientInfo().getBloodType()).isZero();
+            assertThat(response.getPatientInfo().getBloodRh()).isZero();
 
-        patient.setBloodType(null);
-        patient.setBloodRh(null);
-        patientRecordRepo.save(patient);
-        response = patientService.getPatientInfoV2(request);
-        assertThat(response.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
-        assertThat(response.getPatientInfo().getBloodType()).isZero();
-        assertThat(response.getPatientInfo().getBloodRh()).isZero();
+            patient.setBloodType(null);
+            patient.setBloodRh(null);
+            patientRecordRepo.save(patient);
+            response = patientService.getPatientInfoV2(request);
+            assertThat(response.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+            assertThat(response.getPatientInfo().getBloodType()).isZero();
+            assertThat(response.getPatientInfo().getBloodRh()).isZero();
+        } finally {
+            patientRecordRepo.deleteById(pid);
+        }
+    }
+
+    @Test
+    public void testRejectedPatientInfoUpdateDoesNotChangePatient() {
+        PatientRecord patient = new PatientRecord();
+        patient.setDeptId("10013");
+        patient.setHisMrn("patient-v2-rejected-edit");
+        patient.setAdmissionStatus(ADMISSION_STATUS_ADMITTED);
+        patient.setDiagnosis("原诊断");
+        long pid = patientRecordRepo.save(patient).getId();
+
+        try {
+            UpdatePatientInfoV2Req request = UpdatePatientInfoV2Req.newBuilder()
+                .setPatientInfo(PatientRecordPB.newBuilder()
+                    .setPid(pid)
+                    .setDiagnosis("不能写入的诊断")
+                    .setDischargeTimeIso8601("2026-07-24T01:02:03Z"))
+                .build();
+            GenericResp response = patientService.updatePatientInfoV2(
+                ProtoUtils.protoToJson(request));
+
+            assertThat(response.getRt().getCode())
+                .isEqualTo(StatusCode.PATIENT_IS_NOT_DISCHARGED.getNumber());
+            PatientRecord persisted = patientRecordRepo.findById(pid).orElseThrow();
+            assertThat(persisted.getDiagnosis()).isEqualTo("原诊断");
+            assertThat(persisted.getDischargeTime()).isNull();
+        } finally {
+            patientRecordRepo.deleteById(pid);
+        }
     }
 
     @Test
@@ -386,6 +426,40 @@ public class PatientServiceTests extends TestsBase {
         }
     }
 
+    @Test
+    public void testMissingPatientRejectsDiagnosisDeletionWithoutSoftDeleting() {
+        String accountId = "diagnosis-history-delete-test-user";
+        rbacAccountRepo.save(new RbacAccount(accountId, "诊断历史删除测试用户", ""));
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken(accountId, null, Collections.emptyList()));
+        DiagnosisHistory history = diagnosisHistoryRepo.save(DiagnosisHistory.builder()
+            .patientId(Long.MAX_VALUE)
+            .diagnosis("未关联到患者的诊断")
+            .diagnosisTime(TimeUtils.getNowUtc())
+            .diagnosisAccountId("his")
+            .isDeleted(false)
+            .build());
+
+        try {
+            DeleteDiagnosisHistoryReq request = DeleteDiagnosisHistoryReq.newBuilder()
+                .setId(history.getId())
+                .build();
+            GenericResp response = patientService.deleteDiagnosisHistory(
+                ProtoUtils.protoToJson(request));
+
+            assertThat(response.getRt().getCode())
+                .isEqualTo(StatusCode.PATIENT_NOT_FOUND.getNumber());
+            DiagnosisHistory persisted = diagnosisHistoryRepo.findById(history.getId())
+                .orElseThrow();
+            assertThat(persisted.getIsDeleted()).isFalse();
+            assertThat(persisted.getDeletedAt()).isNull();
+        } finally {
+            SecurityContextHolder.clearContext();
+            diagnosisHistoryRepo.deleteById(history.getId());
+            rbacAccountRepo.deleteById(accountId);
+        }
+    }
+
     private BedConfig newBedConfig(String deptId, String hisBedNumber, Integer bedType, Boolean isDeleted) {
         return BedConfig.builder()
             .departmentId(deptId)
@@ -396,9 +470,6 @@ public class PatientServiceTests extends TestsBase {
             .isDeleted(isDeleted)
             .build();
     }
-
-    @Autowired
-    private jakarta.persistence.EntityManager entityManager;
 
     final private PatientService patientService;
     final private PatientTestUtils patientTestUtils;

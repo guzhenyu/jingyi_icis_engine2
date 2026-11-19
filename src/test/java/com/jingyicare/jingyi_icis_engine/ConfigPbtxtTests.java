@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 import com.google.protobuf.TextFormat;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.PatientEnumsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisText.Text;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.UserConfigPB;
 
@@ -32,7 +33,10 @@ class ConfigPbtxtTests {
                 TextFormat.getParser().merge(new InputStreamReader(input, StandardCharsets.UTF_8), builder);
             }
 
-            assertThat(builder.getPatient().getEnumsV2().getDischargeTypeCount()).isEqualTo(3);
+            PatientEnumsPB patientEnums = builder.getPatient().getEnumsV2();
+            assertThat(patientEnums.getDischargeTypeTransferName()).isEqualTo("转出");
+            assertThat(patientEnums.getDischargeTypeDeadName()).isEqualTo("死亡");
+            assertThat(patientEnums.getDischargeTypeExitHospitalName()).isEqualTo("出院");
             List<String> columnIds = builder.getPatient().getDefaultDisplayFieldSettingsList().stream()
                 .flatMap(setting -> setting.getTableList().stream())
                 .flatMap(table -> table.getRequiredColList().stream())

@@ -67,46 +67,6 @@ shift {
 }
 patient {
     enums_v2 {
-        admission_type {
-            id: 1
-            name: "入院"
-        }
-        admission_type {
-            id: 2
-            name: "转入"
-        }
-        admission_type {
-            id: 3
-            name: "手术"
-        }
-        admission_type {
-            id: 4
-            name: "抢救"
-        }
-        admission_type {
-            id: 5
-            name: "重症"
-        }
-        admission_type {
-            id: 6
-            name: "外院"
-        }
-        admission_type {
-            id: 7
-            name: "病危"
-        }
-        discharge_type {
-            id: 1
-            name: "转出"
-        }
-        discharge_type {
-            id: 2
-            name: "死亡"
-        }
-        discharge_type {
-            id: 3
-            name: "出院"
-        }
         payment_method {
             id: 1
             name: "本地医保"
@@ -313,6 +273,16 @@ patient {
         discharged_name: "已出科"
         bed_type_fixed: "固定授权"
         bed_type_temp: "临时授权"
+        discharge_type_transfer_name: "转出"
+        discharge_type_dead_name: "死亡"
+        discharge_type_exit_hospital_name: "出院"
+        admission_type_hospital_name: "入院"
+        admission_type_transfer_name: "转入"
+        admission_type_surgery_name: "手术"
+        admission_type_rescue_name: "抢救"
+        admission_type_severe_name: "重症"
+        admission_type_other_hospital_name: "外院"
+        admission_type_critical_name: "病危"
     }
     default_display_field_settings {
         function_id: 1

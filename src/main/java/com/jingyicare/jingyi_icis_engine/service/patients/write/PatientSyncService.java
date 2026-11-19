@@ -1,10 +1,9 @@
-package com.jingyicare.jingyi_icis_engine.service.patients;
+package com.jingyicare.jingyi_icis_engine.service.patients.write;
 
 import static com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums.*;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -27,6 +26,7 @@ import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
@@ -34,13 +34,13 @@ import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 @Slf4j
 public class PatientSyncService {
     public PatientSyncService(
-        PatientReader patientReader, PatientDeviceService patientDeviceService,
+        PatientReader patientReader, PatientBedAssignment bedAssignment,
         RbacDepartmentRepository deptRepo, PatientRecordRepository patientRepo,
         DiagnosisHistoryRepository diagnosisRepo, HisPatientRecordRepository hisPatientRepo,
         AccountRepository accountRepo, LockExecutor lockExecutor
     ) {
         this.patientReader = patientReader;
-        this.patientDeviceService = patientDeviceService;
+        this.bedAssignment = bedAssignment;
         this.deptRepo = deptRepo;
         this.patientRepo = patientRepo;
         this.diagnosisRepo = diagnosisRepo;
@@ -50,10 +50,10 @@ public class PatientSyncService {
     }
 
     public int syncPatientRecords(boolean forceSync) {
-        // 此锁只串行化 Engine 的人工对账请求。
+        // 与其他 Engine 患者写入共用事务锁，取得锁后才读取对账输入。
         // CIG 若恰好同时更新同一病例，对账可能基于旧快照覆盖其刚写入的字段。
         return lockExecutor.execute(
-            List.of(LockKeys.patientSync()), () -> syncInTransaction(forceSync));
+            List.of(LockKeys.patientRecords()), () -> syncInTransaction(forceSync));
     }
 
     private int syncInTransaction(boolean forceSync) {
@@ -69,7 +69,7 @@ public class PatientSyncService {
             List.of(ADMISSION_STATUS_PRE_ADMISSION, ADMISSION_STATUS_ADMITTED));
 
         // 用归并排序的算法，合并hisPatientRecords和patientRecords
-        Map<String/*hisMrn*/, PatientSyncInfo> syncInfoMap = new HashMap<>();
+        List<PatientSyncInfo> stagedWrites = new ArrayList<>();
         int hisIndex = 0;
         int patientIndex = 0;
 
@@ -81,12 +81,12 @@ public class PatientSyncService {
 
                 if (compare == 0) {
                     // 1. mrn存在于hisPatientRecords和patientRecords中，更新patientRecord
-                    updatePatientRecord(hisRecord, patientRecord, syncInfoMap);
+                    syncExistingPatient(hisRecord, patientRecord, stagedWrites);
                     hisIndex++;
                     patientIndex++;
                 } else if (compare < 0) {
                     // 2. mrn存在于hisPatientRecords但不在patientRecords中，创建新记录
-                    PatientRecord newRecord = createPatientRecordFromHis(hisRecord, syncInfoMap);
+                    PatientRecord newRecord = createPatientRecordFromHis(hisRecord, stagedWrites);
                     if (newRecord != null) {
                         newRecord.setAdmissionStatus(ADMISSION_STATUS_PRE_ADMISSION);
                     }
@@ -95,13 +95,13 @@ public class PatientSyncService {
                     // 3. mrn存在于patientRecords但不在hisPatientRecords中，标记为待出科
                     patientRecord.setAdmissionStatus(ADMISSION_STATUS_PRE_DISCHARGE);
                     patientRecord.setDischargeTime(TimeUtils.getNowUtc());
-                    syncInfoMap.put(patientRecord.getHisMrn(), new PatientSyncInfo(patientRecord));
+                    stagedWrites.add(new PatientSyncInfo(patientRecord));
                     patientIndex++;
                 }
             } else if (hisIndex < hisPatientRecords.size()) {
                 // 2. hisPatientRecords中剩余的记录，创建新记录
                 PatientRecord newRecord = createPatientRecordFromHis(
-                    hisPatientRecords.get(hisIndex), syncInfoMap
+                    hisPatientRecords.get(hisIndex), stagedWrites
                 );
                 if (newRecord != null) {
                     newRecord.setAdmissionStatus(ADMISSION_STATUS_PRE_ADMISSION);
@@ -116,14 +116,14 @@ public class PatientSyncService {
                     log.info("Marking patient {} as pending discharged", patientRecord.getId());
                     patientRecord.setAdmissionStatus(ADMISSION_STATUS_PRE_DISCHARGE);
                     patientRecord.setDischargeTime(TimeUtils.getNowUtc());
-                    syncInfoMap.put(patientRecord.getHisMrn(), new PatientSyncInfo(patientRecord));
+                    stagedWrites.add(new PatientSyncInfo(patientRecord));
                 }
                 patientIndex++;
             }
         }
 
         List<DiagnosisHistory> diagnosesToAdd = new ArrayList<>();
-        for (PatientSyncInfo syncInfo : syncInfoMap.values()) {
+        for (PatientSyncInfo syncInfo : stagedWrites) {
             PatientRecord saved = patientRepo.save(syncInfo.patientRecord);
             for (DiagnosisHistory diagnosis : syncInfo.diagnosisHisList) {
                 diagnosis.setPatientId(saved.getId());
@@ -133,7 +133,7 @@ public class PatientSyncService {
         if (!diagnosesToAdd.isEmpty()) {
             diagnosisRepo.saveAll(diagnosesToAdd);
         }
-        log.info("Synced {} patient records", syncInfoMap.size());
+        log.info("Synced {} patient records", stagedWrites.size());
         return hisPatientRecords.size();
     }
 
@@ -177,31 +177,76 @@ public class PatientSyncService {
     }
 
     private PatientRecord createPatientRecordFromHis(
-        HisPatientRecord hisRecord, /* OUT */ Map<String, PatientSyncInfo> syncInfoMap
+        HisPatientRecord hisRecord, /* OUT */ List<PatientSyncInfo> stagedWrites
     ) {
-        // 如果hisRecord的床位号不在我们的配置中，则不创建
         Map<String, BedConfig> bedConfigMap =
             patientReader.getBedConfigMap(hisRecord.getDeptCode());
         BedConfig bedConfig = bedConfigMap.get(hisRecord.getBedNumber());
         if (bedConfig == null || Objects.equals(bedConfig.getBedType(), BED_TYPE_TEMP)) {
             log.warn("Bed {} is unavailable for new patient in department {}",
                 hisRecord.getBedNumber(), hisRecord.getDeptCode());
-            return null; // 床位号不在配置中，跳过创建
+            return null;
         }
 
-        // 从hisRecord创建新的PatientRecord
-        PatientRecord newRecord = new PatientRecord();
-        // 复用updatePatientRecord方法设置字段
-        updatePatientRecord(hisRecord, newRecord, syncInfoMap);
-        return newRecord;
+        PatientRecord patient = new PatientRecord();
+        patient.setHisBedNumber(hisRecord.getBedNumber());
+        stagedWrites.add(applyHisFields(hisRecord, true, patient));
+        return patient;
     }
 
-    boolean updatePatientRecord(
+    private void syncExistingPatient(
         HisPatientRecord hisRecord,
-        /* OUT */ PatientRecord patientRecord,
-        /* OUT */ Map<String, PatientSyncInfo> syncInfoMap
+        /* OUT */ PatientRecord patient,
+        /* OUT */ List<PatientSyncInfo> stagedWrites
     ) {
-        boolean isUpdated = false;
+        boolean bedChanged = !Objects.equals(patient.getHisBedNumber(), hisRecord.getBedNumber());
+        if (bedChanged) {
+            StatusCode status = bedAssignment.moveInTransaction(
+                hisRecord.getBedNumber(), TimeUtils.getNowUtc(), "his", "his", patient);
+            if (status != StatusCode.OK) {
+                log.warn("Skipping HIS field updates for patient {}, bed change failed: {}",
+                    patient.getId(), status);
+                // 就诊信息不一致时仍按原规则置为待出科，不写入无效床号或其他 HIS 资料。
+                if (hisAssignmentChanged(hisRecord, patient)) {
+                    patient.setAdmissionStatus(ADMISSION_STATUS_PRE_DISCHARGE);
+                    patient.setDischargeTime(TimeUtils.getNowUtc());
+                    stagedWrites.add(new PatientSyncInfo(patient));
+                }
+                return;
+            }
+        }
+        PatientSyncInfo syncInfo = applyHisFields(hisRecord, bedChanged, patient);
+        if (syncInfo != null) {
+            stagedWrites.add(syncInfo);
+        }
+    }
+
+    // 重返已由入科流程开启锁事务；复用 HIS 规则，但只迁移原有诊断历史。
+    StatusCode mergeForReadmission(HisPatientRecord hisRecord, /* OUT */ PatientRecord patient) {
+        if (!Objects.equals(patient.getHisBedNumber(), hisRecord.getBedNumber())) {
+            StatusCode status = bedAssignment.moveInTransaction(
+                hisRecord.getBedNumber(), TimeUtils.getNowUtc(), "his", "his", patient);
+            if (status != StatusCode.OK) return status;
+        }
+        applyHisFields(hisRecord, false, patient);
+        return StatusCode.OK;
+    }
+
+    private static boolean hisAssignmentChanged(HisPatientRecord hisRecord, PatientRecord patient) {
+        String deptId = patient.getDeptId();
+        // 与字段合并规则一致：旧档未记录科室时，允许使用 HIS 科室补空。
+        if (StrUtils.isBlank(deptId) && !StrUtils.isBlank(hisRecord.getDeptCode())) {
+            deptId = hisRecord.getDeptCode();
+        }
+        return !Objects.equals(deptId, hisRecord.getDeptCode())
+            || (!StrUtils.isBlank(patient.getHisPatientId())
+                && !Objects.equals(patient.getHisPatientId(), hisRecord.getPid()));
+    }
+
+    private PatientSyncInfo applyHisFields(
+        HisPatientRecord hisRecord, boolean bedChanged, /* OUT */ PatientRecord patientRecord
+    ) {
+        boolean isUpdated = bedChanged;
         PatientSyncInfo syncInfo = new PatientSyncInfo(patientRecord);
 
         // 1. his_patient_id  有值就不更新
@@ -247,19 +292,6 @@ public class PatientSyncService {
         if (StrUtils.isBlank(patientRecord.getHisAdmissionDiagnosisCode())
             && !StrUtils.isBlank(hisRecord.getAdmissionDiagnosisCode())) {
             patientRecord.setHisAdmissionDiagnosisCode(hisRecord.getAdmissionDiagnosisCode());
-            isUpdated = true;
-        }
-        // 9. his_bed_number  强制更新
-        boolean switchBedSuccess = true;
-        if (!Objects.equals(patientRecord.getHisBedNumber(), hisRecord.getBedNumber())) {
-            if (patientRecord.getId() != null) {  // 新病人不需要换床
-                StatusCode statusCode = patientDeviceService.switchBedImpl(
-                    patientRecord, hisRecord.getBedNumber(),
-                    TimeUtils.getNowUtc(), false, "his", "his"
-                );
-                switchBedSuccess = (statusCode == StatusCode.OK);
-            }
-            patientRecord.setHisBedNumber(hisRecord.getBedNumber());
             isUpdated = true;
         }
         // 10. icu_name  强制更新
@@ -473,10 +505,7 @@ public class PatientSyncService {
             patientRecord.setAdmissionStatus(ADMISSION_STATUS_PRE_ADMISSION);
             isUpdated = true;
         }
-        if (!Objects.equals(patientRecord.getDeptId(), hisRecord.getDeptCode()) ||
-            (!StrUtils.isBlank(patientRecord.getHisPatientId()) &&
-                !Objects.equals(patientRecord.getHisPatientId(), hisRecord.getPid()))
-        ) {
+        if (hisAssignmentChanged(hisRecord, patientRecord)) {
             patientRecord.setAdmissionStatus(ADMISSION_STATUS_PRE_DISCHARGE);
             patientRecord.setDischargeTime(TimeUtils.getNowUtc());
             isUpdated = true;
@@ -536,25 +565,20 @@ public class PatientSyncService {
             isUpdated = true;
         }
 
-        if (isUpdated && switchBedSuccess) {
-            // 如果有更新，记录同步信息
-            syncInfoMap.put(hisRecord.getMrn(), syncInfo);
-        }
-
-        return isUpdated;
+        return isUpdated ? syncInfo : null;
     }
 
-    static final class PatientSyncInfo {
+    private static final class PatientSyncInfo {
         private PatientSyncInfo(PatientRecord patientRecord) {
             this.patientRecord = patientRecord;
         }
 
         private final PatientRecord patientRecord;
-        final List<DiagnosisHistory> diagnosisHisList = new ArrayList<>();
+        private final List<DiagnosisHistory> diagnosisHisList = new ArrayList<>();
     }
 
     private final PatientReader patientReader;
-    private final PatientDeviceService patientDeviceService;
+    private final PatientBedAssignment bedAssignment;
     private final RbacDepartmentRepository deptRepo;
     private final PatientRecordRepository patientRepo;
     private final DiagnosisHistoryRepository diagnosisRepo;

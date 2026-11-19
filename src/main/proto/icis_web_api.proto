@@ -365,7 +365,7 @@ message GetConfigResp {
     config.CommonEnums common_enums = 2;
 
     // 病人
-    config.PatientEnumsV2 patient_enums = 3;
+    config.PatientEnumsPB patient_enums = 3;
 
     // 管道
     config.TubeEnums tube_enums = 4;
@@ -417,6 +417,12 @@ message GetConfigResp {
 
     // 皮肤护理分类
     repeated shared.IntStrKvPB skincare_category = 32;
+
+    // 出科类型
+    repeated shared.EnumValue patient_discharge_types = 33;
+
+    // 入科类型
+    repeated shared.EnumValue patient_admission_types = 34;
 }
 
 /*

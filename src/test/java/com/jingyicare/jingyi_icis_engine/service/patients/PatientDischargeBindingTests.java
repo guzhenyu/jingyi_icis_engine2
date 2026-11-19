@@ -22,7 +22,6 @@ import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.DischargePatientReq;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
-import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceEnums;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
@@ -130,10 +129,8 @@ class PatientDischargeBindingTests extends TestsBase {
     }
 
     private DischargePatientReq dischargeRequest(long patientId, String toDeptName) {
-        int transferType = protoConfig.getConfig().getPatient().getEnumsV2()
-            .getDischargeTypeList().stream().filter(type -> type.getName().equals("转出"))
-            .findFirst().orElseThrow().getId();
-        return DischargePatientReq.newBuilder().setId(patientId).setDischargeType(transferType)
+        return DischargePatientReq.newBuilder().setId(patientId)
+            .setDischargeType(PatientEnums.DISCHARGE_TYPE_TRANSFER)
             .setDischargeTime(TimeUtils.toIso8601String(DISCHARGE_TIME, "UTC"))
             .setToDeptName(toDeptName).build();
     }
@@ -186,7 +183,6 @@ class PatientDischargeBindingTests extends TestsBase {
     private static final LocalDateTime DISCHARGE_TIME = LocalDateTime.of(2025, 1, 2, 0, 0);
 
     @Autowired private PatientService service;
-    @Autowired private ProtoConfig protoConfig;
     @Autowired private UserQuery userQuery;
     @Autowired private JdbcTemplate jdbc;
 }

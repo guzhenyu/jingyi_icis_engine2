@@ -629,7 +629,7 @@ message UpdateIqcConfigReq {
 - 当前数据源：
   - `patient_records`：在 ICU 患者、出科类型、死亡时间。
   - `apache_ii_scores`：预计病死率。
-  - `patient.enums_v2.discharge_type` 配置：死亡出科类型。
+  - `PatientEnums.DISCHARGE_TYPE_DEAD` 定义死亡出科编码。
 - 明细：
   - 患者基础信息、是否死亡、死亡时间。
   - APACHEII 预计病死率、评分时间。
@@ -668,7 +668,7 @@ message UpdateIqcConfigReq {
 - 分母：同期转入 ICU 的手术患者总人数。
 - 当前数据源：
   - `patient_records`：入科时间、入科类型、入科来源科室、是否计划入科。
-  - `PatientConfig.admission_type_surgery_id`：手术入科类型。
+  - `PatientEnums.ADMISSION_TYPE_SURGERY`：手术入科类型。
 - 明细：
   - 患者基础信息。
   - 是否计划入科。

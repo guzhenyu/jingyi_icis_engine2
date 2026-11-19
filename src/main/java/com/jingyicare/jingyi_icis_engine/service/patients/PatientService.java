@@ -7,12 +7,11 @@ import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.google.protobuf.Message;
 import com.google.protobuf.util.JsonFormat;
 import lombok.*;
 import lombok.extern.slf4j.Slf4j;
@@ -26,11 +25,14 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisShift.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.*;
-import com.jingyicare.jingyi_icis_engine.service.certs.*;
-import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
-import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
-import com.jingyicare.jingyi_icis_engine.service.patients.bed.BedMetaReader;
-import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceBindingService;
+import com.jingyicare.jingyi_icis_engine.service.patients.write.PatientAdmissionService;
+import com.jingyicare.jingyi_icis_engine.service.patients.write.PatientDiagnosisHistoryService;
+import com.jingyicare.jingyi_icis_engine.service.patients.write.PatientDiagnosisHistoryService.AddDiagnosisResult;
+import com.jingyicare.jingyi_icis_engine.service.patients.write.PatientDiagnosisHistoryService.DiagnosisHistoryResult;
+import com.jingyicare.jingyi_icis_engine.service.patients.write.PatientDischargeService;
+import com.jingyicare.jingyi_icis_engine.service.patients.write.PatientEditService;
+import com.jingyicare.jingyi_icis_engine.service.patients.write.PatientRecordMapper;
+import com.jingyicare.jingyi_icis_engine.service.patients.write.PatientSyncService;
 import com.jingyicare.jingyi_icis_engine.service.settings.SettingsStore;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
 import com.jingyicare.jingyi_icis_engine.service.therapies.SepsisAndSepticShockBundleService;
@@ -48,79 +50,32 @@ public class PatientService {
     }
 
     public PatientService(
-        ConfigurableApplicationContext context,
-        @Autowired ConfigProtoService protoService,
-        @Autowired PatientEnums patientEnums,
-        @Autowired ConfigShiftUtils shiftUtils,
-        @Autowired PatientConfig patientConfig,
-        @Autowired SettingsStore settingsStore,
-        @Autowired PatientSyncService patientSyncService,
-        @Autowired PatientReadmissionService patientReadmissionService,
-        @Autowired PatientDeviceService patientDeviceService,
-        @Autowired UserQuery userQuery,
-        @Autowired CertificateService certService,
-        @Autowired PatientRecordRepository repository,
-        @Autowired BedMetaReader bedMetaReader,
-        @Autowired DiagnosisHistoryRepository diagnosisHistoryRepository,
-        @Autowired DeviceBindingService deviceBindingService,
-        @Autowired PatientReader patientReader,
-        @Autowired LockExecutor lockExecutor,
-        @Autowired ReadmissionHistoryRepository readmissionHistoryRepository,
-        @Autowired PatientSettingsRepository patientSettingsRepository,
-        @Autowired SepsisAndSepticShockBundleService sepsisAndSepticShockBundleService
+        ConfigProtoService protoService, PatientEnums patientEnums, ConfigShiftUtils shiftUtils,
+        SettingsStore settingsStore,
+        PatientAdmissionService admissionService, PatientDischargeService dischargeService,
+        PatientEditService editService, PatientDiagnosisHistoryService diagnosisHistoryService,
+        PatientSyncService patientSyncService, PatientRecordMapper patientRecordMapper,
+        UserQuery userQuery, PatientRecordRepository patientRecordRepository,
+        PatientReader patientReader, PatientSettingsRepository patientSettingsRepository,
+        SepsisAndSepticShockBundleService sepsisAndSepticShockBundleService
     ) {
-        this.enumsV2 = protoService.getConfig().getPatient().getEnumsV2();
         this.ZONE_ID = protoService.getConfig().getZoneId();
-        this.GRACE_PERIOD_HOURS_TO_READMIT = protoService.getConfig().getPatient().getGracePeriodHoursToReadmit();
-
-        EnumValue dischargeType = enumsV2.getDischargeTypeList().stream()
-            .filter(e -> e.getName().equals("转出"))
-            .findFirst()
-            .orElse(null);
-        if (dischargeType == null) {
-            log.error("Failed to find discharge type '转出' in enumsV2");
-            LogUtils.flushAndQuit(context);
-        }
-        this.DISCHARGE_TYPE_TRANSFER_ID = dischargeType.getId();
-
-        dischargeType = enumsV2.getDischargeTypeList().stream()
-            .filter(e -> e.getName().equals("死亡"))
-            .findFirst()
-            .orElse(null);
-        if (dischargeType == null) {
-            log.error("Failed to find discharge type '死亡' in enumsV2");
-            LogUtils.flushAndQuit(context);
-        }
-        this.DISCHARGE_TYPE_DEATH_ID = dischargeType.getId();
-
-        dischargeType = enumsV2.getDischargeTypeList().stream()
-            .filter(e -> e.getName().equals("出院"))
-            .findFirst()
-            .orElse(null);
-        if (dischargeType == null) {
-            log.error("Failed to find discharge type '出院' in enumsV2");
-            LogUtils.flushAndQuit(context);
-        }
-        this.DISCHARGE_TYPE_EXIT_HOSPITAL_ID = dischargeType.getId();
-
+        this.GRACE_PERIOD_HOURS_TO_READMIT =
+            protoService.getConfig().getPatient().getGracePeriodHoursToReadmit();
         this.protoService = protoService;
         this.settingsStore = settingsStore;
         this.patientEnums = patientEnums;
         this.statusCodeMsgs = protoService.getConfig().getText().getStatusCodeMsgList();
         this.shiftUtils = shiftUtils;
-        this.patientConfig = patientConfig;
+        this.admissionService = admissionService;
+        this.dischargeService = dischargeService;
+        this.editService = editService;
+        this.diagnosisHistoryService = diagnosisHistoryService;
         this.patientSyncService = patientSyncService;
-        this.patientReadmissionService = patientReadmissionService;
-        this.patientDeviceService = patientDeviceService;
+        this.patientRecordMapper = patientRecordMapper;
         this.userQuery = userQuery;
-        this.certService = certService;
-        this.patientRecordRepository = repository;
-        this.bedMetaReader = bedMetaReader;
-        this.diagnosisHistoryRepository = diagnosisHistoryRepository;
-        this.deviceBindingService = deviceBindingService;
+        this.patientRecordRepository = patientRecordRepository;
         this.patientReader = patientReader;
-        this.lockExecutor = lockExecutor;
-        this.readmissionHistoryRepository = readmissionHistoryRepository;
         this.patientSettingsRepository = patientSettingsRepository;
         this.sepsisAndSepticShockBundleService = sepsisAndSepticShockBundleService;
     }
@@ -379,266 +334,31 @@ public class PatientService {
         builder.addAllBasics(basicsList);
     }
 
-    @Transactional
-    public GenericResp newPatient(String newPatientReqJson) {
-        final NewPatientReq req;
-        try {
-            NewPatientReq.Builder builder = NewPatientReq.newBuilder();
-            JsonFormat.parser().merge(newPatientReqJson, builder);
-            req = builder.build();
-        } catch (Exception e) {
-            log.error("Failed to convert string to proto: ", e, "\n", e.getStackTrace());
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
+    public GenericResp newPatient(String json) {
+        NewPatientReq req = parseRequest(json, NewPatientReq.newBuilder());
+        if (req == null) return writeResponse(StatusCode.PARSE_JSON_FAILED);
 
         CurrentAccount account = userQuery.getCurrentAccount();
-        if (account == null) {
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-
-        // 根据mrn查找是否已经存在该病人
-        List<PatientRecord> patients = patientRecordRepository.findByMrnAndAdmissionStatusNotEquals(
-            req.getDeptId(), req.getHisMrn(), ADMISSION_STATUS_DISCHARGED);
-        // 如果病人已存在，且状态不是DISCHARGED(已出科)，返回错误码
-        if (!patients.isEmpty()) {
-            return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.PATIENT_ALREADY_EXISTS))
-            .build();
-        }
-
-        // 手工建档时提交的是所选床位的 HIS 床号。
-        BedConfig bedConfig = bedMetaReader.findActiveBedByHisNumber(
-            req.getDeptId(), req.getBedNumberStr()).orElse(null);
-        if (bedConfig == null) {
-            log.error("未找到有效床位配置，科室={}，HIS 床号={}", req.getDeptId(), req.getBedNumberStr());
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.BED_CONFIG_NOT_EXISTS))
-                .build();
-        }
-
-        // 新增病人，返回成功码
-        PatientRecord record = new PatientRecord();
-        record.setIcuName(req.getIcuName());
-        record.setHisMrn(req.getHisMrn());
-        record.setHisBedNumber(bedConfig.getHisBedNumber());
-        record.setIcuManualEntry(true);
-        record.setIcuManualEntryAccountId(account.autoAcctId());
-        record.setIcuGender(req.getIcuGender());
-        record.setIcuDateOfBirth(TimeUtils.fromIso8601String(req.getIcuDateOfBirth(), "UTC"));
-        record.setAdmissionTime(TimeUtils.fromIso8601String(req.getAdmissionTime(), "UTC"));
-        setAdmissionTypeValues(record, req.getAdmissionTypeList());
-        record.setFromDeptName(req.getFromDeptName());
-        record.setPrimaryCareDoctorId(req.getPrimaryCareDoctorId());
-        record.setIsPlannedAdmission(req.getIsPlannedAdmission() > 0);
-        record.setUnplannedAdmissionReason(req.getUnplannedAdmissionReason());
-        record.setDiagnosis(req.getDiagnosis());
-        record.setHisPatientId(req.getHisPid());
-        record.setDeptId(req.getDeptId());
-        record.setAdmissionStatus(ADMISSION_STATUS_ADMITTED);
-        record.setCreatedAt(LocalDateTime.now());
-        patientRecordRepository.save(record);
-
-        return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .build();
+        if (account == null) return writeResponse(StatusCode.ACCOUNT_NOT_FOUND);
+        return writeResponse(admissionService.createManual(req, account));
     }
 
-    @Transactional
-    public GenericResp admitPatient(String admitPatientReqJson) {
-        final AdmitPatientReq req;
-        try {
-            AdmitPatientReq.Builder builder = AdmitPatientReq.newBuilder();
-            JsonFormat.parser().merge(admitPatientReqJson, builder);
-            req = builder.build();
-        } catch (Exception e) {
-            log.error("Failed to convert string to proto: ", e, "\n", e.getStackTrace());
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
+    public GenericResp admitPatient(String json) {
+        AdmitPatientReq req = parseRequest(json, AdmitPatientReq.newBuilder());
+        if (req == null) return writeResponse(StatusCode.PARSE_JSON_FAILED);
 
-        // 获取当前用户信息
         CurrentAccount account = userQuery.getCurrentAccount();
-        if (account == null) {
-            log.error("Account not found");
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-        final LocalDateTime nowUtc = TimeUtils.getNowUtc();
-
-        // 提取关键信息
-        LocalDateTime admissionTime = TimeUtils.fromIso8601String(req.getAdmissionTime(), "UTC");
-
-        // 根据his_mrn查找病人
-        List<PatientRecord> patients = patientRecordRepository.findByMrnAndAdmissionStatus(
-            req.getDeptId(), req.getHisMrn(), ADMISSION_STATUS_PRE_ADMISSION);
-        if (patients.isEmpty()) {
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
-                .build();
-        } else if (patients.size() > 1) {
-            log.error("Multiple patients found for his_mrn: {}", req.getHisMrn());
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.INTERNAL_EXCEPTION))
-                .build();
-        }
-        PatientRecord patient = patients.get(0);
-
-        // 是否合并记录
-        Boolean merged = false;
-        if (req.getToMerge()) {  // 合并逻辑
-            PatientRecord lastDischargedPatient = patientRecordRepository.findById(req.getLastPid()).orElse(null);
-            if (lastDischargedPatient != null &&
-                lastDischargedPatient.getHisMrn().equals(patient.getHisMrn())
-            ) {
-                // 重返历史记录
-                ReadmissionHistory readmissionHistory = ReadmissionHistory.builder()
-                    .patientId(lastDischargedPatient.getId())
-                    .readmissionReason(req.getUnplannedAdmissionReason())
-                    .icuDischargeTime(lastDischargedPatient.getDischargeTime())
-                    .icuDischargeEditTime(lastDischargedPatient.getDischargeEditTime())
-                    .icuDischargingAccountId(lastDischargedPatient.getDischargeAccountId())
-                    .icuAdmissionTime(admissionTime)
-                    .icuAdmissionEditTime(nowUtc)
-                    .icuAdmittingAccountId(account.autoAcctId())
-                    .build();
-                readmissionHistoryRepository.save(readmissionHistory);
-
-                // 详细记录床位切换历史
-                StatusCode statusCode = patientDeviceService.switchBedImpl(
-                    lastDischargedPatient, patient.getHisBedNumber(), patient.getAdmissionTime(), true,
-                    account.autoAcctId(), account.acctName()
-                );
-                if (statusCode != StatusCode.OK) {
-                    log.error("Failed to switch bed: {}", statusCode);
-                    return GenericResp.newBuilder()
-                        .setRt(protoService.getReturnCode(statusCode))
-                        .build();
-                }
-                // 合并病人记录
-                statusCode = patientReadmissionService.readmitPatient(lastDischargedPatient, patient);
-                if (statusCode != StatusCode.OK) {
-                    log.error("Failed to readmit patient: {}", statusCode);
-                    return GenericResp.newBuilder()
-                        .setRt(protoService.getReturnCode(statusCode))
-                        .build();
-                }
-                merged = true;
-            }
-        }
-        final String deptId = patient.getDeptId();
-        final String hisBedNumber = patient.getHisBedNumber();
-
-        // 校验当前床位配置数量，患者入科本身不新增床位配置
-        if (!certService.checkBedAvailable(deptId)) {
-            log.error("No available bed in deptId: {}", deptId);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.BED_CONFIG_BED_NUMBER_LIMIT_EXCEEDED))
-                .build();
-        }
-
-        // 检查床位配置是否存在
-        BedConfig bedConfig = bedMetaReader.findActiveBedByHisNumber(
-            deptId, hisBedNumber).orElse(null);
-        if (bedConfig == null) {
-            log.error("BedConfig not found for deptId: {}, hisBedNumber: {}", deptId, hisBedNumber);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.BED_CONFIG_NOT_EXISTS))
-                .build();
-        }
-
-        if (!merged) {
-            patient.setDeptId(req.getDeptId());
-            patient.setAdmissionTime(admissionTime);
-            setAdmissionTypeValues(patient, req.getAdmissionTypeList());
-            patient.setFromDeptName(req.getFromDeptName());
-            patient.setPrimaryCareDoctorId(req.getPrimaryCareDoctorId());
-            patient.setIsPlannedAdmission(req.getIsPlannedAdmission() > 0);
-            patient.setUnplannedAdmissionReason(req.getUnplannedAdmissionReason());
-            patient.setAdmissionStatus(ADMISSION_STATUS_ADMITTED);
-            patientRecordRepository.save(patient);
-        }
-
-        return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .build();
+        if (account == null) return writeResponse(StatusCode.ACCOUNT_NOT_FOUND);
+        return writeResponse(admissionService.admitPending(req, account));
     }
 
-    public GenericResp dischargePatient(String dischargePatientReqJson) {
-        final DischargePatientReq req;
-        try {
-            req = ProtoUtils.parseJsonToProto(
-                dischargePatientReqJson, DischargePatientReq.newBuilder());
-        } catch (Exception e) {
-            log.error("解析患者出科请求失败", e);
-            return ReturnCodeUtils.genericResponse(statusCodeMsgs, StatusCode.PARSE_JSON_FAILED);
-        }
+    public GenericResp dischargePatient(String json) {
+        DischargePatientReq req = parseRequest(json, DischargePatientReq.newBuilder());
+        if (req == null) return writeResponse(StatusCode.PARSE_JSON_FAILED);
+
         CurrentAccount account = userQuery.getCurrentAccount();
-        if (account == null) {
-            return ReturnCodeUtils.genericResponse(statusCodeMsgs, StatusCode.ACCOUNT_NOT_FOUND);
-        }
-
-        StatusCode status = lockExecutor.execute(
-            List.of(LockKeys.patientDeviceBindings(req.getId())), () -> {
-                PatientRecord patient = patientReader.findById(req.getId()).orElse(null);
-                if (patient == null) return StatusCode.PATIENT_NOT_FOUND;
-                if (!Objects.equals(patient.getAdmissionStatus(), ADMISSION_STATUS_PRE_DISCHARGE)) {
-                    log.error("患者出科状态无效，患者={}，状态={}",
-                        patient.getId(), patient.getAdmissionStatus());
-                    return StatusCode.INTERNAL_EXCEPTION;
-                }
-
-                LocalDateTime nowUtc = TimeUtils.getNowUtc();
-                LocalDateTime dischargeTime = TimeUtils.fromIso8601String(
-                    req.getDischargeTime(), "UTC");
-                if (dischargeTime == null) return StatusCode.INVALID_TIME_FORMAT;
-                if (dischargeTime.isAfter(nowUtc)) return StatusCode.DISCHARGE_TIME_IS_AFTER_NOW;
-
-                LocalDateTime deathTime = TimeUtils.fromIso8601String(req.getDeathTime(), "UTC");
-                LocalDateTime exitTime = TimeUtils.fromIso8601String(
-                    req.getHisDischargeTimeIso8601(), "UTC");
-                int dischargeType = req.getDischargeType();
-                if (dischargeType == DISCHARGE_TYPE_TRANSFER_ID) {
-                    if (StrUtils.isBlank(req.getToDeptName())) {
-                        return StatusCode.DISCHARGE_TYPE_TRANSFER_NEEDS_TARGET_DEPT_NAME;
-                    }
-                } else if (dischargeType == DISCHARGE_TYPE_DEATH_ID) {
-                    if (deathTime == null) {
-                        return StatusCode.DISCHARGE_TYPE_DEATH_NEEDS_DEATH_TIME;
-                    }
-                } else if (dischargeType == DISCHARGE_TYPE_EXIT_HOSPITAL_ID) {
-                    if (exitTime == null) {
-                        return StatusCode.DISCHARGE_TYPE_EXIT_HOSPITAL_NEEDS_EXIT_TIME;
-                    }
-                } else {
-                    return StatusCode.INVALID_DISCHARGE_TYPE;
-                }
-
-                // 整批解绑校验成功后才修改患者；两张表在同一锁事务中提交。
-                StatusCode unbindingStatus = deviceBindingService
-                    .unbindAllForDischargeInTransaction(
-                        patient.getId(), dischargeTime, account, nowUtc);
-                if (unbindingStatus != StatusCode.OK) return unbindingStatus;
-
-                patient.setDischargeTime(dischargeTime);
-                patient.setDischargeType(dischargeType);
-                if (dischargeType == DISCHARGE_TYPE_TRANSFER_ID) {
-                    patient.setToDeptName(req.getToDeptName());
-                } else if (dischargeType == DISCHARGE_TYPE_DEATH_ID) {
-                    patient.setDeathTime(deathTime);
-                } else {
-                    patient.setHisDischargeTime(exitTime);
-                }
-                patient.setAdmissionStatus(ADMISSION_STATUS_DISCHARGED);
-                patientRecordRepository.save(patient);
-                return StatusCode.OK;
-            });
-        return ReturnCodeUtils.genericResponse(statusCodeMsgs, status);
+        if (account == null) return writeResponse(StatusCode.ACCOUNT_NOT_FOUND);
+        return writeResponse(dischargeService.discharge(req, account));
     }
 
     @Transactional
@@ -663,51 +383,18 @@ public class PatientService {
         }
 
         Map<String, BedConfig> bedConfigMap = patientReader.getBedConfigMap(patient.getDeptId());
-        PatientRecordPB patientInfo = toPatientRecordPB(patient, bedConfigMap);
+        PatientRecordPB patientInfo = patientRecordMapper.toPatientRecordPB(patient, bedConfigMap);
         return GetPatientInfoV2Resp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
             .setPatientInfo(patientInfo)
             .build();
     }
 
-    @Transactional
-    public GenericResp updatePatientInfoV2(String updatePatientInfoV2ReqJson) {
-        final UpdatePatientInfoV2Req req;
-        try {
-            UpdatePatientInfoV2Req.Builder builder = UpdatePatientInfoV2Req.newBuilder();
-            JsonFormat.parser().merge(updatePatientInfoV2ReqJson, builder);
-            req = builder.build();
-        } catch (Exception e) {
-            log.error("Failed to convert string to proto, {} ", updatePatientInfoV2ReqJson);
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
+    public GenericResp updatePatientInfoV2(String json) {
+        UpdatePatientInfoV2Req req = parseRequest(json, UpdatePatientInfoV2Req.newBuilder());
+        if (req == null) return writeResponse(StatusCode.PARSE_JSON_FAILED);
 
-        PatientRecord patient = patientRecordRepository.findById(req.getPatientInfo().getPid()).
-            orElse(null);
-        if (patient == null) {
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
-                .build();
-        }
-
-        updatePatientRecord(patient, req.getPatientInfo());
-
-        if (!patient.getAdmissionStatus().equals(ADMISSION_STATUS_DISCHARGED) &&
-            (patient.getDischargeTime() != null ||
-             !StrUtils.isBlank(patient.getToDeptName()) ||
-             patient.getDeathTime() != null)
-        ) {
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PATIENT_IS_NOT_DISCHARGED))
-                .build();
-        }
-        patientRecordRepository.save(patient);
-
-        return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .build();
+        return writeResponse(editService.update(req.getPatientInfo()));
     }
 
     @Transactional
@@ -808,353 +495,77 @@ public class PatientService {
             .build();
     }
 
-    private boolean hasGenericDiagnosisContent(DiagnosisHistory diagnosisHistory) {
-        return !StrUtils.isBlank(diagnosisHistory.getDiagnosis()) ||
-            !StrUtils.isBlank(diagnosisHistory.getDiagnosisCode());
-    }
-
-    private Comparator<DiagnosisHistory> diagnosisHistoryNewestFirst() {
-        return Comparator.comparing(DiagnosisHistory::getDiagnosisTime)
-            .reversed()
-            .thenComparing(DiagnosisHistory::getId, Comparator.reverseOrder());
-    }
-
-    @Transactional
-    public GetDiagnosisHistoryResp getDiagnosisHistory(String getDiagnosisHistoryReqJson) {
-        final GetDiagnosisHistoryReq req;
-        try {
-            GetDiagnosisHistoryReq.Builder builder = GetDiagnosisHistoryReq.newBuilder();
-            JsonFormat.parser().merge(getDiagnosisHistoryReqJson, builder);
-            req = builder.build();
-        } catch (Exception e) {
-            log.error("Failed to convert string to proto: ", e, "\n", e.getStackTrace());
+    public GetDiagnosisHistoryResp getDiagnosisHistory(String json) {
+        GetDiagnosisHistoryReq req = parseRequest(json, GetDiagnosisHistoryReq.newBuilder());
+        if (req == null) {
             return GetDiagnosisHistoryResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
-        // 查找病人信息
-        Long pid = req.getPid();
-        PatientRecord patient = patientRecordRepository.findById(pid).
-            orElse(null);
-        if (patient == null) {
-            ReturnCode rt = protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND);
-            return GetDiagnosisHistoryResp.newBuilder().setRt(rt).build();
-        }
-
-        // 获取所有诊断历史
-        List<DiagnosisHistory> diagnosisHistories = diagnosisHistoryRepository
-            .findByPatientIdAndIsDeletedFalse(pid)
-            .stream()
-            .filter(this::hasGenericDiagnosisContent)
-            .sorted(diagnosisHistoryNewestFirst())
-            .toList();
-
-        DiagnosisHistory latestDiagnosis = diagnosisHistories.stream()
-            .filter(dh -> !StrUtils.isBlank(dh.getDiagnosis()))
-            .findFirst()
-            .orElse(null);
-
-        // 如果诊断历史最新的记录和当前病人记录的诊断不一致，更新病人记录
-        Boolean updatePatient = false;
-        if (StrUtils.isBlank(patient.getDiagnosis()) != (latestDiagnosis == null)) {
-            if (latestDiagnosis != null) {
-                patient.setDiagnosis(latestDiagnosis.getDiagnosis());
-            } else {
-                patient.setDiagnosis("");
-            }
-            updatePatient = true;
-        } else if (latestDiagnosis != null && !latestDiagnosis.getDiagnosis().equals(patient.getDiagnosis())) {
-            patient.setDiagnosis(latestDiagnosis.getDiagnosis());
-            updatePatient = true;
-        }
-        if (updatePatient) patientRecordRepository.save(patient);
-
-        // 返回诊断历史
-        List<DiagnosisHistoryPB> diagnosisHistoryList = new ArrayList<>();
-        for (DiagnosisHistory dh : diagnosisHistories) {
-            DiagnosisHistoryPB.Builder dhBuilder = DiagnosisHistoryPB.newBuilder();
-            dhBuilder.setId(dh.getId());
-            dhBuilder.setDiagnosisTimeIso8601(TimeUtils.toIso8601String(dh.getDiagnosisTime(), ZONE_ID));
-            dhBuilder.setDiagnosisDoctorId(dh.getDiagnosisAccountId());
-            dhBuilder.setDiagnosis(StrUtils.getStringOrDefault(dh.getDiagnosis(), ""));
-            dhBuilder.setDiagnosisCode(StrUtils.getStringOrDefault(dh.getDiagnosisCode(), ""));
-            diagnosisHistoryList.add(dhBuilder.build());
-        }
-
+        DiagnosisHistoryResult result = diagnosisHistoryService.getAndRefresh(req.getPid());
         return GetDiagnosisHistoryResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .addAllDiagnosisHistory(diagnosisHistoryList)
+            .setRt(protoService.getReturnCode(result.status()))
+            .addAllDiagnosisHistory(result.history())
             .build();
     }
 
-    @Transactional
-    public AddDiagnosisHistoryResp addDiagnosisHistory(String addDiagnosisHistoryReqJson) {
-        final AddDiagnosisHistoryReq req;
-        try {
-            AddDiagnosisHistoryReq.Builder builder = AddDiagnosisHistoryReq.newBuilder();
-            JsonFormat.parser().merge(addDiagnosisHistoryReqJson, builder);
-            req = builder.build();
-        } catch (Exception e) {
-            log.error("Failed to convert string to proto: ", e, "\n", e.getStackTrace());
+    public AddDiagnosisHistoryResp addDiagnosisHistory(String json) {
+        AddDiagnosisHistoryReq req = parseRequest(json, AddDiagnosisHistoryReq.newBuilder());
+        if (req == null) {
             return AddDiagnosisHistoryResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
                 .build();
         }
 
-        // 查找病人信息
-        Long pid = req.getPid();
-        PatientRecord patient = patientRecordRepository.findById(pid).
-            orElse(null);
-        if (patient == null) {
-            ReturnCode rt = protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND);
-            return AddDiagnosisHistoryResp.newBuilder().setRt(rt).build();
-        }
-
-        // 转换诊断时间
-        LocalDateTime diagnosisTime = TimeUtils.fromIso8601String(
-            req.getDiagnosisHistory().getDiagnosisTimeIso8601(), "UTC"
-        );
-        if (diagnosisTime == null) {
-            return AddDiagnosisHistoryResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.INVALID_TIME_FORMAT))
-                .build();
-        }
-
-        // 获取用户信息
-        CurrentAccount account = userQuery.getCurrentAccount();
-        if (account == null) {
-            return AddDiagnosisHistoryResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-
-        // 获取最新诊断历史，检查新增记录时间是否为最新，如果为最新，则更新病人记录
-        DiagnosisHistory latestDiagnosis = diagnosisHistoryRepository
-            .findByPatientIdAndIsDeletedFalse(pid)
-            .stream()
-            .filter(dh -> !StrUtils.isBlank(dh.getDiagnosis()))
-            .sorted(diagnosisHistoryNewestFirst())
-            .findFirst()
-            .orElse(null);
-        if (latestDiagnosis == null || !latestDiagnosis.getDiagnosisTime().isAfter(diagnosisTime)) {
-            // 更新病人记录
-            if (!StrUtils.isBlank(req.getDiagnosisHistory().getDiagnosis())) {
-                patient.setDiagnosis(req.getDiagnosisHistory().getDiagnosis());
-            }
-            patientRecordRepository.save(patient);
-        }
-
-        // 新增诊断历史
-        DiagnosisHistory diagnosisHistory = DiagnosisHistory.builder()
-            .patientId(pid)
-            .diagnosisTime(diagnosisTime)
-            .diagnosisAccountId(account.autoAcctId())
-            .diagnosis(req.getDiagnosisHistory().getDiagnosis())
-            .diagnosisCode(req.getDiagnosisHistory().getDiagnosisCode())
-            .isDeleted(false)
-            .modifiedAt(TimeUtils.getNowUtc())
-            .modifiedBy(account.autoAcctId())
-            .modifiedByAccountName(account.acctName())
-            .build();
-        diagnosisHistory = diagnosisHistoryRepository.save(diagnosisHistory);
-
+        AddDiagnosisResult result = diagnosisHistoryService.add(req, userQuery.getCurrentAccount());
         return AddDiagnosisHistoryResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .setId(diagnosisHistory.getId())
+            .setRt(protoService.getReturnCode(result.status()))
+            .setId(result.id())
             .build();
     }
 
-    @Transactional
-    public GenericResp updateDiagnosisHistory(String updateDiagnosisHistoryReqJson) {
-        final UpdateDiagnosisHistoryReq req;
-        try {
-            UpdateDiagnosisHistoryReq.Builder builder = UpdateDiagnosisHistoryReq.newBuilder();
-            JsonFormat.parser().merge(updateDiagnosisHistoryReqJson, builder);
-            req = builder.build();
-        } catch (Exception e) {
-            log.error("Failed to convert string to proto: ", e, "\n", e.getStackTrace());
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
+    public GenericResp updateDiagnosisHistory(String json) {
+        UpdateDiagnosisHistoryReq req = parseRequest(json, UpdateDiagnosisHistoryReq.newBuilder());
+        if (req == null) return writeResponse(StatusCode.PARSE_JSON_FAILED);
 
-        // 获取用户信息
-        CurrentAccount account = userQuery.getCurrentAccount();
-        if (account == null) {
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-
-        // 检查诊断时间
-        LocalDateTime diagnosisTime = TimeUtils.fromIso8601String(
-            req.getDiagnosisHistory().getDiagnosisTimeIso8601(), "UTC"
-        );
-        if (diagnosisTime == null) {
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.INVALID_TIME_FORMAT))
-                .build();
-        }
-
-        // 查找诊断历史记录
-        DiagnosisHistory diagnosisHistory = diagnosisHistoryRepository
-            .findById(req.getId())
-            .orElse(null);
-        if (diagnosisHistory == null) {
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.DIAGNOSIS_HISTORY_NOT_FOUND))
-                .build();
-        }
-        DiagnosisHistory latestDiagnosis = diagnosisHistoryRepository
-            .findByPatientIdAndIsDeletedFalse(diagnosisHistory.getPatientId())
-            .stream()
-            .filter(dh -> !Objects.equals(dh.getId(), diagnosisHistory.getId()))
-            .sorted(diagnosisHistoryNewestFirst())
-            .filter(dh -> !StrUtils.isBlank(dh.getDiagnosis()))
-            .findFirst()
-            .orElse(null);
-
-        // 如果待更新的诊断历史的时间是最新时间，更新对应的记录
-        String latestDiagnosisStr = latestDiagnosis == null ?  "" :  latestDiagnosis.getDiagnosis();
-        boolean updatedDiagnosisIsLatest = latestDiagnosis == null ||
-            diagnosisTime.isAfter(latestDiagnosis.getDiagnosisTime()) ||
-            (diagnosisTime.equals(latestDiagnosis.getDiagnosisTime()) &&
-                diagnosisHistory.getId() > latestDiagnosis.getId());
-        if (updatedDiagnosisIsLatest &&
-            !StrUtils.isBlank(req.getDiagnosisHistory().getDiagnosis())
-        ) {
-            latestDiagnosisStr = req.getDiagnosisHistory().getDiagnosis();
-        }
-
-        // 更新病人记录
-        PatientRecord patient = patientRecordRepository.findById(diagnosisHistory.getPatientId()).
-            orElse(null);
-        if (patient == null) {
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
-                .build();
-        }
-
-        Boolean updatePatient = false;
-        // 如果诊断历史最新的记录和当前病人记录的诊断不一致，更新病人记录
-        if (!latestDiagnosisStr.equals(patient.getDiagnosis())) {
-            patient.setDiagnosis(latestDiagnosisStr);
-            updatePatient = true;
-        }
-        if (updatePatient) patientRecordRepository.save(patient);
-
-        // 更新诊断历史记录
-        diagnosisHistory.setDiagnosisTime(diagnosisTime);
-        diagnosisHistory.setDiagnosisAccountId(account.autoAcctId());
-        diagnosisHistory.setDiagnosis(req.getDiagnosisHistory().getDiagnosis());
-        diagnosisHistory.setDiagnosisCode(req.getDiagnosisHistory().getDiagnosisCode());
-        diagnosisHistory.setModifiedAt(TimeUtils.getNowUtc());
-        diagnosisHistory.setModifiedBy(account.autoAcctId());
-        diagnosisHistory.setModifiedByAccountName(account.acctName());
-        diagnosisHistoryRepository.save(diagnosisHistory);
-
-        return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .build();
+        return writeResponse(diagnosisHistoryService.update(req, userQuery.getCurrentAccount()));
     }
 
-    @Transactional
-    public GenericResp deleteDiagnosisHistory(String deleteDiagnosisHistoryReqJson) {
-        final DeleteDiagnosisHistoryReq req;
-        try {
-            DeleteDiagnosisHistoryReq.Builder builder = DeleteDiagnosisHistoryReq.newBuilder();
-            JsonFormat.parser().merge(deleteDiagnosisHistoryReqJson, builder);
-            req = builder.build();
-        } catch (Exception e) {
-            log.error("Failed to convert string to proto: ", e, "\n", e.getStackTrace());
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
+    public GenericResp deleteDiagnosisHistory(String json) {
+        DeleteDiagnosisHistoryReq req = parseRequest(json, DeleteDiagnosisHistoryReq.newBuilder());
+        if (req == null) return writeResponse(StatusCode.PARSE_JSON_FAILED);
 
-        // 获取用户信息
-        CurrentAccount account = userQuery.getCurrentAccount();
-        if (account == null) {
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.ACCOUNT_NOT_FOUND))
-                .build();
-        }
-
-        // 查找诊断历史记录
-        DiagnosisHistory diagnosisHistory = diagnosisHistoryRepository
-            .findById(req.getId())
-            .orElse(null);
-        if (diagnosisHistory == null) {
-            return GenericResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.OK))
-                .build();
-        }
-        List<DiagnosisHistory> diagnosisHistories = diagnosisHistoryRepository
-            .findByPatientIdAndIsDeletedFalse(diagnosisHistory.getPatientId())
-            .stream()
-            .sorted(diagnosisHistoryNewestFirst())
-            .toList();
-
-        // 逻辑删除
-        diagnosisHistory.setIsDeleted(true);
-        diagnosisHistory.setDeletedAt(TimeUtils.getNowUtc());
-        diagnosisHistory.setDeletedBy(account.autoAcctId());
-        diagnosisHistoryRepository.save(diagnosisHistory);
-
-        // 查找病人信息
-        Long pid = diagnosisHistory.getPatientId();
-        PatientRecord patient = patientRecordRepository.findById(pid).
-            orElse(null);
-        if (patient == null) {
-            ReturnCode rt = protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND);
-            return GenericResp.newBuilder().setRt(rt).build();
-        }
-
-        // 更新病人记录
-        DiagnosisHistory latestDiagnosis = diagnosisHistories.stream()
-            .filter(dh -> !Objects.equals(dh.getId(), diagnosisHistory.getId()))
-            .filter(dh -> !StrUtils.isBlank(dh.getDiagnosis()))
-            .findFirst()
-            .orElse(null);
-
-        Boolean updatePatient = false;
-        if (StrUtils.isBlank(patient.getDiagnosis()) != (latestDiagnosis == null)) {
-            if (latestDiagnosis != null) {
-                patient.setDiagnosis(latestDiagnosis.getDiagnosis());
-            } else {
-                patient.setDiagnosis("");
-            }
-            updatePatient = true;
-        } else if (latestDiagnosis != null && !latestDiagnosis.getDiagnosis().equals(patient.getDiagnosis())) {
-            patient.setDiagnosis(latestDiagnosis.getDiagnosis());
-            updatePatient = true;
-        }
-        if (updatePatient) patientRecordRepository.save(patient);
-
-        return GenericResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .build();
+        return writeResponse(diagnosisHistoryService.delete(
+            req.getId(), userQuery.getCurrentAccount()));
     }
 
-    public SyncHisPatientResp syncHisPatient(String syncHisPatientReqJson) {
-        final SyncHisPatientReq req;
-        try {
-            req = ProtoUtils.parseJsonToProto(syncHisPatientReqJson, SyncHisPatientReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert string to proto: {}", e);
+    public SyncHisPatientResp syncHisPatient(String json) {
+        SyncHisPatientReq req = parseRequest(json, SyncHisPatientReq.newBuilder());
+        if (req == null) {
             return SyncHisPatientResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .setAdmittedHisPatientCount(0)
                 .build();
         }
 
         int admittedCount = patientSyncService.syncPatientRecords(req.getForceSync());
-
         return SyncHisPatientResp.newBuilder()
             .setRt(protoService.getReturnCode(StatusCode.OK))
             .setAdmittedHisPatientCount(admittedCount)
             .build();
+    }
+
+    private <T extends Message> T parseRequest(String json, Message.Builder builder) {
+        try {
+            return ProtoUtils.parseJsonToProto(json, builder);
+        } catch (Exception e) {
+            log.warn("解析患者请求失败，类型={}", builder.getDescriptorForType().getName(), e);
+            return null;
+        }
+    }
+
+    private GenericResp writeResponse(StatusCode status) {
+        return ReturnCodeUtils.genericResponse(statusCodeMsgs, status);
     }
 
     @Transactional
@@ -1562,8 +973,7 @@ public class PatientService {
                 return patientRec.getDiagnosis();
 
             case "discharge_type":
-                if (patientRec.getDischargeType() == null) return "";
-                return patientConfig.getDischargeTypeStr(patientRec.getDischargeType());
+                return patientEnums.getDischargeTypeName(patientRec.getDischargeType());
 
             case "death_time":
                 if (patientRec.getDeathTime() == null) return "";
@@ -1622,282 +1032,10 @@ public class PatientService {
         }
     }
 
-    private void processPatientRecordsV2(
-        List<PatientRecord> patients, String colId, Integer cols,
-        Integer colOffset, List<String> values
-    ) {
-        /*
-        import java.util.HashMap;
-        import java.util.Map;
-        import java.util.function.Consumer;
-        Map<String, Consumer<PatientRecord>> columnProcessors = new HashMap<>();
-        columnProcessors.put("his_mrn", (patient, i) -> {
-            if (patient.getHisMrn() != null) {
-                values.set(i * cols + colOffset, patient.getHisMrn());
-            }
-        });
-
-        // Retrieve the appropriate processor from the map and apply it
-        Consumer<PatientRecord> processor = columnProcessors.get(colId);
-        if (processor != null) {
-            patients.forEach(processor);
-        } else {
-            throw new IllegalArgumentException("Unexpected patient_records' column name: " + colId);
-        }
-        */
-    }
-
-    private PatientRecordPB toPatientRecordPB(
-        PatientRecord patient, Map<String, BedConfig> bedConfigMap
-    ) {
-        PatientRecordPB.Builder builder = PatientRecordPB.newBuilder();
-
-        builder.setPid(patient.getId() != null ? patient.getId() : 0);
-        builder.setHisMrn(patient.getHisMrn());
-        builder.setHisPatientId(patient.getHisPatientId());
-        builder.setHisAdmissionTimeIso8601(patient.getHisAdmissionTime() != null 
-            ? TimeUtils.toIso8601String(patient.getHisAdmissionTime(), "UTC") : "");
-        builder.setHisAdmissionDiagnosis(patient.getHisAdmissionDiagnosis());
-        builder.setHisBedNumber(patient.getHisBedNumber());
-        builder.setIcuName(patient.getIcuName());
-        builder.setIcuGender(patient.getIcuGender());
-        builder.setIcuDateOfBirthIso8601(patient.getIcuDateOfBirth() != null 
-            ? TimeUtils.toIso8601String(patient.getIcuDateOfBirth(), "UTC") : "");
-        builder.setAge(TimeUtils.getAge(patient.getIcuDateOfBirth()));
-        builder.setHeight(patient.getHeight());
-        builder.setWeight(patient.getWeight());
-        builder.setWeightType(patient.getWeightType());
-        builder.setWeightIbw(patient.getWeightIbw());
-        // 计算BMI
-        if (patient.getHeight() != null && patient.getHeight() > 0 &&
-            patient.getWeight() != null && patient.getWeight() > 0
-        ) {
-            // height的单位是cm，因此 * 10000.0
-            float bmi = patient.getWeight() * 10000.0f / (patient.getHeight() * patient.getHeight());
-            builder.setBmi(String.format("%.1f", bmi));
-        }
-
-        builder.setBloodType(patientEnums.getBloodTypeId(patient.getBloodType()));
-        builder.setBloodRh(patientEnums.getBloodRhId(patient.getBloodRh()));
-        builder.setBsa(patient.getBsa());
-        builder.setPastMedicalHistory(patient.getPastMedicalHistory());
-        builder.setAllergies(patient.getAllergies());
-        builder.setPhone(patient.getPhone());
-        builder.setHomePhone(patient.getHomePhone());
-        builder.setHomeAddress(patient.getHomeAddress());
-        builder.setDocumentType(patient.getDocumentType());
-        builder.setIdCardNumber(patient.getIdCardNumber());
-        builder.setNation(patient.getNation());
-        builder.setNativePlace(patient.getNativePlace());
-        builder.setEducationLevel(patient.getEducationLevel());
-        builder.setOccupation(patient.getOccupation());
-        builder.setMaritalStatus(patient.getMaritalStatus());
-        builder.setEmergencyContactName(patient.getEmergencyContactName());
-        builder.setEmergencyContactRelation(patient.getEmergencyContactRelation());
-        builder.setEmergencyContactPhone(patient.getEmergencyContactPhone());
-        builder.setEmergencyContactAddress(patient.getEmergencyContactAddress());
-        builder.setPaymentMethod(patient.getPaymentMethod());
-        builder.setInsuranceType(patient.getInsuranceType());
-        builder.setInsuranceNumber(patient.getInsuranceNumber());
-        builder.setMedicalCardNumber(patient.getMedicalCardNumber());
-        builder.setIsVipPatient(patient.getIsVipPatient());
-
-        String displayBedNumber = bedConfigMap.get(patient.getHisBedNumber()) != null 
-            ? bedConfigMap.get(patient.getHisBedNumber()).getDisplayBedNumber() : "";
-        builder.setBedNumberStr(displayBedNumber);
-
-        builder.setWristbandLocation(patient.getWristbandLocation());
-        builder.setPatientPose(patient.getPatientPose());
-        builder.setNursingCareLevel(patient.getNursingCareLevel());
-        builder.setIllnessSeverityLevel(patient.getIllnessSeverityLevel());
-        builder.setDietType(patient.getDietType());
-        builder.setIsolationPrecaution(patient.getIsolationPrecaution());
-        builder.setChiefComplaint(patient.getChiefComplaint());
-
-        // Doctor and nurse names resolved via userQuery
-        builder.setAttendingDoctorId(patient.getAttendingDoctorId());
-        builder.setAttendingDoctorName(patient.getAttendingDoctorId() != null 
-            ? userQuery.getNameByAutoId(patient.getAttendingDoctorId()) : "");
-        builder.setPrimaryCareDoctorId(patient.getPrimaryCareDoctorId());
-        builder.setPrimaryCareDoctorName(patient.getPrimaryCareDoctorId() != null 
-            ? userQuery.getNameByAccountId(patient.getPrimaryCareDoctorId()) : "");
-        builder.setAdmittingDoctorId(patient.getAdmittingDoctorId());
-        builder.setAdmittingDoctorName(patient.getAdmittingDoctorId() != null 
-            ? userQuery.getNameByAutoId(patient.getAdmittingDoctorId()) : "");
-        builder.setResponsibleNurseId(patient.getResponsibleNurseId());
-        builder.setResponsibleNurseName(patient.getResponsibleNurseId() != null 
-            ? userQuery.getNameByAutoId(patient.getResponsibleNurseId()) : "");
-
-        builder.setDiagnosis(patient.getDiagnosis());
-
-        builder.setAdmissionStatus(patient.getAdmissionStatus());
-
-        builder.setFromDeptName(patient.getFromDeptName());
-        builder.addAllAdmissionType(getAdmissionTypeValues(patient));
-        builder.setIsPlannedAdmission(patient.getIsPlannedAdmission());
-        builder.setUnplannedAdmissionReason(patient.getUnplannedAdmissionReason());
-        builder.setAdmissionTimeIso8601(patient.getAdmissionTime() != null 
-            ? TimeUtils.toIso8601String(patient.getAdmissionTime(), "UTC") : "");
-
-        builder.setDischargeType(patient.getDischargeType());
-        builder.setDeathTimeIso8601(patient.getDeathTime() != null
-            ? TimeUtils.toIso8601String(patient.getDeathTime(), "UTC") : "");
-        builder.setHisDischargeTimeIso8601(patient.getHisDischargeTime() != null
-            ? TimeUtils.toIso8601String(patient.getHisDischargeTime(), "UTC") : "");
-        builder.setToDeptName(patient.getToDeptName());
-        builder.setDischargeTimeIso8601(patient.getDischargeTime() != null 
-            ? TimeUtils.toIso8601String(patient.getDischargeTime(), "UTC") : "");
-        builder.setDischargeDiagnosis(StrUtils.isBlank(patient.getDischargeDiagnosis()) ? "" : patient.getDischargeDiagnosis());
-
-        return builder.build();
-    }
-
-    private void updatePatientRecord(PatientRecord patient, PatientRecordPB patientInfo) {
-        // 以下字段不可更新
-        // patient.setHisMrn(patientInfo.getHisMrn().isEmpty() ? null : patientInfo.getHisMrn());
-        // patient.setHisPatientId(patientInfo.getHisPatientId().isEmpty() ? null : patientInfo.getHisPatientId());
-        patient.setHisAdmissionTime(patientInfo.getHisAdmissionTimeIso8601().isEmpty() 
-            ? null : TimeUtils.fromIso8601String(patientInfo.getHisAdmissionTimeIso8601(), "UTC"));
-        patient.setHisAdmissionDiagnosis(patientInfo.getHisAdmissionDiagnosis().isEmpty() 
-            ? null : patientInfo.getHisAdmissionDiagnosis());
-        // patient.setHisBedNumber(patientInfo.getHisBedNumber().isEmpty() ? null : patientInfo.getHisBedNumber());
-        // patient.setIcuName(patientInfo.getIcuName().isEmpty() ? null : patientInfo.getIcuName());
-        // patient.setIcuGender(patientInfo.getIcuGender() != 0 ? patientInfo.getIcuGender() : null);
-
-        patient.setIcuDateOfBirth(patientInfo.getIcuDateOfBirthIso8601().isEmpty() 
-            ? null : TimeUtils.fromIso8601String(patientInfo.getIcuDateOfBirthIso8601(), "UTC"));
-        patient.setHeight(patientInfo.getHeight() != 0.0f ? patientInfo.getHeight() : null);
-        patient.setWeight(patientInfo.getWeight() != 0.0f ? patientInfo.getWeight() : null);
-        patient.setWeightType(patientInfo.getWeightType().isEmpty() ? null : patientInfo.getWeightType());
-        patient.setWeightIbw(patientInfo.getWeightIbw().isEmpty() ? null : patientInfo.getWeightIbw());
-
-        patient.setBloodType(patientEnums.getBloodTypeName(patientInfo.getBloodType()));
-        patient.setBloodRh(patientEnums.getBloodRhName(patientInfo.getBloodRh()));
-        patient.setBsa(patientInfo.getBsa() != 0.0f ? patientInfo.getBsa() : null);
-        patient.setPastMedicalHistory(patientInfo.getPastMedicalHistory().isEmpty() 
-            ? null : patientInfo.getPastMedicalHistory());
-        patient.setAllergies(patientInfo.getAllergies().isEmpty() ? null : patientInfo.getAllergies());
-        patient.setPhone(patientInfo.getPhone().isEmpty() ? null : patientInfo.getPhone());
-        patient.setHomePhone(patientInfo.getHomePhone().isEmpty() ? null : patientInfo.getHomePhone());
-        patient.setHomeAddress(patientInfo.getHomeAddress().isEmpty() ? null : patientInfo.getHomeAddress());
-        patient.setDocumentType(patientInfo.getDocumentType().isEmpty() ? null : patientInfo.getDocumentType());
-        patient.setIdCardNumber(patientInfo.getIdCardNumber().isEmpty() ? null : patientInfo.getIdCardNumber());
-        patient.setNation(patientInfo.getNation().isEmpty() ? null : patientInfo.getNation());
-        patient.setNativePlace(patientInfo.getNativePlace().isEmpty() ? null : patientInfo.getNativePlace());
-        patient.setEducationLevel(patientInfo.getEducationLevel() == 0 ? 1 : patientInfo.getEducationLevel());
-        patient.setOccupation(patientInfo.getOccupation().isEmpty() ? null : patientInfo.getOccupation());
-        patient.setMaritalStatus(patientInfo.getMaritalStatus() != 0 ? patientInfo.getMaritalStatus() : null);
-        patient.setEmergencyContactName(patientInfo.getEmergencyContactName().isEmpty() 
-            ? null : patientInfo.getEmergencyContactName());
-        patient.setEmergencyContactRelation(patientInfo.getEmergencyContactRelation().isEmpty() 
-            ? null : patientInfo.getEmergencyContactRelation());
-        patient.setEmergencyContactPhone(patientInfo.getEmergencyContactPhone().isEmpty() 
-            ? null : patientInfo.getEmergencyContactPhone());
-        patient.setEmergencyContactAddress(patientInfo.getEmergencyContactAddress().isEmpty() 
-            ? null : patientInfo.getEmergencyContactAddress());
-        patient.setPaymentMethod(patientInfo.getPaymentMethod().isEmpty() ? null : patientInfo.getPaymentMethod());
-        patient.setInsuranceType(patientInfo.getInsuranceType().isEmpty() ? null : patientInfo.getInsuranceType());
-        patient.setInsuranceNumber(patientInfo.getInsuranceNumber().isEmpty() ? null : patientInfo.getInsuranceNumber());
-        patient.setMedicalCardNumber(patientInfo.getMedicalCardNumber().isEmpty() 
-            ? null : patientInfo.getMedicalCardNumber());
-        patient.setIsVipPatient(patientInfo.getIsVipPatient());
-        patient.setWristbandLocation(patientInfo.getWristbandLocation().isEmpty() 
-            ? null : patientInfo.getWristbandLocation());
-        patient.setPatientPose(patientInfo.getPatientPose().isEmpty() ? null : patientInfo.getPatientPose());
-        patient.setNursingCareLevel(patientInfo.getNursingCareLevel().isEmpty() 
-            ? null : patientInfo.getNursingCareLevel());
-        patient.setIllnessSeverityLevel(patientInfo.getIllnessSeverityLevel().isEmpty() 
-            ? null : patientInfo.getIllnessSeverityLevel());
-        patient.setDietType(patientInfo.getDietType().isEmpty() ? null : patientInfo.getDietType());
-        patient.setIsolationPrecaution(patientInfo.getIsolationPrecaution().isEmpty() 
-            ? null : patientInfo.getIsolationPrecaution());
-        patient.setChiefComplaint(patientInfo.getChiefComplaint().isEmpty() ? null : patientInfo.getChiefComplaint());
-
-        // Doctor and nurse IDs
-        patient.setAttendingDoctorId(patientInfo.getAttendingDoctorId().isEmpty() 
-            ? null : patientInfo.getAttendingDoctorId());
-        patient.setPrimaryCareDoctorId(patientInfo.getPrimaryCareDoctorId().isEmpty() 
-            ? null : patientInfo.getPrimaryCareDoctorId());
-        patient.setAdmittingDoctorId(patientInfo.getAdmittingDoctorId().isEmpty() 
-            ? null : patientInfo.getAdmittingDoctorId());
-        patient.setResponsibleNurseId(patientInfo.getResponsibleNurseId().isEmpty() 
-            ? null : patientInfo.getResponsibleNurseId());
-
-        patient.setDiagnosis(patientInfo.getDiagnosis().isEmpty() ? null : patientInfo.getDiagnosis());
-
-        patient.setFromDeptName(patientInfo.getFromDeptName().isEmpty()
-            ? null : patientInfo.getFromDeptName());
-        setAdmissionTypeValues(patient, patientInfo.getAdmissionTypeList());
-        patient.setIsPlannedAdmission(patientInfo.getIsPlannedAdmission());
-        patient.setUnplannedAdmissionReason(patientInfo.getUnplannedAdmissionReason().isEmpty() 
-            ? null : patientInfo.getUnplannedAdmissionReason());
-        patient.setAdmissionTime(patientInfo.getAdmissionTimeIso8601().isEmpty() 
-            ? null : TimeUtils.fromIso8601String(patientInfo.getAdmissionTimeIso8601(), "UTC"));
-
-        patient.setDischargeType(patientInfo.getDischargeType() != 0 ? patientInfo.getDischargeType() : null);
-        patient.setDeathTime(patientInfo.getDeathTimeIso8601().isEmpty()
-            ? null : TimeUtils.fromIso8601String(patientInfo.getDeathTimeIso8601(), "UTC"));
-        patient.setHisDischargeTime(patientInfo.getHisDischargeTimeIso8601().isEmpty()
-            ? null : TimeUtils.fromIso8601String(patientInfo.getHisDischargeTimeIso8601(), "UTC"));
-        patient.setToDeptName(patientInfo.getToDeptName().isEmpty()
-            ? null : patientInfo.getToDeptName());
-        patient.setDischargeTime(patientInfo.getDischargeTimeIso8601().isEmpty() 
-            ? null : TimeUtils.fromIso8601String(patientInfo.getDischargeTimeIso8601(), "UTC"));
-        patient.setDischargeDiagnosis(patientInfo.getDischargeDiagnosis().isEmpty()
-            ? null : patientInfo.getDischargeDiagnosis());
-    }
-
-    private void setAdmissionTypeValues(PatientRecord patient, List<Integer> admissionTypeValues) {
-        List<Integer> validAdmissionTypes = new ArrayList<>();
-        for (Integer admissionType : admissionTypeValues) {
-            if (admissionType != null && admissionType > 0) {
-                validAdmissionTypes.add(admissionType);
-            }
-        }
-        patient.setAdmissionTypes(admissionTypeValuesToString(validAdmissionTypes));
-        patient.setAdmissionType(validAdmissionTypes.isEmpty() ? null : validAdmissionTypes.get(0));
-    }
-
-    private String admissionTypeValuesToString(List<Integer> admissionTypeValues) {
-        if (admissionTypeValues == null || admissionTypeValues.isEmpty()) return null;
-
-        StringJoiner joiner = new StringJoiner(",");
-        for (Integer admissionType : admissionTypeValues) {
-            joiner.add(String.valueOf(admissionType));
-        }
-        return joiner.toString();
-    }
-
-    private List<Integer> getAdmissionTypeValues(PatientRecord patient) {
-        List<Integer> admissionTypes = parseAdmissionTypes(patient.getAdmissionTypes());
-        if (!admissionTypes.isEmpty()) return admissionTypes;
-
-        Integer legacyAdmissionType = patient.getAdmissionTypeRaw();
-        if (legacyAdmissionType == null || legacyAdmissionType == 0) return Collections.emptyList();
-        return List.of(legacyAdmissionType);
-    }
-
-    private List<Integer> parseAdmissionTypes(String admissionTypes) {
-        if (StrUtils.isBlank(admissionTypes)) return Collections.emptyList();
-
-        String[] tokens = admissionTypes.split(",");
-        List<Integer> parsed = new ArrayList<>();
-        for (String token : tokens) {
-            String trimmedToken = token.trim();
-            if (trimmedToken.isEmpty()) return Collections.emptyList();
-            try {
-                parsed.add(Integer.parseInt(trimmedToken));
-            } catch (NumberFormatException e) {
-                return Collections.emptyList();
-            }
-        }
-        return parsed.isEmpty() ? Collections.emptyList() : parsed;
-    }
-
     private String getAdmissionTypeDisplay(PatientRecord patient) {
         List<String> admissionTypeNames = new ArrayList<>();
-        for (Integer admissionType : getAdmissionTypeValues(patient)) {
-            String admissionTypeName = patientConfig.getAdmissionTypeStr(admissionType);
+        for (Integer admissionType : PatientRecordMapper.admissionTypeValues(patient)) {
+            String admissionTypeName = patientEnums.getAdmissionTypeName(admissionType);
             if (!StrUtils.isBlank(admissionTypeName)) {
                 admissionTypeNames.add(admissionTypeName);
             }
@@ -1959,31 +1097,22 @@ public class PatientService {
     }
 
     private final String ZONE_ID;
-    private final Integer DISCHARGE_TYPE_TRANSFER_ID;
-    private final Integer DISCHARGE_TYPE_DEATH_ID;
-    private final Integer DISCHARGE_TYPE_EXIT_HOSPITAL_ID;
     private final Integer GRACE_PERIOD_HOURS_TO_READMIT;
+    private final List<String> statusCodeMsgs;
 
+    private final ConfigProtoService protoService;
     private final SettingsStore settingsStore;
-    private ConfigProtoService protoService;
-    private List<String> statusCodeMsgs;
-    private ConfigShiftUtils shiftUtils;
-    private UserQuery userQuery;
-    private CertificateService certService;
-
-    private PatientEnumsV2 enumsV2;
-    private PatientConfig patientConfig;
-    private PatientSyncService patientSyncService;
-    private PatientReadmissionService patientReadmissionService;
-    private PatientDeviceService patientDeviceService;
+    private final ConfigShiftUtils shiftUtils;
+    private final UserQuery userQuery;
     private final PatientEnums patientEnums;
-    private PatientRecordRepository patientRecordRepository;
-    private final BedMetaReader bedMetaReader;
-    private DiagnosisHistoryRepository diagnosisHistoryRepository;
-    private final DeviceBindingService deviceBindingService;
+    private final PatientRecordRepository patientRecordRepository;
     private final PatientReader patientReader;
-    private final LockExecutor lockExecutor;
-    private ReadmissionHistoryRepository readmissionHistoryRepository;
-    private PatientSettingsRepository patientSettingsRepository;
-    private SepsisAndSepticShockBundleService sepsisAndSepticShockBundleService;
+    private final PatientSettingsRepository patientSettingsRepository;
+    private final SepsisAndSepticShockBundleService sepsisAndSepticShockBundleService;
+    private final PatientAdmissionService admissionService;
+    private final PatientDischargeService dischargeService;
+    private final PatientEditService editService;
+    private final PatientDiagnosisHistoryService diagnosisHistoryService;
+    private final PatientSyncService patientSyncService;
+    private final PatientRecordMapper patientRecordMapper;
 }

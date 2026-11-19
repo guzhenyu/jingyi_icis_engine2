@@ -7,7 +7,7 @@ import java.util.Map;
 import org.springframework.stereotype.Component;
 
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.PatientEnumsV2;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.PatientEnumsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisText.EnumTextPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.EnumValue;
 import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
@@ -32,6 +32,18 @@ public class PatientEnums {
     public static final Integer ADMISSION_STATUS_PRE_DISCHARGE = 2;  // 出科前
     public static final Integer ADMISSION_STATUS_DISCHARGED = 3;  // 已出科
 
+    public static final Integer ADMISSION_TYPE_HOSPITAL = 1;  // 入院
+    public static final Integer ADMISSION_TYPE_TRANSFER = 2;  // 转入
+    public static final Integer ADMISSION_TYPE_SURGERY = 3;  // 手术
+    public static final Integer ADMISSION_TYPE_RESCUE = 4;  // 抢救
+    public static final Integer ADMISSION_TYPE_SEVERE = 5;  // 重症
+    public static final Integer ADMISSION_TYPE_OTHER_HOSPITAL = 6;  // 外院
+    public static final Integer ADMISSION_TYPE_CRITICAL = 7;  // 病危
+
+    public static final Integer DISCHARGE_TYPE_TRANSFER = 1;  // 转出
+    public static final Integer DISCHARGE_TYPE_DEAD = 2;  // 死亡
+    public static final Integer DISCHARGE_TYPE_EXIT_HOSPITAL = 3;  // 出院
+
     // SWITCH_TYPE_READMISSION_DISCHARGE SWITCH_TYPE_READMISSION_ADMIT 成对出现
     // 对应于patient_bed_history的两条记录
     public static final Integer SWITCH_TYPE_NORMAL = 0;  // 普通换床
@@ -52,7 +64,7 @@ public class PatientEnums {
 
     public PatientEnums(ProtoConfig protoConfig) {
         Config config = protoConfig.getConfig();
-        PatientEnumsV2 patientEnums = config.getPatient().getEnumsV2();
+        PatientEnumsPB patientEnums = config.getPatient().getEnumsV2();
         this.admissionStatusNames = Map.of(
             ADMISSION_STATUS_PRE_ADMISSION, patientEnums.getPendingAdmissionName(),
             ADMISSION_STATUS_ADMITTED, patientEnums.getInIcuName(),
@@ -62,6 +74,28 @@ public class PatientEnums {
         this.bedTypeNames = Map.of(
             BED_TYPE_FIXED, StrUtils.getStringOrDefault(patientEnums.getBedTypeFixed(), "固定授权"),
             BED_TYPE_TEMP, StrUtils.getStringOrDefault(patientEnums.getBedTypeTemp(), "临时授权"));
+        this.admissionTypes = List.of(
+            value(ADMISSION_TYPE_HOSPITAL,
+                StrUtils.getStringOrDefault(patientEnums.getAdmissionTypeHospitalName(), "入院")),
+            value(ADMISSION_TYPE_TRANSFER,
+                StrUtils.getStringOrDefault(patientEnums.getAdmissionTypeTransferName(), "转入")),
+            value(ADMISSION_TYPE_SURGERY,
+                StrUtils.getStringOrDefault(patientEnums.getAdmissionTypeSurgeryName(), "手术")),
+            value(ADMISSION_TYPE_RESCUE,
+                StrUtils.getStringOrDefault(patientEnums.getAdmissionTypeRescueName(), "抢救")),
+            value(ADMISSION_TYPE_SEVERE,
+                StrUtils.getStringOrDefault(patientEnums.getAdmissionTypeSevereName(), "重症")),
+            value(ADMISSION_TYPE_OTHER_HOSPITAL,
+                StrUtils.getStringOrDefault(patientEnums.getAdmissionTypeOtherHospitalName(), "外院")),
+            value(ADMISSION_TYPE_CRITICAL,
+                StrUtils.getStringOrDefault(patientEnums.getAdmissionTypeCriticalName(), "病危")));
+        this.dischargeTypes = List.of(
+            value(DISCHARGE_TYPE_TRANSFER,
+                StrUtils.getStringOrDefault(patientEnums.getDischargeTypeTransferName(), "转出")),
+            value(DISCHARGE_TYPE_DEAD,
+                StrUtils.getStringOrDefault(patientEnums.getDischargeTypeDeadName(), "死亡")),
+            value(DISCHARGE_TYPE_EXIT_HOSPITAL,
+                StrUtils.getStringOrDefault(patientEnums.getDischargeTypeExitHospitalName(), "出院")));
 
         Map<String, Integer> rhIds = new HashMap<>();
         for (EnumValue value : BLOOD_RHS) {
@@ -83,6 +117,22 @@ public class PatientEnums {
     public String getAdmissionStatusName(Integer id) {
         if (id == null) return "";
         return admissionStatusNames.getOrDefault(id, "");
+    }
+
+    public List<EnumValue> getAdmissionTypes() {
+        return admissionTypes;
+    }
+
+    public String getAdmissionTypeName(Integer id) {
+        return findEnumNameById(id, admissionTypes);
+    }
+
+    public List<EnumValue> getDischargeTypes() {
+        return dischargeTypes;
+    }
+
+    public String getDischargeTypeName(Integer id) {
+        return findEnumNameById(id, dischargeTypes);
     }
 
     public Integer getBloodTypeId(String bloodType) {
@@ -133,5 +183,7 @@ public class PatientEnums {
 
     private final Map<Integer, String> admissionStatusNames;
     private final Map<Integer, String> bedTypeNames;
+    private final List<EnumValue> admissionTypes;
+    private final List<EnumValue> dischargeTypes;
     private final Map<String, Integer> bloodRhIds;
 }

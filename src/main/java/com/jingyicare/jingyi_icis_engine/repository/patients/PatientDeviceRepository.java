@@ -18,6 +18,8 @@ public interface PatientDeviceRepository extends JpaRepository<PatientDevice, Lo
 
     List<PatientDevice> findAllByIsDeletedFalseAndUnbindingTimeIsNull();
 
+    boolean existsByPatientId(Long patientId);
+
     List<PatientDevice> findByDeviceIdInAndUnbindingTimeIsNullAndIsDeletedFalse(
         Collection<Integer> deviceIds);
 

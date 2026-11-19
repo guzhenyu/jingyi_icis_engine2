@@ -5,33 +5,44 @@ import "shared/shared.proto";
 
 package com.jingyicare.jingyi_icis_engine.proto.config;
 
-message PatientEnumsV2 {
-    reserved 1;
-    reserved "admission_status";
-    repeated shared.EnumValue admission_type = 2;
-    repeated shared.EnumValue discharge_type = 3;
-    repeated shared.EnumValue payment_method = 4;
-    repeated shared.EnumValue wristband_location = 5;
-    repeated shared.EnumValue patient_pose = 6;
-    repeated shared.EnumValue nursing_care_level = 7;
-    repeated shared.EnumValue illness_severity_level = 8;
-    repeated shared.EnumValue isolation_precaution = 9;
-    repeated shared.EnumValue blood_type = 10;
-    repeated shared.EnumValue blood_rh = 11;
-    repeated shared.EnumValue weigh_type = 12;
-    repeated shared.EnumValue id_type = 13;
-    repeated shared.EnumValue diet_type = 14;
-    repeated shared.EnumValue education_level = 15;
+message PatientEnumsPB {
+    reserved "admission_status", "admission_type", "discharge_type";
+    repeated shared.EnumValue payment_method = 1;
+    repeated shared.EnumValue wristband_location = 2;
+    repeated shared.EnumValue patient_pose = 3;
+    repeated shared.EnumValue nursing_care_level = 4;
+    repeated shared.EnumValue illness_severity_level = 5;
+    repeated shared.EnumValue isolation_precaution = 6;
+    repeated shared.EnumValue blood_type = 7;
+    repeated shared.EnumValue blood_rh = 8;
+    repeated shared.EnumValue weigh_type = 9;
+    repeated shared.EnumValue id_type = 10;
+    repeated shared.EnumValue diet_type = 11;
+    repeated shared.EnumValue education_level = 12;
 
     // admission_status
-    string pending_admission_name = 16; // 待入科的显示名称
-    string in_icu_name = 17; // 在科的显示名称
-    string pending_discharged_name = 18; // 待出科的显示名称
-    string discharged_name = 19; // 已出科的显示名称
+    string pending_admission_name = 13; // 待入科的显示名称
+    string in_icu_name = 14; // 在科的显示名称
+    string pending_discharged_name = 15; // 待出科的显示名称
+    string discharged_name = 16; // 已出科的显示名称
 
     // bed_type
-    string bed_type_fixed = 20;
-    string bed_type_temp = 21;
+    string bed_type_fixed = 17;
+    string bed_type_temp = 18;
+
+    // discharge_type
+    string discharge_type_transfer_name = 19; // 转出的显示名称
+    string discharge_type_dead_name = 20; // 死亡的显示名称
+    string discharge_type_exit_hospital_name = 21; // 出院的显示名称
+
+    // admission_type
+    string admission_type_hospital_name = 22; // 入院的显示名称
+    string admission_type_transfer_name = 23; // 转入的显示名称
+    string admission_type_surgery_name = 24; // 手术的显示名称
+    string admission_type_rescue_name = 25; // 抢救的显示名称
+    string admission_type_severe_name = 26; // 重症的显示名称
+    string admission_type_other_hospital_name = 27; // 外院的显示名称
+    string admission_type_critical_name = 28; // 病危的显示名称
 }
 
 message DisplayFieldSettingsPB {
@@ -87,7 +98,7 @@ message PatientRecordPB {
     string id_card_number = 25;    // 身份证号
     string nation = 26;    // 民族
     string native_place = 27;    // 籍贯
-    int32 education_level = 28;  // 教育程度， PatientEnumsV2.education_level[x].id
+    int32 education_level = 28;  // 教育程度， PatientEnumsPB.education_level[x].id
     string occupation = 29;    // 职业
     int32 marital_status = 30;    // 婚姻状况
     string emergency_contact_name = 31;    // 紧急联系人姓名
@@ -141,7 +152,7 @@ message PatientRecordPB {
 }
 
 message PatientConfigPB {
-    PatientEnumsV2 enums_v2 = 1;
+    PatientEnumsPB enums_v2 = 1;
     repeated DisplayFieldSettingsPB default_display_field_settings = 2;
     reserved 3 to 6;
     reserved "pending_admission_name", "in_icu_name", "pending_discharged_name", "discharged_name";

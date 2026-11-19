@@ -9,7 +9,7 @@ import org.junit.jupiter.api.Test;
 
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.PatientConfigPB;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.PatientEnumsV2;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.PatientEnumsPB;
 import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 
 class PatientEnumsTests {
@@ -17,7 +17,7 @@ class PatientEnumsTests {
     void prepare() {
         ProtoConfig protoConfig = mock(ProtoConfig.class);
         Config config = Config.newBuilder().setPatient(PatientConfigPB.newBuilder()
-            .setEnumsV2(PatientEnumsV2.newBuilder()
+            .setEnumsV2(PatientEnumsPB.newBuilder()
                 .setPendingAdmissionName("等待入科")
                 .setInIcuName("正在诊疗")
                 .setPendingDischargedName("准备离科")

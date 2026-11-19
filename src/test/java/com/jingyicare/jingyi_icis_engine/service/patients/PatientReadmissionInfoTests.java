@@ -17,8 +17,6 @@ import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.PatientBasicsPB;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.PatientTablePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.PatientConfigPB;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.PatientEnumsV2;
-import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.EnumValue;
 import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
@@ -36,21 +34,16 @@ class PatientReadmissionInfoTests {
         ConfigProtoService protoService = mock(ConfigProtoService.class);
         when(protoService.getConfig()).thenReturn(Config.newBuilder()
             .setZoneId("Asia/Shanghai")
-            .setPatient(PatientConfigPB.newBuilder()
-                .setGracePeriodHoursToReadmit(48)
-                .setEnumsV2(PatientEnumsV2.newBuilder()
-                    .addDischargeType(enumValue(1, "转出"))
-                    .addDischargeType(enumValue(2, "死亡"))
-                    .addDischargeType(enumValue(3, "出院"))))
+            .setPatient(PatientConfigPB.newBuilder().setGracePeriodHoursToReadmit(48))
             .build());
         ProtoConfig protoConfig = mock(ProtoConfig.class);
         Config config = protoService.getConfig();
         when(protoConfig.getConfig()).thenReturn(config);
         patientRepo = mock(PatientRecordRepository.class);
         patientService = new PatientService(
-            null, protoService, new PatientEnums(protoConfig),
-            null, null, null, null, null, null, null, null,
-            patientRepo, null, null, null, null, null, null, null, null);
+            protoService, new PatientEnums(protoConfig), null, null,
+            null, null, null, null, null, null,
+            null, patientRepo, null, null, null);
     }
 
     @ParameterizedTest
@@ -124,9 +117,5 @@ class PatientReadmissionInfoTests {
         patient.setAdmissionStatus(3);
         patient.setDischargeTime(dischargeTime);
         return patient;
-    }
-
-    private EnumValue enumValue(int id, String name) {
-        return EnumValue.newBuilder().setId(id).setName(name).build();
     }
 }

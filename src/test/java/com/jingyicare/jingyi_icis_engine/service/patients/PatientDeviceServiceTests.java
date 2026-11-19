@@ -32,14 +32,10 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 
 public class PatientDeviceServiceTests extends TestsBase {
     public PatientDeviceServiceTests(
-        @Autowired PatientService patientService,
-        @Autowired PatientDeviceService patientDeviceService,
         @Autowired DeviceBindingService deviceBindingService,
         @Autowired DeviceService deviceService,
-        @Autowired PatientConfig patientConfig,
         @Autowired BedMetaService bedMetaService,
         @Autowired PatientRecordRepository patientRecordRepo,
-        @Autowired PatientBedHistoryRepository patientBedHistoryRepo,
         @Autowired PatientDeviceRepository patientDeviceRepo
     ) {
         this.accountId = "admin";
@@ -47,16 +43,11 @@ public class PatientDeviceServiceTests extends TestsBase {
         this.devDeptId1 = "10029";
         this.devDeptId2 = "10030";
         this.devDeptId3 = "10031";
-        this.devDeptId4 = "10041";
 
-        this.patientService = patientService;
-        this.patientDeviceService = patientDeviceService;
         this.deviceBindingService = deviceBindingService;
         this.deviceService = deviceService;
-        this.patientConfig = patientConfig;
         this.bedMetaService = bedMetaService;
         this.patientRecordRepo = patientRecordRepo;
-        this.patientBedHistoryRepo = patientBedHistoryRepo;
         this.patientDeviceRepo = patientDeviceRepo;
     }
 
@@ -142,121 +133,6 @@ public class PatientDeviceServiceTests extends TestsBase {
             hisBedNumbers.add(bedConfig.getHisBedNumber());
         }
         assertThat(hisBedNumbers.contains("hisBedNumber1212")).isFalse();
-    }
-
-    @Test
-    public void testSwitchBedNormal() {
-        List<GrantedAuthority> authorities = AuthorityUtils.createAuthorityList("ROLE_1");
-        UsernamePasswordAuthenticationToken authentication = 
-            new UsernamePasswordAuthenticationToken(accountId, null, authorities);
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-
-        // 添加床位配置
-        for (int i = 2301; i < 2310; ++i) {
-            AddBedConfigReq addBedReq = AddBedConfigReq.newBuilder()
-                .setBedConfig(newBedConfigPB(devDeptId4, i, BED_TYPE_FIXED)).build();
-            String addBedReqJson = ProtoUtils.protoToJson(addBedReq);
-            AddBedConfigResp addResp = bedMetaService.addBedConfig(addBedReqJson);
-            assertThat(addResp.getRt().getCode()).isEqualTo(0);
-        }
-
-        // 普通换床成功：status=IN_ICU
-        PatientRecord patient = PatientTestUtils.newPatientRecord(
-            2301L, ADMISSION_STATUS_ADMITTED, devDeptId4);
-        patient.setAdmissionTime(TimeUtils.getLocalTime(2025, 8, 15));  // 2025-08-15 8:00 上海时间
-        patientConfig.clearDischargeFields(patient);
-        patient = patientRecordRepo.save(patient);
-        assertThat(patientDeviceService.switchBedImpl(
-            patient, "hisBedNumber2302", TimeUtils.getLocalTime(2025, 8, 16), false, "123", "123"
-        )).isEqualTo(StatusCode.OK);
-        List<PatientBedHistory> bedHistory = patientBedHistoryRepo.findByPatientId(patient.getId());
-        assertThat(bedHistory).hasSize(1);
-        assertThat(bedHistory.get(0).getHisBedNumber()).isEqualTo("hisBedNumber2301");
-        assertThat(bedHistory.get(0).getSwitchTime()).isEqualTo(TimeUtils.getLocalTime(2025, 8, 16));
-        assertThat(bedHistory.get(0).getSwitchType()).isEqualTo(0);  // 普通换床
-        patient = patientRecordRepo.findById(patient.getId()).orElse(null);
-        assertThat(patient).isNotNull();
-        assertThat(patient.getHisBedNumber()).isEqualTo("hisBedNumber2302");
-
-        // 普通换床-同床 no-op，不落历史，不改 patient。
-        assertThat(patientDeviceService.switchBedImpl(
-            patient, "hisBedNumber2302", TimeUtils.getLocalTime(2025, 8, 17), false, "123", "123"
-        )).isEqualTo(StatusCode.OK);
-        bedHistory = patientBedHistoryRepo.findByPatientId(patient.getId());
-        assertThat(bedHistory).hasSize(1);
-
-        // 普通换床-目标床被他人占
-        PatientRecord patient2 = PatientTestUtils.newPatientRecord(
-            2305L, ADMISSION_STATUS_ADMITTED, devDeptId4);
-        patient2.setAdmissionTime(TimeUtils.getLocalTime(2025, 8, 15));  // 2025-08-15 8:00 上海时间
-        patientConfig.clearDischargeFields(patient2);
-        patient2 = patientRecordRepo.save(patient2);
-        assertThat(patientDeviceService.switchBedImpl(
-            patient, "hisBedNumber2305", TimeUtils.getLocalTime(2025, 8, 17), false, "123", "123"
-        )).isEqualTo(StatusCode.BED_ALREADY_OCCUPIED);
-
-        // 时间回退不合法： 2025-8-16 => 2025-8-15。
-        assertThat(patientDeviceService.switchBedImpl(
-            patient, "hisBedNumber2303", TimeUtils.getLocalTime(2025, 8, 15), false, "123", "123"
-        )).isEqualTo(StatusCode.BED_SWITCH_TIME_OUTDATED);
-
-        // 普通换床-非法状态：status=DISCHARGED → INVALID_ADMISSION_STATUS_FOR_BED_SWITCH
-        patient.setAdmissionStatus(PatientEnums.ADMISSION_STATUS_DISCHARGED);
-        patient.setDischargeTime(TimeUtils.getLocalTime(2025, 8, 17));
-        patient = patientRecordRepo.save(patient);
-        assertThat(patientDeviceService.switchBedImpl(
-            patient, "hisBedNumber2303", TimeUtils.getLocalTime(2025, 8, 18), false, "123", "123"
-        )).isEqualTo(StatusCode.INVALID_ADMISSION_STATUS_FOR_BED_SWITCH);
-
-        // patient重返, 2301->2306
-        PatientRecord patient3 = PatientTestUtils.newPatientRecord(
-            2306L, ADMISSION_STATUS_ADMITTED, devDeptId4);
-        patient3.setHisMrn("mrn2305");
-        patient3.setAdmissionTime(TimeUtils.getLocalTime(2025, 8, 18));  // 2025-08-18 8:00 上海时间
-        patientConfig.clearDischargeFields(patient3);
-        patient3 = patientRecordRepo.save(patient3);
-
-        // 重返 - 未出科病人不能重返
-        assertThat(patientDeviceService.switchBedImpl(
-            patient2, "hisBedNumber2306", TimeUtils.getLocalTime(2025, 8, 18), true, "123", "123"
-        )).isEqualTo(StatusCode.INVALID_ADMISSION_STATUS_FOR_BED_SWITCH);
-
-        // 重返-MRN 不一致
-        assertThat(patientDeviceService.switchBedImpl(
-            patient, "hisBedNumber2306", TimeUtils.getLocalTime(2025, 8, 18), true, "123", "123"
-        )).isEqualTo(StatusCode.BED_SWITCH_READMISSION_MRN_MISMATCH);
-
-        // 重返-时间不合法
-        patient3.setHisMrn("mrn2301");
-        patient3.setAdmissionTime(TimeUtils.getLocalTime(2025, 8, 17));  // 2025-08-17 8:00 上海时间
-        patient3 = patientRecordRepo.save(patient3);
-        assertThat(patientDeviceService.switchBedImpl(
-            patient, "hisBedNumber2306", TimeUtils.getLocalTime(2025, 8, 17), true, "123", "123"
-        )).isEqualTo(StatusCode.BED_SWITCH_READMISSION_END_TIME_INVALID);
-
-        // 重返成功
-        patient3.setAdmissionTime(TimeUtils.getLocalTime(2025, 8, 18));
-        patient3 = patientRecordRepo.save(patient3);
-        assertThat(patientDeviceService.switchBedImpl(
-            patient, "hisBedNumber2306", TimeUtils.getLocalTime(2025, 8, 18), true, "123", "123"
-        )).isEqualTo(StatusCode.OK);
-
-        bedHistory = patientBedHistoryRepo.findByPatientId(patient.getId())
-            .stream().sorted(Comparator.comparing(PatientBedHistory::getSwitchTime)).toList();
-        assertThat(bedHistory).hasSize(3);
-        assertThat(bedHistory.get(0).getHisBedNumber()).isEqualTo("hisBedNumber2301");
-        assertThat(bedHistory.get(0).getSwitchTime()).isEqualTo(TimeUtils.getLocalTime(2025, 8, 16));
-        assertThat(bedHistory.get(0).getSwitchType()).isEqualTo(0);  // 普通换床
-        assertThat(bedHistory.get(1).getHisBedNumber()).isEqualTo("hisBedNumber2302");
-        assertThat(bedHistory.get(1).getSwitchTime()).isEqualTo(TimeUtils.getLocalTime(2025, 8, 17));
-        assertThat(bedHistory.get(1).getSwitchType()).isEqualTo(1);  // 重返-出科
-        assertThat(bedHistory.get(2).getHisBedNumber()).isEqualTo("hisBedNumber2306");
-        assertThat(bedHistory.get(2).getSwitchTime()).isEqualTo(TimeUtils.getLocalTime(2025, 8, 18));
-        assertThat(bedHistory.get(2).getSwitchType()).isEqualTo(2);  // 重返-入科
-        patient = patientRecordRepo.findById(patient.getId()).orElse(null);
-        assertThat(patient).isNotNull();
-        assertThat(patient.getHisBedNumber()).isEqualTo("hisBedNumber2306");
-        assertThat(patient.getAdmissionStatus()).isEqualTo(PatientEnums.ADMISSION_STATUS_ADMITTED);
     }
 
     @Test
@@ -732,15 +608,10 @@ public class PatientDeviceServiceTests extends TestsBase {
     private final String devDeptId1;
     private final String devDeptId2;
     private final String devDeptId3;
-    private final String devDeptId4;
 
-    private final PatientService patientService;
-    private final PatientDeviceService patientDeviceService;
     private final DeviceBindingService deviceBindingService;
     private final DeviceService deviceService;
-    private final PatientConfig patientConfig;
     private final BedMetaService bedMetaService;
     private final PatientRecordRepository patientRecordRepo;
-    private final PatientBedHistoryRepository patientBedHistoryRepo;
     private final PatientDeviceRepository patientDeviceRepo;
 }

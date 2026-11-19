@@ -24,9 +24,11 @@ import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.scores.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
-import com.jingyicare.jingyi_icis_engine.service.patients.*;
-import com.jingyicare.jingyi_icis_engine.service.patients.bed.BedMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
+import com.jingyicare.jingyi_icis_engine.service.patients.bed.BedMetaReader;
+import com.jingyicare.jingyi_icis_engine.service.patients.write.PatientRecordMapper;
 import com.jingyicare.jingyi_icis_engine.service.settings.IcuQcConfigService;
 import com.jingyicare.jingyi_icis_engine.service.therapies.SepsisAndSepticShockBundleService;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -38,7 +40,6 @@ public class GenericIcuQcService {
         @Autowired ConfigProtoService protoService,
         @Autowired IcuQcConfigService icuQcConfigService,
         @Autowired PatientService patientService,
-        @Autowired PatientConfig patientConfig,
         @Autowired PatientReader patientReader,
         @Autowired SepsisAndSepticShockBundleService sepsisAndSepticShockBundleService,
         @Autowired BedUtilizationCalc bedUtilizationCalc,
@@ -57,7 +58,6 @@ public class GenericIcuQcService {
         this.icuQcConfigService = icuQcConfigService;
         refreshQcConfig();
         this.patientService = patientService;
-        this.patientConfig = patientConfig;
         this.patientReader = patientReader;
         this.sepsisAndSepticShockBundleService = sepsisAndSepticShockBundleService;
         this.bedUtilizationCalc = bedUtilizationCalc;
@@ -792,7 +792,7 @@ public class GenericIcuQcService {
         for (PatientRecord patient : patients) {
             if (!overlapsPeriod(patient, statsStartUtc, statsEndUtc)) continue;
             denominatorPatientCnt += 1;
-            boolean isDead = Objects.equals(patient.getDischargeType(), patientConfig.getDischargeTypeDeadId());
+            boolean isDead = PatientEnums.DISCHARGE_TYPE_DEAD.equals(patient.getDischargeType());
             if (isDead) deadCnt += 1;
             ApacheIIScore score = firstApacheScore(patient, apacheMap.getOrDefault(patient.getId(), List.of()), statsEndUtc);
             double predicted = score == null || score.getPredictedMortalityRate() == null
@@ -941,7 +941,7 @@ public class GenericIcuQcService {
     }
 
     private IcuQcPatientPB toPatientPb(PatientRecord patient) {
-        boolean isDead = Objects.equals(patient.getDischargeType(), patientConfig.getDischargeTypeDeadId());
+        boolean isDead = PatientEnums.DISCHARGE_TYPE_DEAD.equals(patient.getDischargeType());
         return IcuQcPatientPB.newBuilder()
             .setPatientId(patient.getId() == null ? 0 : patient.getId())
             .setHisMrn(patient.getHisMrn())
@@ -1099,35 +1099,12 @@ public class GenericIcuQcService {
     }
 
     private boolean isSurgicalAdmission(PatientRecord patient) {
-        if (hasAdmissionType(patient, patientConfig.getAdmissionTypeSurgeryId())) return true;
+        if (PatientRecordMapper.admissionTypeValues(patient)
+                .contains(PatientEnums.ADMISSION_TYPE_SURGERY)) return true;
         String src = patient.getFromDeptName();
         return src != null && (
             src.contains("手术室") || src.contains("复苏室") || src.contains("麻醉恢复室") || src.contains("PACU")
         );
-    }
-
-    private boolean hasAdmissionType(PatientRecord patient, Integer admissionType) {
-        if (admissionType == null) return false;
-        List<Integer> admissionTypes = parseAdmissionTypes(patient.getAdmissionTypes());
-        if (admissionTypes.isEmpty()) {
-            return Objects.equals(patient.getAdmissionTypeRaw(), admissionType);
-        }
-        return admissionTypes.contains(admissionType);
-    }
-
-    private List<Integer> parseAdmissionTypes(String admissionTypes) {
-        if (StrUtils.isBlank(admissionTypes)) return Collections.emptyList();
-        List<Integer> parsed = new ArrayList<>();
-        for (String token : admissionTypes.split(",")) {
-            String trimmed = token.trim();
-            if (trimmed.isEmpty()) return Collections.emptyList();
-            try {
-                parsed.add(Integer.parseInt(trimmed));
-            } catch (NumberFormatException e) {
-                return Collections.emptyList();
-            }
-        }
-        return parsed;
     }
 
     private double normalizeMortalityRate(double rate) {
@@ -1171,7 +1148,6 @@ public class GenericIcuQcService {
     private volatile Map<String, QcItemPB> qcItemMap;
 
     private final PatientService patientService;
-    private final PatientConfig patientConfig;
     private final PatientReader patientReader;
     private final SepsisAndSepticShockBundleService sepsisAndSepticShockBundleService;
     private final BedUtilizationCalc bedUtilizationCalc;

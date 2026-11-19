@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
 
 public class PatientTestUtils {
     public static PatientRecord newPatientRecord(Long id, Integer admissionStatus, String deptId) {
@@ -68,7 +69,7 @@ public class PatientTestUtils {
         record.setResponsibleNurseId("responsibleNurseId" + id);
         record.setFromDeptName("fromDeptName" + id);
         record.setFromDeptId("fromDeptId" + id);
-        record.setAdmissionType(1);  // todo(guzhenyu): deprecate this. 1 - "入院"
+        record.setAdmissionType(PatientEnums.ADMISSION_TYPE_HOSPITAL);
         record.setIsPlannedAdmission(true);
         record.setUnplannedAdmissionReason("");
         record.setAdmissionStatus(admissionStatus);
@@ -76,7 +77,7 @@ public class PatientTestUtils {
         record.setAdmissionEditTime(now);
         record.setAdmittingAccountId("admittingAccountId" + id);
         record.setDiagnosis("diagnosis" + id);
-        record.setDischargeType(1);  // todo(guzhenyu): deprecate this. 1 - "转出"
+        record.setDischargeType(PatientEnums.DISCHARGE_TYPE_TRANSFER);
         record.setDeathTime(now);
         record.setHisDischargeTime(now);
         record.setDischargeDiagnosis("dischargeDiagnosis" + id);

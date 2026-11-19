@@ -81,7 +81,7 @@
 
 ### 3.1 同步代码表面映射
 
-[`PatientSyncService.updatePatientRecord()`](../../src/main/java/com/jingyicare/jingyi_icis_engine/service/patients/PatientSyncService.java) 中存在：
+[`PatientSyncService.applyHisFields()`](../../src/main/java/com/jingyicare/jingyi_icis_engine/service/patients/write/PatientSyncService.java) 中存在：
 
 | 源字段 | 目标字段 | 赋值条件 |
 | --- | --- | --- |
@@ -93,7 +93,7 @@
 
 ### 3.2 正常出院时上述代码不可达
 
-引擎传给 `updatePatientRecord()` 的源记录已经经过活动患者过滤：
+人工对账传给 `applyHisFields()` 的源记录已经经过活动患者过滤：
 
 ```text
 admission_status = 1
@@ -112,7 +112,7 @@ patient_records.admission_status = 2  // 待出科
 patient_records.discharge_time = TimeUtils.getNowUtc()  // 同步发现时间
 ```
 
-相关分支见 [`PatientSyncService.syncPatientRecords()`](../../src/main/java/com/jingyicare/jingyi_icis_engine/service/patients/PatientSyncService.java)。旧定时同步使用的归并规则现用于人工对账：
+相关分支见 [`PatientSyncService.syncPatientRecords()`](../../src/main/java/com/jingyicare/jingyi_icis_engine/service/patients/write/PatientSyncService.java)。旧定时同步使用的归并规则现用于人工对账：
 
 | 目标字段 | 人工对账结果 |
 | --- | --- |
@@ -168,7 +168,7 @@ TransferInfo.t_in_date   -> discharge_time
 
 ### 5.2 在引擎退出分支读取最新源记录
 
-仅在 `updatePatientRecord()` 中补三四行 setter 不够，因为离开 ICU 的源记录不会进入该方法。建议在“目标患者不再出现在活动源集合”的分支：
+仅在 `applyHisFields()` 中补三四行 setter 不够，因为离开 ICU 的源记录不会进入该方法。建议在“目标患者不再出现在活动源集合”的分支：
 
 1. 优先按 `patient_records.his_encounter_id` 查最新 `his_patient_records`，必要时再以 MRN 兜底；
 2. 若最新源记录有有效出科元数据，则复制 `discharged_type/dept_id/dept_name/discharge_time`；

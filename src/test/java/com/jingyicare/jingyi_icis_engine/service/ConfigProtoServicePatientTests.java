@@ -2,6 +2,7 @@ package com.jingyicare.jingyi_icis_engine.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -25,8 +26,11 @@ import com.google.gson.JsonParser;
 import com.google.protobuf.TextFormat;
 
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
+import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.GetConfigResp;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.PatientEnumsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisText.EnumTextPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisText.Text;
+import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.EnumValue;
 import com.jingyicare.jingyi_icis_engine.repository.medications.IntakeTypeRepository;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
@@ -42,10 +46,28 @@ class ConfigProtoServicePatientTests {
                 new ClassPathResource(path).getInputStream(), StandardCharsets.UTF_8)) {
             TextFormat.getParser().merge(reader, raw);
         }
-        assertThat(raw.getPatient().getEnumsV2().getBloodTypeList()).isEmpty();
-        assertThat(raw.getPatient().getEnumsV2().getBloodRhList()).isEmpty();
+        PatientEnumsPB patientEnums = raw.getPatient().getEnumsV2();
+        assertThat(patientEnums.getBloodTypeList()).isEmpty();
+        assertThat(patientEnums.getBloodRhList()).isEmpty();
+        assertThat(List.of(
+            patientEnums.getAdmissionTypeHospitalName(),
+            patientEnums.getAdmissionTypeTransferName(),
+            patientEnums.getAdmissionTypeSurgeryName(),
+            patientEnums.getAdmissionTypeRescueName(),
+            patientEnums.getAdmissionTypeSevereName(),
+            patientEnums.getAdmissionTypeOtherHospitalName(),
+            patientEnums.getAdmissionTypeCriticalName()
+        )).containsExactly("入院", "转入", "手术", "抢救", "重症", "外院", "病危");
         ProtoConfig protoConfig = loadConfig(path, "");
         assertThat(protoConfig.getConfig().getPatient()).isEqualTo(raw.getPatient());
+        GetConfigResp publicConfig = getPublicConfig(protoConfig);
+        assertThat(publicConfig.getPatientAdmissionTypesList())
+            .extracting(EnumValue::getId, EnumValue::getName)
+            .containsExactly(tuple(1, "入院"), tuple(2, "转入"), tuple(3, "手术"),
+                tuple(4, "抢救"), tuple(5, "重症"), tuple(6, "外院"), tuple(7, "病危"));
+        assertThat(publicConfig.getPatientDischargeTypesList())
+            .extracting(EnumValue::getId, EnumValue::getName)
+            .containsExactly(tuple(1, "转出"), tuple(2, "死亡"), tuple(3, "出院"));
         assertPublicBloodEnums(protoConfig);
         assertDefaultRhAliases(protoConfig.getConfig().getText().getEnumText());
     }
@@ -58,7 +80,7 @@ class ConfigProtoServicePatientTests {
             zone_id: "UTC"
             patient { grace_period_hours_to_readmit: 17
               enums_v2 { pending_admission_name: "外部待入科"
-                admission_type { id: 77 name: "外部入院方式" }
+                admission_type_hospital_name: "外部入院方式"
                 blood_type { id: 99 name: "A型" } blood_rh { id: 8 name: "RH阳性" } } }
             """, external);
         Path file = tempDir.resolve("external.pb.txt");
@@ -226,15 +248,64 @@ class ConfigProtoServicePatientTests {
         assertThat(enums.get("dischargedName").getAsString()).isEqualTo("已出科");
     }
 
+    @Test
+    void shouldExposeConfiguredAdmissionNamesWithStableCodes(@TempDir Path tempDir)
+        throws Exception {
+        Path file = tempDir.resolve("external.pb.txt");
+        Files.writeString(file, """
+            patient { enums_v2 { admission_type_surgery_name: "术后转入" } }
+            """, StandardCharsets.UTF_8);
+        ProtoConfig protoConfig = loadConfig(DEFAULT_CONFIG, file.toString());
+        GetConfigResp response = getPublicConfig(protoConfig);
+
+        assertThat(response.getPatientAdmissionTypesList())
+            .extracting(EnumValue::getId, EnumValue::getName)
+            .containsExactly(tuple(1, "入院"), tuple(2, "转入"), tuple(3, "术后转入"),
+                tuple(4, "抢救"), tuple(5, "重症"), tuple(6, "外院"), tuple(7, "病危"));
+
+        JsonObject json = JsonParser.parseString(ProtoUtils.protoToJson(response))
+            .getAsJsonObject();
+        assertThat(json.has("patientAdmissionTypes")).isTrue();
+        assertThat(json.getAsJsonObject("patientEnums").has("admissionType")).isFalse();
+    }
+
+    @Test
+    void shouldExposeConfiguredDischargeNamesWithStableCodes(@TempDir Path tempDir)
+        throws Exception {
+        Path file = tempDir.resolve("external.pb.txt");
+        Files.writeString(file, """
+            patient { enums_v2 {
+                discharge_type_transfer_name: "转往其他科室"
+                discharge_type_dead_name: "院内死亡"
+                discharge_type_exit_hospital_name: "离院"
+            } }
+            """, StandardCharsets.UTF_8);
+        ProtoConfig protoConfig = loadConfig(DEFAULT_CONFIG, file.toString());
+
+        GetConfigResp response = getPublicConfig(protoConfig);
+        assertThat(response.getPatientDischargeTypesList())
+            .extracting(EnumValue::getId, EnumValue::getName)
+            .containsExactly(tuple(1, "转往其他科室"), tuple(2, "院内死亡"), tuple(3, "离院"));
+
+        JsonObject json = JsonParser.parseString(ProtoUtils.protoToJson(response))
+            .getAsJsonObject();
+        assertThat(json.has("patientDischargeTypes")).isTrue();
+        assertThat(json.getAsJsonObject("patientEnums").has("dischargeType")).isFalse();
+    }
+
     private JsonObject getPublicPatientEnums(ProtoConfig protoConfig) {
+        String json = ProtoUtils.protoToJson(getPublicConfig(protoConfig));
+        assertThat(json).isNotNull();
+        return JsonParser.parseString(json).getAsJsonObject()
+            .getAsJsonObject("patientEnums");
+    }
+
+    private GetConfigResp getPublicConfig(ProtoConfig protoConfig) {
         IntakeTypeRepository intakeTypes = mock(IntakeTypeRepository.class);
         when(intakeTypes.findAll()).thenReturn(List.of());
         ConfigProtoService service = new ConfigProtoService(
             protoConfig.getConfig(), null, intakeTypes, new PatientEnums(protoConfig));
-        String json = ProtoUtils.protoToJson(service.getWebApiConfig());
-        assertThat(json).isNotNull();
-        return JsonParser.parseString(json).getAsJsonObject()
-            .getAsJsonObject("patientEnums");
+        return service.getWebApiConfig();
     }
 
     private static final String DEFAULT_CONFIG = "config/pbtxt/icis_config.pb.txt";
