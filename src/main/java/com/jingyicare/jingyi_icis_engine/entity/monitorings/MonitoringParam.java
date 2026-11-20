@@ -30,10 +30,10 @@ public class MonitoringParam {
     private String typePb; // 将ValueMeta序列化并用base64编码的字符串
 
     @Column(name = "balance_type", nullable = false)
-    private Integer balanceType; // 1: 入量；2: 出量；其他不计入
+    private Integer balanceType; // 出入量类型，编号见 MonEnums
 
     @Column(name = "category")
-    private Integer category;  // MonitoringEnums.param_category_xx.id
+    private Integer category;  // 参数来源分类，编号见 MonEnums
 
     public Integer getCategory() {
         if (category == null) return 0;

@@ -73,9 +73,9 @@ public class MonitoringMetaService {
         if (deptMonitoringGroupRepository.existsByDeptIdAndIsDeletedFalse(deptId)) return;
 
         insertDeptGroups(deptId, monitoringPb.getBalanceGroupList(),
-            monitoringPb.getEnums().getGroupTypeBalance().getId());
+            MonEnums.GROUP_TYPE_BALANCE);
         insertDeptGroups(deptId, monitoringPb.getMonitoringGroupList(),
-            monitoringPb.getEnums().getGroupTypeMonitoring().getId());
+            MonEnums.GROUP_TYPE_MONITORING);
         log.info("Department {} monitoring groups initialization completed.", deptId);
     }
 
@@ -84,13 +84,17 @@ public class MonitoringMetaService {
     ) {
         LocalDateTime now = TimeUtils.getNowUtc();
         List<DeptMonitoringGroupParam> params = new ArrayList<>();
+        boolean isBalanceGroup = groupType == MonEnums.GROUP_TYPE_BALANCE;
         for (int i = 0; i < groupPbs.size(); i++) {
             MonitoringGroupPB groupPb = groupPbs.get(i);
+            Integer balanceRole =
+                isBalanceGroup && groupPb.hasBalanceRole() ? groupPb.getBalanceRole() : null;
             DeptMonitoringGroup group = deptMonitoringGroupRepository.save(
                 DeptMonitoringGroup.builder()
                     .deptId(deptId)
                     .name(groupPb.getName())
                     .groupType(groupType)
+                    .balanceRole(balanceRole)
                     .displayOrder(i)
                     .sumTypePb(ProtoUtils.encodeValueMeta(groupPb.getSumValueMeta()))
                     .isDeleted(false)

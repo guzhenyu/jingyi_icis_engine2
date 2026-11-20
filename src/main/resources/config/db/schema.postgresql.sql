@@ -1506,7 +1506,7 @@ COMMENT ON COLUMN monitoring_params.name IS '观察参数名称，比如“静�
 COMMENT ON COLUMN monitoring_params.name_en IS '观察参数英文名称';
 COMMENT ON COLUMN monitoring_params.type_pb IS '将ValueMeta序列化并用base64编码的字符串';
 COMMENT ON COLUMN monitoring_params.balance_type IS '1: 入量；2: 出量；其他不计入';
-COMMENT ON COLUMN monitoring_params.category IS '观察参数分类，通常表示参数的直接来源，MonitoringEnums.param_category_xx.id';
+COMMENT ON COLUMN monitoring_params.category IS '观察参数分类，通常表示参数的直接来源，编号见 MonEnums';
 COMMENT ON COLUMN monitoring_params.ui_modal_code IS '观察项UI模态框的编码，用于在观察项界面直接编辑评分';
 COMMENT ON COLUMN monitoring_params.chart_sign IS '图表标识，用于观察项报表中的折线图的点的展示';
 
@@ -1554,6 +1554,7 @@ CREATE TABLE dept_monitoring_groups (
     dept_id VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
     group_type INT,
+    balance_role INT,
     display_order INT NOT NULL,
     sum_type_pb VARCHAR(2000),
     is_deleted BOOLEAN NOT NULL,
@@ -1565,7 +1566,8 @@ CREATE TABLE dept_monitoring_groups (
 COMMENT ON TABLE dept_monitoring_groups IS '科室观察分组表';
 COMMENT ON COLUMN dept_monitoring_groups.dept_id IS '科室ID';
 COMMENT ON COLUMN dept_monitoring_groups.name IS '观察量分组名称，比如"生命体征"';
-COMMENT ON COLUMN dept_monitoring_groups.group_type IS '分组类型：0：出入量，1：观察项';
+COMMENT ON COLUMN dept_monitoring_groups.group_type IS '分组类型：1：出入量，2：观察项';
+COMMENT ON COLUMN dept_monitoring_groups.balance_role IS '出入量角色：0：无角色，1：入量，2：出量，3：平衡量';
 COMMENT ON COLUMN dept_monitoring_groups.display_order IS '分组间显示顺序';
 COMMENT ON COLUMN dept_monitoring_groups.sum_type_pb IS '将ValueMeta序列化并用base64编码的字符串';
 CREATE UNIQUE INDEX idx_dept_monitoring_groups_dept_id_name ON dept_monitoring_groups (dept_id, name) WHERE is_deleted = FALSE;
@@ -3902,7 +3904,7 @@ COMMENT ON COLUMN overview_params.param_type IS '参数类型：1-血气，2-检
 COMMENT ON COLUMN overview_params.bga_category_id IS '血气类别ID，仅当param_type为1时有效';
 COMMENT ON COLUMN overview_params.param_code IS '参数编码';
 COMMENT ON COLUMN overview_params.value_meta IS 'proto消息ValueMetaPB实例序列化后的base64编码';
-COMMENT ON COLUMN overview_params.balance_type_id IS '平衡类型ID，对应于MonitoringPB.enums.balance_xx.id; 0: nan; 1: 入量; 2: 出量; 3: 平衡量';
+COMMENT ON COLUMN overview_params.balance_type_id IS '平衡类型：0：不计入，1：入量，2：出量，3：平衡量';
 COMMENT ON COLUMN overview_params.display_order IS '参数显示顺序';
 COMMENT ON COLUMN overview_params.is_deleted IS '是否删除';
 COMMENT ON COLUMN overview_params.deleted_by IS '删除人账号';

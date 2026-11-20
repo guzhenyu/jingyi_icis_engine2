@@ -32,6 +32,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisText.EnumTextPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisText.Text;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.EnumValue;
 import com.jingyicare.jingyi_icis_engine.repository.medications.IntakeTypeRepository;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.MonEnums;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
@@ -304,7 +305,8 @@ class ConfigProtoServicePatientTests {
         IntakeTypeRepository intakeTypes = mock(IntakeTypeRepository.class);
         when(intakeTypes.findAll()).thenReturn(List.of());
         ConfigProtoService service = new ConfigProtoService(
-            protoConfig.getConfig(), null, intakeTypes, new PatientEnums(protoConfig));
+            protoConfig.getConfig(), null, intakeTypes, new PatientEnums(protoConfig),
+            new MonEnums(protoConfig));
         return service.getWebApiConfig();
     }
 

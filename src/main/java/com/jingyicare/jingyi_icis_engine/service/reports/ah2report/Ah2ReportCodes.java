@@ -1,5 +1,7 @@
 package com.jingyicare.jingyi_icis_engine.service.reports.ah2report;
 
+import com.jingyicare.jingyi_icis_engine.service.monitorings.MonEnums;
+
 public final class Ah2ReportCodes {
     private Ah2ReportCodes() {}
 
@@ -22,9 +24,9 @@ public final class Ah2ReportCodes {
     public static final String MP_CVP = "cvp";  // 中心静脉压 | CVP
     public static final String MP_ICP = "icp";  // 颅内压 | ICP
     public static final String MP_BLOOD_GLUCOSE = "blood_glucose";  // 血糖
-    public static final String MP_HOURLY_INTAKE = "hourly_intake";  // 每小时入量 float
+    public static final String MP_HOURLY_INTAKE = MonEnums.NET_HOURLY_IN_CODE;  // 每小时入量 float
     public static final String MP_ACCU_INTAKE = "MP_ACCU_INTAKE";  // 累计入量 float
-    public static final String MP_HOURLY_OUTPUT = "hourly_output";  // 每小时出量 float
+    public static final String MP_HOURLY_OUTPUT = MonEnums.NET_HOURLY_OUT_CODE;  // 每小时出量 float
     public static final String MP_ACCU_OUTPUT = "MP_ACCU_OUTPUT";  // 累计出量 float
     public static final String MP_URINE_OUTPUT = "urine_output";  // 每小时尿量 float
     public static final String MP_ACCU_URINE_OUTPUT = "MP_ACCU_URINE_OUTPUT";  // 累计尿量 float

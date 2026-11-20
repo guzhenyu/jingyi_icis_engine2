@@ -86,8 +86,8 @@ public final class MonitoringMapper {
     public static StatusCode isValidParamPb(MonitoringParamPB paramPb, MonitoringPB monitoringPb) {
         final String code = paramPb.getCode();
         final int balanceType = paramPb.getBalanceType();
-        if (balanceType == monitoringPb.getEnums().getBalanceIn().getId()
-            || balanceType == monitoringPb.getEnums().getBalanceOut().getId()
+        if (balanceType == MonEnums.BALANCE_TYPE_IN
+            || balanceType == MonEnums.BALANCE_TYPE_OUT
         ) {
             ValueMetaPB valueMeta = paramPb.getValueMeta();
             if (valueMeta.getIsMultipleSelection()) {

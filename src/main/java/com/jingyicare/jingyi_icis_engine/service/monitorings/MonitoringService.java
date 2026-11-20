@@ -62,11 +62,6 @@ public class MonitoringService {
     ) {
         this.ZONE_ID = protoService.getConfig().getZoneId();
         this.protoService = protoService;
-        this.monitoringPb = protoService.getConfig().getMonitoring();
-
-        this.BALANCE_IN_ID = monitoringPb.getEnums().getBalanceIn().getId();
-        this.BALANCE_OUT_ID = monitoringPb.getEnums().getBalanceOut().getId();
-        this.GROUP_TYPE_BALANCE_ID = monitoringPb.getEnums().getGroupTypeBalance().getId();
 
         this.userQuery = userQuery;
         this.patientService = patientService;
@@ -370,7 +365,7 @@ public class MonitoringService {
         Integer groupType = req.getGroupType();
 
         // 检查 group_type 是否为不可编辑的平衡分组
-        if (groupType == GROUP_TYPE_BALANCE_ID) {
+        if (groupType == MonEnums.GROUP_TYPE_BALANCE) {
             log.error("Group type 'balance' is not editable. User: [{}], Request: {}",
                 account.autoAcctId(), req);
             return AddDeptMonitoringGroupResp.newBuilder()
@@ -480,6 +475,12 @@ public class MonitoringService {
                             StatusCode.DEPT_MONITORING_GROUP_NOT_EXIST))
                         .build();
                 }
+                if (Objects.equals(existingGroup.getGroupType(), MonEnums.GROUP_TYPE_BALANCE)) {
+                    return GenericResp.newBuilder()
+                        .setRt(protoService.getReturnCode(
+                            StatusCode.GROUP_TYPE_BALANCE_NOT_EDITABLE))
+                        .build();
+                }
 
                 DeptMonitoringGroup dupDeptMonGroup = deptMonitoringGroupRepository
                     .findByDeptIdAndNameAndIsDeletedFalse(existingGroup.getDeptId(), req.getName())
@@ -586,7 +587,7 @@ public class MonitoringService {
             return new Pair<>(StatusCode.OK, null);
         }
 
-        if (group.getGroupType() == GROUP_TYPE_BALANCE_ID) {
+        if (Objects.equals(group.getGroupType(), MonEnums.GROUP_TYPE_BALANCE)) {
             log.error("Group type 'balance' is not editable. Group ID: {}, User: [{}]",
                 groupId, accountId);
             return new Pair<>(StatusCode.GROUP_TYPE_BALANCE_NOT_EDITABLE, null);
@@ -686,7 +687,7 @@ public class MonitoringService {
                     }
 
                     DeptMonitoringGroup group = groupMap.get(order.getMonitoringGroupId());
-                    if (group.getGroupType() == GROUP_TYPE_BALANCE_ID) {
+                    if (Objects.equals(group.getGroupType(), MonEnums.GROUP_TYPE_BALANCE)) {
                         log.error("Group type 'balance' is not editable. Group ID: {}, User: [{}]",
                             group.getId(), account.autoAcctId());
                         return GenericResp.newBuilder()
@@ -829,15 +830,17 @@ public class MonitoringService {
         }
 
         // 检查参数的出入量类型是否与出入量分组类型相匹配
-        if (deptGroup.getName().equals(monitoringPb.getBalanceInGroupName())
-            && param.getBalanceType() == BALANCE_OUT_ID) {
-            log.error("出入量类型不匹配：出量参数不能加入入量分组。");
-            return new Pair<>(StatusCode.GROUP_PARAM_BALANCE_NOT_MATCH, deptGroup);
-        }
-        if (deptGroup.getName().equals(monitoringPb.getBalanceOutGroupName())
-            && param.getBalanceType() == BALANCE_IN_ID) {
-            log.error("出入量类型不匹配：入量参数不能加入出量分组。");
-            return new Pair<>(StatusCode.GROUP_PARAM_BALANCE_NOT_MATCH, deptGroup);
+        if (Objects.equals(deptGroup.getGroupType(), MonEnums.GROUP_TYPE_BALANCE)) {
+            Integer role = deptGroup.getBalanceRole();
+            boolean typeMismatch =
+                (Objects.equals(role, MonEnums.BALANCE_TYPE_IN)
+                    && Objects.equals(param.getBalanceType(), MonEnums.BALANCE_TYPE_OUT))
+                || (Objects.equals(role, MonEnums.BALANCE_TYPE_OUT)
+                    && Objects.equals(param.getBalanceType(), MonEnums.BALANCE_TYPE_IN));
+            if (typeMismatch) {
+                log.error("出入量类型不匹配，分组 ID：{}，参数：{}", groupId, code);
+                return new Pair<>(StatusCode.GROUP_PARAM_BALANCE_NOT_MATCH, deptGroup);
+            }
         }
 
         return new Pair<>(StatusCode.OK, deptGroup);
@@ -1146,7 +1149,7 @@ public class MonitoringService {
 
         // 获取引流管参数
         List<String> balanceOutTubeParamCodes = new ArrayList<>();
-        if (groupType == GROUP_TYPE_BALANCE_ID) {
+        if (groupType == MonEnums.GROUP_TYPE_BALANCE) {
             balanceOutTubeParamCodes = patientTubeImpl.getMonitoringParamCodes(pid, queryStartUtc, queryEndUtc);
         }
 
@@ -1364,12 +1367,8 @@ public class MonitoringService {
     }
 
     final String ZONE_ID;
-    final Integer BALANCE_IN_ID;
-    final Integer BALANCE_OUT_ID;
-    final Integer GROUP_TYPE_BALANCE_ID;
 
     private final ConfigProtoService protoService;
-    private final MonitoringPB monitoringPb;
     private final UserQuery userQuery;
     private final PatientService patientService;
     private final PatientReader patientReader;

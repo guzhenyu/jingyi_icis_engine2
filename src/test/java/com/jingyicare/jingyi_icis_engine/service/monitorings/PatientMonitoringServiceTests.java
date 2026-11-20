@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
@@ -59,18 +60,7 @@ public class PatientMonitoringServiceTests extends TestsBase {
         this.deptId = "10012";
         this.ZONE_ID = protoService.getConfig().getZoneId();
 
-        MonitoringPB monitoringMeta = protoService.getConfig().getMonitoring();
-        this.SUMMARY_MONOTORING_CODE = monitoringMeta.getParamCodeSummary();
-        this.IN_GROUP_NAME = monitoringMeta.getBalanceInGroupName();
-        this.OUT_GROUP_NAME = monitoringMeta.getBalanceOutGroupName();
-        this.NET_GROUP_NAME = monitoringMeta.getBalanceNetGroupName();
-        this.HOURLY_NET_CODE = monitoringMeta.getNetHourlyNetCode();
         this.CUSTOM_MONITORING_GROUP_NAME = "test_group";
-        this.BALANCE_TYPE_NAN_ID = monitoringMeta.getEnums().getBalanceNan().getId();
-        this.BALANCE_TYPE_IN_ID = monitoringMeta.getEnums().getBalanceIn().getId();
-        this.BALANCE_TYPE_OUT_ID = monitoringMeta.getEnums().getBalanceOut().getId();
-        this.GROUP_TYPE_BALANCE = monitoringMeta.getEnums().getGroupTypeBalance().getId();
-        this.GROUP_TYPE_MONITORING = monitoringMeta.getEnums().getGroupTypeMonitoring().getId();
 
         this.FREQ_CODE_ONCE = protoService.getConfig().getMedication().getFreqSpec().getOnceCode();
         this.ROUTE_INFUSION = "test_route_6";
@@ -89,7 +79,6 @@ public class PatientMonitoringServiceTests extends TestsBase {
         this.ACTION_TYPE_FAST_PUSH = medEnums.getMedicationExecutionActionTypeFastPush().getId();
         this.ACTION_TYPE_COMPLETE = medEnums.getMedicationExecutionActionTypeComplete().getId();
 
-        this.protoService = protoService;
         this.monitoringConfig = monitoringConfig;
         this.monitoringService = monitoringService;
         this.monitoringMetaService = monitoringMetaService;
@@ -146,7 +135,7 @@ public class PatientMonitoringServiceTests extends TestsBase {
         assertThat(deleteResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
         GetPatientMonitoringGroupsReq req = GetPatientMonitoringGroupsReq.newBuilder()
-            .setPid(pid).setDeptId(deptId).setGroupType(GROUP_TYPE_MONITORING)
+            .setPid(pid).setDeptId(deptId).setGroupType(MonEnums.GROUP_TYPE_MONITORING)
             .setQueryStartIso8601(TimeUtils.toIso8601String(LocalDateTime.of(2024, 11, 22, 0, 0), ZONE_ID))
             .setQueryEndIso8601(TimeUtils.toIso8601String(LocalDateTime.of(2024, 11, 22, 1, 0), ZONE_ID))
             .setSyncDeviceData(true)
@@ -237,7 +226,7 @@ public class PatientMonitoringServiceTests extends TestsBase {
 
         // 观察项
         GetPatientMonitoringGroupsReq getReq = GetPatientMonitoringGroupsReq.newBuilder()
-            .setPid(pid).setDeptId(deptId).setGroupType(GROUP_TYPE_MONITORING)
+            .setPid(pid).setDeptId(deptId).setGroupType(MonEnums.GROUP_TYPE_MONITORING)
             .setQueryStartIso8601(TimeUtils.toIso8601String(LocalDateTime.of(2024, 11, 23, 0, 0), ZONE_ID))
             .setQueryEndIso8601(TimeUtils.toIso8601String(LocalDateTime.of(2024, 11, 24, 0, 0), ZONE_ID))
             .setSyncDeviceData(true)
@@ -258,7 +247,7 @@ public class PatientMonitoringServiceTests extends TestsBase {
 
         // 出入量
         getReq = GetPatientMonitoringGroupsReq.newBuilder()
-            .setPid(pid).setDeptId(deptId).setGroupType(GROUP_TYPE_BALANCE)
+            .setPid(pid).setDeptId(deptId).setGroupType(MonEnums.GROUP_TYPE_BALANCE)
             .setQueryStartIso8601(TimeUtils.toIso8601String(LocalDateTime.of(2024, 11, 23, 0, 0), ZONE_ID))
             .setQueryEndIso8601(TimeUtils.toIso8601String(LocalDateTime.of(2024, 11, 24, 0, 0), ZONE_ID))
             .setSyncDeviceData(true)
@@ -268,7 +257,8 @@ public class PatientMonitoringServiceTests extends TestsBase {
         assertThat(getResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         assertThat(getResp.getGroupRecordsList()).hasSize(3);
         assertThat(getResp.getGroupRecords(2).getCodeRecordsList()).hasSize(1);
-        assertThat(getResp.getGroupRecords(2).getCodeRecords(0).getParamCode()).isEqualTo(HOURLY_NET_CODE);
+        assertThat(getResp.getGroupRecords(2).getCodeRecords(0).getParamCode())
+            .isEqualTo(MonEnums.NET_HOURLY_NET_CODE);
         assertThat(getResp.getGroupRecords(2).getCodeRecords(0).getRecordValueList()).hasSize(5);
         assertThat(getResp.getGroupRecords(2).getCodeRecords(0).getRecordValue(0).getValue().getFloatVal()).isEqualTo(8.0f);
         assertThat(getResp.getGroupRecords(2).getCodeRecords(0).getRecordValue(1).getValue().getFloatVal()).isEqualTo(4.0f);
@@ -390,7 +380,7 @@ public class PatientMonitoringServiceTests extends TestsBase {
 
         // 查看结果
         GetPatientMonitoringGroupsReq getReq = GetPatientMonitoringGroupsReq.newBuilder()
-            .setPid(pid).setDeptId(deptId).setGroupType(GROUP_TYPE_BALANCE)
+            .setPid(pid).setDeptId(deptId).setGroupType(MonEnums.GROUP_TYPE_BALANCE)
             .setQueryStartIso8601(TimeUtils.toIso8601String(queryStart, ZONE_ID))
             .setQueryEndIso8601(TimeUtils.toIso8601String(queryEnd, ZONE_ID))
             .setSyncDeviceData(true)
@@ -446,7 +436,7 @@ public class PatientMonitoringServiceTests extends TestsBase {
                             .setIsMultipleSelection(true)
                             .setUnit("")
                             .build())
-                    .setBalanceType(BALANCE_TYPE_NAN_ID)
+                    .setBalanceType(MonEnums.BALANCE_TYPE_NAN)
                     .build()
             )
             .build();
@@ -458,9 +448,7 @@ public class PatientMonitoringServiceTests extends TestsBase {
         AddDeptMonitoringGroupReq addDeptGroupReq = AddDeptMonitoringGroupReq.newBuilder()
             .setDepartmentId(deptId)
             .setName("测试参数10007分组")
-            .setGroupType(protoService.getConfig().getMonitoring().getEnums()
-                .getGroupTypeMonitoring().getId()
-            )
+            .setGroupType(MonEnums.GROUP_TYPE_MONITORING)
             .build();
         String addDeptGroupReqJson = ProtoUtils.protoToJson(addDeptGroupReq);
         AddDeptMonitoringGroupResp addDeptGroupResp = monitoringService.addDeptMonitoringGroup(addDeptGroupReqJson);
@@ -500,7 +488,7 @@ public class PatientMonitoringServiceTests extends TestsBase {
 
         // 查看结果
         GetPatientMonitoringGroupsReq getReq = GetPatientMonitoringGroupsReq.newBuilder()
-            .setPid(pid).setDeptId(deptId).setGroupType(GROUP_TYPE_MONITORING)
+            .setPid(pid).setDeptId(deptId).setGroupType(MonEnums.GROUP_TYPE_MONITORING)
             .setQueryStartIso8601(TimeUtils.toIso8601String(LocalDateTime.of(2024, 11, 23, 0, 0), ZONE_ID))
             .setQueryEndIso8601(TimeUtils.toIso8601String(LocalDateTime.of(2024, 11, 24, 0, 0), ZONE_ID))
             .setSyncDeviceData(true)
@@ -547,12 +535,16 @@ public class PatientMonitoringServiceTests extends TestsBase {
         List<DeptMonitoringGroup> deptGroups = deptMonitoringGroupRepo.findByDeptIdAndIsDeletedFalse(deptId);
 
         // 4. 入量组参数
-        DeptMonitoringGroup inGroup = getGroupByName(deptGroups, IN_GROUP_NAME);
+        DeptMonitoringGroup inGroup = deptGroups.stream()
+            .filter(group -> Objects.equals(group.getBalanceRole(), MonEnums.BALANCE_TYPE_IN))
+            .findFirst().orElseThrow();
         saveParamIfNotExist(inGroup.getId(), "test_param1_in", 1/*displayOrder*/);
         saveParamIfNotExist(inGroup.getId(), "test_param2_in", 2/*displayOrder*/);
 
         // 5. 出量组参数
-        DeptMonitoringGroup outGroup = getGroupByName(deptGroups, OUT_GROUP_NAME);
+        DeptMonitoringGroup outGroup = deptGroups.stream()
+            .filter(group -> Objects.equals(group.getBalanceRole(), MonEnums.BALANCE_TYPE_OUT))
+            .findFirst().orElseThrow();
         saveParamIfNotExist(outGroup.getId(), "test_param3_out", 1/*displayOrder*/);
         saveParamIfNotExist(outGroup.getId(), "test_param4_out", 2/*displayOrder*/);
 
@@ -562,7 +554,7 @@ public class PatientMonitoringServiceTests extends TestsBase {
             customGroup = DeptMonitoringGroup.builder()
                 .deptId(deptId)
                 .name(CUSTOM_MONITORING_GROUP_NAME)
-                .groupType(GROUP_TYPE_MONITORING)
+                .groupType(MonEnums.GROUP_TYPE_MONITORING)
                 .displayOrder(2)
                 .sumTypePb("")
                 .isDeleted(false)
@@ -634,17 +626,7 @@ public class PatientMonitoringServiceTests extends TestsBase {
     private final String deptId;
 
     private final String ZONE_ID;
-    private final String SUMMARY_MONOTORING_CODE;
-    private final String IN_GROUP_NAME;
-    private final String OUT_GROUP_NAME;
-    private final String NET_GROUP_NAME;
-    private final String HOURLY_NET_CODE;
     private final String CUSTOM_MONITORING_GROUP_NAME;
-    private final Integer BALANCE_TYPE_NAN_ID;
-    private final Integer BALANCE_TYPE_IN_ID;
-    private final Integer BALANCE_TYPE_OUT_ID;
-    private final Integer GROUP_TYPE_BALANCE;
-    private final Integer GROUP_TYPE_MONITORING;
 
     private final String FREQ_CODE_ONCE;
     private final String ROUTE_INFUSION;
@@ -661,7 +643,6 @@ public class PatientMonitoringServiceTests extends TestsBase {
     private final Integer ACTION_TYPE_FAST_PUSH;
     private final Integer ACTION_TYPE_COMPLETE;
 
-    private final ConfigProtoService protoService;
     private final MonitoringConfig monitoringConfig;
     private final MonitoringService monitoringService;
     private final MonitoringMetaService monitoringMetaService;

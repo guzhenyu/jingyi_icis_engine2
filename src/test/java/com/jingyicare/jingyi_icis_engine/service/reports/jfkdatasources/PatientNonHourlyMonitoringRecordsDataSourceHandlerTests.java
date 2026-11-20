@@ -22,24 +22,19 @@ import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientMonitoringRec
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
 import com.jingyicare.jingyi_icis_engine.entity.users.Account;
 import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
-import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkFieldDataPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValPB;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringEnums;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringGroupBetaPB;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringParamPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringValuePB;
-import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.EnumValue;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.GenericValuePB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.TypeEnumPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.ValueMetaPB;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientMonitoringRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
-import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.ca.CaSignatureImageService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
@@ -228,7 +223,6 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandlerTests {
         private final JfkDataSourceSupport support = mock(JfkDataSourceSupport.class);
         private final PatientMonitoringRecordRepository monitoringRecordRepo = mock(PatientMonitoringRecordRepository.class);
         private final MonitoringConfig monitoringConfig = mock(MonitoringConfig.class);
-        private final ConfigProtoService configProtoService = mock(ConfigProtoService.class);
         private final UserQuery userQuery = mock(UserQuery.class);
         private final AccountRepository accountRepo = mock(AccountRepository.class);
 
@@ -256,13 +250,6 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandlerTests {
                 ));
             when(monitoringRecordRepo.findByPidAndEffectiveTimeRange(10001L, MON_START_UTC, MON_END_UTC))
                 .thenReturn(List.of());
-            when(configProtoService.getConfig()).thenReturn(Config.newBuilder()
-                .setMonitoring(MonitoringPB.newBuilder()
-                    .setEnums(MonitoringEnums.newBuilder()
-                        .setGroupTypeMonitoring(EnumValue.newBuilder().setId(2).setName("观察项").build())
-                        .build())
-                    .build())
-                .build());
             when(userQuery.getCurrentAccount())
                 .thenReturn(new CurrentAccount("rbac-account-1", "account-1", "当前用户"));
         }
@@ -274,7 +261,6 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandlerTests {
                 support,
                 monitoringRecordRepo,
                 monitoringConfig,
-                configProtoService,
                 userQuery,
                 signatures,
                 properties,

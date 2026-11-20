@@ -56,23 +56,6 @@ public class BalanceCalculator {
         @Autowired PatientNursingReportInvalidationService pnrUtils
     ) {
         this.ZONE_ID = protoService.getConfig().getZoneId();
-        MonitoringPB monitoringPb = protoService.getConfig().getMonitoring();
-        this.SUMMARY_MONITORING_CODE = monitoringPb.getParamCodeSummary();
-        this.IN_GROUP_NAME = monitoringPb.getBalanceInGroupName();
-        this.OUT_GROUP_NAME = monitoringPb.getBalanceOutGroupName();
-        this.NET_GROUP_NAME = monitoringPb.getBalanceNetGroupName();
-        this.BALANCE_TYPE_IN_ID = monitoringPb.getEnums().getBalanceIn().getId();
-        this.BALANCE_TYPE_OUT_ID = monitoringPb.getEnums().getBalanceOut().getId();
-
-        this.NET_HOURLY_IN_CODE = monitoringPb.getNetHourlyInCode();
-        this.NET_HOURLY_OUT_CODE = monitoringPb.getNetHourlyOutCode();
-        this.NET_HOURLY_NET_CODE = monitoringPb.getNetHourlyNetCode();
-        this.NET_ACCUMULATED_IN_CODE = monitoringPb.getNetAccumulatedInCode();
-        this.NET_ACCUMULATED_OUT_CODE = monitoringPb.getNetAccumulatedOutCode();
-        this.NET_ACCUMULATED_NET_CODE = monitoringPb.getNetAccumulatedNetCode();
-        this.DAILY_TOTAL_INTAKE_CODE = monitoringPb.getDailyTotalIntakeCode();
-        this.DAILY_TOTAL_OUTPUT_CODE = monitoringPb.getDailyTotalOutputCode();
-
         this.monitoringConfig = monitoringConfig;
         this.monitoringRecordUtils = monitoringRecordUtils;
         this.pnrUtils = pnrUtils;
@@ -96,8 +79,8 @@ public class BalanceCalculator {
 
         // 准备 合计值 的计算要素
         final boolean toSummarizeCode = (
-            monParamPB.getBalanceType() == BALANCE_TYPE_IN_ID ||
-            monParamPB.getBalanceType() == BALANCE_TYPE_OUT_ID
+            monParamPB.getBalanceType() == MonEnums.BALANCE_TYPE_IN ||
+            monParamPB.getBalanceType() == MonEnums.BALANCE_TYPE_OUT
         );
 
         // 构造一个观察项行，必要时计算合计值
@@ -168,10 +151,7 @@ public class BalanceCalculator {
     ) {
         // 从groupBeta提取关键参数
         Integer deptMonGroupId = groupBeta.getId();
-        String groupName = groupBeta.getName();
-        String groupCode = groupName.equals(IN_GROUP_NAME) ? NET_HOURLY_IN_CODE :
-            groupName.equals(OUT_GROUP_NAME) ? NET_HOURLY_OUT_CODE : "";
-        boolean toSumGroup = !StrUtils.isBlank(groupCode);
+        boolean toSumGroup = getHourlySumCode(groupBeta.getBalanceRole()) != null;
         ValueMetaPB origGroupValueMeta = groupBeta.getSumValueMeta();
         List<MonitoringParamPB> groupParamList = groupBeta.getParamList();
 
@@ -206,7 +186,7 @@ public class BalanceCalculator {
         // 构建组合计行
         if (toSumGroup) {
             MonitoringCodeRecordsPB.Builder groupSumRecordsBuilder = MonitoringCodeRecordsPB.newBuilder()
-                .setParamCode(SUMMARY_MONITORING_CODE);
+                .setParamCode(MonEnums.PARAM_CODE_SUMMARY);
 
             // groupSumAtValMap => groupRecordVals
             // sum = sum(groupRecordVals)
@@ -216,7 +196,8 @@ public class BalanceCalculator {
                 groupSumAtValMap.entrySet().stream().sorted(Map.Entry.comparingByKey()).toList()
             ) {
                 if (entry.getValue() == null) {
-                    log.warn("Null value for group sum at time {} in group {}, pid {}", entry.getKey(), groupName, pid);
+                    log.warn("Null value for group sum at time {} in group {}, pid {}",
+                        entry.getKey(), groupBeta.getName(), pid);
                     continue;
                 }
                 groupRecordVals.add(newRecordValPB(
@@ -231,7 +212,7 @@ public class BalanceCalculator {
 
             // 将合计值添加到 codeRecordsList
             codeRecordsList.add(MonitoringCodeRecordsPB.newBuilder()
-                .setParamCode(SUMMARY_MONITORING_CODE)
+                .setParamCode(MonEnums.PARAM_CODE_SUMMARY)
                 .addAllRecordValue(groupRecordVals)
                 .build()
             );
@@ -367,13 +348,14 @@ public class BalanceCalculator {
                 args.pid, args.deptId, args.startTime, args.endTime,
                 args.modifiedBy, groupBeta, recordsMap
             );
-            if (groupBeta.getName().equals(IN_GROUP_NAME)) {
+            int balanceRole = groupBeta.getBalanceRole();
+            if (balanceRole == MonEnums.BALANCE_TYPE_IN) {
                 inGroupBeta = groupBeta;
                 inGroupRecords = groupRecords;
-            } else if (groupBeta.getName().equals(OUT_GROUP_NAME)) {
+            } else if (balanceRole == MonEnums.BALANCE_TYPE_OUT) {
                 outGroupBeta = groupBeta;
                 outGroupRecords = groupRecords;
-            } else if (groupBeta.getName().equals(NET_GROUP_NAME)) {
+            } else if (balanceRole == MonEnums.BALANCE_TYPE_NET) {
                 netGroupBeta = groupBeta;
             }
         }
@@ -395,42 +377,20 @@ public class BalanceCalculator {
     ) {
         Map<String, MonitoringCodeRecordsPB> netCodeRecordsMap = new HashMap<>();
 
-        String code = NET_HOURLY_IN_CODE;
-        if (!StrUtils.isBlank(code)) {
-            setNetGroupRecordsMap(deptParamMap, code, inGroupBeta, inList, netCodeRecordsMap);
-        }
-
-        code = NET_HOURLY_OUT_CODE;
-        if (!StrUtils.isBlank(code)) {
-            setNetGroupRecordsMap(deptParamMap, code, outGroupBeta, outList, netCodeRecordsMap);
-        }
-
-        code = NET_HOURLY_NET_CODE;
-        if (!StrUtils.isBlank(code)) {
-            setNetGroupRecordsMap(deptParamMap, code, netGroupBeta, netList, netCodeRecordsMap);
-        }
+        setNetGroupRecordsMap(deptParamMap, MonEnums.NET_HOURLY_IN_CODE,
+            inGroupBeta, inList, netCodeRecordsMap);
+        setNetGroupRecordsMap(deptParamMap, MonEnums.NET_HOURLY_OUT_CODE,
+            outGroupBeta, outList, netCodeRecordsMap);
+        setNetGroupRecordsMap(deptParamMap, MonEnums.NET_HOURLY_NET_CODE,
+            netGroupBeta, netList, netCodeRecordsMap);
 
         // 计算累积值
-        code = NET_ACCUMULATED_IN_CODE;
-        if (!StrUtils.isBlank(code)) {
-            List<MonitoringRecordValPB> inAccumulatedRecordValues =
-                getAccumulatedVals(inList, inGroupBeta.getSumValueMeta());
-            setNetGroupRecordsMap(deptParamMap, code, inGroupBeta, inAccumulatedRecordValues, netCodeRecordsMap);
-        }
-
-        code = NET_ACCUMULATED_OUT_CODE;
-        if (!StrUtils.isBlank(code)) {
-            List<MonitoringRecordValPB> outAccumulatedRecordValues =
-                getAccumulatedVals(outList, outGroupBeta.getSumValueMeta());
-            setNetGroupRecordsMap(deptParamMap, code, outGroupBeta, outAccumulatedRecordValues, netCodeRecordsMap);
-        }
-
-        code = NET_ACCUMULATED_NET_CODE;
-        if (!StrUtils.isBlank(code)) {
-            List<MonitoringRecordValPB> netAccumulatedRecordValues =
-                getAccumulatedVals(netList, netGroupBeta.getSumValueMeta());
-            setNetGroupRecordsMap(deptParamMap, code, netGroupBeta, netAccumulatedRecordValues, netCodeRecordsMap);
-        }
+        setNetGroupRecordsMap(deptParamMap, MonEnums.NET_ACCUMULATED_IN_CODE, inGroupBeta,
+            getAccumulatedVals(inList, inGroupBeta.getSumValueMeta()), netCodeRecordsMap);
+        setNetGroupRecordsMap(deptParamMap, MonEnums.NET_ACCUMULATED_OUT_CODE, outGroupBeta,
+            getAccumulatedVals(outList, outGroupBeta.getSumValueMeta()), netCodeRecordsMap);
+        setNetGroupRecordsMap(deptParamMap, MonEnums.NET_ACCUMULATED_NET_CODE, netGroupBeta,
+            getAccumulatedVals(netList, netGroupBeta.getSumValueMeta()), netCodeRecordsMap);
 
         return netCodeRecordsMap;
     }
@@ -512,7 +472,7 @@ public class BalanceCalculator {
         if (inGroupRecords == null) return new ArrayList<>();
         List<MonitoringCodeRecordsPB> codeRecordsList = inGroupRecords.getCodeRecordsList();
         MonitoringCodeRecordsPB summaryRecord = codeRecordsList.stream()
-            .filter(r -> SUMMARY_MONITORING_CODE.equals(r.getParamCode()))
+            .filter(r -> MonEnums.PARAM_CODE_SUMMARY.equals(r.getParamCode()))
             .findFirst().orElse(null);
         if (summaryRecord == null) {
             log.warn("No summary record found in group {} records {}",
@@ -612,9 +572,7 @@ public class BalanceCalculator {
         boolean sumRecordsUpdated = false;
         for (MonitoringGroupBetaPB groupBeta : args.groupBetaList) {
             // 提取元数据
-            String groupName = groupBeta.getName();
-            String hourlySumCode = groupName.equals(IN_GROUP_NAME) ? NET_HOURLY_IN_CODE :
-                groupName.equals(OUT_GROUP_NAME) ? NET_HOURLY_OUT_CODE : null;
+            String hourlySumCode = getHourlySumCode(groupBeta.getBalanceRole());
             if (hourlySumCode == null) continue;
             ValueMetaPB hourlySumValueMeta = groupBeta.getSumValueMeta();
             List<MonitoringParamPB> paramList = groupBeta.getParamList();
@@ -656,6 +614,14 @@ public class BalanceCalculator {
         }
     }
 
+    private static String getHourlySumCode(int balanceRole) {
+        return switch (balanceRole) {
+            case MonEnums.BALANCE_TYPE_IN -> MonEnums.NET_HOURLY_IN_CODE;
+            case MonEnums.BALANCE_TYPE_OUT -> MonEnums.NET_HOURLY_OUT_CODE;
+            default -> null;
+        };
+    }
+
     private void sumDailyBalanceStats(
         GetGroupRecordsListArgs args, String hourlySumCode, ValueMetaPB hourlySumValueMeta,
         Map<LocalDateTime, GenericValuePB> sumAtValMap
@@ -669,9 +635,11 @@ public class BalanceCalculator {
         String modifiedBy = args.modifiedBy;
 
         // 获取每日合计的paramCode和ValueMetaPB
-        if (hourlySumCode == null) return;
-        String dailySumCode = hourlySumCode.equals(NET_HOURLY_IN_CODE) ? DAILY_TOTAL_INTAKE_CODE :
-            hourlySumCode.equals(NET_HOURLY_OUT_CODE) ? DAILY_TOTAL_OUTPUT_CODE : null;
+        String dailySumCode = switch (hourlySumCode) {
+            case MonEnums.NET_HOURLY_IN_CODE -> MonEnums.DAILY_TOTAL_INTAKE_CODE;
+            case MonEnums.NET_HOURLY_OUT_CODE -> MonEnums.DAILY_TOTAL_OUTPUT_CODE;
+            default -> null;
+        };
         if (dailySumCode == null) return;
         ValueMetaPB dailySumValueMeta = monitoringConfig.getMonitoringParamMeta(deptId, dailySumCode);
         if (dailySumValueMeta == null) return;
@@ -750,13 +718,12 @@ public class BalanceCalculator {
             MonitoringGroupBetaPB groupMeta = groupBetaMap.get(recordsPb.getDeptMonitoringGroupId());
             if (groupMeta == null) continue;
 
-            String groupName = groupMeta.getName();
             Double sumMl = null;
             String sumStr = null;
             List<BalanceParamRecordPB> bpRecords = new ArrayList<>();
             for (MonitoringCodeRecordsPB codeRecords : recordsPb.getCodeRecordsList()) {
                 // 处理平衡量
-                if (NET_ACCUMULATED_NET_CODE.equals(codeRecords.getParamCode())) {
+                if (MonEnums.NET_ACCUMULATED_NET_CODE.equals(codeRecords.getParamCode())) {
                     // 只取汇总值
                     for (MonitoringRecordValPB valPb : codeRecords.getRecordValueList()) {
                         if (StrUtils.isBlank(valPb.getRecordedAtIso8601())) {
@@ -768,7 +735,7 @@ public class BalanceCalculator {
                     break;
                 }
                 // 处理出量、入量
-                if (SUMMARY_MONITORING_CODE.equals(codeRecords.getParamCode())) {
+                if (MonEnums.PARAM_CODE_SUMMARY.equals(codeRecords.getParamCode())) {
                     // 只取汇总值
                     for (MonitoringRecordValPB valPb : codeRecords.getRecordValueList()) {
                         if (StrUtils.isBlank(valPb.getRecordedAtIso8601())) {
@@ -805,7 +772,8 @@ public class BalanceCalculator {
             if (sumMl != null && sumStr != null) {
                 summaries.add(BalanceGroupSummaryPB.newBuilder()
                     .setDeptMonitoringGroupId(recordsPb.getDeptMonitoringGroupId())
-                    .setDeptMonitoringGroupName(groupName)
+                    .setDeptMonitoringGroupName(groupMeta.getName())
+                    .setBalanceRole(groupMeta.getBalanceRole())
                     .setSumMl(sumMl)
                     .setSumStr(sumStr)
                     .addAllParamRecord(bpRecords)
@@ -817,21 +785,6 @@ public class BalanceCalculator {
     }
 
     private final String ZONE_ID;
-    private final String SUMMARY_MONITORING_CODE;
-    private final String IN_GROUP_NAME;
-    private final String OUT_GROUP_NAME;
-    private final String NET_GROUP_NAME;
-    private final Integer BALANCE_TYPE_IN_ID;
-    private final Integer BALANCE_TYPE_OUT_ID;
-
-    private final String NET_HOURLY_IN_CODE;
-    private final String NET_HOURLY_OUT_CODE;
-    private final String NET_HOURLY_NET_CODE;
-    private final String NET_ACCUMULATED_IN_CODE;
-    private final String NET_ACCUMULATED_OUT_CODE;
-    private final String NET_ACCUMULATED_NET_CODE;
-    private final String DAILY_TOTAL_INTAKE_CODE;
-    private final String DAILY_TOTAL_OUTPUT_CODE;
 
     private final MonitoringConfig monitoringConfig;
     private final MonitoringRecordUtils monitoringRecordUtils;

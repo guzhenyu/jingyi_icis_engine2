@@ -30,6 +30,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceEnumsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.DeviceTypeEntryPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.EnumValue;
 import com.jingyicare.jingyi_icis_engine.repository.medications.IntakeTypeRepository;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.MonEnums;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientConfig;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
 import com.jingyicare.jingyi_icis_engine.utils.LogUtils;
@@ -75,11 +76,13 @@ class ConfigProtoServiceDeviceTests {
     @ParameterizedTest
     @ValueSource(ints = {0, 10})
     void shouldRejectUndefinedCascadeDeviceTypeAtStartup(int deviceTypeId) {
-        Config.Builder config = loadConfig(DEFAULT_CONFIG_PATH, "").getConfig().toBuilder();
+        ProtoConfig protoConfig = loadConfig(DEFAULT_CONFIG_PATH, "");
+        Config.Builder config = protoConfig.getConfig().toBuilder();
         config.getDeviceBuilder().getDeviceCascadeBuilder().addEntryBuilder()
             .setDeviceTypeId(deviceTypeId).setDeviceTypeName("测试设备");
         ConfigurableApplicationContext context = mock(ConfigurableApplicationContext.class);
-        ConfigProtoService service = new ConfigProtoService(config.build(), null, null, null);
+        ConfigProtoService service = new ConfigProtoService(
+            config.build(), null, null, null, new MonEnums(protoConfig));
         PatientConfig patientConfig = new PatientConfig(
             context, service);
 
@@ -165,7 +168,8 @@ class ConfigProtoServiceDeviceTests {
 
     private DeviceEnumsPB publicDeviceEnums(ProtoConfig protoConfig) {
         ConfigProtoService service = new ConfigProtoService(protoConfig.getConfig(), null,
-            mock(IntakeTypeRepository.class), new PatientEnums(protoConfig));
+            mock(IntakeTypeRepository.class), new PatientEnums(protoConfig),
+            new MonEnums(protoConfig));
         return service.getWebApiConfig().getDeviceEnums();
     }
 

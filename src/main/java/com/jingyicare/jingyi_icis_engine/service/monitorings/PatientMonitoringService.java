@@ -152,7 +152,7 @@ public class PatientMonitoringService {
         Pair<LocalDateTime, LocalDateTime> queryUtcTimeRange = monitoringConfig.normalizePmrQueryTimeRange(
             groupType, deptId, startTime, endTime
         );
-        List<String> tubeParamCodes = (groupType == monitoringPb.getEnums().getGroupTypeBalance().getId()) ?
+        List<String> tubeParamCodes = groupType == MonEnums.GROUP_TYPE_BALANCE ?
             patientTubeImpl.getMonitoringParamCodes(
                 pid, queryUtcTimeRange.getFirst(), queryUtcTimeRange.getSecond()
             ) : Collections.emptyList();
@@ -213,7 +213,7 @@ public class PatientMonitoringService {
         GetMonitoringRecordsResult result = new GetMonitoringRecordsResult();
 
         // 获取isBalanceGroups
-        final boolean isBalanceGroups = (groupType == monitoringPb.getEnums().getGroupTypeBalance().getId());
+        final boolean isBalanceGroups = groupType == MonEnums.GROUP_TYPE_BALANCE;
         result.isBalanceGroups = isBalanceGroups;
 
         // 获取 recordsQueryStartUtc 和 recordsQueryEndUtc
@@ -809,18 +809,21 @@ public class PatientMonitoringService {
         String accountId
     ) {
         // 查找每日入量，出量，平衡量的元数据
-        Pair<String, ValueMetaPB> dailyInPair = getCodeMetaPair(
-            deptId, protoService.getConfig().getMonitoring().getDailyTotalIntakeCode()
-        );
-        if (dailyInPair == null) return new Pair<>(StatusCode.MONITORING_PARAM_CODE_NOT_EXIST, null);
-        Pair<String, ValueMetaPB> dailyOutPair = getCodeMetaPair(
-            deptId, protoService.getConfig().getMonitoring().getDailyTotalOutputCode()
-        );
-        if (dailyOutPair == null) return new Pair<>(StatusCode.MONITORING_PARAM_CODE_NOT_EXIST, null);
-        Pair<String, ValueMetaPB> dailyBalancePair = getCodeMetaPair(
-            deptId, protoService.getConfig().getMonitoring().getDailyTotalBalanceCode()
-        );
-        if (dailyBalancePair == null) return new Pair<>(StatusCode.MONITORING_PARAM_CODE_NOT_EXIST, null);
+        ValueMetaPB dailyInMeta = monitoringConfig.getMonitoringParamMeta(
+            deptId, MonEnums.DAILY_TOTAL_INTAKE_CODE);
+        if (dailyInMeta == null) {
+            return new Pair<>(StatusCode.MONITORING_PARAM_CODE_NOT_EXIST, null);
+        }
+        ValueMetaPB dailyOutMeta = monitoringConfig.getMonitoringParamMeta(
+            deptId, MonEnums.DAILY_TOTAL_OUTPUT_CODE);
+        if (dailyOutMeta == null) {
+            return new Pair<>(StatusCode.MONITORING_PARAM_CODE_NOT_EXIST, null);
+        }
+        ValueMetaPB dailyBalanceMeta = monitoringConfig.getMonitoringParamMeta(
+            deptId, MonEnums.DAILY_TOTAL_BALANCE_CODE);
+        if (dailyBalanceMeta == null) {
+            return new Pair<>(StatusCode.MONITORING_PARAM_CODE_NOT_EXIST, null);
+        }
 
         // 初始化统计Map
         Map<LocalDateTime, DailyBalanceStats> dailyStatsMap = new HashMap<>();
@@ -828,26 +831,28 @@ public class PatientMonitoringService {
         // 获取每日出入量统计
         List<PatientMonitoringRecordStatsDaily> intakeDailyStatsList = dailyStatsRepository
             .findByPidAndParamCodeAndTimeBetween(
-                pid, dailyInPair.getFirst(), queryStartMidnightUtc, queryEndMidnightUtc.plusMinutes(1)
+                pid, MonEnums.DAILY_TOTAL_INTAKE_CODE,
+                queryStartMidnightUtc, queryEndMidnightUtc.plusMinutes(1)
             );
         for (PatientMonitoringRecordStatsDaily stats : intakeDailyStatsList) {
             LocalDateTime date = stats.getEffectiveTime();
             GenericValuePB valuePb = ProtoUtils.decodeGenericValue(stats.getParamValue());
             if (valuePb == null) continue;
-            float intakeMl = ValueMetaUtils.convertToFloat(valuePb, dailyInPair.getSecond());
+            float intakeMl = ValueMetaUtils.convertToFloat(valuePb, dailyInMeta);
 
             DailyBalanceStats dailyStats = dailyStatsMap.computeIfAbsent(date, d -> new DailyBalanceStats());
             dailyStats.intake = intakeMl;
         }
         List<PatientMonitoringRecordStatsDaily> outputDailyStatsList = dailyStatsRepository
             .findByPidAndParamCodeAndTimeBetween(
-                pid, dailyOutPair.getFirst(), queryStartMidnightUtc, queryEndMidnightUtc.plusMinutes(1)
+                pid, MonEnums.DAILY_TOTAL_OUTPUT_CODE,
+                queryStartMidnightUtc, queryEndMidnightUtc.plusMinutes(1)
             );
         for (PatientMonitoringRecordStatsDaily stats : outputDailyStatsList) {
             LocalDateTime date = stats.getEffectiveTime();
             GenericValuePB valuePb = ProtoUtils.decodeGenericValue(stats.getParamValue());
             if (valuePb == null) continue;
-            float outputMl = ValueMetaUtils.convertToFloat(valuePb, dailyOutPair.getSecond());
+            float outputMl = ValueMetaUtils.convertToFloat(valuePb, dailyOutMeta);
 
             DailyBalanceStats dailyStats = dailyStatsMap.computeIfAbsent(date, d -> new DailyBalanceStats());
             dailyStats.output = outputMl;
@@ -874,13 +879,13 @@ public class PatientMonitoringService {
             DailyBalancePB dailyPb = DailyBalancePB.newBuilder()
                 .setDateIso8601(TimeUtils.toIso8601String(date, ZONE_ID))
                 .setIntakeMl(stats.intake)
-                .setIntakeStr(getValueStr(stats.intake, dailyInPair.getSecond()))
+                .setIntakeStr(getValueStr(stats.intake, dailyInMeta))
                 .setOutputMl(stats.output)
-                .setOutputStr(getValueStr(stats.output, dailyOutPair.getSecond()))
+                .setOutputStr(getValueStr(stats.output, dailyOutMeta))
                 .setBalanceMl(balance)
-                .setBalanceStr(getValueStr(balance, dailyBalancePair.getSecond()))
+                .setBalanceStr(getValueStr(balance, dailyBalanceMeta))
                 .setTargetBalanceMl(stats.targetBalance)
-                .setTargetBalanceStr(getValueStr(stats.targetBalance, dailyBalancePair.getSecond()))
+                .setTargetBalanceStr(getValueStr(stats.targetBalance, dailyBalanceMeta))
                 .build();
 
             dailyBalanceList.add(dailyPb);
@@ -898,12 +903,6 @@ public class PatientMonitoringService {
             }
         }
         return Optional.empty();
-    }
-
-    private Pair<String, ValueMetaPB> getCodeMetaPair(String deptId, String paramCode) {
-        ValueMetaPB valueMeta = monitoringConfig.getMonitoringParamMeta(deptId, paramCode);
-        if (valueMeta == null) return null;
-        return new Pair<>(paramCode, valueMeta);
     }
 
     private List<LocalDateTime> getBalanceStatsDates(

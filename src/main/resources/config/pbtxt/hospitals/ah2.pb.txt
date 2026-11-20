@@ -2,6 +2,7 @@ hospital_name: "安徽省二院"
 
 balance_group {
     name: "入量"
+    balance_role: 1
     sum_value_meta {
         value_type: FLOAT
         decimal_places: 2
@@ -22,6 +23,7 @@ balance_group {
 }
 balance_group {
     name: "出量"
+    balance_role: 2
     sum_value_meta {
         value_type: FLOAT
         decimal_places: 2
@@ -42,6 +44,7 @@ balance_group {
 }
 balance_group {
     name: "平衡量"
+    balance_role: 3
     sum_value_meta {
         value_type: FLOAT
         decimal_places: 2

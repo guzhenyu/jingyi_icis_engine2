@@ -28,18 +28,6 @@ public class BalanceCalculatorTests extends TestsBase {
         @Autowired BalanceCalculator balanceCalculator
     ) {
         this.ZONE_ID = protoService.getConfig().getZoneId();
-        this.monitoringMeta = protoService.getConfig().getMonitoring();
-        this.SUMMARY_MONOTORING_CODE = monitoringMeta.getParamCodeSummary();
-        this.IN_GROUP_NAME = monitoringMeta.getBalanceInGroupName();
-        this.OUT_GROUP_NAME = monitoringMeta.getBalanceOutGroupName();
-        this.NET_GROUP_NAME = monitoringMeta.getBalanceNetGroupName();
-        this.BALANCE_TYPE_NAN_ID = monitoringMeta.getEnums().getBalanceNan().getId();
-        this.BALANCE_TYPE_IN_ID = monitoringMeta.getEnums().getBalanceIn().getId();
-        this.BALANCE_TYPE_OUT_ID = monitoringMeta.getEnums().getBalanceOut().getId();
-        this.BALANCE_TYPE_NET_ID = monitoringMeta.getEnums().getBalanceNet().getId();
-        this.GROUP_TYPE_BALANCE = monitoringMeta.getEnums().getGroupTypeBalance().getId();
-        this.GROUP_TYPE_MONITORING = monitoringMeta.getEnums().getGroupTypeMonitoring().getId();
-        this.HOURLY_NET_CODE = monitoringMeta.getNetHourlyNetCode();
 
         this.deptId = "10039";
         this.pid = 2101L;
@@ -58,7 +46,7 @@ public class BalanceCalculatorTests extends TestsBase {
                 .setUnit("unit1")
                 .setDecimalPlaces(3)
                 .build())
-            .setBalanceType(BALANCE_TYPE_IN_ID)
+            .setBalanceType(MonEnums.BALANCE_TYPE_IN)
             .build();
         List<PatientMonitoringRecord> records = List.of(
             PatientMonitoringRecord.builder()
@@ -176,7 +164,7 @@ public class BalanceCalculatorTests extends TestsBase {
                 .setUnit("unit1")
                 .setDecimalPlaces(3)
                 .build())
-            .setBalanceType(BALANCE_TYPE_OUT_ID)
+            .setBalanceType(MonEnums.BALANCE_TYPE_OUT)
             .build();
         List<PatientMonitoringRecord> records = List.of(
             PatientMonitoringRecord.builder()
@@ -239,7 +227,7 @@ public class BalanceCalculatorTests extends TestsBase {
                 .setUnit("unit1")
                 .setDecimalPlaces(3)
                 .build())
-            .setBalanceType(BALANCE_TYPE_NAN_ID)
+            .setBalanceType(MonEnums.BALANCE_TYPE_NAN)
             .build();
         List<PatientMonitoringRecord> records = List.of(
             PatientMonitoringRecord.builder()
@@ -292,8 +280,9 @@ public class BalanceCalculatorTests extends TestsBase {
         String modifiedBy = "testUser";
         MonitoringGroupBetaPB groupMeta = MonitoringGroupBetaPB.newBuilder()
             .setId(101)
-            .setName(IN_GROUP_NAME)
-            .setGroupType(GROUP_TYPE_BALANCE)
+            .setName("摄入组")
+            .setBalanceRole(MonEnums.BALANCE_TYPE_IN)
+            .setGroupType(MonEnums.GROUP_TYPE_BALANCE)
             .setSumValueMeta(ValueMetaPB.newBuilder()
                 .setValueType(TypeEnumPB.FLOAT)
                 .setUnit("unit1")
@@ -308,7 +297,7 @@ public class BalanceCalculatorTests extends TestsBase {
                     .setUnit("unit1")
                     .setDecimalPlaces(3)
                     .build())
-                .setBalanceType(BALANCE_TYPE_IN_ID)
+                .setBalanceType(MonEnums.BALANCE_TYPE_IN)
                 .build())
             .addParam(MonitoringParamPB.newBuilder()
                 .setId(2)
@@ -318,7 +307,7 @@ public class BalanceCalculatorTests extends TestsBase {
                     .setValueType(TypeEnumPB.INT64)
                     .setUnit("unit1")
                     .build())
-                .setBalanceType(BALANCE_TYPE_IN_ID)
+                .setBalanceType(MonEnums.BALANCE_TYPE_IN)
                 .build())
             .addParam(MonitoringParamPB.newBuilder()
                 .setId(3)
@@ -329,7 +318,7 @@ public class BalanceCalculatorTests extends TestsBase {
                     .setUnit("unit1")
                     .setDecimalPlaces(3)
                     .build())
-                .setBalanceType(BALANCE_TYPE_NAN_ID)
+                .setBalanceType(MonEnums.BALANCE_TYPE_NAN)
                 .build())
             .build();
 
@@ -533,7 +522,8 @@ public class BalanceCalculatorTests extends TestsBase {
         assertThat(effectiveTime5).isEqualTo(LocalDateTime.of(2024, 11, 20, 0, 0));
 
         // 统计值
-        assertThat(groupRecords.getCodeRecords(3).getParamCode()).isEqualTo(SUMMARY_MONOTORING_CODE);
+        assertThat(groupRecords.getCodeRecords(3).getParamCode())
+            .isEqualTo(MonEnums.PARAM_CODE_SUMMARY);
         assertThat(groupRecords.getCodeRecords(3).getRecordValueList()).hasSize(4);
         assertThat(groupRecords.getCodeRecords(3).getRecordValue(0).getId()).isEqualTo(Consts.VIRTUAL_RECORD_ID);
         assertThat(groupRecords.getCodeRecords(3).getRecordValue(0).getValue().getFloatVal()).isEqualTo(11.23456f);
@@ -566,8 +556,9 @@ public class BalanceCalculatorTests extends TestsBase {
     public void testGetNetGroupRecords() {
         MonitoringGroupBetaPB inGroupMeta = MonitoringGroupBetaPB.newBuilder()
             .setId(101)
-            .setName(IN_GROUP_NAME)
-            .setGroupType(GROUP_TYPE_BALANCE)
+            .setName("摄入组")
+            .setBalanceRole(MonEnums.BALANCE_TYPE_IN)
+            .setGroupType(MonEnums.GROUP_TYPE_BALANCE)
             .setSumValueMeta(ValueMetaPB.newBuilder()
                 .setValueType(TypeEnumPB.FLOAT)
                 .setUnit("unit1")
@@ -582,7 +573,7 @@ public class BalanceCalculatorTests extends TestsBase {
                     .setUnit("unit1")
                     .setDecimalPlaces(3)
                     .build())
-                .setBalanceType(BALANCE_TYPE_IN_ID)
+                .setBalanceType(MonEnums.BALANCE_TYPE_IN)
                 .build())
             .addParam(MonitoringParamPB.newBuilder()
                 .setId(2)
@@ -593,13 +584,14 @@ public class BalanceCalculatorTests extends TestsBase {
                     .setUnit("unit1")
                     .setDecimalPlaces(3)
                     .build())
-                .setBalanceType(BALANCE_TYPE_IN_ID)
+                .setBalanceType(MonEnums.BALANCE_TYPE_IN)
                 .build())
             .build();
         MonitoringGroupBetaPB outGroupMeta = MonitoringGroupBetaPB.newBuilder()
             .setId(102)
-            .setName(OUT_GROUP_NAME)
-            .setGroupType(GROUP_TYPE_BALANCE)
+            .setName("排出组")
+            .setBalanceRole(MonEnums.BALANCE_TYPE_OUT)
+            .setGroupType(MonEnums.GROUP_TYPE_BALANCE)
             .setSumValueMeta(ValueMetaPB.newBuilder()
                 .setValueType(TypeEnumPB.FLOAT)
                 .setUnit("unit1")
@@ -614,7 +606,7 @@ public class BalanceCalculatorTests extends TestsBase {
                     .setUnit("unit1")
                     .setDecimalPlaces(3)
                     .build())
-                .setBalanceType(BALANCE_TYPE_OUT_ID)
+                .setBalanceType(MonEnums.BALANCE_TYPE_OUT)
                 .build())
             .addParam(MonitoringParamPB.newBuilder()
                 .setId(4)
@@ -625,13 +617,14 @@ public class BalanceCalculatorTests extends TestsBase {
                     .setUnit("unit1")
                     .setDecimalPlaces(3)
                     .build())
-                .setBalanceType(BALANCE_TYPE_OUT_ID)
+                .setBalanceType(MonEnums.BALANCE_TYPE_OUT)
                 .build())
             .build();
         MonitoringGroupBetaPB netGroupMeta = MonitoringGroupBetaPB.newBuilder()
             .setId(103)
-            .setName(NET_GROUP_NAME)
-            .setGroupType(GROUP_TYPE_BALANCE)
+            .setName("净量组")
+            .setBalanceRole(MonEnums.BALANCE_TYPE_NET)
+            .setGroupType(MonEnums.GROUP_TYPE_BALANCE)
             .setSumValueMeta(ValueMetaPB.newBuilder()
                 .setValueType(TypeEnumPB.FLOAT)
                 .setUnit("unit1")
@@ -639,21 +632,21 @@ public class BalanceCalculatorTests extends TestsBase {
                 .build())
             .addParam(MonitoringParamPB.newBuilder()
                 .setId(5)
-                .setCode(HOURLY_NET_CODE)
+                .setCode(MonEnums.NET_HOURLY_NET_CODE)
                 .setName("每小时平衡量")
                 .setValueMeta(ValueMetaPB.newBuilder()
                     .setValueType(TypeEnumPB.FLOAT)
                     .setUnit("unit1")
                     .setDecimalPlaces(5)
                     .build())
-                .setBalanceType(BALANCE_TYPE_NET_ID)
+                .setBalanceType(MonEnums.BALANCE_TYPE_NET)
                 .build())
             .build();
 
         MonitoringGroupRecordsPB inGroupRecords = MonitoringGroupRecordsPB.newBuilder()
             .setDeptMonitoringGroupId(101)
             .addCodeRecords(MonitoringCodeRecordsPB.newBuilder()
-                .setParamCode(SUMMARY_MONOTORING_CODE)
+                .setParamCode(MonEnums.PARAM_CODE_SUMMARY)
                 .addRecordValue(MonitoringRecordValPB.newBuilder()
                     .setId(Consts.VIRTUAL_RECORD_ID)
                     .setValue(GenericValuePB.newBuilder()
@@ -683,7 +676,7 @@ public class BalanceCalculatorTests extends TestsBase {
         MonitoringGroupRecordsPB outGroupRecords = MonitoringGroupRecordsPB.newBuilder()
             .setDeptMonitoringGroupId(102)
             .addCodeRecords(MonitoringCodeRecordsPB.newBuilder()
-                .setParamCode(SUMMARY_MONOTORING_CODE)
+                .setParamCode(MonEnums.PARAM_CODE_SUMMARY)
                 .addRecordValue(MonitoringRecordValPB.newBuilder()
                     .setId(1)
                     .setValue(GenericValuePB.newBuilder()
@@ -715,7 +708,8 @@ public class BalanceCalculatorTests extends TestsBase {
         );
         assertThat(netGroupRecords.getDeptMonitoringGroupId()).isEqualTo(103);
         assertThat(netGroupRecords.getCodeRecordsList()).hasSize(1);
-        assertThat(netGroupRecords.getCodeRecords(0).getParamCode()).isEqualTo(HOURLY_NET_CODE);
+        assertThat(netGroupRecords.getCodeRecords(0).getParamCode())
+            .isEqualTo(MonEnums.NET_HOURLY_NET_CODE);
         assertThat(netGroupRecords.getCodeRecords(0).getRecordValueList()).hasSize(4);
         assertThat(netGroupRecords.getCodeRecords(0).getRecordValue(0).getId()).isEqualTo(Consts.VIRTUAL_RECORD_ID);
         assertThat(netGroupRecords.getCodeRecords(0).getRecordValue(0).getValue().getFloatVal()).isEqualTo(-8.76544f); // 1.23456 - 10
@@ -745,12 +739,13 @@ public class BalanceCalculatorTests extends TestsBase {
     }
 
     @Test
-    public void testGetGroupRecordsList() {
+    public void testGetGroupRecordsListWithRenamedOutputGroup() {
         List<MonitoringGroupBetaPB> groupBetaList = List.of(
             MonitoringGroupBetaPB.newBuilder()
                 .setId(101)
-                .setName(IN_GROUP_NAME)
-                .setGroupType(GROUP_TYPE_BALANCE)
+                .setName("摄入组")
+                .setBalanceRole(MonEnums.BALANCE_TYPE_IN)
+                .setGroupType(MonEnums.GROUP_TYPE_BALANCE)
                 .setSumValueMeta(ValueMetaPB.newBuilder()
                     .setValueType(TypeEnumPB.FLOAT)
                     .setUnit("unit1")
@@ -765,7 +760,7 @@ public class BalanceCalculatorTests extends TestsBase {
                         .setUnit("unit1")
                         .setDecimalPlaces(3)
                         .build())
-                    .setBalanceType(BALANCE_TYPE_IN_ID)
+                    .setBalanceType(MonEnums.BALANCE_TYPE_IN)
                     .build())
                 .addParam(MonitoringParamPB.newBuilder()
                     .setId(2)
@@ -776,13 +771,14 @@ public class BalanceCalculatorTests extends TestsBase {
                         .setUnit("unit1")
                         .setDecimalPlaces(3)
                         .build())
-                    .setBalanceType(BALANCE_TYPE_IN_ID)
+                    .setBalanceType(MonEnums.BALANCE_TYPE_IN)
                     .build())
                 .build(),
             MonitoringGroupBetaPB.newBuilder()
                 .setId(102)
-                .setName(OUT_GROUP_NAME)
-                .setGroupType(GROUP_TYPE_BALANCE)
+                .setName("排出量")
+                .setBalanceRole(MonEnums.BALANCE_TYPE_OUT)
+                .setGroupType(MonEnums.GROUP_TYPE_BALANCE)
                 .setSumValueMeta(ValueMetaPB.newBuilder()
                     .setValueType(TypeEnumPB.FLOAT)
                     .setUnit("unit1")
@@ -797,7 +793,7 @@ public class BalanceCalculatorTests extends TestsBase {
                         .setUnit("unit1")
                         .setDecimalPlaces(3)
                         .build())
-                    .setBalanceType(BALANCE_TYPE_OUT_ID)
+                    .setBalanceType(MonEnums.BALANCE_TYPE_OUT)
                     .build())
                 .addParam(MonitoringParamPB.newBuilder()
                     .setId(4)
@@ -808,13 +804,14 @@ public class BalanceCalculatorTests extends TestsBase {
                         .setUnit("unit1")
                         .setDecimalPlaces(3)
                         .build())
-                    .setBalanceType(BALANCE_TYPE_OUT_ID)
+                    .setBalanceType(MonEnums.BALANCE_TYPE_OUT)
                     .build())
                 .build(),
             MonitoringGroupBetaPB.newBuilder()
                 .setId(103)
-                .setName(NET_GROUP_NAME)
-                .setGroupType(GROUP_TYPE_BALANCE)
+                .setName("净量组")
+                .setBalanceRole(MonEnums.BALANCE_TYPE_NET)
+                .setGroupType(MonEnums.GROUP_TYPE_BALANCE)
                 .setSumValueMeta(ValueMetaPB.newBuilder()
                     .setValueType(TypeEnumPB.FLOAT)
                     .setUnit("unit1")
@@ -822,14 +819,14 @@ public class BalanceCalculatorTests extends TestsBase {
                     .build())
                 .addParam(MonitoringParamPB.newBuilder()
                     .setId(5)
-                    .setCode(HOURLY_NET_CODE)
+                    .setCode(MonEnums.NET_HOURLY_NET_CODE)
                     .setName("每小时平衡量")
                     .setValueMeta(ValueMetaPB.newBuilder()
                         .setValueType(TypeEnumPB.FLOAT)
                         .setUnit("unit1")
                         .setDecimalPlaces(5)
                         .build())
-                    .setBalanceType(BALANCE_TYPE_NET_ID)
+                    .setBalanceType(MonEnums.BALANCE_TYPE_NET)
                     .build())
                 .build());
         Map<String, MonitoringParamPB> paramMap = new HashMap<>();
@@ -1034,7 +1031,7 @@ public class BalanceCalculatorTests extends TestsBase {
         assertThat(codeRecords.getRecordValue(1).getValue().getFloatVal()).isEqualTo(4.4f);
         assertThat(codeRecords.getRecordValue(2).getValue().getFloatVal()).isCloseTo(7.7f, within(0.0001f));
         codeRecords = groupRecordsList.get(0).getCodeRecords(2);
-        assertThat(codeRecords.getParamCode()).isEqualTo(SUMMARY_MONOTORING_CODE);
+        assertThat(codeRecords.getParamCode()).isEqualTo(MonEnums.PARAM_CODE_SUMMARY);
         assertThat(codeRecords.getRecordValueList()).hasSize(4);
         assertThat(codeRecords.getRecordValue(0).getValue().getFloatVal()).isEqualTo(4.4f);
         assertThat(codeRecords.getRecordValue(1).getValue().getFloatVal()).isEqualTo(4.4f);
@@ -1055,7 +1052,7 @@ public class BalanceCalculatorTests extends TestsBase {
         assertThat(codeRecords.getRecordValue(1).getValue().getFloatVal()).isEqualTo(8.8f);
         assertThat(codeRecords.getRecordValue(2).getValue().getFloatVal()).isCloseTo(16.5f, within(0.0001f));
         codeRecords = groupRecordsList.get(1).getCodeRecords(2);
-        assertThat(codeRecords.getParamCode()).isEqualTo(SUMMARY_MONOTORING_CODE);
+        assertThat(codeRecords.getParamCode()).isEqualTo(MonEnums.PARAM_CODE_SUMMARY);
         assertThat(codeRecords.getRecordValueList()).hasSize(4);
         assertThat(codeRecords.getRecordValue(0).getValue().getFloatVal()).isEqualTo(13.2f);
         assertThat(codeRecords.getRecordValue(1).getValue().getFloatVal()).isEqualTo(8.8f);
@@ -1064,31 +1061,27 @@ public class BalanceCalculatorTests extends TestsBase {
 
         assertThat(groupRecordsList.get(2).getCodeRecordsList()).hasSize(1);
         codeRecords = groupRecordsList.get(2).getCodeRecords(0);
-        assertThat(codeRecords.getParamCode()).isEqualTo(HOURLY_NET_CODE);
+        assertThat(codeRecords.getParamCode()).isEqualTo(MonEnums.NET_HOURLY_NET_CODE);
         assertThat(codeRecords.getRecordValueList()).hasSize(5);
         assertThat(codeRecords.getRecordValue(0).getValue().getFloatVal()).isCloseTo(-8.8f, within(0.0001f));
         assertThat(codeRecords.getRecordValue(1).getValue().getFloatVal()).isCloseTo(4.4f, within(0.0001f));
         assertThat(codeRecords.getRecordValue(2).getValue().getFloatVal()).isCloseTo(-6.6f, within(0.0001f));
         assertThat(codeRecords.getRecordValue(3).getValue().getFloatVal()).isCloseTo(-6.6f, within(0.0001f));
         assertThat(codeRecords.getRecordValue(4).getValue().getFloatVal()).isCloseTo(-17.6f, within(0.0001f));
+
+        assertThat(balanceCalculator.summarizeBalanceGroups(args))
+            .filteredOn(summary -> summary.getBalanceRole() == MonEnums.BALANCE_TYPE_OUT)
+            .singleElement().satisfies(summary -> {
+                assertThat(summary.hasBalanceRole()).isTrue();
+                assertThat(summary.getDeptMonitoringGroupName()).isEqualTo("排出量");
+                assertThat(summary.getSumMl()).isCloseTo(28.6d, within(0.0001d));
+            });
     }
 
     private final String ZONE_ID;
-    private final String SUMMARY_MONOTORING_CODE;
-    private final String IN_GROUP_NAME;
-    private final String OUT_GROUP_NAME;
-    private final String NET_GROUP_NAME;
-    private final Integer BALANCE_TYPE_NAN_ID;
-    private final Integer BALANCE_TYPE_IN_ID;
-    private final Integer BALANCE_TYPE_OUT_ID;
-    private final Integer BALANCE_TYPE_NET_ID;
-    private final Integer GROUP_TYPE_BALANCE;
-    private final Integer GROUP_TYPE_MONITORING;
-    private final String HOURLY_NET_CODE;
 
     private final String deptId;
     private final Long pid;
 
-    private final MonitoringPB monitoringMeta;
     private final BalanceCalculator balanceCalculator;
 }

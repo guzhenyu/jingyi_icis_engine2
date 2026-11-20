@@ -378,7 +378,7 @@ message GetConfigResp {
     string balance_in_group_name = 9;
     string balance_out_group_name = 10;
     string balance_net_group_name = 11;
-    config.MonitoringEnums monitoring_enums = 12;
+    config.MonitoringEnumsPB monitoring_enums = 12;
 
     // 医嘱
     config.MEnums medication_enums = 13;

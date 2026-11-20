@@ -1246,73 +1246,19 @@ tube {
     }
 }
 monitoring {
-    param_code_summary: "all"
-    param_code_summary_txt: "合计"
-    balance_in_group_name: "入量"
-    balance_out_group_name: "出量"
-    balance_net_group_name: "平衡量"
-    net_hourly_in_code: "hourly_intake"
-    net_hourly_out_code: "hourly_output"
-    net_hourly_net_code: "hourly_balance"
-    net_accumulated_in_code: "total_intake"
-    net_accumulated_out_code: "total_output"
-    net_accumulated_net_code: "total_balance"
-    daily_total_intake_code: "daily_total_intake"
-    daily_total_output_code: "daily_total_output"
-    daily_total_balance_code: "daily_total_balance"
     enums {
-        balance_nan {
-            id: 0
-            name: "不进入平衡统计的量"
-        }
-        balance_in {
-            id: 1
-            name: "入量"
-        }
-        balance_out {
-            id: 2
-            name: "出量"
-        }
-        balance_net {
-            id: 3
-            name: "平衡量"
-        }
-        group_type_balance {
-            id: 1
-            name: "出入量分组"
-        }
-        group_type_monitoring {
-            id: 2
-            name: "观察项分组"
-        }
-        param_category_patient {
-            id: 1
-            name: "患者"
-        }
-        param_category_monitor {
-            id: 2
-            name: "监护仪"
-        }
-        param_category_vent {
-            id: 3
-            name: "呼吸机"
-        }
-        param_category_crrt {
-            id: 4
-            name: "血滤机"
-        }
-        param_category_bga {
-            id: 5
-            name: "血气机"
-        }
-        param_category_ecmo {
-            id: 6
-            name: "体外膜肺氧合机"
-        }
-        param_ui_modal_nan {
-            id: 1
-            name: "无特殊编辑对话框"
-        }
+        group_type_balance: "出入量分组"
+        group_type_monitoring: "观察项分组"
+        balance_nan: "不进入平衡统计的量"
+        balance_in: "入量"
+        balance_out: "出量"
+        balance_net: "平衡量"
+        param_category_patient: "患者"
+        param_category_monitor: "监护仪"
+        param_category_vent: "呼吸机"
+        param_category_crrt: "血滤机"
+        param_category_bga: "血气机"
+        param_category_ecmo: "体外膜肺氧合机"
     }
     monitoring_param {
         code: "intravenous_in"
@@ -1506,6 +1452,7 @@ monitoring {
     }
     balance_group {
         name: "入量"
+        balance_role: 1
         sum_value_meta {
             value_type: FLOAT
             decimal_places: 2
@@ -1526,6 +1473,7 @@ monitoring {
     }
     balance_group {
         name: "出量"
+        balance_role: 2
         sum_value_meta {
             value_type: FLOAT
             decimal_places: 2
@@ -1537,6 +1485,7 @@ monitoring {
     }
     balance_group {
         name: "平衡量"
+        balance_role: 3
         sum_value_meta {
             value_type: FLOAT
             decimal_places: 2

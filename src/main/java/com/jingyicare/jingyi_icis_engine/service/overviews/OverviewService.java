@@ -74,11 +74,6 @@ public class OverviewService {
             .stream()
             .collect(Collectors.toSet());
 
-        MonitoringPB monitoringPb = protoService.getConfig().getMonitoring();
-        this.NET_HOURLY_IN_CODE = monitoringPb.getNetHourlyInCode();
-        this.NET_HOURLY_OUT_CODE = monitoringPb.getNetHourlyOutCode();
-        this.NET_HOURLY_NET_CODE = monitoringPb.getNetHourlyNetCode();
-
         this.statusCodeMsgList = protoService.getConfig().getText().getStatusCodeMsgList();
         this.protoService = protoService;
         this.userQuery = userQuery;
@@ -628,9 +623,9 @@ public class OverviewService {
                     .build());
             } else if (isBalance) {
                 // 前端视图中放不下3个柱子，因此限制paramCode
-                if (paramCode.equals("hourly_intake") ||
-                    paramCode.equals("hourly_output") ||
-                    paramCode.equals("hourly_balance")
+                if (paramCode.equals(MonEnums.NET_HOURLY_IN_CODE) ||
+                    paramCode.equals(MonEnums.NET_HOURLY_OUT_CODE) ||
+                    paramCode.equals(MonEnums.NET_HOURLY_NET_CODE)
                 ) {
                     balanceParams.add(StringIdEntityPB.newBuilder()
                         .setId(paramCode)
@@ -1055,7 +1050,8 @@ public class OverviewService {
         // 如果没有小时入量/出量，那么就不用计算补充平衡量
         boolean shouldAppend = false;
         for (String paramCode : paramCodes) {
-            if (paramCode.equals(NET_HOURLY_IN_CODE) || paramCode.equals(NET_HOURLY_OUT_CODE)) {
+            if (paramCode.equals(MonEnums.NET_HOURLY_IN_CODE)
+                || paramCode.equals(MonEnums.NET_HOURLY_OUT_CODE)) {
                 shouldAppend = true;
                 break;
             }
@@ -1063,16 +1059,20 @@ public class OverviewService {
         if (!shouldAppend) return;
 
         // 提取元数据
-        ValueMetaPB inValueMeta = monitoringConfig.getMonitoringParamMeta(deptId, NET_HOURLY_IN_CODE);
+        ValueMetaPB inValueMeta =
+            monitoringConfig.getMonitoringParamMeta(deptId, MonEnums.NET_HOURLY_IN_CODE);
         if (inValueMeta == null) return;
-        ValueMetaPB outValueMeta = monitoringConfig.getMonitoringParamMeta(deptId, NET_HOURLY_OUT_CODE);
+        ValueMetaPB outValueMeta =
+            monitoringConfig.getMonitoringParamMeta(deptId, MonEnums.NET_HOURLY_OUT_CODE);
         if (outValueMeta == null) return;
-        ValueMetaPB netValueMeta = monitoringConfig.getMonitoringParamMeta(deptId, NET_HOURLY_NET_CODE);
+        ValueMetaPB netValueMeta =
+            monitoringConfig.getMonitoringParamMeta(deptId, MonEnums.NET_HOURLY_NET_CODE);
         if (netValueMeta == null) return;
 
         // 统计净入量
         Map<LocalDateTime, Float> netMap = new HashMap<>();
-        List<PatientMonitoringRecord> inRecords = recordsByParamCode.getOrDefault(NET_HOURLY_IN_CODE, Collections.emptyList());
+        List<PatientMonitoringRecord> inRecords = recordsByParamCode
+            .getOrDefault(MonEnums.NET_HOURLY_IN_CODE, Collections.emptyList());
         for (PatientMonitoringRecord record : inRecords) {
             MonitoringValuePB monValuePB = ProtoUtils.decodeMonitoringValue(record.getParamValue());
             if (monValuePB == null) continue;
@@ -1084,7 +1084,8 @@ public class OverviewService {
             netMl += inMl;
             netMap.put(netDateTime, netMl);
         }
-        List<PatientMonitoringRecord> outRecords = recordsByParamCode.getOrDefault(NET_HOURLY_OUT_CODE, Collections.emptyList());
+        List<PatientMonitoringRecord> outRecords = recordsByParamCode
+            .getOrDefault(MonEnums.NET_HOURLY_OUT_CODE, Collections.emptyList());
         for (PatientMonitoringRecord record : outRecords) {
             MonitoringValuePB monValuePB = ProtoUtils.decodeMonitoringValue(record.getParamValue());
             if (monValuePB == null) continue;
@@ -1102,7 +1103,7 @@ public class OverviewService {
             LocalDateTime timestamp = entry.getKey();
             float netMl = entry.getValue() == null ? 0f : entry.getValue();
             PatientMonitoringRecord netRecord = new PatientMonitoringRecord();
-            netRecord.setMonitoringParamCode(NET_HOURLY_NET_CODE);
+            netRecord.setMonitoringParamCode(MonEnums.NET_HOURLY_NET_CODE);
             netRecord.setEffectiveTime(timestamp);
             netRecord.setParamValue(
                 ProtoUtils.encodeMonitoringValue(
@@ -1114,7 +1115,7 @@ public class OverviewService {
             netRecords.add(netRecord);
         }
         netRecords.sort(Comparator.comparing(PatientMonitoringRecord::getEffectiveTime));
-        recordsByParamCode.put(NET_HOURLY_NET_CODE, netRecords);
+        recordsByParamCode.put(MonEnums.NET_HOURLY_NET_CODE, netRecords);
     }
 
     private final String ZONE_ID;
@@ -1123,10 +1124,6 @@ public class OverviewService {
     private final EnumValue PARAM_TYPE_VITAL_SIGNAL;
     private final EnumValue PARAM_TYPE_BALANCE;
     private Set<String> vitalSignBlockedParams;
-
-    private final String NET_HOURLY_IN_CODE;
-    private final String NET_HOURLY_OUT_CODE;
-    private final String NET_HOURLY_NET_CODE;
 
     private final List<String> statusCodeMsgList;
 

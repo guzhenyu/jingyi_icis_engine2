@@ -29,7 +29,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringP
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringValuePB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientMonitoringRecordRepository;
-import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.MonEnums;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
@@ -51,7 +51,6 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandler
         JfkDataSourceSupport support,
         PatientMonitoringRecordRepository monitoringRecordRepo,
         MonitoringConfig monitoringConfig,
-        ConfigProtoService configProtoService,
         UserQuery userQuery,
         JfkSignatureValueResolver signatureResolver,
         ReportProperties reportProperties,
@@ -60,7 +59,6 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandler
         super(support);
         this.monitoringRecordRepo = monitoringRecordRepo;
         this.monitoringConfig = monitoringConfig;
-        this.configProtoService = configProtoService;
         this.userQuery = userQuery;
         this.signatureResolver = signatureResolver;
         this.reportProperties = reportProperties;
@@ -236,13 +234,8 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandler
     }
 
     private Map<String, Integer> monitoringParamOrder(Long pid, String deptId, String accountId) {
-        int groupType = configProtoService.getConfig()
-            .getMonitoring()
-            .getEnums()
-            .getGroupTypeMonitoring()
-            .getId();
         List<MonitoringGroupBetaPB> groups = monitoringConfig.getMonitoringGroups(
-            pid, deptId, groupType, List.of(), accountId);
+            pid, deptId, MonEnums.GROUP_TYPE_MONITORING, List.of(), accountId);
         Map<String, Integer> orderByCode = new LinkedHashMap<>();
         int order = 0;
         for (MonitoringGroupBetaPB group : groups.stream()
@@ -415,7 +408,6 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandler
 
     private final PatientMonitoringRecordRepository monitoringRecordRepo;
     private final MonitoringConfig monitoringConfig;
-    private final ConfigProtoService configProtoService;
     private final UserQuery userQuery;
     private final JfkSignatureValueResolver signatureResolver;
     private final ReportProperties reportProperties;

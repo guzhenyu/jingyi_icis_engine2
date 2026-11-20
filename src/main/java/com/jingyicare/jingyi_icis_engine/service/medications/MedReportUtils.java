@@ -42,8 +42,6 @@ public class MedReportUtils {
         @Autowired MedicationConfig medConfig
     ) {
         this.ZONE_ID = protoService.getConfig().getZoneId();
-        this.BALANCE_GROUP_TYPE_ID = protoService.getConfig().getMonitoring()
-            .getEnums().getGroupTypeBalance().getId();
         this.reportUtils = reportUtils;
         this.medMonService = medMonService;
         this.monConfig = monConfig;
@@ -300,13 +298,13 @@ public class MedReportUtils {
          */
         // 将 MonitoringConfig.getMonitoringGroups 提前到 MonitoringRecordUtils.deleteRecords 之前
         Pair<LocalDateTime, LocalDateTime> queryUtcTimeRange = monConfig.normalizePmrQueryTimeRange(
-            BALANCE_GROUP_TYPE_ID, deptId, affectedStartUtc, timeRange.queryEndUtc()
+            MonEnums.GROUP_TYPE_BALANCE, deptId, affectedStartUtc, timeRange.queryEndUtc()
         );
         List<String> tubeParamCodes = patientTubeImpl.getMonitoringParamCodes(
             pid, queryUtcTimeRange.getFirst(), queryUtcTimeRange.getSecond()
         );
         List<MonitoringGroupBetaPB> groupBetaList = monConfig.getMonitoringGroups(
-            pid, deptId, BALANCE_GROUP_TYPE_ID, tubeParamCodes, accountId
+            pid, deptId, MonEnums.GROUP_TYPE_BALANCE, tubeParamCodes, accountId
         );
         Map<String, MonitoringParamPB> monitoringParams = monConfig.getMonitoringParams(deptId);
         RouteDetails routeDetails = routeDetailsMap.get(routeCode);
@@ -351,7 +349,6 @@ public class MedReportUtils {
     }
 
     private final String ZONE_ID;
-    private final Integer BALANCE_GROUP_TYPE_ID;
     private final PatientNursingReportInvalidationService reportUtils;
     private final MedMonitoringService medMonService;
     private final MonitoringConfig monConfig;

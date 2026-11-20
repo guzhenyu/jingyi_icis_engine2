@@ -65,9 +65,9 @@ class MonitoringDeptInitializationTests extends TestsBase {
         List<DeptMonitoringGroup> initialized = activeGroups();
         assertThat(initialized).hasSize(4);
         assertGroups(config.getBalanceGroupList(),
-            config.getEnums().getGroupTypeBalance().getId(), initialized, before, after);
+            MonEnums.GROUP_TYPE_BALANCE, initialized, before, after);
         assertGroups(config.getMonitoringGroupList(),
-            config.getEnums().getGroupTypeMonitoring().getId(), initialized, before, after);
+            MonEnums.GROUP_TYPE_MONITORING, initialized, before, after);
         List<DeptMonitoringGroupParam> initializedParams = groupParams(initialized);
         assertThat(initializedParams).hasSize(8);
         assertThat(jdbcTemplate.queryForList(
@@ -229,7 +229,9 @@ class MonitoringDeptInitializationTests extends TestsBase {
 
     private MonitoringPB configuration() {
         return protoService.getConfig().getMonitoring().toBuilder()
-            .clearBalanceGroup().addBalanceGroup(group("入量组")).addBalanceGroup(group("出量组"))
+            .clearBalanceGroup()
+            .addBalanceGroup(group("入量组").toBuilder().setBalanceRole(MonEnums.BALANCE_TYPE_IN))
+            .addBalanceGroup(group("出量组").toBuilder().setBalanceRole(MonEnums.BALANCE_TYPE_OUT))
             .clearMonitoringGroup().addMonitoringGroup(group("监测甲"))
             .addMonitoringGroup(group("监测乙")).build();
     }
@@ -277,6 +279,9 @@ class MonitoringDeptInitializationTests extends TestsBase {
         assertThat(typedGroups).extracting(DeptMonitoringGroup::getName)
             .containsExactlyElementsOf(configured.stream()
                 .map(MonitoringGroupPB::getName).toList());
+        assertThat(typedGroups).extracting(DeptMonitoringGroup::getBalanceRole)
+            .containsExactlyElementsOf(configured.stream()
+                .map(group -> group.hasBalanceRole() ? group.getBalanceRole() : null).toList());
         assertThat(typedGroups).extracting(DeptMonitoringGroup::getDisplayOrder)
             .containsExactly(0, 1);
         for (DeptMonitoringGroup group : typedGroups) {

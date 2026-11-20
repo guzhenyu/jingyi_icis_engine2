@@ -29,6 +29,7 @@ import com.jingyicare.jingyi_icis_engine.entity.users.*;
 import com.jingyicare.jingyi_icis_engine.repository.patientshifts.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.MonEnums;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -52,8 +53,6 @@ public class MonitoringReportService {
         }
 
         this.ZONE_ID = protoService.getConfig().getZoneId();
-        this.PARAM_CODE_SUM = protoService.getConfig().getMonitoring().getParamCodeSummary();
-        this.PARAM_CODE_SUM_TXT = protoService.getConfig().getMonitoring().getParamCodeSummaryTxt();
 
         this.protoService = protoService;
         reportTemplate = protoService.getConfig().getMonitoringReport().getMonitoringTemplate();
@@ -195,7 +194,7 @@ public class MonitoringReportService {
         for (MonitoringGroupRecordsPB groupRecords : recordsResp.getGroupRecordsList()) {
             final Integer deptMonitoringGroupId = groupRecords.getDeptMonitoringGroupId();
             for (MonitoringCodeRecordsPB codeRecords : groupRecords.getCodeRecordsList()) {
-                if (codeRecords.getParamCode().equals(PARAM_CODE_SUM)) {
+                if (codeRecords.getParamCode().equals(MonEnums.PARAM_CODE_SUMMARY)) {
                     ctx.groupSumRecords.put(deptMonitoringGroupId, codeRecords.getRecordValueList());
                     continue;
                 }
@@ -476,7 +475,7 @@ public class MonitoringReportService {
             final Integer deptMonitoringGroupId = groupMeta.getId();
             final List<MonitoringRecordValPB> sumRecords = ctx.groupSumRecords.get(deptMonitoringGroupId);
             if (sumRecords != null) {
-                drawMetricRow(ctx, "", PARAM_CODE_SUM_TXT, "", sumRecords, groupName);
+                drawMetricRow(ctx, "", MonEnums.PARAM_CODE_SUMMARY_TXT, "", sumRecords, groupName);
             }
 
             closeMetricGridsGroup(ctx, groupName);
@@ -853,8 +852,6 @@ public class MonitoringReportService {
     private static final int ROTATION_DEGREE = -90;
 
     private final String ZONE_ID;
-    private final String PARAM_CODE_SUM;
-    private final String PARAM_CODE_SUM_TXT;
     private final String SIGNATURE_CODE;
 
     // report specs.

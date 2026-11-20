@@ -46,8 +46,6 @@ public class DoctorDataFetcherTests extends TestsBase {
         @Autowired PatientRecordRepository patientRepo
     ) {
         this.ZONE_ID = protoService.getConfig().getZoneId();
-        this.BALANCE_TYPE_NAN_ID = protoService.getConfig().getMonitoring()
-            .getEnums().getBalanceNan().getId();
 
         this.deptId = "10033";
         this.accountId = "admin";
@@ -86,7 +84,7 @@ public class DoctorDataFetcherTests extends TestsBase {
                             .setDecimalPlaces(2)
                             .setPadZeroDecimal(false)
                             .build())
-                    .setBalanceType(BALANCE_TYPE_NAN_ID)
+                    .setBalanceType(MonEnums.BALANCE_TYPE_NAN)
                     .build()
             )
             .build();
@@ -424,7 +422,6 @@ public class DoctorDataFetcherTests extends TestsBase {
     }
 
     private final String ZONE_ID;
-    private final Integer BALANCE_TYPE_NAN_ID;
 
     private final String deptId;
     private final String accountId;

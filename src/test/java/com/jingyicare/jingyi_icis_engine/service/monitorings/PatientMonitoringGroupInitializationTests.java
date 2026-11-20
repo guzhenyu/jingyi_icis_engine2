@@ -40,7 +40,6 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.TypeEnumPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.ValueMetaPB;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordRepository;
-import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
@@ -50,18 +49,16 @@ class PatientMonitoringGroupInitializationTests extends TestsBase {
     @BeforeEach
     void prepare() {
         authenticate();
-        groupType = config.getConfig().getMonitoring().getEnums().getGroupTypeMonitoring().getId();
-        int balanceType = config.getConfig().getMonitoring().getEnums()
-            .getGroupTypeBalance().getId();
         String meta = ProtoUtils.encodeValueMeta(ValueMetaPB.newBuilder()
             .setValueType(TypeEnumPB.FLOAT).build());
         for (String code : List.of(DEFAULT_CODE, CUSTOM_CODE)) {
             params.save(MonitoringParam.builder().code(code).name(code).typePb(meta)
                 .balanceType(0).displayOrder(1).build());
         }
-        monitoringGroup = saveGroup(DEPT, "观察项", groupType, meta);
-        balanceGroup = saveGroup(DEPT, "测试出入量", balanceType, meta);
-        otherGroup = saveGroup(OTHER_DEPT, "其他科室", groupType, meta);
+        monitoringGroup = saveGroup(DEPT, "观察项", MonEnums.GROUP_TYPE_MONITORING, null, meta);
+        balanceGroup = saveGroup(DEPT, "测试出入量", MonEnums.GROUP_TYPE_BALANCE,
+            MonEnums.BALANCE_TYPE_IN, meta);
+        otherGroup = saveGroup(OTHER_DEPT, "其他科室", MonEnums.GROUP_TYPE_MONITORING, null, meta);
         PatientRecord patient = new PatientRecord();
         patient.setDeptId(DEPT);
         patient.setIcuName("患者分组初始化测试");
@@ -158,7 +155,8 @@ class PatientMonitoringGroupInitializationTests extends TestsBase {
         monitoringGroup.setDeletedBy("system");
         groups.saveAndFlush(monitoringGroup);
         DeptMonitoringGroup currentGroup = saveGroup(
-            DEPT, monitoringGroup.getName(), groupType, monitoringGroup.getSumTypePb());
+            DEPT, monitoringGroup.getName(), MonEnums.GROUP_TYPE_MONITORING, null,
+            monitoringGroup.getSumTypePb());
 
         assertThat(service.updatePatientMonitoringGroup(updateRequest(pid, monitoringGroup.getId()))
             .getRt().getCode()).isEqualTo(StatusCode.OK_VALUE);
@@ -334,9 +332,12 @@ class PatientMonitoringGroupInitializationTests extends TestsBase {
         assertThat(customized.getFirst().getDisplayOrder()).isEqualTo(7);
     }
 
-    private DeptMonitoringGroup saveGroup(String deptId, String name, int type, String meta) {
+    private DeptMonitoringGroup saveGroup(
+        String deptId, String name, int type, Integer role, String meta
+    ) {
         DeptMonitoringGroup group = groups.save(DeptMonitoringGroup.builder().deptId(deptId)
-            .name(name).groupType(type).displayOrder(1).sumTypePb(meta).isDeleted(false)
+            .name(name).groupType(type).balanceRole(role)
+            .displayOrder(1).sumTypePb(meta).isDeleted(false)
             .modifiedBy("system").modifiedAt(NOW).build());
         groupParams.save(DeptMonitoringGroupParam.builder().deptMonitoringGroupId(group.getId())
             .monitoringParamCode(DEFAULT_CODE).displayOrder(1).isDeleted(false)
@@ -353,7 +354,7 @@ class PatientMonitoringGroupInitializationTests extends TestsBase {
 
     private String queryRequest(String deptId) {
         return ProtoUtils.protoToJson(GetPatientMonitoringGroupsReq.newBuilder().setPid(pid)
-            .setDeptId(deptId).setGroupType(groupType)
+            .setDeptId(deptId).setGroupType(MonEnums.GROUP_TYPE_MONITORING)
             .setQueryStartIso8601("2026-11-19T00:00:00Z")
             .setQueryEndIso8601("2026-11-19T01:00:00Z").build());
     }
@@ -375,7 +376,6 @@ class PatientMonitoringGroupInitializationTests extends TestsBase {
         }
     }
 
-    @Autowired private ConfigProtoService config;
     @Autowired private MonitoringService service;
     @Autowired private PatientMonitoringService recordService;
     @Autowired private MonitoringParamRepository params;
@@ -388,7 +388,6 @@ class PatientMonitoringGroupInitializationTests extends TestsBase {
     @Autowired private LockExecutor lockExecutor;
 
     private Long pid;
-    private int groupType;
     private DeptMonitoringGroup monitoringGroup;
     private DeptMonitoringGroup balanceGroup;
     private DeptMonitoringGroup otherGroup;

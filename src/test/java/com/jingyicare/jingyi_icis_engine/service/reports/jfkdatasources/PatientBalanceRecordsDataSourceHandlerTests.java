@@ -32,7 +32,6 @@ import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientMonitoringRec
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
 import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
 import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
-import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkFieldDataPB;
@@ -41,13 +40,11 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringC
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringGroupRecordsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringParamPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringRecordValPB;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.GenericValuePB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.TypeEnumPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.ValueMetaPB;
 import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
-import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.BalanceCalculator;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.PatientMonitoringService;
@@ -390,19 +387,12 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
         private final BalanceCalculator balanceCalculator = mock(BalanceCalculator.class);
         private final PatientTubeImpl patientTubeImpl = mock(PatientTubeImpl.class);
         private final UserQuery userQuery = mock(UserQuery.class);
-        private final ConfigProtoService configProtoService = mock(ConfigProtoService.class);
 
         private TestContext() {
             ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
                 new StatisticsDayWindowResolver(balanceStatsShiftRepo));
             when(userQuery.getCurrentAccount())
                 .thenReturn(new CurrentAccount("nurse", "42", "护士"));
-            when(configProtoService.getConfig()).thenReturn(Config.newBuilder()
-                .setMonitoring(MonitoringPB.newBuilder()
-                    .setParamCodeSummary("all")
-                    .setParamCodeSummaryTxt("合计")
-                    .build())
-                .build());
             when(monitoringConfig.getBalanceGroupTypeId()).thenReturn(1);
             when(patientTubeImpl.getMonitoringParamCodes(any(), any(), any())).thenReturn(List.of());
             when(monitoringConfig.getMonitoringGroups(any(), any(), any(Integer.class), any(), any())).thenReturn(List.of());
@@ -416,7 +406,6 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
                 balanceCalculator,
                 patientTubeImpl,
                 userQuery,
-                configProtoService,
                 new ReportProperties(),
                 new DefaultResourceLoader()
             );

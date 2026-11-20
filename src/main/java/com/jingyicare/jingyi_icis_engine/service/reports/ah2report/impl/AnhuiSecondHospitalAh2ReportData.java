@@ -88,9 +88,6 @@ public class AnhuiSecondHospitalAh2ReportData implements Ah2ReportDataProvider {
         this.ZONE_ID = protoService.getConfig().getZoneId();
         this.statusCodeMsgs = protoService.getConfig().getText().getStatusCodeMsgList();
         this.BALANCE_GROUP_TYPE_ID = monitoringConfig.getBalanceGroupTypeId();
-        this.BALANCE_IN_TYPE_ID = protoService.getConfig().getMonitoring().getEnums().getBalanceIn().getId();
-        this.BALANCE_OUT_TYPE_ID = protoService.getConfig().getMonitoring().getEnums().getBalanceOut().getId();
-        this.BALANCE_NET_TYPE_ID = protoService.getConfig().getMonitoring().getEnums().getBalanceNet().getId();
         this.DOSAGE_DECIMAL_PLACES = protoService.getConfig().getMedication().getDosageDecimalPlaces();
         this.medExeAdminCodes = new HashSet<>(protoService.getConfig().getMedication().getMedExeAdminCodeList());
         this.dietAdminCodes = new HashSet<>(protoService.getConfig().getMedication().getDietAdminCodeList());
@@ -794,9 +791,9 @@ public class AnhuiSecondHospitalAh2ReportData implements Ah2ReportDataProvider {
             MonitoringParamPB mpPb = ctx.mpMap.get(paramCode);
             if (mpPb == null) continue;
             // 过滤掉 出入量 相关的参数
-            if (mpPb.getBalanceType() == BALANCE_IN_TYPE_ID ||
-                mpPb.getBalanceType() == BALANCE_OUT_TYPE_ID ||
-                mpPb.getBalanceType() == BALANCE_NET_TYPE_ID
+            if (mpPb.getBalanceType() == MonEnums.BALANCE_TYPE_IN ||
+                mpPb.getBalanceType() == MonEnums.BALANCE_TYPE_OUT ||
+                mpPb.getBalanceType() == MonEnums.BALANCE_TYPE_NET
             ) continue;
 
             LocalDateTime effectiveTime = pmr.getEffectiveTime();
@@ -833,9 +830,9 @@ public class AnhuiSecondHospitalAh2ReportData implements Ah2ReportDataProvider {
             MonitoringParamPB mpPb = ctx.mpMap.get(paramCode);
             if (mpPb == null) continue;
             // 过滤掉 非出入量 相关的参数
-            if (mpPb.getBalanceType() != BALANCE_IN_TYPE_ID &&
-                mpPb.getBalanceType() != BALANCE_OUT_TYPE_ID &&
-                mpPb.getBalanceType() != BALANCE_NET_TYPE_ID
+            if (mpPb.getBalanceType() != MonEnums.BALANCE_TYPE_IN &&
+                mpPb.getBalanceType() != MonEnums.BALANCE_TYPE_OUT &&
+                mpPb.getBalanceType() != MonEnums.BALANCE_TYPE_NET
             ) continue;
 
             LocalDateTime effectiveTime = pmr.getEffectiveTime();
@@ -908,7 +905,7 @@ public class AnhuiSecondHospitalAh2ReportData implements Ah2ReportDataProvider {
                 tubeVol = ValueMetaUtils.extractAndFormatParamValue(mvPb.getValue(), vmPb);
                 if (StrUtils.isBlank(tubeVol)) continue;
             } else {  // 其他与引流管放在一起的出量：非 尿/胃/大便/超滤 出量
-                if (mpPb.getBalanceType() != BALANCE_OUT_TYPE_ID ||
+                if (mpPb.getBalanceType() != MonEnums.BALANCE_TYPE_OUT ||
                     paramCode.equals(MP_URINE_OUTPUT) ||
                     paramCode.equals(MP_GASTRIC_FLUID_VOLUME) ||
                     paramCode.equals(MP_STOOL_VOLUME) ||
@@ -2114,9 +2111,6 @@ public class AnhuiSecondHospitalAh2ReportData implements Ah2ReportDataProvider {
     private final String ZONE_ID;
     private final List<String> statusCodeMsgs;
     private final Integer BALANCE_GROUP_TYPE_ID;
-    private final Integer BALANCE_IN_TYPE_ID;
-    private final Integer BALANCE_OUT_TYPE_ID;
-    private final Integer BALANCE_NET_TYPE_ID;
     private final Integer DOSAGE_DECIMAL_PLACES;
     private final ValueMetaPB DRAINAGE_TUBE_COLOR_META;
     private final Set<String> medExeAdminCodes;

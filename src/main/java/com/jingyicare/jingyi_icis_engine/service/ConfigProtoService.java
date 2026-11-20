@@ -24,6 +24,7 @@ import com.jingyicare.jingyi_icis_engine.entity.settings.*;
 import com.jingyicare.jingyi_icis_engine.entity.medications.*;
 import com.jingyicare.jingyi_icis_engine.repository.settings.*;
 import com.jingyicare.jingyi_icis_engine.repository.medications.*;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.MonEnums;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
 
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -34,10 +35,12 @@ public class ConfigProtoService {
         Config config,
         @Autowired DeptSystemSettingsRepository deptSettingsRepo,
         @Autowired IntakeTypeRepository intakeTypeRepo,
-        PatientEnums patientEnums
+        PatientEnums patientEnums,
+        MonEnums monEnums
     ) {
         this.config = config;
         this.patientEnums = patientEnums;
+        this.monEnums = monEnums;
         this.genderMap = config == null ? null :
             config.getCommon().getEnums().getGenderList().stream()
                 .collect(Collectors.toMap(EnumValue::getId, EnumValue::getName));
@@ -71,6 +74,13 @@ public class ConfigProtoService {
     }
 
     public GetConfigResp getWebApiConfig() {
+        MonitoringPB monitoring = config.getMonitoring();
+        Map<Integer, String> balanceGroupNames = monitoring.getBalanceGroupList().stream()
+            .filter(MonitoringGroupPB::hasBalanceRole)
+            .collect(Collectors.toMap(
+                MonitoringGroupPB::getBalanceRole, MonitoringGroupPB::getName,
+                (first, ignored) -> first));
+
         return GetConfigResp.newBuilder()
             .setRt(getReturnCode(StatusCode.OK))
             .setCommonEnums(config.getCommon().getEnums())
@@ -83,11 +93,11 @@ public class ConfigProtoService {
             .setTubeTypeList(config.getTube().getTypeList())
             .setTubeAttrList(config.getTube().getAttributeList())
             .setTubeStatusList(config.getTube().getStatusList())
-            .setParamCodeSummary(config.getMonitoring().getParamCodeSummary())
-            .setBalanceInGroupName(config.getMonitoring().getBalanceInGroupName())
-            .setBalanceOutGroupName(config.getMonitoring().getBalanceOutGroupName())
-            .setBalanceNetGroupName(config.getMonitoring().getBalanceNetGroupName())
-            .setMonitoringEnums(config.getMonitoring().getEnums())
+            .setParamCodeSummary(MonEnums.PARAM_CODE_SUMMARY)
+            .setBalanceInGroupName(balanceGroupNames.getOrDefault(MonEnums.BALANCE_TYPE_IN, ""))
+            .setBalanceOutGroupName(balanceGroupNames.getOrDefault(MonEnums.BALANCE_TYPE_OUT, ""))
+            .setBalanceNetGroupName(balanceGroupNames.getOrDefault(MonEnums.BALANCE_TYPE_NET, ""))
+            .setMonitoringEnums(monEnums.toMonitoringEnumsPB())
             .setMedicationEnums(config.getMedication().getEnums())
             .addAllDosageUnit(config.getText().getUnits().getUnitList())
             .addAllIntakeType(getIntakeTypesFromDb())
@@ -153,6 +163,7 @@ public class ConfigProtoService {
     @Getter
     private final Config config;
     private final PatientEnums patientEnums;
+    private final MonEnums monEnums;
 
     private final Map<Integer, String> genderMap;
     private final Map<Integer, String> maritalStatusMap;

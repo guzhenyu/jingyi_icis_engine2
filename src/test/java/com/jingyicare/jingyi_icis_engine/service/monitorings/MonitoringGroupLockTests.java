@@ -61,8 +61,6 @@ class MonitoringGroupLockTests extends TestsBase {
             context.getBean(MonitoringParamHistoryRepository.class), groups, groupParams,
             context.getBean(PatientMonitoringGroupRepository.class),
             context.getBean(PatientMonitoringGroupParamRepository.class));
-        groupType = protoService.getConfig().getMonitoring()
-            .getEnums().getGroupTypeMonitoring().getId();
         LocalDateTime now = LocalDateTime.of(2026, 11, 19, 0, 0);
         String meta = ProtoUtils.encodeValueMeta(ValueMetaPB.newBuilder()
             .setValueType(TypeEnumPB.FLOAT).build());
@@ -71,7 +69,8 @@ class MonitoringGroupLockTests extends TestsBase {
                 .balanceType(0).displayOrder(1).build());
         }
         group = groups.save(DeptMonitoringGroup.builder().deptId(DEPT).name("已有组")
-            .groupType(groupType).displayOrder(1).sumTypePb(meta).isDeleted(false)
+            .groupType(MonEnums.GROUP_TYPE_MONITORING).displayOrder(1)
+            .sumTypePb(meta).isDeleted(false)
             .modifiedBy("123").modifiedAt(now).build());
         groupParam = groupParams.save(DeptMonitoringGroupParam.builder()
             .deptMonitoringGroupId(group.getId()).monitoringParamCode(FIRST_CODE)
@@ -220,7 +219,7 @@ class MonitoringGroupLockTests extends TestsBase {
                 .getRt().getCode();
             case ADD_GROUP -> service.addDeptMonitoringGroup(ProtoUtils.protoToJson(
                 AddDeptMonitoringGroupReq.newBuilder().setDepartmentId(DEPT).setName("新组")
-                    .setGroupType(groupType).build())).getRt().getCode();
+                    .setGroupType(MonEnums.GROUP_TYPE_MONITORING).build())).getRt().getCode();
             case RENAME_GROUP -> service.updateDeptMonGroupName(ProtoUtils.protoToJson(
                 UpdateDeptMonGroupNameReq.newBuilder().setId(group.getId()).setName("改名组")
                     .build())).getRt().getCode();
@@ -273,7 +272,6 @@ class MonitoringGroupLockTests extends TestsBase {
 
     private MonitoringService service;
     private LockExecutor trackedExecutor;
-    private int groupType;
     private DeptMonitoringGroup group;
     private DeptMonitoringGroupParam groupParam;
 

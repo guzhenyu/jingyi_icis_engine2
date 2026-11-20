@@ -82,16 +82,7 @@ public class NursingRecordService {
         @Autowired NursingRecordReader recordReader,
         @Autowired SnapshotService snapshotService
     ) {
-        MonitoringPB monitoringPb = protoService.getConfig().getMonitoring();
         this.ZONE_ID = protoService.getConfig().getZoneId();
-        this.BALANCE_GROUP_TYPE_ID = monitoringPb.getEnums().getGroupTypeBalance().getId();
-        this.BALANCE_IN_GROUP_NAME = monitoringPb.getBalanceInGroupName();
-        this.BALANCE_OUT_GROUP_NAME = monitoringPb.getBalanceOutGroupName();
-        this.BALANCE_NET_GROUP_NAME = monitoringPb.getBalanceNetGroupName();
-        this.NET_HOURLY_IN_CODE = monitoringPb.getNetHourlyInCode();
-        this.NET_HOURLY_OUT_CODE = monitoringPb.getNetHourlyOutCode();
-        this.NET_HOURLY_NET_CODE = monitoringPb.getNetHourlyNetCode();
-        this.SUMMARY_MONITORING_CODE = monitoringPb.getParamCodeSummary();
 
         this.protoService = protoService;
         this.configPb = protoService.getConfig().getNursingRecord();
@@ -499,16 +490,16 @@ public class NursingRecordService {
 
         // 获取出入量记录
         Pair<LocalDateTime, LocalDateTime> queryUtcTimeRange = monitoringConfig.normalizePmrQueryTimeRange(
-            BALANCE_GROUP_TYPE_ID, deptId, startTime, endTime
+            MonEnums.GROUP_TYPE_BALANCE, deptId, startTime, endTime
         );
         List<String> tubeParamCodes = patientTubeImpl.getMonitoringParamCodes(
             pid, queryUtcTimeRange.getFirst(), queryUtcTimeRange.getSecond()
         );
         List<MonitoringGroupBetaPB> groupBetaList = monitoringConfig.getMonitoringGroups(
-            pid, deptId, BALANCE_GROUP_TYPE_ID, tubeParamCodes, account.autoAcctId()
+            pid, deptId, MonEnums.GROUP_TYPE_BALANCE, tubeParamCodes, account.autoAcctId()
         );
         PatientMonitoringService.GetMonitoringRecordsResult recordsResult = patientMonitoringService
-            .getMonitoringRecords(pid, deptId, BALANCE_GROUP_TYPE_ID,
+            .getMonitoringRecords(pid, deptId, MonEnums.GROUP_TYPE_BALANCE,
                 startTime, endTime, true, groupBetaList, account.autoAcctId()
             );
         if (recordsResult.statusCode != StatusCode.OK) {
@@ -640,16 +631,16 @@ public class NursingRecordService {
         Long pid, String deptId, LocalDateTime shiftStartUtc, LocalDateTime shiftEndUtc, String accountId
     ) {
         Pair<LocalDateTime, LocalDateTime> queryUtcTimeRange = monitoringConfig.normalizePmrQueryTimeRange(
-            BALANCE_GROUP_TYPE_ID, deptId, shiftStartUtc, shiftEndUtc
+            MonEnums.GROUP_TYPE_BALANCE, deptId, shiftStartUtc, shiftEndUtc
         );
         List<String> tubeParamCodes = patientTubeImpl.getMonitoringParamCodes(
             pid, queryUtcTimeRange.getFirst(), queryUtcTimeRange.getSecond()
         );
         List<MonitoringGroupBetaPB> groupBetaList = monitoringConfig.getMonitoringGroups(
-            pid, deptId, BALANCE_GROUP_TYPE_ID, tubeParamCodes, accountId
+            pid, deptId, MonEnums.GROUP_TYPE_BALANCE, tubeParamCodes, accountId
         );
         PatientMonitoringService.GetMonitoringRecordsResult recordsResult = patientMonitoringService
-            .getMonitoringRecords(pid, deptId, BALANCE_GROUP_TYPE_ID,
+            .getMonitoringRecords(pid, deptId, MonEnums.GROUP_TYPE_BALANCE,
                 shiftStartUtc, shiftEndUtc, true, groupBetaList, accountId
             );
         if (recordsResult.statusCode != StatusCode.OK) {
@@ -679,28 +670,28 @@ public class NursingRecordService {
         args.endTime = shiftEndUtc;
 
         List<MonitoringGroupRecordsPB> groupRecordsList = balanceCalculator.getGroupRecordsList(args);
-        Map<Integer, String> groupNameMap = recordsResult.groupBetaList.stream()
-            .collect(Collectors.toMap(MonitoringGroupBetaPB::getId, MonitoringGroupBetaPB::getName));
+        Map<Integer, Integer> balanceRolesByGroupId = recordsResult.groupBetaList.stream()
+            .filter(MonitoringGroupBetaPB::hasBalanceRole)
+            .collect(Collectors.toMap(
+                MonitoringGroupBetaPB::getId, MonitoringGroupBetaPB::getBalanceRole));
         MonitoringGroupRecordsPB inGroupRecords = null;
         MonitoringGroupRecordsPB outGroupRecords = null;
         MonitoringGroupRecordsPB netGroupRecords = null;
         for (MonitoringGroupRecordsPB gr : groupRecordsList) {
-            String groupName = groupNameMap.get(gr.getDeptMonitoringGroupId());
-            if (BALANCE_IN_GROUP_NAME.equals(groupName)) inGroupRecords = gr;
-            else if (BALANCE_OUT_GROUP_NAME.equals(groupName)) outGroupRecords = gr;
-            else if (BALANCE_NET_GROUP_NAME.equals(groupName)) netGroupRecords = gr;
+            int balanceRole = balanceRolesByGroupId.getOrDefault(
+                gr.getDeptMonitoringGroupId(), MonEnums.BALANCE_TYPE_NAN);
+            if (balanceRole == MonEnums.BALANCE_TYPE_IN) inGroupRecords = gr;
+            else if (balanceRole == MonEnums.BALANCE_TYPE_OUT) outGroupRecords = gr;
+            else if (balanceRole == MonEnums.BALANCE_TYPE_NET) netGroupRecords = gr;
         }
 
         Map<String, MonitoringParamPB> paramMap = monitoringConfig.getMonitoringParams(deptId);
         Map<LocalDateTime, NrShortcutBalancesPB.Builder> balanceMap = new TreeMap<>();
 
-        List<String> hourlyCodes = new ArrayList<>();
-        if (!StrUtils.isBlank(NET_HOURLY_IN_CODE)) hourlyCodes.add(NET_HOURLY_IN_CODE);
-        if (!StrUtils.isBlank(NET_HOURLY_OUT_CODE)) hourlyCodes.add(NET_HOURLY_OUT_CODE);
-        List<PatientMonitoringRecord> hourlyRecords = hourlyCodes.isEmpty()
-            ? new ArrayList<>()
-            : monitoringRecordRepo.findByPidAndParamCodesAndEffectiveTimeRange(
-                pid, hourlyCodes, shiftStartUtc, shiftEndUtc
+        List<PatientMonitoringRecord> hourlyRecords = monitoringRecordRepo
+            .findByPidAndParamCodesAndEffectiveTimeRange(
+                pid, List.of(MonEnums.NET_HOURLY_IN_CODE, MonEnums.NET_HOURLY_OUT_CODE),
+                shiftStartUtc, shiftEndUtc
             ).stream()
             .sorted(Comparator.comparing(PatientMonitoringRecord::getEffectiveTime))
             .toList();
@@ -709,7 +700,8 @@ public class NursingRecordService {
         appendBalanceDetails(balanceMap, inGroupRecords, paramMap, NrShortcutBalancesPB.Builder::addInDetails, null);
         appendBalanceDetails(balanceMap, outGroupRecords, paramMap, NrShortcutBalancesPB.Builder::addOutDetails, null);
         appendBalanceDetails(balanceMap, netGroupRecords, paramMap, NrShortcutBalancesPB.Builder::addNetDetails,
-            Set.of(NET_HOURLY_IN_CODE, NET_HOURLY_OUT_CODE, NET_HOURLY_NET_CODE));
+            Set.of(MonEnums.NET_HOURLY_IN_CODE, MonEnums.NET_HOURLY_OUT_CODE,
+                MonEnums.NET_HOURLY_NET_CODE));
         fillShortcutBalanceAccumulatedDetails(balanceMap, paramMap);
 
         List<NrShortcutBalancesPB> balanceList = balanceMap.values().stream()
@@ -734,9 +726,12 @@ public class NursingRecordService {
     ) {
         if (balanceMap == null || hourlyRecords == null || hourlyRecords.isEmpty()) return;
 
-        MonitoringParamPB inParam = paramMap == null ? null : paramMap.get(NET_HOURLY_IN_CODE);
-        MonitoringParamPB outParam = paramMap == null ? null : paramMap.get(NET_HOURLY_OUT_CODE);
-        MonitoringParamPB netParam = paramMap == null ? null : paramMap.get(NET_HOURLY_NET_CODE);
+        MonitoringParamPB inParam =
+            paramMap == null ? null : paramMap.get(MonEnums.NET_HOURLY_IN_CODE);
+        MonitoringParamPB outParam =
+            paramMap == null ? null : paramMap.get(MonEnums.NET_HOURLY_OUT_CODE);
+        MonitoringParamPB netParam =
+            paramMap == null ? null : paramMap.get(MonEnums.NET_HOURLY_NET_CODE);
         ValueMetaPB inMeta = inParam == null ? null : inParam.getValueMeta();
         ValueMetaPB outMeta = outParam == null ? null : outParam.getValueMeta();
         ValueMetaPB netMeta = netParam == null ? null : netParam.getValueMeta();
@@ -752,7 +747,7 @@ public class NursingRecordService {
                 continue;
             }
             String code = record.getMonitoringParamCode();
-            if (NET_HOURLY_IN_CODE.equals(code) && inMeta != null) {
+            if (MonEnums.NET_HOURLY_IN_CODE.equals(code) && inMeta != null) {
                 GenericValuePB value = getMonitoringRecordValue(record, inMeta);
                 if (value == null) continue;
                 value = ValueMetaUtils.formatParamValue(value, inMeta);
@@ -760,7 +755,7 @@ public class NursingRecordService {
                 inValueMap.put(timeUtc,
                     existing == null ? value : ValueMetaUtils.addGenericValue(existing, value, inMeta)
                 );
-            } else if (NET_HOURLY_OUT_CODE.equals(code) && outMeta != null) {
+            } else if (MonEnums.NET_HOURLY_OUT_CODE.equals(code) && outMeta != null) {
                 GenericValuePB value = getMonitoringRecordValue(record, outMeta);
                 if (value == null) continue;
                 value = ValueMetaUtils.formatParamValue(value, outMeta);
@@ -938,7 +933,7 @@ public class NursingRecordService {
         if (groupRecords == null || detailAppender == null) return;
         for (MonitoringCodeRecordsPB codeRecords : groupRecords.getCodeRecordsList()) {
             String paramCode = codeRecords.getParamCode();
-            if (SUMMARY_MONITORING_CODE.equals(paramCode)) continue;
+            if (MonEnums.PARAM_CODE_SUMMARY.equals(paramCode)) continue;
             if (allowedParamCodes != null && !allowedParamCodes.contains(paramCode)) continue;
 
             MonitoringParamPB paramMeta = paramMap.get(paramCode);
@@ -973,14 +968,6 @@ public class NursingRecordService {
     }
 
     private final String ZONE_ID;
-    private final Integer BALANCE_GROUP_TYPE_ID;
-    private final String BALANCE_IN_GROUP_NAME;
-    private final String BALANCE_OUT_GROUP_NAME;
-    private final String BALANCE_NET_GROUP_NAME;
-    private final String NET_HOURLY_IN_CODE;
-    private final String NET_HOURLY_OUT_CODE;
-    private final String NET_HOURLY_NET_CODE;
-    private final String SUMMARY_MONITORING_CODE;
 
     private final ConfigProtoService protoService;
     private final NursingRecordConfigPB configPb;

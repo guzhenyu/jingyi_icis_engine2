@@ -42,7 +42,7 @@ message OverviewParamPB {
     int32 param_type = 8; // 参数类型：1-血气，2-检验，3-观察项
     int32 bga_category_id = 9; // 血气类别ID，仅当param_type为1时有效
     string param_code = 10; // 参数编码（lis为外部参数）
-    int32 balance_type_id = 11; // 对应于MonitoringPB.enums.balance_xx.id; 0: nan; 1: 入量; 2: 出量; 3: 平衡量
+    int32 balance_type_id = 11; // 0：不计入，1：入量，2：出量，3：平衡量
     int32 display_order = 12; // 参数显示顺序
 }
 

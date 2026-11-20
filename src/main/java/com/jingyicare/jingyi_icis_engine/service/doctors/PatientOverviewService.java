@@ -374,10 +374,10 @@ public class PatientOverviewService {
         final String deptId = patientRecord.getDeptId();
 
         // 获取平衡量的元数据
-        String HOURLY_NET_CODE = protoService.getConfig().getMonitoring().getNetHourlyNetCode();
-        ValueMetaPB hourlyNetMeta = monConfig.getMonitoringParamMeta(deptId, HOURLY_NET_CODE);
+        ValueMetaPB hourlyNetMeta =
+            monConfig.getMonitoringParamMeta(deptId, MonEnums.NET_HOURLY_NET_CODE);
         if (hourlyNetMeta == null) {
-            log.error("Monitoring param code not found: " + HOURLY_NET_CODE);
+            log.error("Monitoring param code not found: {}", MonEnums.NET_HOURLY_NET_CODE);
             return GetTargetBalancesResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.MONITORING_PARAM_CODE_NOT_EXIST))
                 .build();

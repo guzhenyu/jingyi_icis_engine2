@@ -49,8 +49,6 @@ public class ReportService {
         this.REPORT_ROOT = reportProperties.getRootPath();
         this.MONITORING_REPORT_VERSION = reportProperties.getMonitoringVersion();
         this.ZONE_ID = protoService.getConfig().getZoneId();
-        this.GROUP_TYPE_BALANCE_ID = protoService.getConfig().getMonitoring()
-            .getEnums().getGroupTypeBalance().getId();
 
         this.statusCodeMsgs = protoService.getConfig().getText().getStatusCodeMsgList();
         this.nursingRoleIdSet = new HashSet<>(protoService.getConfig().getJfk().getNursingRoleIdsList());
@@ -509,7 +507,7 @@ public class ReportService {
         final LocalDateTime shiftStartTime = shiftStartPair.getSecond();
 
         // 生成报表路径 ./reports/yyyymm/{$pid}_${patient_name}_{$yyyymmdd}_(monitoring|balance)_report.pdf
-        final Boolean isBalanceReport = groupType == GROUP_TYPE_BALANCE_ID;
+        final Boolean isBalanceReport = groupType == MonEnums.GROUP_TYPE_BALANCE;
         Pair<StatusCode, Pair<String, String>> reportPaths = getReportPath(
             shiftStartTime, patientShift.patient, isBalanceReport ? "balance" : "monitoring");
         if (reportPaths.getFirst() != StatusCode.OK) {
@@ -792,7 +790,6 @@ public class ReportService {
     private final String REPORT_ROOT;
     private final String MONITORING_REPORT_VERSION;
     private final String ZONE_ID;
-    private final Integer GROUP_TYPE_BALANCE_ID;
 
     private final List<String> statusCodeMsgs;
     private final Set<Integer> nursingRoleIdSet;

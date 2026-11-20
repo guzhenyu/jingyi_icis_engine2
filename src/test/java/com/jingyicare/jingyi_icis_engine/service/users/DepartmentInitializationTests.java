@@ -48,6 +48,7 @@ import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.BgaMetaService;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.MonEnums;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringMetaService;
 import com.jingyicare.jingyi_icis_engine.service.nursingrecords.NursingOrderTemplateService;
 import com.jingyicare.jingyi_icis_engine.service.scores.ScoreMetaService;
@@ -367,10 +368,9 @@ class DepartmentInitializationTests extends TestsBase {
 
     private void assertMonitoringDefaults(String deptId) {
         MonitoringPB monitoringConfig = config.getConfig().getMonitoring();
-        assertMonitoringGroups(deptId, monitoringConfig.getEnums().getGroupTypeBalance().getId(),
+        assertMonitoringGroups(deptId, MonEnums.GROUP_TYPE_BALANCE,
             monitoringConfig.getBalanceGroupList());
-        assertMonitoringGroups(deptId,
-            monitoringConfig.getEnums().getGroupTypeMonitoring().getId(),
+        assertMonitoringGroups(deptId, MonEnums.GROUP_TYPE_MONITORING,
             monitoringConfig.getMonitoringGroupList());
     }
 
@@ -378,7 +378,7 @@ class DepartmentInitializationTests extends TestsBase {
         String deptId, int groupType, List<MonitoringGroupPB> expectedGroups
     ) {
         List<Map<String, Object>> groups = jdbc.queryForList("""
-            SELECT id, name, display_order, sum_type_pb, modified_by, modified_at
+            SELECT id, name, display_order, sum_type_pb, balance_role, modified_by, modified_at
             FROM dept_monitoring_groups WHERE dept_id = ? AND group_type = ?
                 AND is_deleted = false ORDER BY display_order, id
             """, deptId, groupType);
@@ -388,6 +388,8 @@ class DepartmentInitializationTests extends TestsBase {
             MonitoringGroupPB expected = expectedGroups.get(i);
             assertThat(group).containsEntry("name", expected.getName())
                 .containsEntry("display_order", i)
+                .containsEntry("balance_role",
+                    expected.hasBalanceRole() ? expected.getBalanceRole() : null)
                 .containsEntry("sum_type_pb",
                     ProtoUtils.encodeValueMeta(expected.getSumValueMeta()))
                 .containsEntry("modified_by", UserQuery.SYSTEM_ACCOUNT_ID);

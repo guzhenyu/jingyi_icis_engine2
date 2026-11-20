@@ -25,7 +25,6 @@ import com.jingyicare.jingyi_icis_engine.repository.monitorings.DeptMonitoringGr
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.DeptMonitoringGroupRepository;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.DeptMonitoringParamRepository;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.MonitoringParamRepository;
-import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
@@ -33,8 +32,6 @@ import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 class MonitoringConfigTests extends TestsBase {
     @BeforeEach
     void prepareGroups() {
-        groupType = protoService.getConfig().getMonitoring()
-            .getEnums().getGroupTypeMonitoring().getId();
         params.saveAll(List.of(
             MonitoringParam.builder().code(OVERRIDE_CODE).name("定制参数")
                 .nameEn("Custom parameter").typePb(ProtoUtils.encodeValueMeta(GLOBAL_META))
@@ -63,7 +60,7 @@ class MonitoringConfigTests extends TestsBase {
     @Test
     void shouldApplyDeptOverridesWithoutChangingGlobalParamsInWritableTransaction() {
         List<MonitoringGroupBetaPB> overridden = monitoringConfig.getMonitoringGroups(
-            null, OVERRIDE_DEPT, groupType, List.of(), "test-account");
+            null, OVERRIDE_DEPT, MonEnums.GROUP_TYPE_MONITORING, List.of(), "test-account");
         assertThat(overridden).containsExactly(
             expectedGroup(firstGroup, List.of(
                 expectedFallback(firstFallback), expectedOverride(firstOverride, DEPT_META))),
@@ -71,7 +68,7 @@ class MonitoringConfigTests extends TestsBase {
 
         // 同一持久化上下文中切换科室，不应继承上一个科室的覆盖值。
         List<MonitoringGroupBetaPB> fallback = monitoringConfig.getMonitoringGroups(
-            null, FALLBACK_DEPT, groupType, List.of(), "test-account");
+            null, FALLBACK_DEPT, MonEnums.GROUP_TYPE_MONITORING, List.of(), "test-account");
         assertThat(fallback).containsExactly(expectedGroup(fallbackGroup, List.of(
             expectedFallback(otherFallback), expectedOverride(otherOverride, GLOBAL_META))));
 
@@ -90,7 +87,8 @@ class MonitoringConfigTests extends TestsBase {
         String uninitializedDept = "test-config-uninitialized-dept";
 
         assertThat(monitoringConfig.getMonitoringGroups(
-            null, uninitializedDept, groupType, List.of(), "test-account")).isEmpty();
+            null, uninitializedDept, MonEnums.GROUP_TYPE_MONITORING, List.of(), "test-account"))
+            .isEmpty();
         entityManager.flush();
         entityManager.clear();
 
@@ -98,11 +96,30 @@ class MonitoringConfigTests extends TestsBase {
     }
 
     @Test
+    void shouldAppendDrainageParamsToOutputGroupWithCustomName() {
+        int balanceGroupType = monitoringConfig.getBalanceGroupTypeId();
+        groups.save(DeptMonitoringGroup.builder()
+            .deptId(OVERRIDE_DEPT).name("排出量").groupType(balanceGroupType)
+            .balanceRole(MonEnums.BALANCE_TYPE_OUT).displayOrder(0)
+            .sumTypePb(ProtoUtils.encodeValueMeta(GLOBAL_META)).isDeleted(false)
+            .modifiedBy("test-account").modifiedAt(NOW).build());
+
+        assertThat(monitoringConfig.getMonitoringGroups(
+            null, OVERRIDE_DEPT, balanceGroupType, List.of(OVERRIDE_CODE), "test-account"))
+            .singleElement().satisfies(group -> {
+                assertThat(group.getName()).isEqualTo("排出量");
+                assertThat(group.getBalanceRole()).isEqualTo(MonEnums.BALANCE_TYPE_OUT);
+                assertThat(group.getParamList()).extracting(MonitoringParamPB::getCode)
+                    .contains(OVERRIDE_CODE);
+            });
+    }
+
+    @Test
     void shouldKeepManagedParamsAvailableForSubsequentUpdates() {
         MonitoringParam managed = params.findByCode(OVERRIDE_CODE).orElseThrow();
 
         monitoringConfig.getMonitoringGroups(
-            null, OVERRIDE_DEPT, groupType, List.of(), "test-account");
+            null, OVERRIDE_DEPT, MonEnums.GROUP_TYPE_MONITORING, List.of(), "test-account");
 
         // 不得通过 detach 或 clear 中断调用方的后续更新。
         assertThat(entityManager.contains(managed)).isTrue();
@@ -118,7 +135,7 @@ class MonitoringConfigTests extends TestsBase {
 
     private DeptMonitoringGroup saveGroup(String deptId, String name, int displayOrder) {
         return groups.save(DeptMonitoringGroup.builder().deptId(deptId).name(name)
-            .groupType(groupType).displayOrder(displayOrder)
+            .groupType(MonEnums.GROUP_TYPE_MONITORING).displayOrder(displayOrder)
             .sumTypePb(ProtoUtils.encodeValueMeta(GLOBAL_META)).isDeleted(false)
             .modifiedBy("test-account").modifiedAt(NOW).build());
     }
@@ -136,7 +153,7 @@ class MonitoringConfigTests extends TestsBase {
         DeptMonitoringGroup group, List<MonitoringParamPB> expectedParams
     ) {
         return MonitoringGroupBetaPB.newBuilder().setId(group.getId()).setName(group.getName())
-            .setGroupType(groupType).setDisplayOrder(group.getDisplayOrder())
+            .setGroupType(MonEnums.GROUP_TYPE_MONITORING).setDisplayOrder(group.getDisplayOrder())
             .setSumValueMeta(GLOBAL_META).addAllParam(expectedParams).build();
     }
 
@@ -156,14 +173,12 @@ class MonitoringConfigTests extends TestsBase {
     }
 
     @Autowired private MonitoringConfig monitoringConfig;
-    @Autowired private ConfigProtoService protoService;
     @Autowired private MonitoringParamRepository params;
     @Autowired private DeptMonitoringParamRepository deptParams;
     @Autowired private DeptMonitoringGroupRepository groups;
     @Autowired private DeptMonitoringGroupParamRepository groupParams;
     @Autowired private EntityManager entityManager;
 
-    private int groupType;
     private DeptMonitoringGroup firstGroup;
     private DeptMonitoringGroup laterGroup;
     private DeptMonitoringGroup fallbackGroup;

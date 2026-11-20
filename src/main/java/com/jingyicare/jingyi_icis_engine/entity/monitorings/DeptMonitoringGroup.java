@@ -29,7 +29,10 @@ public class DeptMonitoringGroup {
     private String name; // 观察量分组名称，比如 "生命体征"
 
     @Column(name = "group_type")
-    private Integer groupType; // 分组类型：0：出入量，1：观察项
+    private Integer groupType; // 分组类型：1：出入量，2：观察项
+
+    @Column(name = "balance_role")
+    private Integer balanceRole; // 仅出入量组使用，编号见 MonEnums
 
     @Column(name = "display_order", nullable = false)
     private Integer displayOrder; // 分组间显示顺序

@@ -71,7 +71,6 @@ public class PatientTubeServiceTests extends TestsBase {
         this.TUBE_STATUS2 = typeStatusListPb.getStatus(1);
         this.INVALID_ID = 1000000;
 
-        this.GROUP_TYPE_BALANCE_ID = protoService.getConfig().getMonitoring().getEnums().getGroupTypeBalance().getId();
 
         this.tubeSetting = tubeSetting;
         this.tubeService = tubeService;
@@ -652,7 +651,7 @@ public class PatientTubeServiceTests extends TestsBase {
         GetPatientMonitoringGroupsReq patientMonitoringReq = GetPatientMonitoringGroupsReq.newBuilder()
             .setPid(patientId)
             .setDeptId(deptId)
-            .setGroupType(GROUP_TYPE_BALANCE_ID)
+            .setGroupType(MonEnums.GROUP_TYPE_BALANCE)
             .setQueryStartIso8601(TimeUtils.toIso8601String(queryStart, ZONE_ID))
             .setQueryEndIso8601(TimeUtils.toIso8601String(queryEnd, ZONE_ID))
             .build();
@@ -835,7 +834,6 @@ public class PatientTubeServiceTests extends TestsBase {
     private final TubeValueSpecPB TUBE_STATUS2;
     private final Integer INVALID_ID;
 
-    private final Integer GROUP_TYPE_BALANCE_ID;
 
     private final TubeSetting tubeSetting;
     private final TubeService tubeService;

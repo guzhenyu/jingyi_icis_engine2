@@ -277,8 +277,7 @@ class MonitoringMetaServiceTests extends TestsBase {
         MonitoringParam original = seedParam();
         MonitoringParamPB updated = param(FIRST_CODE).toBuilder()
             .setName("修改后的参数").setNameEn("Updated parameter")
-            .setBalanceType(protoService.getConfig().getMonitoring()
-                .getEnums().getBalanceIn().getId())
+            .setBalanceType(MonEnums.BALANCE_TYPE_IN)
             .setCategory(3).setUiModalCode("updated-modal").setChartSign("updated-sign")
             .setValueMeta(ValueMetaPB.newBuilder().setValueType(TypeEnumPB.FLOAT)
                 .setDecimalPlaces(2).setUnit("ml")).build();
@@ -508,8 +507,7 @@ class MonitoringMetaServiceTests extends TestsBase {
             .getRt().getCode())
             .isEqualTo(StatusCode.MONITORING_PARAM_CODE_EMPTY_VALUE);
         MonitoringParamPB invalidBalance = param(FIRST_CODE).toBuilder()
-            .setBalanceType(protoService.getConfig().getMonitoring()
-                .getEnums().getBalanceIn().getId())
+            .setBalanceType(MonEnums.BALANCE_TYPE_IN)
             .setValueMeta(ValueMetaPB.newBuilder().setValueType(TypeEnumPB.BOOL)).build();
         assertThat(service.addMonitoringParam(request(invalidBalance)).getRt().getCode())
             .isEqualTo(StatusCode.MONITORING_PARAM_BALANCE_TYPE_VALUE_TYPE_NOT_MATCH_VALUE);

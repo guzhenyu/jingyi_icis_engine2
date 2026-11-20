@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -32,6 +33,7 @@ import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordReposi
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.MonEnums;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringMetaService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.PatientMonitoringService;
 import com.jingyicare.jingyi_icis_engine.testutils.*;
@@ -77,7 +79,7 @@ class MedicationIntakeRescheduleTests extends TestsBase {
         });
         // Match the reported ward's hourly and accumulated balance columns.
         DeptMonitoringGroup netGroup = monitoringGroupRepo.findByDeptIdAndIsDeletedFalse(DEPT_ID).stream()
-            .filter(group -> group.getName().equals(protoService.getConfig().getMonitoring().getBalanceNetGroupName()))
+            .filter(group -> Objects.equals(group.getBalanceRole(), MonEnums.BALANCE_TYPE_NET))
             .findFirst().orElseThrow();
         MonitoringParam balanceParam = paramRepo.findByCode("hourly_balance").orElseThrow();
         for (String code : List.of("hourly_intake", "total_intake")) {
@@ -258,7 +260,7 @@ class MedicationIntakeRescheduleTests extends TestsBase {
         GetPatientMonitoringRecordsResp response = monitoringService.getPatientMonitoringRecords(
             ProtoUtils.protoToJson(GetPatientMonitoringGroupsReq.newBuilder()
                 .setPid(patient.getId()).setDeptId(DEPT_ID)
-                .setGroupType(protoService.getConfig().getMonitoring().getEnums().getGroupTypeBalance().getId())
+                .setGroupType(MonEnums.GROUP_TYPE_BALANCE)
                 .setQueryStartIso8601(TimeUtils.toIso8601String(DAY, "UTC"))
                 .setQueryEndIso8601(TimeUtils.toIso8601String(DAY.plusDays(2), "UTC")).build()));
         assertThat(response.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());

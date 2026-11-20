@@ -24,13 +24,12 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringC
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringGroupRecordsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringParamPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringRecordValPB;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.ValueMetaPB;
-import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.BalanceCalculator;
-import com.jingyicare.jingyi_icis_engine.service.monitorings.PatientMonitoringService;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.MonEnums;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.PatientMonitoringService;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
@@ -53,7 +52,6 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
         BalanceCalculator balanceCalculator,
         PatientTubeImpl patientTubeImpl,
         UserQuery userQuery,
-        ConfigProtoService configProtoService,
         ReportProperties reportProperties,
         ResourceLoader resourceLoader
     ) {
@@ -65,10 +63,6 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
         this.userQuery = userQuery;
         this.reportProperties = reportProperties;
         this.resourceLoader = resourceLoader;
-
-        MonitoringPB monitoring = configProtoService.getConfig().getMonitoring();
-        this.summaryCode = monitoring.getParamCodeSummary();
-        this.summaryText = monitoring.getParamCodeSummaryTxt();
     }
 
     @Override
@@ -211,7 +205,7 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
         List<String> valid = new ArrayList<>();
         for (String paramCode : paramCodes) {
             if (StrUtils.isBlank(paramCode)) continue;
-            if (paramMap.containsKey(paramCode) || summaryCode.equals(paramCode)) {
+            if (paramMap.containsKey(paramCode) || MonEnums.PARAM_CODE_SUMMARY.equals(paramCode)) {
                 valid.add(paramCode);
                 continue;
             }
@@ -273,8 +267,8 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
     ) throws IOException {
         List<JfkValPB> vals = new ArrayList<>();
         for (String paramCode : validParamCodes) {
-            String name = summaryCode.equals(paramCode)
-                ? summaryText
+            String name = MonEnums.PARAM_CODE_SUMMARY.equals(paramCode)
+                ? MonEnums.PARAM_CODE_SUMMARY_TXT
                 : paramMap.get(paramCode).getName();
             vals.add(stringsVal(wrap(name, 0, colWidths, font, fontSize, charSpacing, hPadding)));
         }
@@ -442,6 +436,4 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
     private final UserQuery userQuery;
     private final ReportProperties reportProperties;
     private final ResourceLoader resourceLoader;
-    private final String summaryCode;
-    private final String summaryText;
 }

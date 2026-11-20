@@ -69,11 +69,6 @@ public class MonitoringConfig {
         this.configShiftUtils = configShiftUtils;
 
         this.monitoringPb = protoService.getConfig().getMonitoring();
-        this.BALANCE_IN_ID = monitoringPb.getEnums().getBalanceIn().getId();
-        this.BALANCE_OUT_ID = monitoringPb.getEnums().getBalanceOut().getId();
-        this.BALANCE_NET_ID = monitoringPb.getEnums().getBalanceNet().getId();
-        this.GROUP_TYPE_BALANCE_ID = monitoringPb.getEnums().getGroupTypeBalance().getId();
-        this.OUT_GROUP_NAME = monitoringPb.getBalanceOutGroupName();
         this.DRAINAGE_TUBE_PREFIX = "tube_" + StrUtils.toPinyinInitials(protoService.getConfig().getTube().getDrainageTubeType()) + "_";
         this.tubeParamList = protoService.getConfig().getTube().getTubeSetting().getParamList();
         validateMonitoringConfig();
@@ -95,7 +90,7 @@ public class MonitoringConfig {
         this.enableDrainageParams = enableDrainageParams;
     }
 
-    public Integer getBalanceGroupTypeId() { return GROUP_TYPE_BALANCE_ID; }
+    public Integer getBalanceGroupTypeId() { return MonEnums.GROUP_TYPE_BALANCE; }
     public String getDrainageTubeParamPrefix() { return DRAINAGE_TUBE_PREFIX; }
 
     private void validateMonitoringConfig() {
@@ -107,58 +102,49 @@ public class MonitoringConfig {
             allParamMap.put(paramPb.getCode(), paramPb);
         }
 
-        // 检查平衡量分组
-        Set<String> requiredBalanceGroupNames = new HashSet<>(Set.of(
-            monitoringPb.getBalanceInGroupName(),
-            monitoringPb.getBalanceOutGroupName(),
-            monitoringPb.getBalanceNetGroupName()
+        Set<Integer> requiredBalanceRoles = new HashSet<>(Set.of(
+            MonEnums.BALANCE_TYPE_IN, MonEnums.BALANCE_TYPE_OUT, MonEnums.BALANCE_TYPE_NET
         ));
-
         Set<String> existingBalanceGroupNames = new HashSet<>();
         for (MonitoringGroupPB group : monitoringPb.getBalanceGroupList()) {
-            final String groupName = group.getName();
-
-            // 检查平衡量分组是否有重复的组名
-            if (existingBalanceGroupNames.contains(groupName)) {
-                log.error("Duplicate group name found in MonitoringPB.balance_group: {}", groupName);
+            String groupName = group.getName();
+            if (!existingBalanceGroupNames.add(groupName)) {
+                log.error("Duplicate group name found in MonitoringPB.balance_group: {}",
+                    groupName);
                 LogUtils.flushAndQuit(context);
             }
-            existingBalanceGroupNames.add(group.getName());
 
-            // 检查预设的平衡量分组组名是否存在
-            if (requiredBalanceGroupNames.contains(groupName)) {
-                requiredBalanceGroupNames.remove(groupName);
+            int role = group.getBalanceRole();
+            if (!group.hasBalanceRole() ||
+                (role != MonEnums.BALANCE_TYPE_NAN && !requiredBalanceRoles.remove(role))) {
+                log.error("Missing, invalid or duplicate balance role: {}, group: {}",
+                    role, groupName);
+                LogUtils.flushAndQuit(context);
             }
 
-            // 检查平衡量分组参数的合法性
             for (MonitoringGroupParamPB paramPb : group.getMonitoringParamList()) {
                 String code = paramPb.getCode();
+                MonitoringParamPB param = allParamMap.get(code);
+                if (param == null) {
+                    log.error("MonitoringGroupParamPB code not found in MonitoringParamPB: {}",
+                        code);
+                    LogUtils.flushAndQuit(context);
+                }
 
-                MonitoringParamPB paramPbFromMap = allParamMap.get(code);
-                if (paramPbFromMap == null) {
-                    log.error("MonitoringGroupParamPB code not found in MonitoringParamPB: {}", code);
-                    LogUtils.flushAndQuit(context);
-                }
-                Integer balanceType = paramPbFromMap.getBalanceType();
-                if (balanceType == BALANCE_IN_ID && !groupName.equals(monitoringPb.getBalanceInGroupName())) {
-                    log.error("MonitoringGroupParamPB code: {} belongs to BalanceIn, but group name is not BalanceInGroupName: {}", code, groupName);
-                    LogUtils.flushAndQuit(context);
-                }
-                if (balanceType == BALANCE_OUT_ID && !groupName.equals(monitoringPb.getBalanceOutGroupName())) {
-                    log.error("MonitoringGroupParamPB code: {} belongs to BalanceOut, but group name is not BalanceOutGroupName: {}", code, groupName);
-                    LogUtils.flushAndQuit(context);
-                }
-                if (balanceType == BALANCE_NET_ID && !groupName.equals(monitoringPb.getBalanceNetGroupName())) {
-                    log.error("MonitoringGroupParamPB code: {} belongs to BalanceNet, but group name is not BalanceNetGroupName: {}", code, groupName);
+                int balanceType = param.getBalanceType();
+                if (balanceType != role && (balanceType == MonEnums.BALANCE_TYPE_IN
+                    || balanceType == MonEnums.BALANCE_TYPE_OUT
+                    || balanceType == MonEnums.BALANCE_TYPE_NET)) {
+                    log.error("Monitoring parameter {} has balance type {} for group role {}",
+                        code, balanceType, role);
                     LogUtils.flushAndQuit(context);
                 }
             }
         }
 
-        // 检查平衡量分组是否包含所有必需的组名
-        if (!requiredBalanceGroupNames.isEmpty()) {
-            log.error("MonitoringPB.balance_group does not contain required group names: {}",
-                requiredBalanceGroupNames);
+        if (!requiredBalanceRoles.isEmpty()) {
+            log.error("MonitoringPB.balance_group does not contain required roles: {}",
+                requiredBalanceRoles);
             LogUtils.flushAndQuit(context);
         }
     }
@@ -334,7 +320,7 @@ public class MonitoringConfig {
     ) {
         LocalDateTime pmrQueryStartUtc = startTime;
         LocalDateTime pmrQueryEndUtc = endTime;
-        if (groupType == monitoringPb.getEnums().getGroupTypeBalance().getId()) {
+        if (groupType == MonEnums.GROUP_TYPE_BALANCE) {
             List<LocalDateTime> balanceStatTimeUtcHistory = configShiftUtils.getBalanceStatTimeUtcHistory(deptId);
             pmrQueryStartUtc = configShiftUtils.getBalanceStatStartUtc(balanceStatTimeUtcHistory, startTime);
             pmrQueryEndUtc = configShiftUtils.getBalanceStatStartUtc(balanceStatTimeUtcHistory, endTime);
@@ -503,8 +489,10 @@ public class MonitoringConfig {
             .thenComparingInt(DeptMonitoringGroup::getId));
         for (DeptMonitoringGroup deptGroup : deptGroups) {
             Integer groupId = deptGroup.getId();
-            Boolean isBalanceOutGroup = deptGroup.getGroupType().equals(GROUP_TYPE_BALANCE_ID)
-                && deptGroup.getName().equals(OUT_GROUP_NAME);
+            boolean isBalanceGroup = Objects.equals(deptGroup.getGroupType(),
+                MonEnums.GROUP_TYPE_BALANCE);
+            Integer balanceRole = isBalanceGroup ? deptGroup.getBalanceRole() : null;
+            boolean isBalanceOutGroup = Objects.equals(balanceRole, MonEnums.BALANCE_TYPE_OUT);
 
             // 组装观察项参数
             List<MonitoringParamPB> paramPbList = new ArrayList<>();
@@ -572,6 +560,9 @@ public class MonitoringConfig {
                 .setName(deptGroup.getName())
                 .setGroupType(deptGroup.getGroupType())
                 .setDisplayOrder(deptGroup.getDisplayOrder());
+            if (balanceRole != null) {
+                groupBuilder.setBalanceRole(balanceRole);
+            }
             ValueMetaPB sumValueMeta = ProtoUtils.decodeValueMeta(deptGroup.getSumTypePb());
             if (sumValueMeta != null) groupBuilder.setSumValueMeta(sumValueMeta);
             groupBuilder.addAllParam(paramPbList);
@@ -612,11 +603,6 @@ public class MonitoringConfig {
         deptSettingRepository.save(entity);
     }
 
-    private final Integer BALANCE_IN_ID;
-    private final Integer BALANCE_OUT_ID;
-    private final Integer BALANCE_NET_ID;
-    private final Integer GROUP_TYPE_BALANCE_ID;
-    private final String OUT_GROUP_NAME;
     private final String DRAINAGE_TUBE_PREFIX;
     private final List<MonitoringParamPB> tubeParamList;
     private final boolean enableDrainage;

@@ -27,7 +27,6 @@ import com.jingyicare.jingyi_icis_engine.entity.users.RbacDepartment;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
-import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.testutils.*;
@@ -35,7 +34,6 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 
 public class MonitoringServiceTests extends TestsBase {
     public MonitoringServiceTests(
-        @Autowired ConfigProtoService protoService,
         @Autowired MonitoringConfig monitoringConfig,
         @Autowired MonitoringService monitoringService,
         @Autowired MonitoringMetaService monitoringMetaService,
@@ -51,13 +49,6 @@ public class MonitoringServiceTests extends TestsBase {
         this.deptId3 = "10010";
         this.deptId4 = "10011";
         this.patientId = 501L;
-        this.monitoringPb = protoService.getConfig().getMonitoring();
-
-        this.BALANCE_TYPE_IN = monitoringPb.getEnums().getBalanceIn().getId();
-        this.GROUP_TYPE_BALANCE_ID = monitoringPb.getEnums().getGroupTypeBalance().getId();
-        this.GROUP_TYPE_MONITORING_ID = monitoringPb.getEnums().getGroupTypeMonitoring().getId();
-
-        this.protoService = protoService;
         this.monitoringConfig = monitoringConfig;
         this.monitoringService = monitoringService;
         this.monitoringMetaService = monitoringMetaService;
@@ -93,7 +84,7 @@ public class MonitoringServiceTests extends TestsBase {
                             .setDecimalPlaces(2)
                             .setUnit("ml(毫升)")
                             .build())
-                    .setBalanceType(BALANCE_TYPE_IN)
+                    .setBalanceType(MonEnums.BALANCE_TYPE_IN)
                     .build()
             )
             .build();
@@ -288,7 +279,7 @@ public class MonitoringServiceTests extends TestsBase {
         // Q: 查询部门 deptId2 的出入量分组
         String queryReqJson = ProtoUtils.protoToJson(GetDeptMonitoringGroupsReq.newBuilder()
             .setDepartmentId(deptId2)
-            .setGroupType(GROUP_TYPE_BALANCE_ID)
+            .setGroupType(MonEnums.GROUP_TYPE_BALANCE)
             .build());
         GetDeptMonitoringGroupsResp queryResp = monitoringService.getDeptMonitoringGroups(queryReqJson);
         assertThat(queryResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
@@ -319,11 +310,21 @@ public class MonitoringServiceTests extends TestsBase {
         AddDeptMonitoringGroupReq addReq = AddDeptMonitoringGroupReq.newBuilder()
             .setDepartmentId(deptId2)
             .setName("新增分组")
-            .setGroupType(GROUP_TYPE_BALANCE_ID)
+            .setGroupType(MonEnums.GROUP_TYPE_BALANCE)
             .build();
         String addReqJson = ProtoUtils.protoToJson(addReq);
         AddDeptMonitoringGroupResp addResp = monitoringService.addDeptMonitoringGroup(addReqJson);
         assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.GROUP_TYPE_BALANCE_NOT_EDITABLE.ordinal());
+
+        // 出入量分组属于预设分组，修改名称失败。
+        UpdateDeptMonGroupNameReq renameReq = UpdateDeptMonGroupNameReq.newBuilder()
+            .setId(queryResp.getMonitoringGroup(0).getId())
+            .setName("改名后的分组")
+            .build();
+        GenericResp renameResp = monitoringService.updateDeptMonGroupName(
+            ProtoUtils.protoToJson(renameReq));
+        assertThat(renameResp.getRt().getCode())
+            .isEqualTo(StatusCode.GROUP_TYPE_BALANCE_NOT_EDITABLE.getNumber());
 
         // D: 出入量分组属于预设分组，删除出入量分组失败
         DeleteDeptMonitoringGroupReq deleteReq = DeleteDeptMonitoringGroupReq.newBuilder()
@@ -502,7 +503,7 @@ public class MonitoringServiceTests extends TestsBase {
         // 查询部门deptId3的观察项分组
         String queryReqJson = ProtoUtils.protoToJson(GetDeptMonitoringGroupsReq.newBuilder()
                 .setDepartmentId(deptId3)
-                .setGroupType(GROUP_TYPE_MONITORING_ID)
+                .setGroupType(MonEnums.GROUP_TYPE_MONITORING)
                 .build());
         GetDeptMonitoringGroupsResp queryResp = monitoringService.getDeptMonitoringGroups(queryReqJson);
         assertThat(queryResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
@@ -512,7 +513,7 @@ public class MonitoringServiceTests extends TestsBase {
         AddDeptMonitoringGroupReq addReq = AddDeptMonitoringGroupReq.newBuilder()
                 .setDepartmentId(deptId3)
                 .setName("monitoring_group_1")
-                .setGroupType(GROUP_TYPE_MONITORING_ID)
+                .setGroupType(MonEnums.GROUP_TYPE_MONITORING)
                 .setDisplayOrder(1)
                 .build();
         String addReqJson = ProtoUtils.protoToJson(addReq);
@@ -524,7 +525,7 @@ public class MonitoringServiceTests extends TestsBase {
         addReq = AddDeptMonitoringGroupReq.newBuilder()
                 .setDepartmentId(deptId3)
                 .setName("monitoring_group_2")
-                .setGroupType(GROUP_TYPE_MONITORING_ID)
+                .setGroupType(MonEnums.GROUP_TYPE_MONITORING)
                 .setDisplayOrder(2)
                 .build();
         addReqJson = ProtoUtils.protoToJson(addReq);
@@ -598,7 +599,7 @@ public class MonitoringServiceTests extends TestsBase {
         AddDeptMonitoringGroupReq addGroupReq1 = AddDeptMonitoringGroupReq.newBuilder()
                 .setDepartmentId(deptId4)
                 .setName("group_x1")
-                .setGroupType(GROUP_TYPE_MONITORING_ID)
+                .setGroupType(MonEnums.GROUP_TYPE_MONITORING)
                 .setDisplayOrder(1)
                 .build();
         String addGroupReqJson1 = ProtoUtils.protoToJson(addGroupReq1);
@@ -619,7 +620,7 @@ public class MonitoringServiceTests extends TestsBase {
         AddDeptMonitoringGroupReq addGroupReq2 = AddDeptMonitoringGroupReq.newBuilder()
                 .setDepartmentId(deptId4)
                 .setName("group_x2")
-                .setGroupType(GROUP_TYPE_MONITORING_ID)
+                .setGroupType(MonEnums.GROUP_TYPE_MONITORING)
                 .setDisplayOrder(2)
                 .build();
         String addGroupReqJson2 = ProtoUtils.protoToJson(addGroupReq2);
@@ -640,7 +641,7 @@ public class MonitoringServiceTests extends TestsBase {
         // 查询部门观察项分组 group_x1(test_param1_in), group_x2(test_param3_out) 是否符合预期
         String deptMonitoringGroupsReqJson = ProtoUtils.protoToJson(GetDeptMonitoringGroupsReq.newBuilder()
                 .setDepartmentId(deptId4)
-                .setGroupType(GROUP_TYPE_MONITORING_ID)
+                .setGroupType(MonEnums.GROUP_TYPE_MONITORING)
                 .build());
         GetDeptMonitoringGroupsResp deptMonitoringGroupsResp = monitoringService.getDeptMonitoringGroups(deptMonitoringGroupsReqJson);
         assertThat(deptMonitoringGroupsResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
@@ -665,7 +666,7 @@ public class MonitoringServiceTests extends TestsBase {
         GetPatientMonitoringGroupsReq patientMonitoringGroupsReq = GetPatientMonitoringGroupsReq.newBuilder()
                 .setPid(pid)
                 .setDeptId(deptId4)
-                .setGroupType(GROUP_TYPE_MONITORING_ID)
+                .setGroupType(MonEnums.GROUP_TYPE_MONITORING)
                 .build();
         String patientMonitoringGroupsReqJson = ProtoUtils.protoToJson(patientMonitoringGroupsReq);
         GetPatientMonitoringGroupsResp patientMonitoringGroupsResp = monitoringService.getPatientMonitoringGroups(patientMonitoringGroupsReqJson);
@@ -700,7 +701,7 @@ public class MonitoringServiceTests extends TestsBase {
         AddDeptMonitoringGroupReq addGroupReq3 = AddDeptMonitoringGroupReq.newBuilder()
                 .setDepartmentId(deptId4)
                 .setName("group_x3")
-                .setGroupType(GROUP_TYPE_MONITORING_ID)
+                .setGroupType(MonEnums.GROUP_TYPE_MONITORING)
                 .setDisplayOrder(3)
                 .build();
         String addGroupReqJson3 = ProtoUtils.protoToJson(addGroupReq3);
@@ -721,7 +722,7 @@ public class MonitoringServiceTests extends TestsBase {
         // 查询部门观察项分组，预期为 group_x2(test_param3_out), group_x3(test_param4_out)
         deptMonitoringGroupsReqJson = ProtoUtils.protoToJson(GetDeptMonitoringGroupsReq.newBuilder()
                 .setDepartmentId(deptId4)
-                .setGroupType(GROUP_TYPE_MONITORING_ID)
+                .setGroupType(MonEnums.GROUP_TYPE_MONITORING)
                 .build());
         deptMonitoringGroupsResp = monitoringService.getDeptMonitoringGroups(deptMonitoringGroupsReqJson);
         assertThat(deptMonitoringGroupsResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
@@ -766,9 +767,6 @@ public class MonitoringServiceTests extends TestsBase {
         }
     }
 
-    private final Integer BALANCE_TYPE_IN;
-    private final Integer GROUP_TYPE_BALANCE_ID;
-    private final Integer GROUP_TYPE_MONITORING_ID;
 
     private final String accountId;
     private final String deptId;
@@ -776,9 +774,7 @@ public class MonitoringServiceTests extends TestsBase {
     private final String deptId3;
     private final String deptId4;
     private final Long patientId;
-    private final MonitoringPB monitoringPb;
 
-    private final ConfigProtoService protoService;
     private final MonitoringConfig monitoringConfig;
     private final MonitoringService monitoringService;
     private final MonitoringMetaService monitoringMetaService;

@@ -5,7 +5,7 @@ import "shared/value_meta.proto";
 
 package com.jingyicare.jingyi_icis_engine.proto.config;
 
-message MonitoringEnums {
+message MonitoringEnumsPB {
     shared.EnumValue balance_nan = 1;       // 无效值
     shared.EnumValue balance_in = 2;        // 入量
     shared.EnumValue balance_out = 3;       // 出量
@@ -22,6 +22,21 @@ message MonitoringEnums {
     shared.EnumValue param_category_ecmo = 12;  // 体外膜肺氧合机
 
     shared.EnumValue param_ui_modal_nan = 13;  // 参数无需联动编辑对话框
+}
+
+message MonEnumsPB {
+    string group_type_balance = 1;
+    string group_type_monitoring = 2;
+    string balance_nan = 3;
+    string balance_in = 4;
+    string balance_out = 5;
+    string balance_net = 6;
+    string param_category_patient = 7;
+    string param_category_monitor = 8;
+    string param_category_vent = 9;
+    string param_category_crrt = 10;
+    string param_category_bga = 11;
+    string param_category_ecmo = 12;
 }
 
 message MonitoringModalOptionPB {
@@ -42,7 +57,7 @@ message MonitoringParamPB {
     string name = 3;
     string name_en = 4; // 英文名
     shared.ValueMetaPB value_meta = 5;
-    int32 balance_type = 6;  // 对应于MonitoringEnums.balance_xx.id
+    int32 balance_type = 6;  // 对应于MonitoringEnumsPB.balance_xx.id
     int32 category = 7;
     int32 ui_modal_id = 8;
     string ui_modal_code = 12;
@@ -60,19 +75,21 @@ message MonitoringGroupParamPB {
 message MonitoringGroupPB {
     int32 id = 1;
     string name = 2;
-    int32 group_type = 3;  // 对应于MonitoringEnums.group_type_xx.id
+    int32 group_type = 3;  // 对应于MonitoringEnumsPB.group_type_xx.id
     int32 display_order = 4;  // 分组间的次序
     shared.ValueMetaPB sum_value_meta = 5;
     repeated MonitoringGroupParamPB monitoring_param = 6;
+    optional int32 balance_role = 7;  // 0：无角色，1：入量，2：出量，3：平衡量
 }
 
 message MonitoringGroupBetaPB {
     int32 id = 1;  // dept_monitoring_groups.id
     string name = 2;
-    int32 group_type = 3;  // 对应于MonitoringEnums.group_type_xx.id
+    int32 group_type = 3;  // 对应于MonitoringEnumsPB.group_type_xx.id
     int32 display_order = 4;  // 分组间的次序
     shared.ValueMetaPB sum_value_meta = 5;
     repeated MonitoringParamPB param = 6;
+    optional int32 balance_role = 7;
 }
 
 message MonitoringValuePB {
@@ -81,22 +98,14 @@ message MonitoringValuePB {
 }
 
 message MonitoringPB {
-    string param_code_summary = 1;
-    string param_code_summary_txt = 2;
-    string balance_in_group_name = 3;
-    string balance_out_group_name = 4;
-    string balance_net_group_name = 5;
-    string net_hourly_in_code = 6;              // 平衡组，“每小时入量”的观察项编码(存库)
-    string net_hourly_out_code = 7;             // 平衡组，“每小时出量”的观察项编码(存库)
-    string net_hourly_net_code = 8;             // 平衡组，“每小时平衡量”的观察项编码
-    string net_accumulated_in_code = 9;         // 平衡组，“累计入量”的观察项编码
-    string net_accumulated_out_code = 10;        // 平衡组，“累计出量”的观察项编码
-    string net_accumulated_net_code = 11;       // 平衡组，“累计平衡量”的观察项编码
-    string daily_total_intake_code = 12;   // “每日总入量”的观察项编码
-    string daily_total_output_code = 13;   // “每日总出量”的观察项编码
-    string daily_total_balance_code = 14;  // “每日总平衡量”的观察项编码
+    reserved 1 to 14;
+    reserved "param_code_summary", "param_code_summary_txt",
+        "balance_in_group_name", "balance_out_group_name", "balance_net_group_name",
+        "net_hourly_in_code", "net_hourly_out_code", "net_hourly_net_code",
+        "net_accumulated_in_code", "net_accumulated_out_code", "net_accumulated_net_code",
+        "daily_total_intake_code", "daily_total_output_code", "daily_total_balance_code";
 
-    MonitoringEnums enums = 15;
+    MonEnumsPB enums = 15;
     repeated MonitoringParamPB monitoring_param = 16;
     MonitoringParamPB default_drainage_param = 17;  // 引流管参数默认配置（类型，平衡类型，类别，UI类型）
     repeated MonitoringGroupPB balance_group = 18;
@@ -139,6 +148,7 @@ message BalanceGroupSummaryPB {
     double sum_ml = 3;  // 累计入量/出量/平衡量，单位ml
     string sum_str = 4;  // 累计入量/出量/平衡量，字符串表示
     repeated BalanceParamRecordPB param_record = 5;
+    optional int32 balance_role = 6;
 }
 
 message PatientMonitoringTimePointPB {

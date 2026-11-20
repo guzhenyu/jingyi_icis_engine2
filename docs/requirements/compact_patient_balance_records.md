@@ -362,7 +362,7 @@ data_sources {
 - 累计入量：`total_intake`
 - 累计出量：`total_output`
 - 累计平衡量：`total_balance`
-- 组内合计：配置中的 `param_code_summary`，当前为 `all`
+- 组内合计：`MonEnums.PARAM_CODE_SUMMARY`（`all`）
 
 这些值由 `BalanceCalculator` 根据原始入量、出量记录计算得到。
 
@@ -484,7 +484,7 @@ handler 最终输出 `JfkDataSourcePB` 时，应构造列式数据：
    - 跳过该行
 3. `param_name`：
    - 普通参数使用 `MonitoringParamPB.name`
-   - `all` 使用 `monitoring.param_code_summary_txt`，当前为 `合计`
+   - `all` 使用 `MonEnums.PARAM_CODE_SUMMARY_TXT`（`合计`）
    - 计算参数如 `hourly_intake`、`total_intake` 使用对应 `MonitoringParamPB.name`
 4. `acc_ml`：
    - 代表“一行加总的量”
