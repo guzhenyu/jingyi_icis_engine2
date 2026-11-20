@@ -217,21 +217,37 @@ class SettingServiceLockTests extends TestsBase {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    void concurrentMonitoringUpdatesPreserveBothChanges(boolean settingsExist) throws Exception {
+    void monitoringUpdatesPreserveOtherSettings(boolean settingsExist) throws Exception {
         if (settingsExist) {
             assertOk(updateApp(AppSettingsPB.getDefaultInstance(),
                 AppSettingTypeEnum.AST_HEAD_CUSTOM_TIME_GRACE_MINUTES));
         }
-        var head = AppSettingsPB.newBuilder().setHeadCustomTimeGraceMinutes(7).build();
-        var tail = AppSettingsPB.newBuilder().setTailCustomTimeGraceMinutes(13).build();
+        assertThat(service.getAppSettingsForService(DEPT_ID).getKeepInputPrecision()).isFalse();
 
-        runContendingUpdates(LockKeys.deptSystemSettings(DEPT_ID, 8),
+        AppSettingsPB head = AppSettingsPB.newBuilder().setHeadCustomTimeGraceMinutes(7).build();
+        AppSettingsPB tailAndPrecision = AppSettingsPB.newBuilder()
+            .setTailCustomTimeGraceMinutes(13).setKeepInputPrecision(true).build();
+        runContendingUpdates(
+            LockKeys.deptSystemSettings(DEPT_ID, SettingsStore.GET_DEPT_MONITORING_SETTINGS),
             () -> updateApp(head, AppSettingTypeEnum.AST_HEAD_CUSTOM_TIME_GRACE_MINUTES),
-            () -> updateApp(tail, AppSettingTypeEnum.AST_TAIL_CUSTOM_TIME_GRACE_MINUTES));
+            () -> updateApp(tailAndPrecision, AppSettingTypeEnum.AST_TAIL_CUSTOM_TIME_GRACE_MINUTES,
+                AppSettingTypeEnum.AST_KEEP_INPUT_PRECISION));
 
-        var actual = service.getAppSettingsForService(DEPT_ID);
+        AppSettingsPB actual = service.getAppSettingsForService(DEPT_ID);
         assertThat(actual.getHeadCustomTimeGraceMinutes()).isEqualTo(7);
         assertThat(actual.getTailCustomTimeGraceMinutes()).isEqualTo(13);
+        assertThat(actual.getKeepInputPrecision()).isTrue();
+
+        AppSettingsPB tail = AppSettingsPB.newBuilder().setTailCustomTimeGraceMinutes(19).build();
+        assertOk(updateApp(tail, AppSettingTypeEnum.AST_TAIL_CUSTOM_TIME_GRACE_MINUTES));
+        assertThat(service.getAppSettingsForService(DEPT_ID).getKeepInputPrecision()).isTrue();
+
+        assertOk(updateApp(AppSettingsPB.getDefaultInstance(),
+            AppSettingTypeEnum.AST_KEEP_INPUT_PRECISION));
+        AppSettingsPB cleared = service.getAppSettingsForService(DEPT_ID);
+        assertThat(cleared.getHeadCustomTimeGraceMinutes()).isEqualTo(7);
+        assertThat(cleared.getTailCustomTimeGraceMinutes()).isEqualTo(19);
+        assertThat(cleared.getKeepInputPrecision()).isFalse();
     }
 
     @Test

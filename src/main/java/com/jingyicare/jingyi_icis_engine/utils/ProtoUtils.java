@@ -709,10 +709,12 @@ public class ProtoUtils {
         //    .gender = 4
         fields.add(AccountPB.getDescriptor().findFieldByNumber(4));
 
-        // AppSettingsPB 全部都要
+        // AppSettingsPB
         for (int i = 1; i < 10; ++i) {
             fields.add(AppSettingsPB.getDescriptor().findFieldByNumber(i));
         }
+        fields.add(AppSettingsPB.getDescriptor().findFieldByNumber(
+            AppSettingsPB.KEEP_INPUT_PRECISION_FIELD_NUMBER));
 
         // BalanceParamRecordPB
         //    .sum_ml = 3

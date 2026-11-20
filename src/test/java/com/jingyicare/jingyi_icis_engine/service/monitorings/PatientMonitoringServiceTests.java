@@ -10,6 +10,8 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
@@ -34,6 +36,7 @@ import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.medications.*;
+import com.jingyicare.jingyi_icis_engine.service.settings.SettingsStore;
 import com.jingyicare.jingyi_icis_engine.testutils.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -500,6 +503,60 @@ public class PatientMonitoringServiceTests extends TestsBase {
         assertThat(getResp.getGroupRecords(0).getCodeRecordsList()).hasSize(1);
         assertThat(getResp.getGroupRecords(0).getCodeRecords(0).getRecordValueList()).hasSize(1);
         assertThat(getResp.getGroupRecords(0).getCodeRecords(0).getRecordValue(0).getValueStr()).isEqualTo("A1, A2, A3");
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void manualRecordsFollowDepartmentInputPrecision(boolean keepPrecision) {
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken(
+                accountId, null, AuthorityUtils.createAuthorityList("ROLE_1")));
+
+        String precisionDeptId = "test-mon-precision-" + keepPrecision;
+        rbacDepartmentRepo.save(new RbacDepartment(precisionDeptId, precisionDeptId));
+        if (keepPrecision) {
+            String key = LockKeys.deptSystemSettings(
+                precisionDeptId, SettingsStore.GET_DEPT_MONITORING_SETTINGS);
+            lockExecutor.execute(List.of(key), () -> {
+                monitoringConfig.setDeptMonitoringSettings(precisionDeptId,
+                    DeptMonitoringSettingsPB.newBuilder().setKeepInputPrecision(true).build(),
+                    accountId);
+                return null;
+            });
+        }
+
+        PatientRecord patient = PatientTestUtils.newPatientRecord(
+            keepPrecision ? 605L : 606L, ADMISSION_STATUS_ADMITTED, precisionDeptId);
+        patient.setAdmissionTime(TimeUtils.getLocalTime(2024, 11, 21));
+        Long pid = patientRepo.save(patient).getId();
+
+        AddPatientMonitoringRecordReq addReq = AddPatientMonitoringRecordReq.newBuilder()
+            .setPid(pid).setDeptId(precisionDeptId).setParamCode("test_param1_in")
+            .setValue(GenericValuePB.newBuilder().setFloatVal(12.346f))
+            .setRecordedAtIso8601(
+                TimeUtils.toIso8601String(LocalDateTime.of(2024, 11, 23, 0, 0), ZONE_ID))
+            .setRecordedBy(accountId).build();
+        AddPatientMonitoringRecordResp addResp =
+            patientMonitoringService.addPatientMonitoringRecord(ProtoUtils.protoToJson(addReq));
+        assertThat(addResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        assertStoredFloat(pid, keepPrecision ? 12.346f : 12.35f, "12.35");
+
+        UpdatePatientMonitoringRecordReq updateReq = UpdatePatientMonitoringRecordReq.newBuilder()
+            .setId(addResp.getId()).setValue(GenericValuePB.newBuilder().setFloatVal(23.457f))
+            .setModifiedBy(accountId).build();
+        GenericResp updateResp =
+            patientMonitoringService.updatePatientMonitoringRecord(ProtoUtils.protoToJson(updateReq));
+        assertThat(updateResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        assertStoredFloat(pid, keepPrecision ? 23.457f : 23.46f, "23.46");
+    }
+
+    private void assertStoredFloat(Long pid, float expectedValue, String expectedDisplay) {
+        assertThat(patientMonitoringRecordRepo.findByPidAndIsDeletedFalse(pid)).singleElement()
+            .satisfies(record -> {
+                MonitoringValuePB stored = ProtoUtils.decodeMonitoringValue(record.getParamValue());
+                assertThat(stored.getValue().getFloatVal()).isEqualTo(expectedValue);
+                assertThat(record.getParamValueStr()).isEqualTo(expectedDisplay);
+            });
     }
 
     private Long addFloatValue(Long pid, String code, Float value, LocalDateTime timePoint) {

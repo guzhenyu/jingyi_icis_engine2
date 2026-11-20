@@ -98,19 +98,19 @@ message MonitoringValuePB {
 }
 
 message MonitoringPB {
-    reserved 1 to 14;
+    reserved 1 to 14, 20;
     reserved "param_code_summary", "param_code_summary_txt",
         "balance_in_group_name", "balance_out_group_name", "balance_net_group_name",
         "net_hourly_in_code", "net_hourly_out_code", "net_hourly_net_code",
         "net_accumulated_in_code", "net_accumulated_out_code", "net_accumulated_net_code",
-        "daily_total_intake_code", "daily_total_output_code", "daily_total_balance_code";
+        "daily_total_intake_code", "daily_total_output_code", "daily_total_balance_code",
+        "format_user_input";
 
     MonEnumsPB enums = 15;
     repeated MonitoringParamPB monitoring_param = 16;
     MonitoringParamPB default_drainage_param = 17;  // 引流管参数默认配置（类型，平衡类型，类别，UI类型）
     repeated MonitoringGroupPB balance_group = 18;
     repeated MonitoringGroupPB monitoring_group = 19;
-    bool format_user_input = 20;  // 是否格式化用户的输入，比如根据观察项配置截断小数点后2位
 
     repeated shared.TypeEnumPB balance_param_type = 21;
 
@@ -160,4 +160,5 @@ message DeptMonitoringSettingsPB {
     string dept_id = 1;
     int32 head_custom_time_point_grace_minutes = 2;
     int32 tail_custom_time_point_grace_minutes = 3;
+    bool keep_input_precision = 4;
 }

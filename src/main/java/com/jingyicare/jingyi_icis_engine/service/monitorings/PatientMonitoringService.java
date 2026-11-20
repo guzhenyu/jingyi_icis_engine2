@@ -58,7 +58,6 @@ public class PatientMonitoringService {
     ) {
         this.ZONE_ID = protoService.getConfig().getZoneId();
         this.protoService = protoService;
-        this.monitoringPb = protoService.getConfig().getMonitoring();
         this.shiftUtils = shiftUtils;
         this.userQuery = userQuery;
         this.patientService = patientService;
@@ -361,10 +360,10 @@ public class PatientMonitoringService {
 
         ValueMetaPB valueMeta = valueMetaOpt.get();
 
-        // 针对用户输入的值，做格式化，比如截断小数点后2位
+        // 根据科室设置决定是否按观察项配置的小数位数保存。
         GenericValuePB value = req.getValue();
         List<GenericValuePB> values = req.getValuesList();
-        if (monitoringPb.getFormatUserInput()) {
+        if (!monitoringConfig.getDeptMonitoringSettings(deptId).getKeepInputPrecision()) {
             value = ValueMetaUtils.formatParamValue(value, valueMeta);
             values = values.stream()
                 .map(v -> ValueMetaUtils.formatParamValue(v, valueMeta))
@@ -514,10 +513,10 @@ public class PatientMonitoringService {
                     .build();
         }
 
-        // 针对用户输入的值，做格式化，比如截断小数点后2位
+        // 根据科室设置决定是否按观察项配置的小数位数保存。
         GenericValuePB value = req.getValue();
         List<GenericValuePB> values = req.getValuesList();
-        if (monitoringPb.getFormatUserInput()) {
+        if (!monitoringConfig.getDeptMonitoringSettings(deptId).getKeepInputPrecision()) {
             value = ValueMetaUtils.formatParamValue(value, valueMeta);
             values = values.stream()
                 .map(v -> ValueMetaUtils.formatParamValue(v, valueMeta))
@@ -948,7 +947,6 @@ public class PatientMonitoringService {
     private final String ZONE_ID;
 
     private final ConfigProtoService protoService;
-    private final MonitoringPB monitoringPb;
     private final ConfigShiftUtils shiftUtils;
     private final UserQuery userQuery;
     private final PatientService patientService;

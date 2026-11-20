@@ -5046,7 +5046,6 @@ monitoring {
             code: "vent_PS"
         }
     }
-    format_user_input: true
     balance_param_type: INT32
     balance_param_type: INT64
     balance_param_type: FLOAT

@@ -181,9 +181,10 @@ public class SettingService {
         return AppSettingsPB.newBuilder()
             .setEnableMedicationSpeed(medSettingsPb != null && medSettingsPb.getEnableMedicationSpeed())
             .setHeadCustomTimeGraceMinutes(
-                monitoringSettingsPb == null ? 0 : monitoringSettingsPb.getHeadCustomTimePointGraceMinutes())
+                monitoringSettingsPb.getHeadCustomTimePointGraceMinutes())
             .setTailCustomTimeGraceMinutes(
-                monitoringSettingsPb == null ? 0 : monitoringSettingsPb.getTailCustomTimePointGraceMinutes())
+                monitoringSettingsPb.getTailCustomTimePointGraceMinutes())
+            .setKeepInputPrecision(monitoringSettingsPb.getKeepInputPrecision())
             .setNursingRecordOverwriteCreatedBy(
                 nursingRecordSettingsPb.getEnableUpdatingCreatedBy())
             .setScoreAllowEditRecordedBy(scoreSettingsPb.getAllowEditRecordedBy())
@@ -222,7 +223,8 @@ public class SettingService {
         Set<Integer> functionIds = settingTypes.stream().map(type -> switch (type) {
             case AST_ENABLE_MEDICATION_SPEED ->
                 SettingsStore.GET_MEDICAL_ORDER_SETTINGS;
-            case AST_HEAD_CUSTOM_TIME_GRACE_MINUTES, AST_TAIL_CUSTOM_TIME_GRACE_MINUTES ->
+            case AST_HEAD_CUSTOM_TIME_GRACE_MINUTES, AST_TAIL_CUSTOM_TIME_GRACE_MINUTES,
+                AST_KEEP_INPUT_PRECISION ->
                 SettingsStore.GET_DEPT_MONITORING_SETTINGS;
             case AST_NURSING_RECORD_OVERWRITE_CREATED_BY ->
                 SettingsStore.GET_DEPT_NURSING_RECORD_SETTINGS;
@@ -267,13 +269,10 @@ public class SettingService {
         // 设置观察项信息
         if (settingTypes.contains(AppSettingTypeEnum.AST_HEAD_CUSTOM_TIME_GRACE_MINUTES)
             || settingTypes.contains(AppSettingTypeEnum.AST_TAIL_CUSTOM_TIME_GRACE_MINUTES)
+            || settingTypes.contains(AppSettingTypeEnum.AST_KEEP_INPUT_PRECISION)
         ) {
-            DeptMonitoringSettingsPB monitoringSettingsPb = loadDeptMonitoringSettings(deptId);
-            if (monitoringSettingsPb == null) {
-                monitoringSettingsPb = DeptMonitoringSettingsPB.newBuilder().build();
-            }
-            DeptMonitoringSettingsPB.Builder monitoringSettingsPbBuilder = monitoringSettingsPb
-                .toBuilder();
+            DeptMonitoringSettingsPB.Builder monitoringSettingsPbBuilder =
+                loadDeptMonitoringSettings(deptId).toBuilder();
             if (settingTypes.contains(AppSettingTypeEnum.AST_HEAD_CUSTOM_TIME_GRACE_MINUTES)) {
                 monitoringSettingsPbBuilder.setHeadCustomTimePointGraceMinutes(
                     appSettingsPb.getHeadCustomTimeGraceMinutes());
@@ -281,6 +280,10 @@ public class SettingService {
             if (settingTypes.contains(AppSettingTypeEnum.AST_TAIL_CUSTOM_TIME_GRACE_MINUTES)) {
                 monitoringSettingsPbBuilder.setTailCustomTimePointGraceMinutes(
                     appSettingsPb.getTailCustomTimeGraceMinutes());
+            }
+            if (settingTypes.contains(AppSettingTypeEnum.AST_KEEP_INPUT_PRECISION)) {
+                monitoringSettingsPbBuilder.setKeepInputPrecision(
+                    appSettingsPb.getKeepInputPrecision());
             }
             settingsStore.saveDeptMonitoringSettingsPB(
                 deptId, monitoringSettingsPbBuilder.build(), accountId);
@@ -374,7 +377,7 @@ public class SettingService {
 
     private DeptMonitoringSettingsPB loadDeptMonitoringSettings(String deptId) {
         return loadSettingsOrDefault(() -> settingsStore.getDeptMonitoringSettingsPB(deptId),
-            DeptMonitoringSettingsPB.newBuilder().build());
+            DeptMonitoringSettingsPB.getDefaultInstance());
     }
 
     private <T> T loadSettingsOrDefault(Supplier<T> reader, T fallback) {

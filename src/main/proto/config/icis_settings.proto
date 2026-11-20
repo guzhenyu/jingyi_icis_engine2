@@ -28,7 +28,7 @@ message DeptArchiveSettings {
     int32 ward_report_template_id = 2;  // 对应于 dragable_form_templates.id，0 表示未配置
 }
 
-// next id: 8
+// next id: 9
 enum AppSettingTypeEnum {
     AST_UNUSED = 0;
 
@@ -48,6 +48,9 @@ enum AppSettingTypeEnum {
     // 通用配置
     AST_GENERAL = 6;  // 打印配置 + 限制提前录入
     AST_ENABLE_CA = 7;  // CA实时签名开关
+
+    // 观察项录入
+    AST_KEEP_INPUT_PRECISION = 8;
 }
 
 message AppGeneralSettingsPB {
@@ -58,7 +61,7 @@ message AppGeneralSettingsPB {
     bool enable_ca = 4;  // 是否启用CA实时签名
 }
 
-// next id: 12
+// next id: 13
 message AppSettingsPB {
     // 执行用药
     bool enable_medication_speed = 1;  // 是否启用'药速'
@@ -82,4 +85,6 @@ message AppSettingsPB {
     string print_agent_ip_port = 9; // 打印代理的IP和端口，例如：192.168.0.49:9123
     bool check_future_time = 10;  // 限制提前录入
     bool enable_ca = 11;  // 是否启用CA实时签名
+
+    bool keep_input_precision = 12;  // 保留观察项原始输入精度
 }
