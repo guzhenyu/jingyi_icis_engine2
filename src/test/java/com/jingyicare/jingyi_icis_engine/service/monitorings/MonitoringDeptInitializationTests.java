@@ -28,12 +28,12 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.ValueMetaPB;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.DeptMonitoringGroupParamRepository;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.DeptMonitoringGroupRepository;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.DeptMonitoringParamRepository;
-import com.jingyicare.jingyi_icis_engine.repository.monitorings.MonitoringParamHistoryRepository;
-import com.jingyicare.jingyi_icis_engine.repository.monitorings.MonitoringParamRepository;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientMonitoringGroupRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
@@ -255,7 +255,8 @@ class MonitoringDeptInitializationTests extends TestsBase {
         ConfigProtoService configured = spy(protoService);
         doReturn(protoService.getConfig().toBuilder().setMonitoring(monitoring).build())
             .when(configured).getConfig();
-        return new MonitoringMetaService(configured, userQuery, params, deptParams, history,
+        return new MonitoringMetaService(configured, userQuery, monMetaService, deptReader,
+            deptParams,
             groups, groupParamRepository, patientGroups, lockExecutor);
     }
 
@@ -305,9 +306,9 @@ class MonitoringDeptInitializationTests extends TestsBase {
     @Autowired private MonitoringMetaService monitoringMetaService;
     @Autowired private ConfigProtoService protoService;
     @Autowired private UserQuery userQuery;
-    @Autowired private MonitoringParamRepository params;
     @Autowired private DeptMonitoringParamRepository deptParams;
-    @Autowired private MonitoringParamHistoryRepository history;
+    @Autowired private MonMetaService monMetaService;
+    @Autowired private DeptMonMetaReader deptReader;
     @Autowired private DeptMonitoringGroupRepository groups;
     @Autowired private DeptMonitoringGroupParamRepository groupParamRepository;
     @Autowired private PatientMonitoringGroupRepository patientGroups;

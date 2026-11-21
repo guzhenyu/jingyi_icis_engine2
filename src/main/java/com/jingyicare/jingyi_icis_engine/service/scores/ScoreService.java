@@ -24,6 +24,7 @@ import com.jingyicare.jingyi_icis_engine.entity.scores.*;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.repository.scores.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.*;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
@@ -42,7 +43,7 @@ public class ScoreService {
         ConfigProtoService protoService, ScoreMetaService scoreMetaService,
         ScoreCalculator scoreCalculator, UserQuery userQuery, PatientReader patientReader,
         PatientNursingReportInvalidationService pnrUtils, PatientScoreRepository patientScoreRepo,
-        MonitoringParamRepository monitoringParamRepo, PatientMonitoringRecordRepository pmrRepo,
+        MonMetaReader monMetaReader, PatientMonitoringRecordRepository pmrRepo,
         ScoreReader scoreReader, SnapshotService snapshotService, LockExecutor lockExecutor,
         JdbcTemplate jdbcTemplate
     ) {
@@ -54,7 +55,7 @@ public class ScoreService {
         this.patientReader = patientReader;
         this.pnrUtils = pnrUtils;
         this.patientScoreRepo = patientScoreRepo;
-        this.monitoringParamRepo = monitoringParamRepo;
+        this.monMetaReader = monMetaReader;
         this.pmrRepo = pmrRepo;
         this.scoreReader = scoreReader;
         this.snapshotService = snapshotService;
@@ -114,7 +115,7 @@ public class ScoreService {
 
         // 查找部门评分组id: dept_score_groups.id
         String paramCode = req.getMonitoringParamCode();
-        MonitoringParam monitoringParam = monitoringParamRepo.findByCode(paramCode).orElse(null);
+        MonitoringParam monitoringParam = monMetaReader.findGlobalParam(paramCode).orElse(null);
         if (monitoringParam == null || StrUtils.isBlank(monitoringParam.getUiModalCode())) {
             log.error("Department score group code not found for param code: {}",
                 req.getMonitoringParamCode());
@@ -737,7 +738,7 @@ public class ScoreService {
     private final PatientReader patientReader;
     private final PatientNursingReportInvalidationService pnrUtils;
     private final PatientScoreRepository patientScoreRepo;
-    private final MonitoringParamRepository monitoringParamRepo;
+    private final MonMetaReader monMetaReader;
     private final PatientMonitoringRecordRepository pmrRepo;
     private final ScoreReader scoreReader;
     private final SnapshotService snapshotService;

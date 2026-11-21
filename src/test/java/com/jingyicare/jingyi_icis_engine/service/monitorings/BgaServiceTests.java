@@ -40,6 +40,7 @@ import com.jingyicare.jingyi_icis_engine.repository.monitorings.RawBgaRecordRepo
 import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaService;
 import com.jingyicare.jingyi_icis_engine.testutils.PatientTestUtils;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.testutils.ValueMetaTestUtils;
@@ -49,7 +50,7 @@ import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 public class BgaServiceTests extends TestsBase {
     public BgaServiceTests(
         @Autowired ConfigProtoService protoService,
-        @Autowired MonitoringMetaService monitoringMetaService,
+        @Autowired MonMetaService monMetaService,
         @Autowired BgaService bgaService,
         @Autowired BgaParamRepository bgaParamRepository,
         @Autowired BgaCategoryMappingRepository bgaCategoryMappingRepository,
@@ -65,7 +66,7 @@ public class BgaServiceTests extends TestsBase {
     ) {
         this.accountId = "admin";
         this.protoService = protoService;
-        this.monitoringMetaService = monitoringMetaService;
+        this.monMetaService = monMetaService;
         this.bgaService = bgaService;
         this.bgaParamRepository = bgaParamRepository;
         this.bgaCategoryMappingRepository = bgaCategoryMappingRepository;
@@ -498,7 +499,7 @@ public class BgaServiceTests extends TestsBase {
         dept.setDeptId(deptId);
         dept.setDeptName("dept-" + scenario);
         deptRepository.save(dept);
-        monitoringMetaService.initMonitoringParams();
+        monMetaService.initMonitoringParams();
         return deptId;
     }
 
@@ -626,7 +627,7 @@ public class BgaServiceTests extends TestsBase {
     private final String accountId;
 
     private final ConfigProtoService protoService;
-    private final MonitoringMetaService monitoringMetaService;
+    private final MonMetaService monMetaService;
     private final BgaService bgaService;
     private final BgaParamRepository bgaParamRepository;
     private final BgaCategoryMappingRepository bgaCategoryMappingRepository;

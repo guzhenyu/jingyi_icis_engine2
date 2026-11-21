@@ -28,6 +28,7 @@ import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaService;
 import com.jingyicare.jingyi_icis_engine.testutils.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -38,6 +39,7 @@ public class PatientTubeServiceTests extends TestsBase {
         @Autowired TubeService tubeService,
         @Autowired MonitoringConfig monitoringConfig,
         @Autowired MonitoringMetaService monitoringMetaService,
+        @Autowired MonMetaService monMetaService,
         @Autowired MonitoringService monitoringService,
         @Autowired TubeTypeRepository tubeTypeRepo,
         @Autowired TubeTypeAttributeRepository tubeTypeAttrRepo,
@@ -76,6 +78,7 @@ public class PatientTubeServiceTests extends TestsBase {
         this.tubeService = tubeService;
         this.monitoringConfig = monitoringConfig;
         this.monitoringMetaService = monitoringMetaService;
+        this.monMetaService = monMetaService;
         this.monitoringService = monitoringService;
         this.tubeTypeRepo = tubeTypeRepo;
         this.tubeTypeAttrRepo = tubeTypeAttrRepo;
@@ -793,7 +796,7 @@ public class PatientTubeServiceTests extends TestsBase {
         dept1.setDeptId(deptId);
         dept1.setDeptName("dept-1");
         rbacDepartmentRepo.save(dept1);
-        monitoringMetaService.initMonitoringParams();
+        monMetaService.initMonitoringParams();
         lockExecutor.execute(List.of(LockKeys.deptMonitoringGroups(deptId)), () -> {
             monitoringMetaService.initDept(deptId);
             return null;
@@ -839,6 +842,7 @@ public class PatientTubeServiceTests extends TestsBase {
     private final TubeService tubeService;
     private final MonitoringConfig monitoringConfig;
     private final MonitoringMetaService monitoringMetaService;
+    private final MonMetaService monMetaService;
     private final MonitoringService monitoringService;
     private final TubeTypeRepository tubeTypeRepo;
     private final TubeTypeAttributeRepository tubeTypeAttrRepo;

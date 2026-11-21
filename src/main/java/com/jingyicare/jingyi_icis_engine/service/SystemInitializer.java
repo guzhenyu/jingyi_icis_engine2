@@ -18,7 +18,7 @@ import com.jingyicare.jingyi_icis_engine.service.doctors.DoctorConfig;
 import com.jingyicare.jingyi_icis_engine.service.lis.LisConfig;
 import com.jingyicare.jingyi_icis_engine.service.medications.MedicationConfig;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
-import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringMetaService;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientConfig;
 import com.jingyicare.jingyi_icis_engine.service.shifts.ConfigShiftService;
 import com.jingyicare.jingyi_icis_engine.service.users.DepartmentCommand;
@@ -39,7 +39,7 @@ public class SystemInitializer {
         @Autowired PatientConfig patientConfig,
         @Autowired MedicationConfig medicationConfig,
         @Autowired MonitoringConfig monitoringConfig,
-        @Autowired MonitoringMetaService monitoringMetaService,
+        @Autowired MonMetaService monMetaService,
         @Autowired DoctorConfig doctorConfig,
         @Autowired LisConfig lisConfig,
         @Autowired CertificateService certificateService
@@ -53,7 +53,7 @@ public class SystemInitializer {
         this.patientConfig = patientConfig;
         this.medicationConfig = medicationConfig;
         this.monitoringConfig = monitoringConfig;
-        this.monitoringMetaService = monitoringMetaService;
+        this.monMetaService = monMetaService;
         this.doctorConfig = doctorConfig;
         this.lisConfig = lisConfig;
         this.certificateService = certificateService;
@@ -64,7 +64,7 @@ public class SystemInitializer {
         certificateService.validatePreInitializationOrThrow();
         log.info("Deployment certificate and ICIS department scope inputs checked");
 
-        monitoringMetaService.initMonitoringParams();
+        monMetaService.initMonitoringParams();
         userConfig.initialize();
         medicationConfig.initialize();
         doctorConfig.initialize();
@@ -114,7 +114,7 @@ public class SystemInitializer {
     private PatientConfig patientConfig;
     private MedicationConfig medicationConfig;
     private MonitoringConfig monitoringConfig;
-    private final MonitoringMetaService monitoringMetaService;
+    private final MonMetaService monMetaService;
     private DoctorConfig doctorConfig;
     private LisConfig lisConfig;
     private CertificateService certificateService;

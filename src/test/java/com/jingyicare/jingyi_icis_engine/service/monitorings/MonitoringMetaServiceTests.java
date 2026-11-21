@@ -9,7 +9,6 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
@@ -45,6 +44,7 @@ import com.jingyicare.jingyi_icis_engine.entity.monitorings.DeptMonitoringParamI
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.MonitoringParam;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.MonitoringParamHistory;
 import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
+import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringParamPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
@@ -59,6 +59,9 @@ import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.WebApiService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaReader;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
@@ -72,12 +75,13 @@ class MonitoringMetaServiceTests extends TestsBase {
             .thenReturn(new CurrentAccount("rbac-" + ACCOUNT, ACCOUNT, ACCOUNT));
         serviceExecutor = spy(executor);
         service = configuredService(List.of(param(FIRST_CODE), param(SECOND_CODE)), historyRepo);
+        deleteService = configuredDeleteService(deptRepository);
     }
 
     @AfterEach
     void cleanUp() {
         cleanParams();
-        monitoringMetaService.initMonitoringParams();
+        monMetaService.initMonitoringParams();
     }
 
     @Test
@@ -111,10 +115,11 @@ class MonitoringMetaServiceTests extends TestsBase {
 
     @Test
     void initializationReadsOnceAndBatchSavesOnlyNewOrReorderedParams() {
-        monitoringMetaService.initMonitoringParams();
+        monMetaService.initMonitoringParams();
         int originalCount = Math.toIntExact(repository.count());
-        MonitoringParam existing = MonitoringMapper.toMonitoringParamEntity(
-            param(FIRST_CODE).toBuilder().setName("已存在参数").build(), originalCount + 1);
+        MonitoringParam existing = MonMapper.toMonitoringParamEntity(
+            param(FIRST_CODE).toBuilder().setName("已存在参数")
+                .setDisplayOrder(originalCount + 1).build());
         repository.saveAndFlush(existing);
         MonitoringParamRepository batchRepository =
             mock(MonitoringParamRepository.class, delegatesTo(repository));
@@ -145,13 +150,13 @@ class MonitoringMetaServiceTests extends TestsBase {
 
     @Test
     void initializationCompactsOrdersWithoutChangingRelativeOrderOrMetadata() {
-        MonitoringParam first = MonitoringMapper.toMonitoringParamEntity(
+        MonitoringParam first = MonMapper.toMonitoringParamEntity(
             param(FIRST_CODE).toBuilder().setName("已修改的名称")
                 .setNameEn("Custom parameter").setCategory(3)
-                .setUiModalCode("custom-modal").build(),
-            1000);
+                .setUiModalCode("custom-modal").setDisplayOrder(1000).build());
         MonitoringParam second =
-            MonitoringMapper.toMonitoringParamEntity(param(SECOND_CODE), 1000);
+            MonMapper.toMonitoringParamEntity(
+                param(SECOND_CODE).toBuilder().setDisplayOrder(1000).build());
         repository.saveAllAndFlush(List.of(first, second));
         List<String> originalCodes = orderedParamCodes();
         service = configuredService(List.of(param(SECOND_CODE), param(FIRST_CODE)), historyRepo);
@@ -168,6 +173,70 @@ class MonitoringMetaServiceTests extends TestsBase {
         assertThat(orderedParamCodes()).containsExactlyElementsOf(originalCodes);
         assertContinuousDisplayOrders();
         assertThat(historyCount()).isZero();
+    }
+
+    @Test
+    void mapsNullFieldsToPbDefaults() {
+        MonitoringParamPB expected = MonitoringParamPB.newBuilder()
+            .setValueMeta(ValueMetaPB.getDefaultInstance()).build();
+        assertThat(MonMapper.toMonitoringParamPB(MonitoringParam.builder().build(), null))
+            .isEqualTo(expected);
+        assertThat(MonMapper.toMonitoringParamPB(null, null))
+            .isEqualTo(MonitoringParamPB.getDefaultInstance());
+        DeptMonitoringParamPB deptParam = MonMapper.toDeptMonitoringParamPB(
+            MonitoringParam.builder().build(), DeptMonitoringParam.builder().build());
+        assertThat(deptParam.getDeptId()).isEmpty();
+        assertThat(deptParam.getParam()).isEqualTo(expected);
+        assertThat(MonMapper.toMonitoringParamEntity(null)).isNull();
+        assertThat(MonMapper.toMonitoringParamHistoryEntity(null, null, false, null)).isNull();
+    }
+
+    @Test
+    void deptOverrideWithoutValueMetaFallsBackToAnEmptyMessage() {
+        MonitoringParam globalParam = seedParam();
+        deptRepository.saveAndFlush(DeptMonitoringParam.builder()
+            .id(new DeptMonitoringParamId(globalParam.getCode(), DEPT_ID))
+            .typePb("").build());
+        String listRequest = ProtoUtils.protoToJson(
+            GetMonitoringParamsReq.newBuilder().setDepartmentId(DEPT_ID).build());
+        GetMonitoringParamsResp listResponse = monMetaService.getMonitoringParams(listRequest);
+        assertThat(listResponse.getRt().getCode()).isEqualTo(StatusCode.OK_VALUE);
+        assertThat(listResponse.getParamsList())
+            .filteredOn(param -> param.getCode().equals(FIRST_CODE)).singleElement()
+            .satisfies(param -> {
+                assertThat(param.hasValueMeta()).isTrue();
+                assertThat(param.getValueMeta()).isEqualTo(ValueMetaPB.getDefaultInstance());
+            });
+
+        String detailRequest = ProtoUtils.protoToJson(
+            GetMonitoringParamReq.newBuilder().setParamCode(FIRST_CODE).build());
+        GetMonitoringParamResp detailResponse = monMetaService.getMonitoringParam(detailRequest);
+        assertThat(detailResponse.getRt().getCode()).isEqualTo(StatusCode.OK_VALUE);
+        assertThat(detailResponse.getParam().getValueMeta().getValueType())
+            .isEqualTo(TypeEnumPB.FLOAT);
+        assertThat(detailResponse.getDeptParamList()).singleElement().satisfies(deptParam -> {
+            assertThat(deptParam.getParam().hasValueMeta()).isTrue();
+            assertThat(deptParam.getParam().getValueMeta())
+                .isEqualTo(ValueMetaPB.getDefaultInstance());
+        });
+    }
+
+    @Test
+    void drainageParamCommitsIndependentlyOfCaller() {
+        int expectedOrder = maxDisplayOrder() + 1;
+
+        assertThatThrownBy(() -> executor.execute(
+            List.of(LockKeys.deptMonitoringGroups(DEPT_ID)), () -> {
+                monMetaService.upsertDrainageParam(FIRST_CODE, "胸管");
+                throw new IllegalStateException("模拟调用方事务回滚");
+            })).isInstanceOf(IllegalStateException.class)
+            .hasMessage("模拟调用方事务回滚");
+
+        MonitoringParam saved = repository.findByCode(FIRST_CODE).orElseThrow();
+        assertThat(saved.getName()).isEqualTo("胸管");
+        assertThat(saved.getNameEn()).isEqualTo("xiongguan");
+        assertThat(saved.getDisplayOrder()).isEqualTo(expectedOrder);
+        assertThat(monitoringLockKeys()).containsExactly(LockKeys.monitoringParam());
     }
 
     @Test
@@ -272,13 +341,16 @@ class MonitoringMetaServiceTests extends TestsBase {
         assertThat(historyCount()).isZero();
     }
 
-    @Test
-    void updatePreservesOrderAndRecordsOldAndNewSnapshots() {
+    @ParameterizedTest
+    @ValueSource(ints = {-1, 0, 2})
+    void updateResolvesOrderAndRecordsOldAndNewSnapshots(int displayOrder) {
         MonitoringParam original = seedParam();
+        int expectedOrder = displayOrder > 0 ? displayOrder : maxDisplayOrder() + 1;
         MonitoringParamPB updated = param(FIRST_CODE).toBuilder()
             .setName("修改后的参数").setNameEn("Updated parameter")
             .setBalanceType(MonEnums.BALANCE_TYPE_IN)
             .setCategory(3).setUiModalCode("updated-modal").setChartSign("updated-sign")
+            .setDisplayOrder(displayOrder)
             .setValueMeta(ValueMetaPB.newBuilder().setValueType(TypeEnumPB.FLOAT)
                 .setDecimalPlaces(2).setUnit("ml")).build();
 
@@ -286,7 +358,7 @@ class MonitoringMetaServiceTests extends TestsBase {
             .isEqualTo(StatusCode.OK_VALUE);
 
         MonitoringParam saved = repository.findByCode(FIRST_CODE).orElseThrow();
-        assertThat(saved.getDisplayOrder()).isEqualTo(original.getDisplayOrder());
+        assertThat(saved.getDisplayOrder()).isEqualTo(expectedOrder);
         assertThat(saved.getName()).isEqualTo(updated.getName());
         assertThat(saved.getNameEn()).isEqualTo(updated.getNameEn());
         assertThat(saved.getTypePb()).isEqualTo(ProtoUtils.encodeValueMeta(updated.getValueMeta()));
@@ -323,7 +395,7 @@ class MonitoringMetaServiceTests extends TestsBase {
         String update = request(param(FIRST_CODE).toBuilder().setName("并发更新").build());
         List<Integer> statuses = runContending(
             () -> service.updateMonitoringParam(update).getRt().getCode(),
-            () -> service.deleteMonitoringParam(deleteRequest(false)).getRt().getCode());
+            () -> deleteService.deleteMonitoringParam(deleteRequest(false)).getRt().getCode());
 
         assertThat(statuses.getFirst()).isIn(
             StatusCode.OK_VALUE, StatusCode.MONITORING_PARAM_CODE_NOT_EXIST_VALUE);
@@ -341,12 +413,12 @@ class MonitoringMetaServiceTests extends TestsBase {
     void concurrentDeletesPreserveExpectedHistory(boolean department) throws Exception {
         MonitoringParam original = seedParam();
         DeptMonitoringParam deptParam = department ? seedDeptParam(original) : null;
-        String contentionKey = department
-            ? LockKeys.deptMonitoringGroups(DEPT_ID) : LockKeys.monitoringParam();
-        List<String> expectedKeys = List.of(contentionKey);
-        Supplier<Integer> delete = () -> service.deleteMonitoringParam(deleteRequest(department))
-            .getRt().getCode();
-        assertThat(runContending(List.of(contentionKey), delete, delete))
+        List<String> expectedKeys = department
+            ? List.of(LockKeys.deptMonitoringGroups(DEPT_ID), LockKeys.monitoringParam())
+            : List.of(LockKeys.monitoringParam());
+        Supplier<Integer> delete = () ->
+            deleteService.deleteMonitoringParam(deleteRequest(department)).getRt().getCode();
+        assertThat(runContending(expectedKeys, delete, delete))
             .containsExactly(StatusCode.OK_VALUE, StatusCode.OK_VALUE);
 
         assertThat(historyCount()).isEqualTo(department ? 0 : 1);
@@ -370,18 +442,18 @@ class MonitoringMetaServiceTests extends TestsBase {
     void globalDeleteRequiresRemovingDeptConfigFirst() {
         MonitoringParam original = seedParam();
         DeptMonitoringParam deptParam = seedDeptParam(original);
-        assertThat(service.deleteMonitoringParam(deleteRequest(false)).getRt().getCode())
+        assertThat(deleteService.deleteMonitoringParam(deleteRequest(false)).getRt().getCode())
             .isEqualTo(StatusCode.MONITORING_PARAM_HAS_DEPT_CONFIG_VALUE);
         assertThat(repository.findByCode(FIRST_CODE)).contains(original);
         assertThat(deptRepository.findById(deptParam.getId())).contains(deptParam);
         assertThat(historyCount()).isZero();
 
-        assertThat(service.deleteMonitoringParam(deleteRequest(true)).getRt().getCode())
+        assertThat(deleteService.deleteMonitoringParam(deleteRequest(true)).getRt().getCode())
             .isEqualTo(StatusCode.OK_VALUE);
         assertThat(deptRepository.findById(deptParam.getId())).isEmpty();
         assertThat(historyCount()).isZero();
         assertThat(repository.findByCode(FIRST_CODE)).contains(original);
-        assertThat(service.deleteMonitoringParam(deleteRequest(false)).getRt().getCode())
+        assertThat(deleteService.deleteMonitoringParam(deleteRequest(false)).getRt().getCode())
             .isEqualTo(StatusCode.OK_VALUE);
         assertThat(repository.findByCode(FIRST_CODE)).isEmpty();
         assertThat(historyCount()).isEqualTo(1);
@@ -395,10 +467,9 @@ class MonitoringMetaServiceTests extends TestsBase {
         ExecutorService pool = Executors.newFixedThreadPool(2);
         try {
             Future<DeptMonitoringParam> create = pool.submit(() -> executor.execute(
-                List.of(LockKeys.deptMonitoringGroups(DEPT_ID)), () -> {
-                    MonitoringParam parent = repository.findForShareByCode(FIRST_CODE)
-                        .orElseThrow();
-                    DeptMonitoringParam deptParam = seedDeptParam(parent);
+                List.of(LockKeys.deptMonitoringGroups(DEPT_ID), LockKeys.monitoringParam()),
+                () -> {
+                    DeptMonitoringParam deptParam = seedDeptParam(original);
                     created.countDown();
                     try {
                         assertTrue(commit.await(30, TimeUnit.SECONDS), "等待提交测试事务超时");
@@ -410,10 +481,10 @@ class MonitoringMetaServiceTests extends TestsBase {
                 }));
             assertTrue(created.await(10, TimeUnit.SECONDS), "科室参数未完成未提交写入");
             Future<Integer> delete = pool.submit(() ->
-                service.deleteMonitoringParam(deleteRequest(false)).getRt().getCode());
+                deleteService.deleteMonitoringParam(deleteRequest(false)).getRt().getCode());
 
-            assertTrue(waitForBlockedRequests("monitoring_params", 1),
-                "全局删除应等待科室新增持有的父行共享锁");
+            assertTrue(waitForBlockedRequests("app_transaction_locks", 1),
+                "全局删除应等待科室新增释放全局字典锁");
             assertThat(delete.isDone()).isFalse();
             commit.countDown();
 
@@ -476,11 +547,10 @@ class MonitoringMetaServiceTests extends TestsBase {
                 throw new IllegalStateException("模拟全局参数删除失败");
             }).when(trackedParams).delete(any(MonitoringParam.class));
         }
-        service = new MonitoringMetaService(protoService, userQuery, trackedParams,
-            trackedDeptParams, historyRepo, deptGroupRepository, deptGroupParamRepository,
-            patientGroupRepository, serviceExecutor);
+        service = configuredService(List.of(), historyRepo, trackedParams);
+        deleteService = configuredDeleteService(trackedDeptParams);
 
-        assertThat(service.deleteMonitoringParam(deleteRequest(department)).getRt().getCode())
+        assertThat(deleteService.deleteMonitoringParam(deleteRequest(department)).getRt().getCode())
             .isEqualTo(StatusCode.INTERNAL_EXCEPTION_VALUE);
         assertThat(repository.findByCode(FIRST_CODE)).contains(original);
         if (department) {
@@ -521,9 +591,9 @@ class MonitoringMetaServiceTests extends TestsBase {
             .getRt().getCode()).isEqualTo(StatusCode.MONITORING_PARAM_CODE_EMPTY_VALUE);
         assertThat(service.updateMonitoringParam(request(invalidBalance)).getRt().getCode())
             .isEqualTo(StatusCode.MONITORING_PARAM_BALANCE_TYPE_VALUE_TYPE_NOT_MATCH_VALUE);
-        assertThat(service.deleteMonitoringParam("invalid-json").getRt().getCode())
+        assertThat(deleteService.deleteMonitoringParam("invalid-json").getRt().getCode())
             .isEqualTo(StatusCode.PARSE_JSON_FAILED_VALUE);
-        assertThat(service.deleteMonitoringParam("{}").getRt().getCode())
+        assertThat(deleteService.deleteMonitoringParam("{}").getRt().getCode())
             .isEqualTo(StatusCode.MONITORING_PARAM_CODE_EMPTY_VALUE);
         SecurityContextHolder.clearContext();
         GenericResp unauthenticated =
@@ -540,29 +610,32 @@ class MonitoringMetaServiceTests extends TestsBase {
         verifyNoMoreInteractions(serviceExecutor);
     }
 
-    private MonitoringMetaService configuredService(
+    private MonMetaService configuredService(
         List<MonitoringParamPB> params, MonitoringParamHistoryRepository historyRepository
     ) {
         return configuredService(params, historyRepository, repository);
     }
 
-    private MonitoringMetaService configuredService(
+    private MonMetaService configuredService(
         List<MonitoringParamPB> params, MonitoringParamHistoryRepository historyRepository,
         MonitoringParamRepository paramRepository
     ) {
-        ConfigProtoService configured = spy(protoService);
-        doReturn(protoService.getConfig().toBuilder().setMonitoring(
+        Config configured = protoService.getConfig().toBuilder().setMonitoring(
             protoService.getConfig().getMonitoring().toBuilder()
-                .clearMonitoringParam().addAllMonitoringParam(params)).build())
-            .when(configured).getConfig();
-        return new MonitoringMetaService(
-            configured, userQuery, paramRepository, deptRepository, historyRepository,
-            deptGroupRepository, deptGroupParamRepository, patientGroupRepository, serviceExecutor);
+                .clearMonitoringParam().addAllMonitoringParam(params)).build();
+        return new MonMetaService(configured, userQuery, new MonMetaReader(paramRepository),
+            deptMonMetaReader, paramRepository, historyRepository, serviceExecutor);
+    }
+
+    private MonitoringMetaService configuredDeleteService(DeptMonitoringParamRepository params) {
+        return new MonitoringMetaService(protoService, userQuery, service, deptMonMetaReader,
+            params, deptGroupRepository, deptGroupParamRepository, patientGroupRepository,
+            serviceExecutor);
     }
 
     private MonitoringParam seedParam() {
-        return repository.saveAndFlush(MonitoringMapper.toMonitoringParamEntity(
-            param(FIRST_CODE), maxDisplayOrder() + 1));
+        return repository.saveAndFlush(MonMapper.toMonitoringParamEntity(
+            param(FIRST_CODE).toBuilder().setDisplayOrder(maxDisplayOrder() + 1).build()));
     }
 
     private DeptMonitoringParam seedDeptParam(MonitoringParam param) {
@@ -703,11 +776,13 @@ class MonitoringMetaServiceTests extends TestsBase {
     private static final String SECOND_CODE = "monitoring-meta-tests-second";
     private static final Set<String> TEST_CODES = Set.of(FIRST_CODE, SECOND_CODE);
 
-    private MonitoringMetaService service;
+    private MonMetaService service;
+    private MonitoringMetaService deleteService;
     private UserQuery userQuery;
     private LockExecutor serviceExecutor;
     @Autowired private WebApiService webApiService;
-    @Autowired private MonitoringMetaService monitoringMetaService;
+    @Autowired private MonMetaService monMetaService;
+    @Autowired private DeptMonMetaReader deptMonMetaReader;
     @Autowired private ConfigProtoService protoService;
     @Autowired private MonitoringParamRepository repository;
     @Autowired private DeptMonitoringParamRepository deptRepository;

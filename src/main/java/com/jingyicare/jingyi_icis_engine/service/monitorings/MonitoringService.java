@@ -33,6 +33,9 @@ import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaReader;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.tubes.*;
 import com.jingyicare.jingyi_icis_engine.service.users.*;
@@ -52,9 +55,10 @@ public class MonitoringService {
         @Autowired PatientMonitoringMetaService patientMonitoringMetaService,
         @Autowired LockExecutor lockExecutor,
         @Autowired JdbcTemplate jdbcTemplate,
-        @Autowired MonitoringParamRepository monitoringParamRepository,
+        @Autowired MonMetaReader monMetaReader,
+        @Autowired DeptMonMetaReader deptMonMetaReader,
+        @Autowired MonMetaService monMetaService,
         @Autowired DeptMonitoringParamRepository deptMonitoringParamRepository,
-        @Autowired MonitoringParamHistoryRepository monitoringParamHistoryRepository,
         @Autowired DeptMonitoringGroupRepository deptMonitoringGroupRepository,
         @Autowired DeptMonitoringGroupParamRepository deptMonitoringGroupParamRepository,
         @Autowired PatientMonitoringGroupRepository patientMonitoringGroupRepository,
@@ -73,139 +77,14 @@ public class MonitoringService {
         this.lockExecutor = lockExecutor;
         this.jdbcTemplate = jdbcTemplate;
 
-        this.monitoringParamRepository = monitoringParamRepository;
+        this.monMetaReader = monMetaReader;
+        this.deptMonMetaReader = deptMonMetaReader;
+        this.monMetaService = monMetaService;
         this.deptMonitoringParamRepository = deptMonitoringParamRepository;
-        this.monitoringParamHistoryRepository = monitoringParamHistoryRepository;
         this.deptMonitoringGroupRepository = deptMonitoringGroupRepository;
         this.deptMonitoringGroupParamRepository = deptMonitoringGroupParamRepository;
         this.patientMonitoringGroupRepository = patientMonitoringGroupRepository;
         this.patientMonitoringGroupParamRepository = patientMonitoringGroupParamRepository;
-    }
-
-    public GetMonitoringParamsResp getMonitoringParams(String getMonitoringParamsReqJson) {
-        final GetMonitoringParamsReq req;
-
-        // Step 1: Parse the JSON string into the GetMonitoringParamsReq proto
-        try {
-            req = ProtoUtils.parseJsonToProto(getMonitoringParamsReqJson, GetMonitoringParamsReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
-            return GetMonitoringParamsResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        // Step 2: Fetch params from monitoring_params
-        List<MonitoringParam> paramsSet1 = monitoringParamRepository.findAll();
-
-        String departmentId = req.getDepartmentId();
-
-        // Step 3: Handle empty department_id
-        if (departmentId == null || departmentId.isBlank()) {
-            log.info("No department_id provided. Returning global monitoring_params.");
-            List<MonitoringParamPB> responseParams = paramsSet1.stream()
-                .sorted(Comparator.comparing(MonitoringParam::getDisplayOrder))
-                .map(param -> MonitoringParamPB.newBuilder()
-                    .setCode(param.getCode())
-                    .setName(param.getName())
-                    .setValueMeta(ProtoUtils.decodeValueMeta(param.getTypePb()))
-                    .setBalanceType(param.getBalanceType())
-                    .build())
-                .toList();
-            return GetMonitoringParamsResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.OK))
-                .addAllParams(responseParams)
-                .build();
-        }
-
-        // Step 4: Fetch params from dept_monitoring_params for the specified department
-        List<DeptMonitoringParam> paramsSet2 = deptMonitoringParamRepository.findByIdDeptId(departmentId);
-        Map<String, String> deptTypePbMap = paramsSet2.stream().collect(
-            Collectors.toMap(
-                param -> param.getId().getCode(), // 获取嵌套主键中的 code
-                DeptMonitoringParam::getTypePb // 获取 typePb
-            )
-        );
-
-        // Step 5: Construct the response params
-        List<MonitoringParamPB> responseParams = paramsSet1.stream()
-            .map(param -> {
-                String code = param.getCode();
-                ValueMetaPB valueMetaPb = ProtoUtils.decodeValueMeta(
-                    deptTypePbMap.getOrDefault(code, param.getTypePb())
-                );
-                return MonitoringConfig.fromMonitoringParam(param, null, valueMetaPb, null);
-            })
-            .toList();
-
-        // Step 6: Return the constructed response
-        return GetMonitoringParamsResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .addAllParams(responseParams)
-            .build();
-    }
-
-    public GetMonitoringParamResp getMonitoringParam(String getMonitoringParamReqJson) {
-        final GetMonitoringParamReq req;
-
-        // 解析 JSON 字符串
-        try {
-            req = ProtoUtils.parseJsonToProto(getMonitoringParamReqJson, GetMonitoringParamReq.newBuilder());
-        } catch (Exception e) {
-            log.error("Failed to convert JSON to proto: {}", e.getMessage(), e);
-            return GetMonitoringParamResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.PARSE_JSON_FAILED))
-                .build();
-        }
-
-        // 提取原始参数信息
-        String code = req.getParamCode();
-        MonitoringParam monitoringParam = monitoringParamRepository.findByCode(code).orElse(null);
-        if (monitoringParam == null) {
-            log.warn("MonitoringParam with code '{}' not found.", code);
-            return GetMonitoringParamResp.newBuilder()
-                .setRt(protoService.getReturnCode(StatusCode.MONITORING_PARAM_CODE_NOT_EXIST))
-                .build();
-        }
-
-        // 查找部门对该参数的特殊化信息
-        final String uiModalCode = monitoringParam.getUiModalCode() == null ? "" : monitoringParam.getUiModalCode();
-        List<DeptMonitoringParamPB> deptMonitoringParamPBs = deptMonitoringParamRepository
-            .findByIdCode(code).stream().map(param -> DeptMonitoringParamPB.newBuilder()
-                .setDeptId(param.getId().getDeptId())
-                .setParam(MonitoringParamPB.newBuilder()
-                    .setCode(param.getId().getCode())
-                    .setName(monitoringParam.getName())
-                    .setValueMeta(ProtoUtils.decodeValueMeta(param.getTypePb()))
-                    .setBalanceType(monitoringParam.getBalanceType())
-                    .setCategory(monitoringParam.getCategory())
-                    .setUiModalCode(uiModalCode)
-                    .setChartSign(monitoringParam.getChartSign())
-                    .build())
-                .build())
-            .toList();
-
-        // 查找模态对话框选项
-        MonitoringParamModalOptionsPB paramModalOptions = monitoringConfig.getParamModalOptions(code);
-        List<MonitoringModalOptionPB> modalOptions = paramModalOptions != null ?
-            paramModalOptions.getOptionList() : new ArrayList<>();
-
-        // 构建返回结果
-        return GetMonitoringParamResp.newBuilder()
-            .setRt(protoService.getReturnCode(StatusCode.OK))
-            .setParam(MonitoringParamPB.newBuilder()
-                .setCode(monitoringParam.getCode())
-                .setName(monitoringParam.getName())
-                .setNameEn(monitoringParam.getNameEn())
-                .setValueMeta(ProtoUtils.decodeValueMeta(monitoringParam.getTypePb()))
-                .setBalanceType(monitoringParam.getBalanceType())
-                .setCategory(monitoringParam.getCategory())
-                .setUiModalCode(uiModalCode)
-                .setChartSign(monitoringParam.getChartSign())
-                .build())
-            .addAllDeptParam(deptMonitoringParamPBs)
-            .addAllModalOption(modalOptions)
-            .build();
     }
 
     public GenericResp updateDeptMonitoringParam(String updateDeptMonitoringParamReqJson) {
@@ -248,10 +127,10 @@ public class MonitoringService {
         }
 
         String newTypePb = ProtoUtils.encodeValueMeta(valueMeta);
-        return lockExecutor.execute(List.of(LockKeys.deptMonitoringGroups(departmentId)), () -> {
-            // 共享锁只保护当前全局参数行的校验依据，各科室可同时读取同一参数。
-            MonitoringParam monitoringParam = monitoringParamRepository
-                .findForShareByCode(code).orElse(null);
+        List<String> lockKeys = List.of(
+            LockKeys.deptMonitoringGroups(departmentId), LockKeys.monitoringParam());
+        return lockExecutor.execute(lockKeys, () -> {
+            MonitoringParam monitoringParam = monMetaReader.findGlobalParam(code).orElse(null);
             if (monitoringParam == null) {
                 log.warn("MonitoringParam with code: {} does not exist. User: {}",
                     code, account.autoAcctId());
@@ -260,23 +139,18 @@ public class MonitoringService {
                     .build();
             }
 
-            MonitoringParamPB monitoringParamPb = MonitoringParamPB.newBuilder()
-                .setCode(code)
-                .setName(monitoringParam.getName())
-                .setValueMeta(valueMeta)
-                .setBalanceType(monitoringParam.getBalanceType())
-                .build();
-            StatusCode statusCode = monitoringConfig.isValidParamPb(monitoringParamPb);
+            StatusCode statusCode =
+                monMetaService.validateParamValueMeta(monitoringParam.getBalanceType(), valueMeta);
             if (statusCode != StatusCode.OK) {
-                log.warn("Invalid MonitoringParamPB {} in request. User: {}",
-                    monitoringParamPb, account.autoAcctId());
+                log.warn("Invalid value meta for parameter {}, department {}. User: {}",
+                    code, departmentId, account.autoAcctId());
                 return GenericResp.newBuilder()
                     .setRt(protoService.getReturnCode(statusCode))
                     .build();
             }
 
-            DeptMonitoringParam existingParam = deptMonitoringParamRepository
-                .findByIdDeptIdAndIdCode(departmentId, code).orElse(null);
+            DeptMonitoringParam existingParam = deptMonMetaReader
+                .findParamOverride(departmentId, code).orElse(null);
             if (existingParam == null) {
                 DeptMonitoringParam newParam = DeptMonitoringParam.builder()
                     .id(new DeptMonitoringParamId(code, departmentId))
@@ -286,8 +160,6 @@ public class MonitoringService {
                 log.info("Inserted DeptMonitoringParam for code: {}, departmentId: {}. User: {}",
                     code, departmentId, account.autoAcctId());
             } else if (!existingParam.getTypePb().equals(newTypePb)) {
-                saveDeptParamToHistory(
-                    existingParam, "Updated by user request", account.autoAcctId(), false);
                 existingParam.setTypePb(newTypePb);
                 deptMonitoringParamRepository.save(existingParam);
                 log.info("Updated DeptMonitoringParam for code: {}, departmentId: {}. User: {}",
@@ -814,7 +686,7 @@ public class MonitoringService {
         }
 
         // 检查对应的参数是否存在
-        MonitoringParam param = monitoringParamRepository.findByCode(code).orElse(null);
+        MonitoringParam param = monMetaReader.findGlobalParam(code).orElse(null);
         if (param == null) {
             log.error("Monitoring parameter not found for code: {}", code);
             return new Pair<>(StatusCode.MONITORING_PARAM_CODE_NOT_EXIST, null);
@@ -1360,12 +1232,6 @@ public class MonitoringService {
             .build();
     }
 
-    private void saveDeptParamToHistory(DeptMonitoringParam deptParam, String reason, String accountId, Boolean isDeleted) {
-        monitoringParamHistoryRepository.save(
-            MonitoringMapper.toMonitoringParamHistoryEntity(deptParam, accountId, isDeleted));
-        log.info("Saved DeptMonitoringParam to history for code: {}, reason: {}, user: {}", deptParam.getId().getCode(), reason, accountId);
-    }
-
     final String ZONE_ID;
 
     private final ConfigProtoService protoService;
@@ -1380,9 +1246,10 @@ public class MonitoringService {
     private final LockExecutor lockExecutor;
     private final JdbcTemplate jdbcTemplate;
 
-    private final MonitoringParamRepository monitoringParamRepository;
+    private final MonMetaReader monMetaReader;
+    private final DeptMonMetaReader deptMonMetaReader;
+    private final MonMetaService monMetaService;
     private final DeptMonitoringParamRepository deptMonitoringParamRepository;
-    private final MonitoringParamHistoryRepository monitoringParamHistoryRepository;
     private final DeptMonitoringGroupRepository deptMonitoringGroupRepository;
     private final DeptMonitoringGroupParamRepository deptMonitoringGroupParamRepository;
     private final PatientMonitoringGroupRepository patientMonitoringGroupRepository;

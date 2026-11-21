@@ -29,6 +29,7 @@ import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaService;
 import com.jingyicare.jingyi_icis_engine.testutils.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -37,6 +38,7 @@ public class MonitoringServiceTests extends TestsBase {
         @Autowired MonitoringConfig monitoringConfig,
         @Autowired MonitoringService monitoringService,
         @Autowired MonitoringMetaService monitoringMetaService,
+        @Autowired MonMetaService monMetaService,
         @Autowired MonitoringParamHistoryRepository monitoringParamHistoryRepo,
         @Autowired PatientMonitoringGroupRepository patientMonitoringGroupRepo,
         @Autowired PatientMonitoringGroupParamRepository patientMonitoringGroupParamRepo,
@@ -52,6 +54,7 @@ public class MonitoringServiceTests extends TestsBase {
         this.monitoringConfig = monitoringConfig;
         this.monitoringService = monitoringService;
         this.monitoringMetaService = monitoringMetaService;
+        this.monMetaService = monMetaService;
         this.monitoringParamHistoryRepo = monitoringParamHistoryRepo;
         this.patientMonitoringGroupRepo = patientMonitoringGroupRepo;
         this.patientMonitoringGroupParamRepo = patientMonitoringGroupParamRepo;
@@ -69,7 +72,7 @@ public class MonitoringServiceTests extends TestsBase {
 
         // Q: 查询观察参数 (全局)
         String queryReqJson = ProtoUtils.protoToJson(GetMonitoringParamsReq.newBuilder().build());
-        GetMonitoringParamsResp globalParamsResp = monitoringService.getMonitoringParams(queryReqJson);
+        GetMonitoringParamsResp globalParamsResp = monMetaService.getMonitoringParams(queryReqJson);
         assertThat(globalParamsResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
         // A: 新增观察参数 param10001 和 param10002
@@ -78,6 +81,11 @@ public class MonitoringServiceTests extends TestsBase {
                 MonitoringParamPB.newBuilder()
                     .setCode("test_param10001_in")
                     .setName("测试参数10001")
+                    .setNameEn("Sample input")
+                    .setCategory(3)
+                    .setUiModalCode("sample-modal")
+                    .setChartSign("circle")
+                    .setDisplayOrder(2000)
                     .setValueMeta(
                         ValueMetaPB.newBuilder()
                             .setValueType(TypeEnumPB.FLOAT)
@@ -89,7 +97,7 @@ public class MonitoringServiceTests extends TestsBase {
             )
             .build();
         String addReqJson1 = ProtoUtils.protoToJson(addParamReq1);
-        GenericResp addResp1 = monitoringMetaService.addMonitoringParam(addReqJson1);
+        GenericResp addResp1 = monMetaService.addMonitoringParam(addReqJson1);
         assertThat(addResp1.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
         AddMonitoringParamReq addParamReq2 = AddMonitoringParamReq.newBuilder()
@@ -108,10 +116,10 @@ public class MonitoringServiceTests extends TestsBase {
                 )
                 .build();
         String addReqJson2 = ProtoUtils.protoToJson(addParamReq2);
-        GenericResp addResp2 = monitoringMetaService.addMonitoringParam(addReqJson2);
+        GenericResp addResp2 = monMetaService.addMonitoringParam(addReqJson2);
         assertThat(addResp2.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
-        addResp2 = monitoringMetaService.addMonitoringParam(addReqJson2);
+        addResp2 = monMetaService.addMonitoringParam(addReqJson2);
         assertThat(addResp2.getRt().getCode()).isEqualTo(StatusCode.MONITORING_PARAM_CODE_EXIST.ordinal());
 
         addParamReq2 = AddMonitoringParamReq.newBuilder()
@@ -129,7 +137,7 @@ public class MonitoringServiceTests extends TestsBase {
                 )
                 .build();
         addReqJson2 = ProtoUtils.protoToJson(addParamReq2);
-        addResp2 = monitoringMetaService.addMonitoringParam(addReqJson2);
+        addResp2 = monMetaService.addMonitoringParam(addReqJson2);
         assertThat(addResp2.getRt().getCode()).isEqualTo(StatusCode.MONITORING_PARAM_BALANCE_TYPE_VALUE_TYPE_NOT_MATCH.ordinal());
 
         // U: 更新观察项参数
@@ -149,10 +157,18 @@ public class MonitoringServiceTests extends TestsBase {
                 )
                 .build();
         String updateReqJson = ProtoUtils.protoToJson(updateParamReq);
-        GenericResp updateResp = monitoringMetaService.updateMonitoringParam(updateReqJson);
+        GenericResp updateResp = monMetaService.updateMonitoringParam(updateReqJson);
         assertThat(updateResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
-        globalParamsResp = monitoringService.getMonitoringParams(queryReqJson);
+        globalParamsResp = monMetaService.getMonitoringParams(queryReqJson);
         assertThat(globalParamsResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        assertThat(globalParamsResp.getParamsList()).filteredOn(
+            param -> param.getCode().equals("test_param10001_in")).containsExactly(
+                MonitoringParamPB.newBuilder()
+                    .setCode("test_param10001_in")
+                    .setName("测试参数10001")
+                    .setValueMeta(addParamReq1.getParam().getValueMeta())
+                    .setBalanceType(MonEnums.BALANCE_TYPE_IN)
+                    .build());
         Integer decimalPlaces = null;
         for (MonitoringParamPB param : globalParamsResp.getParamsList()) {
             if (param.getCode().equals("test_param10002_in")) {
@@ -190,7 +206,7 @@ public class MonitoringServiceTests extends TestsBase {
             .build();
         String updateDeptReqJson = ProtoUtils.protoToJson(updateDeptParamReq);
         GenericResp updateDeptResp = monitoringService.updateDeptMonitoringParam(updateDeptReqJson);
-        assertThat(updateResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        assertThat(updateDeptResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
         updateDeptParamReq = UpdateDeptMonitoringParamReq.newBuilder()
             .setDepartmentId(deptId)
@@ -208,26 +224,41 @@ public class MonitoringServiceTests extends TestsBase {
         String dept1QueryReqJson = ProtoUtils.protoToJson(GetMonitoringParamsReq.newBuilder()
                 .setDepartmentId(deptId)
                 .build());
-        GetMonitoringParamsResp dept1ParamsResp = monitoringService.getMonitoringParams(dept1QueryReqJson);
+        GetMonitoringParamsResp dept1ParamsResp =
+            monMetaService.getMonitoringParams(dept1QueryReqJson);
         assertThat(dept1ParamsResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
+        assertThat(dept1ParamsResp.getParamsList()).filteredOn(
+            param -> param.getCode().equals("test_param10001_in")).containsExactly(
+                addParamReq1.getParam().toBuilder()
+                    .setValueMeta(addParamReq1.getParam().getValueMeta().toBuilder()
+                        .setDecimalPlaces(1).setUnit("liters(升)"))
+                    .build());
 
         // Q: 查询观察参数test_param10001_in
         GetMonitoringParamReq getParamReq = GetMonitoringParamReq.newBuilder()
             .setParamCode("test_param10001_in")
             .build();
         String getParamReqJson = ProtoUtils.protoToJson(getParamReq);
-        GetMonitoringParamResp getParamResp = monitoringService.getMonitoringParam(getParamReqJson);
+        GetMonitoringParamResp getParamResp = monMetaService.getMonitoringParam(getParamReqJson);
         assertThat(getParamResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
-        assertThat(getParamResp.getParam().getCode()).isEqualTo("test_param10001_in");
+        assertThat(getParamResp.getParam()).isEqualTo(
+            addParamReq1.getParam().toBuilder().clearDisplayOrder().build());
         assertThat(getParamResp.getDeptParamList()).hasSize(1);
         assertThat(getParamResp.getDeptParam(0).getDeptId()).isEqualTo(deptId);
-        assertThat(getParamResp.getDeptParam(0).getParam().getValueMeta().getDecimalPlaces()).isEqualTo(1);
+        assertThat(getParamResp.getDeptParam(0).getParam()).isEqualTo(
+            addParamReq1.getParam().toBuilder()
+                .clearNameEn()
+                .clearDisplayOrder()
+                .setValueMeta(addParamReq1.getParam().getValueMeta().toBuilder()
+                    .setDecimalPlaces(1).setUnit("liters(升)"))
+                .build());
 
         // Q: 查询部门2观察参数
         String dept2QueryReqJson = ProtoUtils.protoToJson(GetMonitoringParamsReq.newBuilder()
                 .setDepartmentId(deptId2)
                 .build());
-        GetMonitoringParamsResp dept2ParamsResp = monitoringService.getMonitoringParams(dept2QueryReqJson);
+        GetMonitoringParamsResp dept2ParamsResp =
+            monMetaService.getMonitoringParams(dept2QueryReqJson);
         assertThat(dept2ParamsResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
         // D: 删除观察参数 param10001 失败（存在部门个性化的观察参数）
@@ -256,7 +287,7 @@ public class MonitoringServiceTests extends TestsBase {
         assertThat(deleteResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
         // Q: 查询观察参数
-        globalParamsResp = monitoringService.getMonitoringParams(queryReqJson);
+        globalParamsResp = monMetaService.getMonitoringParams(queryReqJson);
         assertThat(globalParamsResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
         List<MonitoringParamHistory> paramHistories = monitoringParamHistoryRepo.findAll().stream()
@@ -758,7 +789,7 @@ public class MonitoringServiceTests extends TestsBase {
             rbacDepartmentRepo.save(dept);
         }
 
-        monitoringMetaService.initMonitoringParams();
+        monMetaService.initMonitoringParams();
         for (String departmentId : List.of(deptId, deptId2, deptId3, deptId4)) {
             lockExecutor.execute(List.of(LockKeys.deptMonitoringGroups(departmentId)), () -> {
                 monitoringMetaService.initDept(departmentId);
@@ -778,6 +809,7 @@ public class MonitoringServiceTests extends TestsBase {
     private final MonitoringConfig monitoringConfig;
     private final MonitoringService monitoringService;
     private final MonitoringMetaService monitoringMetaService;
+    private final MonMetaService monMetaService;
     private final MonitoringParamHistoryRepository monitoringParamHistoryRepo;
     private final PatientMonitoringGroupRepository patientMonitoringGroupRepo;
     private final PatientMonitoringGroupParamRepository patientMonitoringGroupParamRepo;

@@ -12,14 +12,12 @@ import lombok.*;
 import lombok.extern.slf4j.Slf4j;
 
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisTube.*;
 
-import com.jingyicare.jingyi_icis_engine.entity.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.entity.tubes.*;
-import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.repository.tubes.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaService;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Component
@@ -39,7 +37,7 @@ public class TubeSetting {
         @Autowired TubeTypeRepository tubeTypeRepo,
         @Autowired TubeTypeAttributeRepository tubeTypeAttrRepo,
         @Autowired TubeTypeStatusRepository tubeTypeStatusRepo,
-        @Autowired MonitoringParamRepository monitoringParamRepo
+        @Autowired MonMetaService monMetaService
     ) {
         this.tubePb = protoService.getConfig().getTube();
         this.DRAINAGE_TUBE_TYPE = tubePb.getDrainageTubeType();
@@ -47,16 +45,7 @@ public class TubeSetting {
         this.tubeTypeRepo = tubeTypeRepo;
         this.tubeTypeAttrRepo = tubeTypeAttrRepo;
         this.tubeTypeStatusRepo = tubeTypeStatusRepo;
-        this.monitoringParamRepo = monitoringParamRepo;
-
-        MonitoringParamPB defaultDrainageParamPB =
-            protoService.getConfig().getMonitoring().getDefaultDrainageParam();
-        this.defaultDrainageParam = MonitoringParam.builder()
-            .typePb(ProtoUtils.encodeValueMeta(defaultDrainageParamPB.getValueMeta()))
-            .balanceType(defaultDrainageParamPB.getBalanceType())
-            .category(defaultDrainageParamPB.getCategory())
-            .uiModalCode(defaultDrainageParamPB.getUiModalCode())
-            .build();
+        this.monMetaService = monMetaService;
     }
 
     public TubeTypeListPB getDeptTubeTypes(String deptId) {
@@ -373,37 +362,15 @@ public class TubeSetting {
         updateMonitoringParam(tubeType, tubeName, null);
     }
 
-    public void updateMonitoringParam(String tubeType, String tubeName, String drainageBalanceOutName) {
+    public void updateMonitoringParam(
+        String tubeType, String tubeName, String drainageBalanceOutName
+    ) {
         if (!tubeType.equals(DRAINAGE_TUBE_TYPE)) return;
 
         String paramCode = getMonitoringParamCode(tubeType, tubeName);
-        String balanceOutName = StrUtils.isBlank(drainageBalanceOutName) ? tubeName : drainageBalanceOutName;
-        Optional<MonitoringParam> existingParam = monitoringParamRepo.findByCode(paramCode);
-        if (existingParam.isPresent()) {
-            MonitoringParam mp = existingParam.get();
-            mp.setName(balanceOutName);
-            mp.setNameEn(StrUtils.toPinyin(balanceOutName));
-            monitoringParamRepo.save(mp);
-            return;
-        }
-
-        Integer displayOrder = 1;
-        {
-            MonitoringParam lastParam = monitoringParamRepo.findTopByOrderByDisplayOrderDesc().orElse(null);
-            if (lastParam != null) displayOrder = lastParam.getDisplayOrder() + 1;
-        }
-
-        MonitoringParam mp = MonitoringParam.builder()
-            .code(paramCode)
-            .name(balanceOutName)
-            .nameEn(StrUtils.toPinyin(balanceOutName))
-            .typePb(defaultDrainageParam.getTypePb())
-            .balanceType(defaultDrainageParam.getBalanceType())
-            .category(defaultDrainageParam.getCategory())
-            .uiModalCode(defaultDrainageParam.getUiModalCode())
-            .displayOrder(displayOrder)
-            .build();
-        monitoringParamRepo.save(mp);
+        String balanceOutName = StrUtils.isBlank(drainageBalanceOutName)
+            ? tubeName : drainageBalanceOutName;
+        monMetaService.upsertDrainageParam(paramCode, balanceOutName);
     }
 
     private List<String> splitString(String str) {
@@ -411,12 +378,11 @@ public class TubeSetting {
     }
 
     private final String DRAINAGE_TUBE_TYPE;
-    private final MonitoringParam defaultDrainageParam;
 
     @Getter
     private TubePB tubePb;
     private final TubeTypeRepository tubeTypeRepo;
     private final TubeTypeAttributeRepository tubeTypeAttrRepo;
     private final TubeTypeStatusRepository tubeTypeStatusRepo;
-    private final MonitoringParamRepository monitoringParamRepo;
+    private final MonMetaService monMetaService;
 }

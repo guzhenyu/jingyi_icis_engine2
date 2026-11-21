@@ -36,6 +36,7 @@ import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.medications.*;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.settings.SettingsStore;
 import com.jingyicare.jingyi_icis_engine.testutils.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -46,6 +47,7 @@ public class PatientMonitoringServiceTests extends TestsBase {
         @Autowired MonitoringConfig monitoringConfig,
         @Autowired MonitoringService monitoringService,
         @Autowired MonitoringMetaService monitoringMetaService,
+        @Autowired MonMetaService monMetaService,
         @Autowired PatientMonitoringService patientMonitoringService,
         @Autowired MedicationConfig medConfig,
         @Autowired MedicationService medService,
@@ -85,6 +87,7 @@ public class PatientMonitoringServiceTests extends TestsBase {
         this.monitoringConfig = monitoringConfig;
         this.monitoringService = monitoringService;
         this.monitoringMetaService = monitoringMetaService;
+        this.monMetaService = monMetaService;
         this.patientMonitoringService = patientMonitoringService;
         this.medConfig = medConfig;
         this.medService = medService;
@@ -444,7 +447,7 @@ public class PatientMonitoringServiceTests extends TestsBase {
             )
             .build();
         String addParamReqJson = ProtoUtils.protoToJson(addParamReq);
-        GenericResp addParamResp = monitoringMetaService.addMonitoringParam(addParamReqJson);
+        GenericResp addParamResp = monMetaService.addMonitoringParam(addParamReqJson);
         assertThat(addParamResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
         // A: 新增分组
@@ -703,6 +706,7 @@ public class PatientMonitoringServiceTests extends TestsBase {
     private final MonitoringConfig monitoringConfig;
     private final MonitoringService monitoringService;
     private final MonitoringMetaService monitoringMetaService;
+    private final MonMetaService monMetaService;
     private final PatientMonitoringService patientMonitoringService;
 
     private final MedicationConfig medConfig;

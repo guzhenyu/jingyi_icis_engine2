@@ -17,14 +17,13 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 
 import com.jingyicare.jingyi_icis_engine.entity.medications.*;
-import com.jingyicare.jingyi_icis_engine.entity.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.entity.nursingorders.*;
 import com.jingyicare.jingyi_icis_engine.entity.settings.*;
 import com.jingyicare.jingyi_icis_engine.repository.medications.*;
-import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.repository.nursingorders.*;
 import com.jingyicare.jingyi_icis_engine.repository.settings.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaReader;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Service
@@ -42,7 +41,7 @@ public class MedicationConfig {
         @Autowired MedicationChannelRepository medicationChannelRepo,
         @Autowired MedicationExecutionActionTypeRepository medicationExecutionActionTypeRepo,
         @Autowired DeptSystemSettingsRepository deptSystemSettingsRepo,
-        @Autowired MonitoringParamRepository monitoringParamRepo
+        @Autowired MonMetaReader monMetaReader
     ) {
         this.context = context;
         this.medProto  = protoService.getConfig().getMedication();
@@ -58,7 +57,7 @@ public class MedicationConfig {
         this.medicationExecutionActionTypeRepo = medicationExecutionActionTypeRepo;
         this.deptSystemSettingsRepo = deptSystemSettingsRepo;
         this.defaultOgSettings = medProto.getOrderGroupSettings();
-        this.monitoringParamRepo = monitoringParamRepo;
+        this.monMetaReader = monMetaReader;
     }
 
     @Transactional
@@ -474,7 +473,7 @@ public class MedicationConfig {
     }
 
     private Boolean checkIntakeType() {
-        Set<String> allCodes = monitoringParamRepo.findAll().stream()
+        Set<String> allCodes = monMetaReader.listGlobalParams().stream()
             .map(param -> param.getCode()).collect(Collectors.toSet());
 
         for (IntakeType type : intakeTypeRepo.findAll()) {
@@ -792,5 +791,5 @@ public class MedicationConfig {
     private DeptSystemSettingsRepository deptSystemSettingsRepo;
     private MedOrderGroupSettingsPB defaultOgSettings;
 
-    private MonitoringParamRepository monitoringParamRepo;
+    private final MonMetaReader monMetaReader;
 }

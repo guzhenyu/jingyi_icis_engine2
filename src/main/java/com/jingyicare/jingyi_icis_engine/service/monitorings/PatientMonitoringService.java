@@ -52,8 +52,6 @@ public class PatientMonitoringService {
         @Autowired PatientMonitoringRecordRepository recordRepository,
         @Autowired PatientTargetDailyBalanceRepository targetDailyBalanceRepo,
         @Autowired PatientMonitoringTimePointRepository timePointRepository,
-        @Autowired DeptMonitoringParamRepository deptMonitoringParamRepository,
-        @Autowired MonitoringParamRepository monitoringParamRepository,
         @Autowired PatientMonitoringRecordStatsDailyRepository dailyStatsRepository
     ) {
         this.ZONE_ID = protoService.getConfig().getZoneId();
@@ -73,8 +71,6 @@ public class PatientMonitoringService {
         this.recordRepository = recordRepository;
         this.targetDailyBalanceRepo = targetDailyBalanceRepo;
         this.timePointRepository = timePointRepository;
-        this.deptMonitoringParamRepository = deptMonitoringParamRepository;
-        this.monitoringParamRepository = monitoringParamRepository;
         this.dailyStatsRepository = dailyStatsRepository;
     }
 
@@ -962,7 +958,5 @@ public class PatientMonitoringService {
     private final PatientMonitoringRecordRepository recordRepository;
     private final PatientTargetDailyBalanceRepository targetDailyBalanceRepo;
     private final PatientMonitoringTimePointRepository timePointRepository;
-    private final DeptMonitoringParamRepository deptMonitoringParamRepository;
-    private final MonitoringParamRepository monitoringParamRepository;
     private final PatientMonitoringRecordStatsDailyRepository dailyStatsRepository;
 }

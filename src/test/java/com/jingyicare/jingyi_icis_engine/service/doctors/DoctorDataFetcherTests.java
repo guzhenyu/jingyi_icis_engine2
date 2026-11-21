@@ -27,6 +27,7 @@ import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.doctors.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.tubes.*;
 import com.jingyicare.jingyi_icis_engine.service.scores.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
@@ -36,7 +37,7 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class DoctorDataFetcherTests extends TestsBase {
     public DoctorDataFetcherTests(
         @Autowired ConfigProtoService protoService,
-        @Autowired MonitoringMetaService monitoringMetaService,
+        @Autowired MonMetaService monMetaService,
         @Autowired PatientMonitoringService patientMonitoringService,
         @Autowired ScoreService scoreService,
         @Autowired ScoreMetaService scoreMetaService,
@@ -51,7 +52,7 @@ public class DoctorDataFetcherTests extends TestsBase {
         this.accountId = "admin";
 
         this.protoService = protoService;
-        this.monitoringMetaService = monitoringMetaService;
+        this.monMetaService = monMetaService;
         this.patientMonitoringService = patientMonitoringService;
         this.scoreService = scoreService;
         this.scoreMetaService = scoreMetaService;
@@ -89,7 +90,7 @@ public class DoctorDataFetcherTests extends TestsBase {
             )
             .build();
         String addParamReqJson = ProtoUtils.protoToJson(addParamReq);
-        GenericResp addParamResp = monitoringMetaService.addMonitoringParam(addParamReqJson);
+        GenericResp addParamResp = monMetaService.addMonitoringParam(addParamReqJson);
         assertThat(addParamResp.getRt().getCode()).isEqualTo(0);
 
         // 构造测试数据
@@ -427,7 +428,7 @@ public class DoctorDataFetcherTests extends TestsBase {
     private final String accountId;
 
     private final ConfigProtoService protoService;
-    private final MonitoringMetaService monitoringMetaService;
+    private final MonMetaService monMetaService;
     private final PatientMonitoringService patientMonitoringService;
     private final ScoreService scoreService;
     private final ScoreMetaService scoreMetaService;

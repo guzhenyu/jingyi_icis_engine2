@@ -23,6 +23,7 @@ import com.jingyicare.jingyi_icis_engine.service.lis.*;
 import com.jingyicare.jingyi_icis_engine.service.medications.MedicationService;
 import com.jingyicare.jingyi_icis_engine.service.metrics.PrometheusMetricService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.nursingorders.*;
 import com.jingyicare.jingyi_icis_engine.service.nursingrecords.*;
 import com.jingyicare.jingyi_icis_engine.service.overviews.*;
@@ -65,6 +66,7 @@ public class WebApiService {
         @Autowired PatientTubeService patientTubeService,
         @Autowired MonitoringService monitoringService,
         @Autowired MonitoringMetaService monitoringMetaService,
+        @Autowired MonMetaService monMetaService,
         @Autowired MedicationService medicationService,
         @Autowired PatientMonitoringService patientMonitoringService,
         @Autowired BgaService bgaService,
@@ -107,6 +109,7 @@ public class WebApiService {
         this.patientTubeService = patientTubeService;
         this.monitoringService = monitoringService;
         this.monitoringMetaService = monitoringMetaService;
+        this.monMetaService = monMetaService;
         this.medicationService = medicationService;
         this.patientMonitoringService = patientMonitoringService;
         this.bgaService = bgaService;
@@ -532,25 +535,26 @@ public class WebApiService {
     }
 
     public GetMonitoringParamsResp getMonitoringParams(String getMonitoringParamsReqJson) {
-        GetMonitoringParamsResp resp = monitoringService.getMonitoringParams(getMonitoringParamsReqJson);
+        GetMonitoringParamsResp resp =
+            monMetaService.getMonitoringParams(getMonitoringParamsReqJson);
         resp = metricService.recordApiMetrics(resp, GetMonitoringParamsResp::getRt);
         return resp;
     }
 
     public GetMonitoringParamResp getMonitoringParam(String getMonitoringParamReqJson) {
-        GetMonitoringParamResp resp = monitoringService.getMonitoringParam(getMonitoringParamReqJson);
+        GetMonitoringParamResp resp = monMetaService.getMonitoringParam(getMonitoringParamReqJson);
         resp = metricService.recordApiMetrics(resp, GetMonitoringParamResp::getRt);
         return resp;
     }
 
     public GenericResp addMonitoringParam(String addMonitoringParamReqJson) {
-        GenericResp resp = monitoringMetaService.addMonitoringParam(addMonitoringParamReqJson);
+        GenericResp resp = monMetaService.addMonitoringParam(addMonitoringParamReqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
 
     public GenericResp updateMonitoringParam(String addMonitoringParamReqJson) {
-        GenericResp resp = monitoringMetaService.updateMonitoringParam(addMonitoringParamReqJson);
+        GenericResp resp = monMetaService.updateMonitoringParam(addMonitoringParamReqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
@@ -2181,6 +2185,7 @@ public class WebApiService {
     private PatientTubeService patientTubeService;
     private MonitoringService monitoringService;
     private final MonitoringMetaService monitoringMetaService;
+    private final MonMetaService monMetaService;
     private MedicationService medicationService;
     private PatientMonitoringService patientMonitoringService;
     private BgaService bgaService;

@@ -39,6 +39,9 @@ import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaReader;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
 import com.jingyicare.jingyi_icis_engine.service.tubes.PatientTubeImpl;
@@ -57,8 +60,9 @@ class MonitoringGroupLockTests extends TestsBase {
             context.getBean(PatientTubeImpl.class), context.getBean(MonitoringConfig.class),
             context.getBean(MonitoringMetaService.class),
             context.getBean(PatientMonitoringMetaService.class), trackedExecutor, jdbc,
-            params, context.getBean(DeptMonitoringParamRepository.class),
-            context.getBean(MonitoringParamHistoryRepository.class), groups, groupParams,
+            context.getBean(MonMetaReader.class), context.getBean(DeptMonMetaReader.class),
+            context.getBean(MonMetaService.class),
+            context.getBean(DeptMonitoringParamRepository.class), groups, groupParams,
             context.getBean(PatientMonitoringGroupRepository.class),
             context.getBean(PatientMonitoringGroupParamRepository.class));
         LocalDateTime now = LocalDateTime.of(2026, 11, 19, 0, 0);
@@ -99,9 +103,12 @@ class MonitoringGroupLockTests extends TestsBase {
         CountDownLatch held = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
         CountDownLatch attempted = new CountDownLatch(1);
-        List<String> keys = List.of(LockKeys.deptMonitoringGroups(DEPT));
+        List<String> deptKeys = List.of(LockKeys.deptMonitoringGroups(DEPT));
         boolean deptParam = operation == Operation.CREATE_DEPT_PARAM
             || operation == Operation.UPDATE_DEPT_PARAM;
+        List<String> keys = deptParam
+            ? List.of(LockKeys.deptMonitoringGroups(DEPT), LockKeys.monitoringParam())
+            : deptKeys;
         if (operation == Operation.UPDATE_DEPT_PARAM) {
             jdbc.update("""
                 INSERT INTO dept_monitoring_params (code, dept_id, type_pb) VALUES (?, ?, ?)
@@ -115,7 +122,7 @@ class MonitoringGroupLockTests extends TestsBase {
         ExecutorService pool = Executors.newFixedThreadPool(2);
         try {
             // 只占用科室锁，确认自定义参数写入也与分组和组内参数互斥。
-            Future<?> blocker = pool.submit(() -> executor.execute(keys, () -> {
+            Future<?> blocker = pool.submit(() -> executor.execute(deptKeys, () -> {
                 held.countDown();
                 await(release);
                 return null;
@@ -138,7 +145,7 @@ class MonitoringGroupLockTests extends TestsBase {
                 assertThat(jdbc.queryForObject("""
                     SELECT COUNT(*) FROM monitoring_params_history WHERE dept_id = ?
                     """, Integer.class, DEPT))
-                    .isEqualTo(operation == Operation.UPDATE_DEPT_PARAM ? 1 : 0);
+                    .isZero();
             }
         } finally {
             release.countDown();
@@ -148,37 +155,44 @@ class MonitoringGroupLockTests extends TestsBase {
     }
 
     @Test
-    void differentDepartmentsCanShareTheSameGlobalParamRowConcurrently() throws Exception {
+    void differentDepartmentsWaitForTheSameGlobalParamLock() throws Exception {
         CountDownLatch held = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
+        CountDownLatch attempted = new CountDownLatch(1);
+        List<String> otherDeptKeys = List.of(
+            LockKeys.deptMonitoringGroups(OTHER_DEPT), LockKeys.monitoringParam());
+        doAnswer(invocation -> {
+            attempted.countDown();
+            return invocation.callRealMethod();
+        }).when(trackedExecutor).execute(eq(otherDeptKeys), any());
+
         ExecutorService pool = Executors.newFixedThreadPool(2);
         try {
             Future<?> blocker = pool.submit(() -> executor.execute(List.of(
-                LockKeys.monitoringParam(), LockKeys.deptMonitoringGroups(DEPT)), () -> {
-                    params.findForShareByCode(FIRST_CODE).orElseThrow();
+                LockKeys.deptMonitoringGroups(DEPT), LockKeys.monitoringParam()), () -> {
                     held.countDown();
                     await(release);
                     return null;
                 }));
             assertThat(held.await(10, TimeUnit.SECONDS)).isTrue();
 
-            // 另一科室写同一参数，必须兼容共享父行锁，且不等待全局业务锁。
             Future<Integer> mutation = pool.submit(() -> service.updateDeptMonitoringParam(
                 ProtoUtils.protoToJson(UpdateDeptMonitoringParamReq.newBuilder()
                     .setDepartmentId(OTHER_DEPT).setCode(FIRST_CODE)
                     .setValueMeta(DEPT_META).build()))
                 .getRt().getCode());
-            assertThat(mutation.get(5, TimeUnit.SECONDS)).isEqualTo(StatusCode.OK_VALUE);
-            assertThat(blocker.isDone()).isFalse();
+            assertThat(attempted.await(10, TimeUnit.SECONDS)).isTrue();
+            assertThatThrownBy(() -> mutation.get(200, TimeUnit.MILLISECONDS))
+                .isInstanceOf(TimeoutException.class);
+
+            release.countDown();
+            blocker.get(10, TimeUnit.SECONDS);
+            assertThat(mutation.get(10, TimeUnit.SECONDS)).isEqualTo(StatusCode.OK_VALUE);
             assertThat(jdbc.queryForObject("""
                 SELECT type_pb FROM dept_monitoring_params WHERE dept_id = ? AND code = ?
                 """, String.class, OTHER_DEPT, FIRST_CODE))
                 .isEqualTo(ProtoUtils.encodeValueMeta(DEPT_META));
-            verify(trackedExecutor).execute(
-                eq(List.of(LockKeys.deptMonitoringGroups(OTHER_DEPT))), any());
-
-            release.countDown();
-            blocker.get(10, TimeUnit.SECONDS);
+            verify(trackedExecutor).execute(eq(otherDeptKeys), any());
         } finally {
             release.countDown();
             pool.shutdownNow();

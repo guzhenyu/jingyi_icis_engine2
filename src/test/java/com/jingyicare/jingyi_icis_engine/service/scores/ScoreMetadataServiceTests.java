@@ -13,6 +13,7 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -44,11 +45,12 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisSnapshot.PatientSnapsh
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.GenericValuePB;
-import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
+import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientMonitoringRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.scores.PatientScoreRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.*;
 import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
@@ -101,8 +103,8 @@ class ScoreMetadataServiceTests extends TestsBase {
         ScoreMetaService metadata = mock(ScoreMetaService.class);
         when(metadata.getConfiguredScoreGroupMeta(anyString())).thenAnswer(invocation ->
             ScoreGroupMetaPB.newBuilder().setCode(invocation.getArgument(0)).build());
-        MonitoringParamRepository params = mock(MonitoringParamRepository.class);
-        when(params.findByCode(PARAM)).thenReturn(java.util.Optional.of(
+        MonMetaReader params = mock(MonMetaReader.class);
+        when(params.findGlobalParam(PARAM)).thenReturn(Optional.of(
             MonitoringParam.builder().code(PARAM).uiModalCode("gcs_modal").build()));
         checkedPatients = mock(PatientReader.class, delegatesTo(patients));
         return new ScoreService(config, metadata, calculator, users, checkedPatients, invalidation,
