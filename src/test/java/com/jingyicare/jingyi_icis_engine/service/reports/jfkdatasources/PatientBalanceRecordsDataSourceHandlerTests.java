@@ -393,7 +393,6 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
                 new StatisticsDayWindowResolver(balanceStatsShiftRepo));
             when(userQuery.getCurrentAccount())
                 .thenReturn(new CurrentAccount("nurse", "42", "护士"));
-            when(monitoringConfig.getBalanceGroupTypeId()).thenReturn(1);
             when(patientTubeImpl.getMonitoringParamCodes(any(), any(), any())).thenReturn(List.of());
             when(monitoringConfig.getMonitoringGroups(any(), any(), any(Integer.class), any(), any())).thenReturn(List.of());
         }

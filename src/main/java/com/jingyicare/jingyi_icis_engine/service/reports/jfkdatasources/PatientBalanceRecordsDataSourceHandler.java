@@ -116,12 +116,12 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
         List<String> expandedParamCodes = expandDrainageTubeParamCodes(paramCodes, tubeParamCodes);
         List<String> validParamCodes = validParamCodes(tableId, deptId, expandedParamCodes, paramMap);
         var groupBetaList = monitoringConfig.getMonitoringGroups(
-            pid, deptId, monitoringConfig.getBalanceGroupTypeId(), tubeParamCodes,
+            pid, deptId, MonEnums.GROUP_TYPE_BALANCE, tubeParamCodes,
             account.autoAcctId());
 
         PatientMonitoringService.GetMonitoringRecordsResult recordsResult =
             patientMonitoringService.getMonitoringRecords(
-                pid, deptId, monitoringConfig.getBalanceGroupTypeId(),
+                pid, deptId, MonEnums.GROUP_TYPE_BALANCE,
                 window.balanceStartUtc(), window.balanceEndUtc(),
                 false, groupBetaList, account.autoAcctId()
             );

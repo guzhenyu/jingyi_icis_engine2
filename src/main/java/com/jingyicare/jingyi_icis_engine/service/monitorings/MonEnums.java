@@ -10,6 +10,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonEnumsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringEnumsPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.EnumValue;
 import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
+import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 
 @Component
 public final class MonEnums {
@@ -34,6 +35,8 @@ public final class MonEnums {
             PARAM_CATEGORY_ECMO,
             getStringOrDefault(enums.getParamCategoryEcmo(), "体外膜肺氧合机")
         );
+        String drainageTubeType = protoConfig.getConfig().getTube().getDrainageTubeType();
+        this.drainageTubeParamPrefix = "tube_" + StrUtils.toPinyinInitials(drainageTubeType) + "_";
     }
 
     public Map<Integer, String> getGroupTypeNames() {
@@ -46,6 +49,10 @@ public final class MonEnums {
 
     public Map<Integer, String> getParamCategoryNames() {
         return paramCategoryNames;
+    }
+
+    public boolean isDrainageTubeParam(String paramCode) {
+        return paramCode.startsWith(drainageTubeParamPrefix);
     }
 
     public MonitoringEnumsPB toMonitoringEnumsPB() {
@@ -110,4 +117,5 @@ public final class MonEnums {
     private final Map<Integer, String> groupTypeNames;
     private final Map<Integer, String> balanceRoleNames;
     private final Map<Integer, String> paramCategoryNames;
+    private final String drainageTubeParamPrefix;
 }

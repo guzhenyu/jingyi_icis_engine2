@@ -87,7 +87,6 @@ public class AnhuiSecondHospitalAh2ReportData implements Ah2ReportDataProvider {
     ) {
         this.ZONE_ID = protoService.getConfig().getZoneId();
         this.statusCodeMsgs = protoService.getConfig().getText().getStatusCodeMsgList();
-        this.BALANCE_GROUP_TYPE_ID = monitoringConfig.getBalanceGroupTypeId();
         this.DOSAGE_DECIMAL_PLACES = protoService.getConfig().getMedication().getDosageDecimalPlaces();
         this.medExeAdminCodes = new HashSet<>(protoService.getConfig().getMedication().getMedExeAdminCodeList());
         this.dietAdminCodes = new HashSet<>(protoService.getConfig().getMedication().getDietAdminCodeList());
@@ -685,17 +684,17 @@ public class AnhuiSecondHospitalAh2ReportData implements Ah2ReportDataProvider {
     ) {
         // 获取出入量记录
         Pair<LocalDateTime, LocalDateTime> queryUtcTimeRange = monitoringConfig.normalizePmrQueryTimeRange(
-            BALANCE_GROUP_TYPE_ID, deptId, shiftStartUtc, shiftEndUtc
+            MonEnums.GROUP_TYPE_BALANCE, deptId, shiftStartUtc, shiftEndUtc
         );
         List<String> tubeParamCodes = patientTubeImpl.getMonitoringParamCodes(
             pid, queryUtcTimeRange.getFirst(), queryUtcTimeRange.getSecond()
         );
         List<MonitoringGroupBetaPB> groupBetaList = monitoringConfig.getMonitoringGroups(
-            pid, deptId, BALANCE_GROUP_TYPE_ID, tubeParamCodes, accountId
+            pid, deptId, MonEnums.GROUP_TYPE_BALANCE, tubeParamCodes, accountId
         );
         PatientMonitoringService.GetMonitoringRecordsResult recordsResult = patientMonitoringService
             .getMonitoringRecords(
-                pid, deptId, BALANCE_GROUP_TYPE_ID,
+                pid, deptId, MonEnums.GROUP_TYPE_BALANCE,
                 shiftStartUtc, shiftEndUtc, false/*syncDeviceData*/,
                 groupBetaList, accountId
             );
@@ -2110,7 +2109,6 @@ public class AnhuiSecondHospitalAh2ReportData implements Ah2ReportDataProvider {
     // 系统配置
     private final String ZONE_ID;
     private final List<String> statusCodeMsgs;
-    private final Integer BALANCE_GROUP_TYPE_ID;
     private final Integer DOSAGE_DECIMAL_PLACES;
     private final ValueMetaPB DRAINAGE_TUBE_COLOR_META;
     private final Set<String> medExeAdminCodes;

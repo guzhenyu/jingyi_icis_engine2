@@ -97,7 +97,7 @@ class MonitoringConfigTests extends TestsBase {
 
     @Test
     void shouldAppendDrainageParamsToOutputGroupWithCustomName() {
-        int balanceGroupType = monitoringConfig.getBalanceGroupTypeId();
+        int balanceGroupType = MonEnums.GROUP_TYPE_BALANCE;
         groups.save(DeptMonitoringGroup.builder()
             .deptId(OVERRIDE_DEPT).name("排出量").groupType(balanceGroupType)
             .balanceRole(MonEnums.BALANCE_TYPE_OUT).displayOrder(0)

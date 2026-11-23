@@ -297,7 +297,7 @@ public class PatientMonitoringService {
         log.info(">>>>>> patMon.refreshBalanceGroupRecordStats begin pid={} deptId={} range=[{}, {}] groupBetaSize={}",
             pid, deptId, startUtc, endUtc, groupBetaList == null ? -1 : groupBetaList.size());
         GetMonitoringRecordsResult recordsResult = getMonitoringRecords(
-            pid, deptId, monitoringConfig.getBalanceGroupTypeId(),
+            pid, deptId, MonEnums.GROUP_TYPE_BALANCE,
             startUtc, endUtc, false/*syncDeviceData*/, groupBetaList, accountId
         );
         if (recordsResult.statusCode != StatusCode.OK) {

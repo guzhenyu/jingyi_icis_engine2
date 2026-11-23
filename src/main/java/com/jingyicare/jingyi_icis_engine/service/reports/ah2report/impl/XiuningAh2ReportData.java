@@ -85,7 +85,6 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
     ) {
         this.ZONE_ID = protoService.getConfig().getZoneId();
         this.statusCodeMsgs = protoService.getConfig().getText().getStatusCodeMsgList();
-        this.BALANCE_GROUP_TYPE_ID = monitoringConfig.getBalanceGroupTypeId();
         this.medOrderGroupSettingsPb = protoService.getConfig().getMedication().getOrderGroupSettings();
         this.configShiftUtils = configShiftUtils;
         this.patientReader = patientReader;
@@ -632,16 +631,16 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         if (shiftStartUtc == null || dataEndUtc == null || !dataEndUtc.isAfter(shiftStartUtc)) return;
 
         Pair<LocalDateTime, LocalDateTime> queryUtcTimeRange = monitoringConfig.normalizePmrQueryTimeRange(
-            BALANCE_GROUP_TYPE_ID, deptId, shiftStartUtc, dataEndUtc
+            MonEnums.GROUP_TYPE_BALANCE, deptId, shiftStartUtc, dataEndUtc
         );
         List<String> tubeParamCodes = patientTubeImpl.getMonitoringParamCodes(
             pid, queryUtcTimeRange.getFirst(), queryUtcTimeRange.getSecond()
         );
         List<MonitoringGroupBetaPB> groupBetaList = monitoringConfig.getMonitoringGroups(
-            pid, deptId, BALANCE_GROUP_TYPE_ID, tubeParamCodes, accountId
+            pid, deptId, MonEnums.GROUP_TYPE_BALANCE, tubeParamCodes, accountId
         );
         PatientMonitoringService.GetMonitoringRecordsResult recordsResult = patientMonitoringService.getMonitoringRecords(
-            pid, deptId, BALANCE_GROUP_TYPE_ID, shiftStartUtc, dataEndUtc,
+            pid, deptId, MonEnums.GROUP_TYPE_BALANCE, shiftStartUtc, dataEndUtc,
             false, groupBetaList, accountId
         );
         if (recordsResult.statusCode != StatusCode.OK) {
@@ -1671,7 +1670,6 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
 
     private final String ZONE_ID;
     private final List<String> statusCodeMsgs;
-    private final Integer BALANCE_GROUP_TYPE_ID;
     private final ConfigShiftUtils configShiftUtils;
     private final PatientReader patientReader;
     private final MonitoringConfig monitoringConfig;

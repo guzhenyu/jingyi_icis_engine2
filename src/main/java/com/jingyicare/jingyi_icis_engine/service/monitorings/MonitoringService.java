@@ -47,6 +47,7 @@ public class MonitoringService {
         @Autowired PatientReader patientReader,
         @Autowired PatientTubeImpl patientTubeImpl,
         @Autowired MonitoringConfig monitoringConfig,
+        @Autowired MonEnums monEnums,
         @Autowired PatientMonitoringMetaService patientMonitoringMetaService,
         @Autowired LockExecutor lockExecutor,
         @Autowired DeptMonMetaReader deptMonMetaReader,
@@ -59,6 +60,7 @@ public class MonitoringService {
         this.patientReader = patientReader;
         this.patientTubeImpl = patientTubeImpl;
         this.monitoringConfig = monitoringConfig;
+        this.monEnums = monEnums;
         this.patientMonitoringMetaService = patientMonitoringMetaService;
         this.lockExecutor = lockExecutor;
         this.deptMonMetaReader = deptMonMetaReader;
@@ -239,7 +241,7 @@ public class MonitoringService {
         // 比较新老参数，增/改/删
         List<PatientMonitoringGroupParam> paramsToUpdate = new ArrayList<>();
         for (MonitoringGroupParamPB reqParam : newParamList) {
-            if (reqParam.getCode().startsWith(monitoringConfig.getDrainageTubeParamPrefix())) {
+            if (monEnums.isDrainageTubeParam(reqParam.getCode())) {
                 log.info("Skipping drainage tube parameter: {}", reqParam.getCode());
                 continue;
             }
@@ -330,6 +332,7 @@ public class MonitoringService {
     private final PatientTubeImpl patientTubeImpl;
 
     private final MonitoringConfig monitoringConfig;
+    private final MonEnums monEnums;
     private final PatientMonitoringMetaService patientMonitoringMetaService;
     private final LockExecutor lockExecutor;
     private final DeptMonMetaReader deptMonMetaReader;

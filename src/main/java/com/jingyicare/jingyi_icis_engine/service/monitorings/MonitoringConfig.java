@@ -35,6 +35,7 @@ public class MonitoringConfig {
     public MonitoringConfig(
         @Autowired ConfigurableApplicationContext context,
         @Autowired ConfigProtoService protoService,
+        @Autowired MonEnums monEnums,
         @Autowired ConfigShiftUtils configShiftUtils,
         @Autowired MonMetaReader monMetaReader,
         @Autowired DeptMonMetaReader deptMonMetaReader,
@@ -47,10 +48,10 @@ public class MonitoringConfig {
     ) {
         this.context = context;
         this.protoService = protoService;
+        this.monEnums = monEnums;
         this.configShiftUtils = configShiftUtils;
 
         this.monitoringPb = protoService.getConfig().getMonitoring();
-        this.DRAINAGE_TUBE_PREFIX = "tube_" + StrUtils.toPinyinInitials(protoService.getConfig().getTube().getDrainageTubeType()) + "_";
         this.tubeParamList = protoService.getConfig().getTube().getTubeSetting().getParamList();
         this.monMetaReader = monMetaReader;
         this.deptMonMetaReader = deptMonMetaReader;
@@ -63,9 +64,6 @@ public class MonitoringConfig {
         this.enableDrainage = enableDrainage;
         this.enableDrainageParams = enableDrainageParams;
     }
-
-    public Integer getBalanceGroupTypeId() { return MonEnums.GROUP_TYPE_BALANCE; }
-    public String getDrainageTubeParamPrefix() { return DRAINAGE_TUBE_PREFIX; }
 
     private void validateMonitoringConfig() {
         // 观察项参数是否合法
@@ -231,7 +229,7 @@ public class MonitoringConfig {
             MonitoringParamPB paramPb = MonMapper.toMonitoringParamPB(param, valueMeta);
             monitoringParamMap.put(code, paramPb);
 
-            if (code.startsWith(DRAINAGE_TUBE_PREFIX)) {
+            if (monEnums.isDrainageTubeParam(code)) {
                 drainageTubeCodes.add(code);
             }
         }
@@ -550,13 +548,13 @@ public class MonitoringConfig {
         deptSettingRepository.save(entity);
     }
 
-    private final String DRAINAGE_TUBE_PREFIX;
     private final List<MonitoringParamPB> tubeParamList;
     private final boolean enableDrainage;
     private final boolean enableDrainageParams;
 
     private final ConfigurableApplicationContext context;
     private final ConfigProtoService protoService;
+    private final MonEnums monEnums;
     private final ConfigShiftUtils configShiftUtils;
     private final MonitoringPB monitoringPb;
     private final MonMetaReader monMetaReader;
