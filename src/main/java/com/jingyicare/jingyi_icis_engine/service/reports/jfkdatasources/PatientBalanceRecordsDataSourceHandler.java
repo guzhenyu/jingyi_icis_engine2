@@ -21,6 +21,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkFieldDataPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringCodeRecordsPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringGroupBetaPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringGroupRecordsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringParamPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringRecordValPB;
@@ -28,8 +29,9 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.ValueMetaPB;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.BalanceCalculator;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonEnums;
-import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.PatientMonitoringService;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.PatientMonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
@@ -47,7 +49,8 @@ import com.jingyicare.jingyi_icis_engine.utils.ValueMetaUtils;
 public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourceHandler {
     public PatientBalanceRecordsDataSourceHandler(
         JfkDataSourceSupport support,
-        MonitoringConfig monitoringConfig,
+        PatientMonMetaService patientMonMetaService,
+        DeptMonMetaReader deptMonMetaReader,
         PatientMonitoringService patientMonitoringService,
         BalanceCalculator balanceCalculator,
         PatientTubeImpl patientTubeImpl,
@@ -56,7 +59,8 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
         ResourceLoader resourceLoader
     ) {
         super(support);
-        this.monitoringConfig = monitoringConfig;
+        this.patientMonMetaService = patientMonMetaService;
+        this.deptMonMetaReader = deptMonMetaReader;
         this.patientMonitoringService = patientMonitoringService;
         this.balanceCalculator = balanceCalculator;
         this.patientTubeImpl = patientTubeImpl;
@@ -110,14 +114,14 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
             return error(StatusCode.ACCOUNT_NOT_FOUND, "pid: " + pid);
         }
 
-        Map<String, MonitoringParamPB> paramMap = monitoringConfig.getMonitoringParams(deptId);
+        Map<String, MonitoringParamPB> paramMap = deptMonMetaReader.getMonitoringParams(deptId);
         List<String> tubeParamCodes = patientTubeImpl.getMonitoringParamCodes(
             pid, window.balanceStartUtc(), window.balanceEndUtc());
         List<String> expandedParamCodes = expandDrainageTubeParamCodes(paramCodes, tubeParamCodes);
         List<String> validParamCodes = validParamCodes(tableId, deptId, expandedParamCodes, paramMap);
-        var groupBetaList = monitoringConfig.getMonitoringGroups(
-            pid, deptId, MonEnums.GROUP_TYPE_BALANCE, tubeParamCodes,
-            account.autoAcctId());
+        List<MonitoringGroupBetaPB> groupBetaList = patientMonMetaService
+            .listPatientMonitoringGroups(
+                pid, deptId, MonEnums.GROUP_TYPE_BALANCE, tubeParamCodes, account.autoAcctId());
 
         PatientMonitoringService.GetMonitoringRecordsResult recordsResult =
             patientMonitoringService.getMonitoringRecords(
@@ -429,7 +433,8 @@ public class PatientBalanceRecordsDataSourceHandler extends AbstractJfkDataSourc
     private static final String FIELD_ACC_ML = "acc_ml";
     private static final double DEFAULT_FONT_SIZE = 8d;
 
-    private final MonitoringConfig monitoringConfig;
+    private final PatientMonMetaService patientMonMetaService;
+    private final DeptMonMetaReader deptMonMetaReader;
     private final PatientMonitoringService patientMonitoringService;
     private final BalanceCalculator balanceCalculator;
     private final PatientTubeImpl patientTubeImpl;

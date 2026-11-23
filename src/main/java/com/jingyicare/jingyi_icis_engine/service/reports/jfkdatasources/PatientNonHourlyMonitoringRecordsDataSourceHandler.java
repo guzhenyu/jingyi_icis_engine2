@@ -30,7 +30,8 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringV
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientMonitoringRecordRepository;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonEnums;
-import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.PatientMonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
@@ -50,7 +51,8 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandler
     public PatientNonHourlyMonitoringRecordsDataSourceHandler(
         JfkDataSourceSupport support,
         PatientMonitoringRecordRepository monitoringRecordRepo,
-        MonitoringConfig monitoringConfig,
+        PatientMonMetaService patientMonMetaService,
+        DeptMonMetaReader deptMonMetaReader,
         UserQuery userQuery,
         JfkSignatureValueResolver signatureResolver,
         ReportProperties reportProperties,
@@ -58,7 +60,8 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandler
     ) {
         super(support);
         this.monitoringRecordRepo = monitoringRecordRepo;
-        this.monitoringConfig = monitoringConfig;
+        this.patientMonMetaService = patientMonMetaService;
+        this.deptMonMetaReader = deptMonMetaReader;
         this.userQuery = userQuery;
         this.signatureResolver = signatureResolver;
         this.reportProperties = reportProperties;
@@ -123,7 +126,7 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandler
             return error(StatusCode.ACCOUNT_NOT_FOUND, "pid: " + pid);
         }
 
-        Map<String, MonitoringParamPB> paramMap = monitoringConfig.getMonitoringParams(deptId);
+        Map<String, MonitoringParamPB> paramMap = deptMonMetaReader.getMonitoringParams(deptId);
         Map<String, Integer> paramOrder = monitoringParamOrder(pid, deptId, account.autoAcctId());
         Map<Long, Account> accounts = signatureResolver.loadAccounts(
             nonHourlyRecords.stream()
@@ -234,7 +237,7 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandler
     }
 
     private Map<String, Integer> monitoringParamOrder(Long pid, String deptId, String accountId) {
-        List<MonitoringGroupBetaPB> groups = monitoringConfig.getMonitoringGroups(
+        List<MonitoringGroupBetaPB> groups = patientMonMetaService.listPatientMonitoringGroups(
             pid, deptId, MonEnums.GROUP_TYPE_MONITORING, List.of(), accountId);
         Map<String, Integer> orderByCode = new LinkedHashMap<>();
         int order = 0;
@@ -407,7 +410,8 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandler
     private static final DateTimeFormatter DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     private final PatientMonitoringRecordRepository monitoringRecordRepo;
-    private final MonitoringConfig monitoringConfig;
+    private final PatientMonMetaService patientMonMetaService;
+    private final DeptMonMetaReader deptMonMetaReader;
     private final UserQuery userQuery;
     private final JfkSignatureValueResolver signatureResolver;
     private final ReportProperties reportProperties;

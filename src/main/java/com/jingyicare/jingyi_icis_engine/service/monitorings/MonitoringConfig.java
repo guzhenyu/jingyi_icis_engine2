@@ -5,21 +5,15 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import lombok.extern.slf4j.Slf4j;
 
-import com.jingyicare.jingyi_icis_engine.entity.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisTube.*;
-import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
-import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
-import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.settings.SettingService;
@@ -33,34 +27,21 @@ public class MonitoringConfig {
     public MonitoringConfig(
         @Autowired ConfigurableApplicationContext context,
         @Autowired ConfigProtoService protoService,
-        @Autowired MonEnums monEnums,
         @Autowired ConfigShiftUtils configShiftUtils,
         @Autowired MonMetaReader monMetaReader,
-        @Autowired DeptMonMetaReader deptMonMetaReader,
         @Autowired MonMetaService monMetaService,
-        @Autowired PatientMonitoringMetaService patientMonitoringMetaService,
-        @Autowired PatientMonitoringGroupParamRepository patientMonitoringGroupParamRepository,
-        @Autowired SettingService settingService,
-        @Value("${monitoring.enable_drainage:true}") boolean enableDrainage,
-        @Value("${monitoring.enable_drainage_params:true}") boolean enableDrainageParams
+        @Autowired SettingService settingService
     ) {
         this.context = context;
         this.protoService = protoService;
-        this.monEnums = monEnums;
         this.configShiftUtils = configShiftUtils;
 
         this.monitoringPb = protoService.getConfig().getMonitoring();
-        this.tubeParamList = protoService.getConfig().getTube().getTubeSetting().getParamList();
         this.monMetaReader = monMetaReader;
-        this.deptMonMetaReader = deptMonMetaReader;
         this.monMetaService = monMetaService;
         validateMonitoringConfig();
 
-        this.patientMonitoringMetaService = patientMonitoringMetaService;
-        this.patientMonitoringGroupParamRepository = patientMonitoringGroupParamRepository;
         this.settingService = settingService;
-        this.enableDrainage = enableDrainage;
-        this.enableDrainageParams = enableDrainageParams;
     }
 
     private void validateMonitoringConfig() {
@@ -148,132 +129,6 @@ public class MonitoringConfig {
     public void refresh() {
     }
 
-    ////// 外部工具函数
-    public Map<String, ValueMetaPB> getMonitoringParamMetas(String deptId, Set<String> codes) {
-        // 获取系统参数，以及部门定制化参数
-        Collection<MonitoringParam> monitoringParams =
-            monMetaReader.findGlobalParams(codes).values();
-        Map<String, DeptMonitoringParam> deptParamMap =
-            deptMonMetaReader.findParamOverrides(deptId, codes);
-
-        // 获取参数元数据
-        Map<String, ValueMetaPB> paramMetaMap = new HashMap<>();
-        for (MonitoringParam param : monitoringParams) {
-            String code = param.getCode();
-            ValueMetaPB valueMeta = null;
-
-            DeptMonitoringParam deptParam = deptParamMap.get(code);
-            if (deptParam == null) {
-                // 如果部门没有定制化参数，则使用系统参数
-                valueMeta = ProtoUtils.decodeValueMeta(param.getTypePb());
-            } else {
-                // 如果部门有定制化参数，则使用部门参数
-                valueMeta = ProtoUtils.decodeValueMeta(deptParam.getTypePb());
-            }
-            if (valueMeta == null) {
-                log.error("ValueMetaPB not found for code: {}, deptId {}", code, deptId);
-                continue;
-            }
-            paramMetaMap.put(code, valueMeta);
-        }
-
-        return paramMetaMap;
-    }
-
-    public ValueMetaPB getMonitoringParamMeta(String deptId, String code) {
-        DeptMonitoringParam deptParam =
-            deptMonMetaReader.findParamOverride(deptId, code).orElse(null);
-        if (deptParam != null) {
-            return ProtoUtils.decodeValueMeta(deptParam.getTypePb());
-        }
-
-        MonitoringParam monitoringParam = monMetaReader.findGlobalParam(code).orElse(null);
-        if (monitoringParam != null) {
-            return ProtoUtils.decodeValueMeta(monitoringParam.getTypePb());
-        }
-
-        return null;
-    }
-
-    public Map<String, MonitoringParamPB> getMonitoringParams(String deptId) {
-        // 获取系统参数，以及部门定制化参数
-        List<MonitoringParam> monitoringParams = monMetaReader.listGlobalParams();
-        Map<String, DeptMonitoringParam> deptParamMap = deptMonMetaReader
-            .listParamOverridesByDept(deptId).stream().collect(Collectors.toMap(
-                param -> param.getId().getCode(),
-                param -> param
-            ));
-
-        // 获取部门参数PB
-        Map<String, MonitoringParamPB> monitoringParamMap = new HashMap<>();
-        Set<String> drainageTubeCodes = new HashSet<>();
-        for (MonitoringParam param : monitoringParams) {
-            String code = param.getCode();
-
-            ValueMetaPB valueMeta = null;
-            DeptMonitoringParam deptParam = deptParamMap.get(code);
-            if (deptParam != null) {
-                // 如果部门有定制化参数，则使用部门参数
-                valueMeta = ProtoUtils.decodeValueMeta(deptParam.getTypePb());
-            } else {
-                // 如果部门没有定制化参数，则使用系统参数
-                valueMeta = ProtoUtils.decodeValueMeta(param.getTypePb());
-            }
-            if (valueMeta == null) {
-                log.error("ValueMetaPB not found for code: {}, deptId {}", code, deptId);
-                continue;
-            }
-
-            MonitoringParamPB paramPb = MonMapper.toMonitoringParamPB(param, valueMeta);
-            monitoringParamMap.put(code, paramPb);
-
-            if (monEnums.isDrainageTubeParam(code)) {
-                drainageTubeCodes.add(code);
-            }
-        }
-
-        // 装配引流管参数
-        if (!drainageTubeCodes.isEmpty()) {
-            for (String code : drainageTubeCodes) {
-                for (MonitoringParamPB tubeParam : tubeParamList) {
-                    MonitoringParamPB newTubeParam = tubeParam.toBuilder()
-                        .setCode(code + "_" + tubeParam.getCode())
-                        .build();
-                    monitoringParamMap.put(newTubeParam.getCode(), newTubeParam);
-                }
-            }
-        }
-
-        return monitoringParamMap;
-    }
-
-    public MonitoringParamPB getMonitoringParam(String deptId, String code) {
-        // 获取系统参数
-        MonitoringParam monitoringParam = monMetaReader.findGlobalParam(code).orElse(null);
-        if (monitoringParam == null) {
-            log.error("MonitoringParam not found for code: {}", code);
-            return null;
-        }
-
-        // 获取参数元数据
-        ValueMetaPB valueMeta = null;
-        DeptMonitoringParam deptParam =
-            deptMonMetaReader.findParamOverride(deptId, code).orElse(null);
-        if (deptParam != null) {
-            // 如果部门有定制化参数，则使用部门参数
-            valueMeta = ProtoUtils.decodeValueMeta(deptParam.getTypePb());
-        } else {
-            // 如果部门没有定制化参数，则使用系统参数
-            valueMeta = ProtoUtils.decodeValueMeta(monitoringParam.getTypePb());
-        }
-        if (valueMeta == null) {
-            log.error("ValueMetaPB not found for code: {}, deptId {}", code, deptId);
-            return null;
-        }
-
-        return MonMapper.toMonitoringParamPB(monitoringParam, valueMeta);
-    }
-
     // pmr = patient monitoring record
     public Pair<LocalDateTime, LocalDateTime> normalizePmrQueryTimeRange(
         int groupType, String deptId, LocalDateTime startTime, LocalDateTime endTime
@@ -297,238 +152,11 @@ public class MonitoringConfig {
         return new Pair<>(pmrQueryStartUtc, pmrQueryEndUtc);
     }
 
-    // 获取观察项分组
-    // 关键子目标：
-    //  - Map<String/*code*/, MonitoringParam> deptParamMap
-    //    如果部门有定制化参数，则使用部门参数，否则使用系统参数
-    //  - List<DeptMonitoringGroup> deptGroups + Map<deptGroupId, List<Pair<Code, DisplayOrder>>> deptGroupParams
-    //    如果pid为空，则使用部门分组及其参数
-    //    如果pid不为空：
-    //        如果患者分组为空，则用部门分组初始化患者分组；使用部门分组及其参数
-    //        如果患者分组不为空，则根据患者分组和部门分组的映射，获取对应的部门分组
-    //              如果部门分组对应的患者分组参数存在，用患者参数
-    //              如果部门分组对应的患者分组参数不存在，则用部门分组参数
-    // 用子目标装配List<MonitoringGroupBetaPB>
-    public List<MonitoringGroupBetaPB> getMonitoringGroups(
-        Long pid, String deptId, int groupType, List<String> balanceOutTubeParamCodes, String accountId
-    ) {
-        Map<String, MonitoringParam> paramMap = buildMonitoringParamMap(deptId);
-
-        // 患者绑定和组内参数在同一把业务锁下读取。
-        Pair<List<DeptMonitoringGroup>, Map<Integer, List<MonitoringGroupParamPB>>> pair =
-            pid == null || pid <= 0 ? getGroupsAndParams(pid, deptId, groupType, accountId)
-                : patientMonitoringMetaService.readUnderLock(pid,
-                    () -> getGroupsAndParams(pid, deptId, groupType, accountId));
-        List<DeptMonitoringGroup> deptGroups = pair.getFirst();
-        Map<Integer, List<MonitoringGroupParamPB>> deptGroupParams = pair.getSecond();
-
-        return assembleMonitoringGroupBetaPbs(
-            paramMap, deptGroups, deptGroupParams, balanceOutTubeParamCodes, deptId
-        );
-    }
-
-    private Map<String, MonitoringParam> buildMonitoringParamMap(String deptId) {
-        Map<String, MonitoringParam> paramMap = monMetaReader.listGlobalParams().stream()
-            .collect(Collectors.toMap(MonitoringParam::getCode, param -> param));
-        for (DeptMonitoringParam deptParam : deptMonMetaReader.listParamOverridesByDept(deptId)) {
-            String code = deptParam.getId().getCode();
-            MonitoringParam param = paramMap.get(code);
-            if (param == null) {
-                log.error("MonitoringParam not found for code {}, deptId {}", code, deptId);
-                continue;
-            }
-            // 全局查询已返回副本，按科室覆盖类型配置。
-            param.setTypePb(deptParam.getTypePb());
-        }
-        return paramMap;
-    }
-
-    private Map<Integer, List<MonitoringGroupParamPB>> getDeptGroupParams(
-        List<Integer> deptGroupIds
-    ) {
-        Map<Integer, List<MonitoringGroupParamPB>> paramsByGroup = new HashMap<>();
-        deptMonMetaReader.listActiveGroupParamsByGroupIds(deptGroupIds).forEach(
-            (groupId, groupParams) -> paramsByGroup.put(groupId,
-                groupParams.stream().map(MonMapper::toMonitoringGroupParamPB).toList()));
-        return paramsByGroup;
-    }
-
-    private Pair<List<DeptMonitoringGroup>, Map<Integer, List<MonitoringGroupParamPB>>> getGroupsAndParams(
-        Long pid, String deptId, int groupType, String accountId
-    ) {
-        List<DeptMonitoringGroup> deptGroups = new ArrayList<>();
-        Map<Integer, List<MonitoringGroupParamPB>> origDeptGroupParams = new HashMap<>();
-
-        // 返回部门分组及参数
-        if (pid == null || pid <= 0) {
-            // 如果pid为空，则使用部门分组及其参数
-            deptGroups = deptMonMetaReader.listActiveGroups(deptId, groupType);
-            List<Integer> deptGroupIds = deptGroups.stream()
-                .map(DeptMonitoringGroup::getId)
-                .toList();
-
-            // 获取部门分组参数
-            origDeptGroupParams = getDeptGroupParams(deptGroupIds);
-            return new Pair<>(deptGroups, origDeptGroupParams);
-        }
-
-        // 计算病人分组及参数
-        List<PatientMonitoringGroup> patientGroups = patientMonitoringMetaService
-            .findOrInitGroups(pid, deptId, accountId);
-        if (patientGroups.isEmpty()) return new Pair<>(deptGroups, origDeptGroupParams);
-
-        // 如果病人已有分组，则获得对应的部门分组；找到病人参数
-        List<Integer> allDeptGroupIds = new ArrayList<>();
-        for (PatientMonitoringGroup patientGroup : patientGroups) {
-            allDeptGroupIds.add(patientGroup.getDeptMonitoringGroupId());
-        }
-        deptGroups = deptMonMetaReader
-            .listGroupsByIdsAndTypeIncludingDeleted(allDeptGroupIds, groupType);
-        List<Integer> deptGroupIds = new ArrayList<>();
-        Set<Integer> deptGroupIdsSet = new HashSet<>();
-        for (DeptMonitoringGroup deptGroup : deptGroups) {
-            deptGroupIds.add(deptGroup.getId());
-            deptGroupIdsSet.add(deptGroup.getId());
-        }
-        origDeptGroupParams = getDeptGroupParams(deptGroupIds);  // **
-
-        // 过滤病人分组
-        List<Integer> qualifiedPatientGroupIds = new ArrayList<>();
-        Map<Integer/*patientGroupId*/, Integer/*deptGroupId*/> groupIdMap = new HashMap<>();
-        for (PatientMonitoringGroup patientGroup : patientGroups) {
-            Integer deptGroupId = patientGroup.getDeptMonitoringGroupId();
-            if (deptGroupIdsSet.contains(deptGroupId)) {
-                qualifiedPatientGroupIds.add(patientGroup.getId());
-                groupIdMap.put(patientGroup.getId(), deptGroupId);
-            }
-        }
-        Map<Integer, List<MonitoringGroupParamPB>> deptGroupParams = patientMonitoringGroupParamRepository
-            .findByPatientMonitoringGroupIdInAndIsDeletedFalse(qualifiedPatientGroupIds)
-            .stream()
-            .collect(Collectors.groupingBy(patientParam -> {
-                Integer patientGroupId = patientParam.getPatientMonitoringGroupId();
-                Integer deptGroupId = groupIdMap.get(patientGroupId);
-                if (deptGroupId == null) {
-                    log.error("Dept group not found for patient group id: {}", patientGroupId);
-                    return null;
-                }
-                return deptGroupId;
-            }, Collectors.mapping(
-                param -> MonitoringGroupParamPB.newBuilder()
-                    .setId(param.getId())
-                    .setCode(param.getMonitoringParamCode())
-                    .setDisplayOrder(param.getDisplayOrder())
-                    .build(),
-                Collectors.toList()
-            )));  // **
-        for (Map.Entry<Integer, List<MonitoringGroupParamPB>> entry : origDeptGroupParams.entrySet()) {
-            Integer deptGroupId = entry.getKey();
-            if (!deptGroupParams.containsKey(deptGroupId)) {
-                deptGroupParams.put(deptGroupId, new ArrayList<>(entry.getValue()));
-            }
-        }  // **
-        return new Pair<>(deptGroups, deptGroupParams);
-    }
-
-    private List<MonitoringGroupBetaPB> assembleMonitoringGroupBetaPbs(
-        Map<String, MonitoringParam> paramMap,
-        List<DeptMonitoringGroup> deptGroups,
-        Map<Integer, List<MonitoringGroupParamPB>> deptGroupParams,
-        List<String> balanceOutTubeParamCodes,
-        String deptId
-    ) {
-        List<MonitoringGroupBetaPB> monitoringGroups = new ArrayList<>();
-        List<DeptMonitoringGroup> orderedGroups = deptGroups.stream()
-            .sorted(Comparator.comparingInt(DeptMonitoringGroup::getDisplayOrder)
-                .thenComparingInt(DeptMonitoringGroup::getId))
-            .toList();
-        for (DeptMonitoringGroup deptGroup : orderedGroups) {
-            Integer groupId = deptGroup.getId();
-            boolean isBalanceGroup = Objects.equals(deptGroup.getGroupType(),
-                MonEnums.GROUP_TYPE_BALANCE);
-            Integer balanceRole = isBalanceGroup ? deptGroup.getBalanceRole() : null;
-            boolean isBalanceOutGroup = Objects.equals(balanceRole, MonEnums.BALANCE_TYPE_OUT);
-
-            // 组装观察项参数
-            List<MonitoringParamPB> paramPbList = new ArrayList<>();
-            List<MonitoringGroupParamPB> groupParams = deptGroupParams
-                .getOrDefault(groupId, new ArrayList<>()).stream()
-                .sorted(Comparator
-                    .comparingInt(MonitoringGroupParamPB::getDisplayOrder)
-                    .thenComparingInt(MonitoringGroupParamPB::getId))
-                .toList();
-            Integer nextDisplayOrder = 1;
-            for (MonitoringGroupParamPB groupParam : groupParams) {
-                Integer groupParamId = groupParam.getId();
-                String code = groupParam.getCode();
-                Integer displayOrder = groupParam.getDisplayOrder();
-                MonitoringParam param = paramMap.get(code);
-                if (param == null) {
-                    log.error("MonitoringParam not found for code: {}, deptId {}", code, deptId);
-                    continue;
-                }
-
-                ValueMetaPB valueMeta = ProtoUtils.decodeValueMeta(param.getTypePb());
-                if (valueMeta == null) {
-                    log.error("ValueMetaPB not found for code: {}, deptId {}", code, deptId);
-                    continue;
-                }
-
-                MonitoringParamPB paramPb = MonMapper.toMonitoringParamPB(param, valueMeta)
-                    .toBuilder().setId(groupParamId).setDisplayOrder(displayOrder).build();
-                paramPbList.add(paramPb);
-
-                if (displayOrder >= nextDisplayOrder) {
-                    nextDisplayOrder = displayOrder + 1;
-                }
-            }
-
-            if (isBalanceOutGroup && enableDrainage && balanceOutTubeParamCodes != null) {
-                // 如果是平衡量出组，则需要添加引流管道参数
-                for (String code : balanceOutTubeParamCodes) {
-                    MonitoringParam param = paramMap.get(code);
-                    if (param == null) {
-                        log.error("MonitoringParam not found for balance out tube code: {}, deptId {}", code, deptId);
-                        continue;
-                    }
-                    ValueMetaPB valueMeta = ProtoUtils.decodeValueMeta(param.getTypePb());
-                    if (valueMeta == null) {
-                        log.error("ValueMetaPB not found for balance out tube code: {}, deptId {}", code, deptId);
-                        continue;
-                    }
-                    MonitoringParamPB paramPb = MonMapper.toMonitoringParamPB(param, valueMeta)
-                        .toBuilder().setDisplayOrder(nextDisplayOrder++).build();
-                    paramPbList.add(paramPb);
-                    if (enableDrainageParams) {
-                        for (MonitoringParamPB tubeParam : tubeParamList) {
-                            MonitoringParamPB newTubeParam = tubeParam.toBuilder()
-                                .setCode(code + "_" + tubeParam.getCode())
-                                .build();
-                            paramPbList.add(newTubeParam);
-                        }
-                    }
-                }
-            }
-
-            monitoringGroups.add(MonMapper.toMonitoringGroupBetaPB(deptGroup, paramPbList));
-        }
-
-        return monitoringGroups;
-    }
-
-    private final List<MonitoringParamPB> tubeParamList;
-    private final boolean enableDrainage;
-    private final boolean enableDrainageParams;
-
     private final ConfigurableApplicationContext context;
     private final ConfigProtoService protoService;
-    private final MonEnums monEnums;
     private final ConfigShiftUtils configShiftUtils;
     private final MonitoringPB monitoringPb;
     private final MonMetaReader monMetaReader;
-    private final DeptMonMetaReader deptMonMetaReader;
     private final MonMetaService monMetaService;
-    private final PatientMonitoringMetaService patientMonitoringMetaService;
-    private final PatientMonitoringGroupParamRepository patientMonitoringGroupParamRepository;
     private final SettingService settingService;
 }

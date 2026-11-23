@@ -35,7 +35,7 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.TypeEnumPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.ValueMetaPB;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientMonitoringRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
-import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
@@ -52,11 +52,11 @@ public class PatientMonitoringRecordsDataSourceHandlerTests {
         BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
             new StatisticsDayWindowResolver(balanceStatsShiftRepo));
-        MonitoringConfig monitoringConfig = mock(MonitoringConfig.class);
+        DeptMonMetaReader deptMonMetaReader = mock(DeptMonMetaReader.class);
         PatientMonitoringRecordsDataSourceHandler handler = new PatientMonitoringRecordsDataSourceHandler(
             support,
             recordRepo,
-            monitoringConfig,
+            deptMonMetaReader,
             new ReportProperties(),
             new DefaultResourceLoader()
         );
@@ -76,7 +76,7 @@ public class PatientMonitoringRecordsDataSourceHandlerTests {
                     .isDeleted(false)
                     .build()));
 
-        when(monitoringConfig.getMonitoringParams("patient-dept")).thenReturn(Map.of(
+        when(deptMonMetaReader.getMonitoringParams("patient-dept")).thenReturn(Map.of(
             "temperature", param("temperature", "体温", valueMeta(TypeEnumPB.FLOAT, "℃")),
             "pr", param("pr", "脉搏", valueMeta(TypeEnumPB.INT32, "次/分"))
         ));
@@ -138,13 +138,13 @@ public class PatientMonitoringRecordsDataSourceHandlerTests {
         BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
             new StatisticsDayWindowResolver(balanceStatsShiftRepo));
-        MonitoringConfig monitoringConfig = mock(MonitoringConfig.class);
+        DeptMonMetaReader deptMonMetaReader = mock(DeptMonMetaReader.class);
         ReportProperties reportProperties = new ReportProperties();
         reportProperties.getCompact().getPatientMonitoringRecords().setFilterEmptyParams(true);
         PatientMonitoringRecordsDataSourceHandler handler = new PatientMonitoringRecordsDataSourceHandler(
             support,
             recordRepo,
-            monitoringConfig,
+            deptMonMetaReader,
             reportProperties,
             new DefaultResourceLoader()
         );
@@ -160,7 +160,7 @@ public class PatientMonitoringRecordsDataSourceHandlerTests {
                 .isDeleted(false)
                 .build()));
 
-        when(monitoringConfig.getMonitoringParams("patient-dept")).thenReturn(Map.of(
+        when(deptMonMetaReader.getMonitoringParams("patient-dept")).thenReturn(Map.of(
             "temperature", param("temperature", "体温", valueMeta(TypeEnumPB.FLOAT, "℃")),
             "pr", param("pr", "脉搏", valueMeta(TypeEnumPB.INT32, "次/分"))
         ));

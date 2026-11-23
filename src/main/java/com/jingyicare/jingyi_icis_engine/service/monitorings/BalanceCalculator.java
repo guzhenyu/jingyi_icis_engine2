@@ -17,6 +17,7 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.reports.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.PatientNursingReportInvalidationService;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -51,12 +52,12 @@ public class BalanceCalculator {
 
     public BalanceCalculator(
         @Autowired ConfigProtoService protoService,
-        @Autowired MonitoringConfig monitoringConfig,
+        @Autowired DeptMonMetaReader deptMonMetaReader,
         @Autowired MonitoringRecordUtils monitoringRecordUtils,
         @Autowired PatientNursingReportInvalidationService pnrUtils
     ) {
         this.ZONE_ID = protoService.getConfig().getZoneId();
-        this.monitoringConfig = monitoringConfig;
+        this.deptMonMetaReader = deptMonMetaReader;
         this.monitoringRecordUtils = monitoringRecordUtils;
         this.pnrUtils = pnrUtils;
     }
@@ -641,8 +642,10 @@ public class BalanceCalculator {
             default -> null;
         };
         if (dailySumCode == null) return;
-        ValueMetaPB dailySumValueMeta = monitoringConfig.getMonitoringParamMeta(deptId, dailySumCode);
-        if (dailySumValueMeta == null) return;
+        MonitoringParamPB dailySumParam =
+            deptMonMetaReader.getMonitoringParam(deptId, dailySumCode);
+        if (dailySumParam == null) return;
+        ValueMetaPB dailySumValueMeta = dailySumParam.getValueMeta();
 
         // 初始化每日合计Map, 将每小时合计转换为每日合计
         Map<LocalDateTime/*localMidnightUtc*/, Float> dailySumMap = new HashMap<>();
@@ -786,7 +789,7 @@ public class BalanceCalculator {
 
     private final String ZONE_ID;
 
-    private final MonitoringConfig monitoringConfig;
+    private final DeptMonMetaReader deptMonMetaReader;
     private final MonitoringRecordUtils monitoringRecordUtils;
     private final PatientNursingReportInvalidationService pnrUtils;
 }

@@ -29,7 +29,7 @@ import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.medications.*;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
-import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -47,7 +47,7 @@ public class MedMonitoringService {
         @Autowired AdministrationRouteRepository routeRepo,
         @Autowired IntakeTypeRepository intakeTypeRepo,
         @Autowired PatientMonitoringRecordRepository monitoringRecordRepo,
-        @Autowired MonitoringConfig monitoringConfig
+        @Autowired DeptMonMetaReader deptMonMetaReader
     ) {
         this.protoService = protoService;
 
@@ -74,7 +74,7 @@ public class MedMonitoringService {
         this.routeRepo = routeRepo;
         this.intakeTypeRepo = intakeTypeRepo;
         this.monitoringRecordRepo = monitoringRecordRepo;
-        this.monitoringConfig = monitoringConfig;
+        this.deptMonMetaReader = deptMonMetaReader;
     }
 
     /**
@@ -160,10 +160,12 @@ public class MedMonitoringService {
         for (RouteDetails routeDetails : routeRepo.findRouteDetailsByDeptId(deptId)) {
             routeDetailsMap.put(routeDetails.getCode(), routeDetails);
         }
-        Map<String/*paramCode*/, ValueMetaPB> paramCodeMetaMap = monitoringConfig.getMonitoringParamMetas(
-            deptId, routeDetailsMap.values().stream().map(RouteDetails::getMonitoringParamCode)
-            .collect(Collectors.toSet())
-        );
+        Set<String> paramCodes = routeDetailsMap.values().stream()
+            .map(RouteDetails::getMonitoringParamCode)
+            .filter(paramCode -> paramCode != null)
+            .collect(Collectors.toSet());
+        Map<String, MonitoringParamPB> paramsByCode =
+            deptMonMetaReader.getMonitoringParams(deptId, paramCodes);
 
         // 获取Map<ExeRecordId, ParamCode>
         Map<String/*paramCode*/, Map<LocalDateTime, Double>> paramVolMap = new HashMap<>();
@@ -217,9 +219,11 @@ public class MedMonitoringService {
         List<PatientMonitoringRecord> monitoringRecords = new ArrayList<>();
         for (Map.Entry<String, Map<LocalDateTime, Double>> entry : paramVolMap.entrySet()) {
             final String paramCode = entry.getKey();
+            if (paramCode == null) continue;
             final Map<LocalDateTime, Double> timeVolMap = entry.getValue();
-            final ValueMetaPB paramMeta = paramCodeMetaMap.get(paramCode);
-            if (paramMeta == null) continue;
+            MonitoringParamPB param = paramsByCode.get(paramCode);
+            if (param == null) continue;
+            final ValueMetaPB paramMeta = param.getValueMeta();
 
             for (Map.Entry<LocalDateTime, Double> timeVolEntry : timeVolMap.entrySet()) {
                 final LocalDateTime statsTime = timeVolEntry.getKey();
@@ -563,5 +567,5 @@ public class MedMonitoringService {
     private final AdministrationRouteRepository routeRepo;
     private final IntakeTypeRepository intakeTypeRepo;
     private final PatientMonitoringRecordRepository monitoringRecordRepo;
-    private final MonitoringConfig monitoringConfig;
+    private final DeptMonMetaReader deptMonMetaReader;
 }

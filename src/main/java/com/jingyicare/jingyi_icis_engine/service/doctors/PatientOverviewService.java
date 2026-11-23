@@ -33,6 +33,7 @@ import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.tubes.*;
 import com.jingyicare.jingyi_icis_engine.service.medications.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
 import com.jingyicare.jingyi_icis_engine.service.users.*;
@@ -47,7 +48,7 @@ public class PatientOverviewService {
         @Autowired ConfigShiftUtils shiftUtils,
         @Autowired UserQuery userQuery,
         @Autowired PatientReader patientReader,
-        @Autowired MonitoringConfig monConfig,
+        @Autowired DeptMonMetaReader deptMonMetaReader,
         @Autowired PatientMonitoringService patientMonitoringService,
         @Autowired PatientMonitoringTimePointRepository monTimepointRepo,
         @Autowired PatientMonitoringRecordRepository monRecordRepo,
@@ -71,7 +72,7 @@ public class PatientOverviewService {
         this.shiftUtils = shiftUtils;
         this.userQuery = userQuery;
         this.patientReader = patientReader;
-        this.monConfig = monConfig;
+        this.deptMonMetaReader = deptMonMetaReader;
         this.patientMonitoringService = patientMonitoringService;
 
         this.monTimepointRepo = monTimepointRepo;
@@ -165,6 +166,9 @@ public class PatientOverviewService {
                 )
             ));
 
+        Map<String, MonitoringParamPB> paramsByCode =
+            deptMonMetaReader.getMonitoringParams(deptId, Set.copyOf(paramCodes));
+
         // 组装结果
         List<VitalSignDetailsPB> vitalSignDetailsList = new ArrayList<>();
         for (int i = 0; i < req.getVitalSignTypeIdCount(); i++) {
@@ -175,11 +179,12 @@ public class PatientOverviewService {
                 continue;
             }
 
-            ValueMetaPB valueMeta = monConfig.getMonitoringParamMeta(deptId, paramCode);
-            if (valueMeta == null) {
+            MonitoringParamPB param = paramsByCode.get(paramCode);
+            if (param == null) {
                 log.error("Monitoring param code not found: " + paramCode);
                 continue;
             }
+            ValueMetaPB valueMeta = param.getValueMeta();
 
             List<TimedGenericValuePB> values = new ArrayList<>();
             for (PatientMonitoringRecord record : monRecordsMap.getOrDefault(paramCode, new ArrayList<>())) {
@@ -374,14 +379,15 @@ public class PatientOverviewService {
         final String deptId = patientRecord.getDeptId();
 
         // 获取平衡量的元数据
-        ValueMetaPB hourlyNetMeta =
-            monConfig.getMonitoringParamMeta(deptId, MonEnums.NET_HOURLY_NET_CODE);
-        if (hourlyNetMeta == null) {
+        MonitoringParamPB hourlyNetParam =
+            deptMonMetaReader.getMonitoringParam(deptId, MonEnums.NET_HOURLY_NET_CODE);
+        if (hourlyNetParam == null) {
             log.error("Monitoring param code not found: {}", MonEnums.NET_HOURLY_NET_CODE);
             return GetTargetBalancesResp.newBuilder()
                 .setRt(protoService.getReturnCode(StatusCode.MONITORING_PARAM_CODE_NOT_EXIST))
                 .build();
         }
+        ValueMetaPB hourlyNetMeta = hourlyNetParam.getValueMeta();
 
         // 解析输入：时间范围等
         LocalDateTime queryStartUtc = TimeUtils.fromIso8601String(req.getQueryStartIso8601(), "UTC");
@@ -700,7 +706,7 @@ public class PatientOverviewService {
     private final ConfigShiftUtils shiftUtils;
     private final UserQuery userQuery;
     private final PatientReader patientReader;
-    private final MonitoringConfig monConfig;
+    private final DeptMonMetaReader deptMonMetaReader;
     private final PatientMonitoringService patientMonitoringService;
 
     private final PatientMonitoringTimePointRepository monTimepointRepo;

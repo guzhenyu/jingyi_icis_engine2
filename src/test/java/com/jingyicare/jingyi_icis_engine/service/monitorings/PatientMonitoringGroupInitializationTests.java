@@ -42,6 +42,7 @@ import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.PatientRecordRepository;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.PatientMonMetaService;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
@@ -376,7 +377,7 @@ class PatientMonitoringGroupInitializationTests extends TestsBase {
         }
     }
 
-    @Autowired private MonitoringService service;
+    @Autowired private PatientMonMetaService service;
     @Autowired private PatientMonitoringService recordService;
     @Autowired private MonitoringParamRepository params;
     @Autowired private DeptMonitoringGroupRepository groups;

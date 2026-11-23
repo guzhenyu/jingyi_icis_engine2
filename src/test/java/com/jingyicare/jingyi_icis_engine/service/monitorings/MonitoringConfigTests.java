@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import jakarta.persistence.EntityManager;
 
@@ -25,6 +27,7 @@ import com.jingyicare.jingyi_icis_engine.repository.monitorings.DeptMonitoringGr
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.DeptMonitoringGroupRepository;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.DeptMonitoringParamRepository;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.MonitoringParamRepository;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
@@ -59,16 +62,16 @@ class MonitoringConfigTests extends TestsBase {
 
     @Test
     void shouldApplyDeptOverridesWithoutChangingGlobalParamsInWritableTransaction() {
-        List<MonitoringGroupBetaPB> overridden = monitoringConfig.getMonitoringGroups(
-            null, OVERRIDE_DEPT, MonEnums.GROUP_TYPE_MONITORING, List.of(), "test-account");
+        List<MonitoringGroupBetaPB> overridden = deptMonMetaReader.listDeptMonitoringGroups(
+            OVERRIDE_DEPT, MonEnums.GROUP_TYPE_MONITORING, List.of(), false);
         assertThat(overridden).containsExactly(
             expectedGroup(firstGroup, List.of(
                 expectedFallback(firstFallback), expectedOverride(firstOverride, DEPT_META))),
             expectedGroup(laterGroup, List.of(expectedOverride(laterOverride, DEPT_META))));
 
         // 同一持久化上下文中切换科室，不应继承上一个科室的覆盖值。
-        List<MonitoringGroupBetaPB> fallback = monitoringConfig.getMonitoringGroups(
-            null, FALLBACK_DEPT, MonEnums.GROUP_TYPE_MONITORING, List.of(), "test-account");
+        List<MonitoringGroupBetaPB> fallback = deptMonMetaReader.listDeptMonitoringGroups(
+            FALLBACK_DEPT, MonEnums.GROUP_TYPE_MONITORING, List.of(), false);
         assertThat(fallback).containsExactly(expectedGroup(fallbackGroup, List.of(
             expectedFallback(otherFallback), expectedOverride(otherOverride, GLOBAL_META))));
 
@@ -83,11 +86,51 @@ class MonitoringConfigTests extends TestsBase {
     }
 
     @Test
+    void readsOnlyRequestedParamsAndPreservesInvalidOverrideBehavior() {
+        assertThat(deptMonMetaReader.getMonitoringParams(OVERRIDE_DEPT, Set.of())).isEmpty();
+        Map<String, MonitoringParamPB> selected = deptMonMetaReader.getMonitoringParams(
+            OVERRIDE_DEPT, Set.of(OVERRIDE_CODE, "missing"));
+        assertThat(selected).containsOnlyKeys(OVERRIDE_CODE);
+        assertThat(selected.get(OVERRIDE_CODE).getValueMeta()).isEqualTo(DEPT_META);
+        assertThat(deptMonMetaReader.getMonitoringParam(FALLBACK_DEPT, OVERRIDE_CODE)
+            .getValueMeta()).isEqualTo(GLOBAL_META);
+
+        DeptMonitoringParam override = deptParams
+            .findById(new DeptMonitoringParamId(OVERRIDE_CODE, OVERRIDE_DEPT)).orElseThrow();
+        override.setTypePb("invalid base64");
+        deptParams.saveAndFlush(override);
+
+        assertThat(deptMonMetaReader.getMonitoringParam(OVERRIDE_DEPT, OVERRIDE_CODE)).isNull();
+        assertThat(deptMonMetaReader.getMonitoringParams(
+            OVERRIDE_DEPT, Set.of(OVERRIDE_CODE, FALLBACK_CODE))).containsOnlyKeys(FALLBACK_CODE);
+        assertThat(deptMonMetaReader.getMonitoringParams(OVERRIDE_DEPT))
+            .doesNotContainKey(OVERRIDE_CODE);
+    }
+
+    @Test
+    void expandsDrainageDetailsInTheFullDictionary() {
+        String tubeCode = "tube_ylg_configtest";
+        String colorCode = tubeCode + "_color";
+        params.save(MonitoringParam.builder().code(tubeCode).name("引流管")
+            .typePb(ProtoUtils.encodeValueMeta(GLOBAL_META))
+            .balanceType(MonEnums.BALANCE_TYPE_OUT).displayOrder(93).build());
+
+        Map<String, MonitoringParamPB> allParams =
+            deptMonMetaReader.getMonitoringParams(OVERRIDE_DEPT);
+        assertThat(allParams).containsKeys(tubeCode, colorCode);
+        assertThat(allParams.get(colorCode).getValueMeta().getValueType())
+            .isEqualTo(TypeEnumPB.STRING);
+        assertThat(deptMonMetaReader.getMonitoringParams(
+            OVERRIDE_DEPT, Set.of(tubeCode, colorCode))).containsOnlyKeys(tubeCode);
+        assertThat(deptMonMetaReader.getMonitoringParam(OVERRIDE_DEPT, colorCode)).isNull();
+    }
+
+    @Test
     void shouldNotInitializeDepartmentGroupsWhileReading() {
         String uninitializedDept = "test-config-uninitialized-dept";
 
-        assertThat(monitoringConfig.getMonitoringGroups(
-            null, uninitializedDept, MonEnums.GROUP_TYPE_MONITORING, List.of(), "test-account"))
+        assertThat(deptMonMetaReader.listDeptMonitoringGroups(
+            uninitializedDept, MonEnums.GROUP_TYPE_MONITORING, List.of(), false))
             .isEmpty();
         entityManager.flush();
         entityManager.clear();
@@ -104,8 +147,8 @@ class MonitoringConfigTests extends TestsBase {
             .sumTypePb(ProtoUtils.encodeValueMeta(GLOBAL_META)).isDeleted(false)
             .modifiedBy("test-account").modifiedAt(NOW).build());
 
-        assertThat(monitoringConfig.getMonitoringGroups(
-            null, OVERRIDE_DEPT, balanceGroupType, List.of(OVERRIDE_CODE), "test-account"))
+        assertThat(deptMonMetaReader.listDeptMonitoringGroups(
+            OVERRIDE_DEPT, balanceGroupType, List.of(OVERRIDE_CODE), true))
             .singleElement().satisfies(group -> {
                 assertThat(group.getName()).isEqualTo("排出量");
                 assertThat(group.getBalanceRole()).isEqualTo(MonEnums.BALANCE_TYPE_OUT);
@@ -118,8 +161,8 @@ class MonitoringConfigTests extends TestsBase {
     void shouldKeepManagedParamsAvailableForSubsequentUpdates() {
         MonitoringParam managed = params.findByCode(OVERRIDE_CODE).orElseThrow();
 
-        monitoringConfig.getMonitoringGroups(
-            null, OVERRIDE_DEPT, MonEnums.GROUP_TYPE_MONITORING, List.of(), "test-account");
+        deptMonMetaReader.listDeptMonitoringGroups(
+            OVERRIDE_DEPT, MonEnums.GROUP_TYPE_MONITORING, List.of(), false);
 
         // 不得通过 detach 或 clear 中断调用方的后续更新。
         assertThat(entityManager.contains(managed)).isTrue();
@@ -172,7 +215,7 @@ class MonitoringConfigTests extends TestsBase {
             .setDisplayOrder(groupParam.getDisplayOrder()).build();
     }
 
-    @Autowired private MonitoringConfig monitoringConfig;
+    @Autowired private DeptMonMetaReader deptMonMetaReader;
     @Autowired private MonitoringParamRepository params;
     @Autowired private DeptMonitoringParamRepository deptParams;
     @Autowired private DeptMonitoringGroupRepository groups;

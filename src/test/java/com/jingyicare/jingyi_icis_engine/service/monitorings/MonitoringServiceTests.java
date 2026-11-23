@@ -34,13 +34,14 @@ import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaService;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.PatientMonMetaService;
 import com.jingyicare.jingyi_icis_engine.testutils.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 public class MonitoringServiceTests extends TestsBase {
     public MonitoringServiceTests(
         @Autowired MonitoringConfig monitoringConfig,
-        @Autowired MonitoringService monitoringService,
+        @Autowired PatientMonMetaService patientMonMetaService,
         @Autowired DeptMonMetaService deptMonMetaService,
         @Autowired MonMetaService monMetaService,
         @Autowired MonitoringParamHistoryRepository monitoringParamHistoryRepo,
@@ -56,7 +57,7 @@ public class MonitoringServiceTests extends TestsBase {
         this.deptId4 = "10011";
         this.patientId = 501L;
         this.monitoringConfig = monitoringConfig;
-        this.monitoringService = monitoringService;
+        this.patientMonMetaService = patientMonMetaService;
         this.deptMonMetaService = deptMonMetaService;
         this.monMetaService = monMetaService;
         this.monitoringParamHistoryRepo = monitoringParamHistoryRepo;
@@ -748,7 +749,8 @@ public class MonitoringServiceTests extends TestsBase {
                 .setGroupType(MonEnums.GROUP_TYPE_MONITORING)
                 .build();
         String patientMonitoringGroupsReqJson = ProtoUtils.protoToJson(patientMonitoringGroupsReq);
-        GetPatientMonitoringGroupsResp patientMonitoringGroupsResp = monitoringService.getPatientMonitoringGroups(patientMonitoringGroupsReqJson);
+        GetPatientMonitoringGroupsResp patientMonitoringGroupsResp =
+            patientMonMetaService.getPatientMonitoringGroups(patientMonitoringGroupsReqJson);
         assertThat(patientMonitoringGroupsResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         assertThat(patientMonitoringGroupsResp.getMonitoringGroupList()).hasSize(2);
         assertThat(patientMonitoringGroupsResp.getMonitoringGroup(0).getId()).isEqualTo(groupX1Id);
@@ -766,7 +768,8 @@ public class MonitoringServiceTests extends TestsBase {
                 .addParams(MonitoringGroupParamPB.newBuilder().setCode("test_param2_in").setDisplayOrder(2).build())
                 .build();
         String updatePatientGroupReqJson = ProtoUtils.protoToJson(updatePatientGroupReq);
-        GenericResp updatePatientGroupResp = monitoringService.updatePatientMonitoringGroup(updatePatientGroupReqJson);
+        GenericResp updatePatientGroupResp =
+            patientMonMetaService.updatePatientMonitoringGroup(updatePatientGroupReqJson);
         assertThat(updatePatientGroupResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
         // 更新部门观察项分组：删除group_x1, 新增group_x3(test_param4_out)
@@ -815,7 +818,8 @@ public class MonitoringServiceTests extends TestsBase {
         assertThat(deptMonitoringGroupsResp.getMonitoringGroup(1).getParam(0).getCode()).isEqualTo("test_param4_out");
 
         // 查询病人观察项分组，预期为 group_x1(test_param1_in, test_param2_in), group_x2(test_param3_out)
-        patientMonitoringGroupsResp = monitoringService.getPatientMonitoringGroups(patientMonitoringGroupsReqJson);
+        patientMonitoringGroupsResp =
+            patientMonMetaService.getPatientMonitoringGroups(patientMonitoringGroupsReqJson);
         assertThat(patientMonitoringGroupsResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
         assertThat(patientMonitoringGroupsResp.getMonitoringGroupList()).hasSize(2);
         assertThat(patientMonitoringGroupsResp.getMonitoringGroup(0).getId()).isEqualTo(groupX1Id);
@@ -871,7 +875,7 @@ public class MonitoringServiceTests extends TestsBase {
     private final Long patientId;
 
     private final MonitoringConfig monitoringConfig;
-    private final MonitoringService monitoringService;
+    private final PatientMonMetaService patientMonMetaService;
     private final DeptMonMetaService deptMonMetaService;
     private final MonMetaService monMetaService;
     private final MonitoringParamHistoryRepository monitoringParamHistoryRepo;

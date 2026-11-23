@@ -2,6 +2,7 @@ package com.jingyicare.jingyi_icis_engine.service.reports.jfkdatasources;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doCallRealMethod;
@@ -46,8 +47,9 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.TypeEnumPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.ValueMetaPB;
 import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.BalanceCalculator;
-import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.PatientMonitoringService;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.PatientMonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
@@ -195,7 +197,7 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
         assertThat(output.get("acc_ml")).containsExactly(List.of("20"), List.of("5"), List.of("8"), List.of("23"));
         assertThat(output.get("hour1")).containsExactly(List.of("10"), List.of("5"), List.of("8"), List.of("23"));
 
-        verify(ctx.monitoringConfig).getMonitoringGroups(
+        verify(ctx.patientMonMetaService).listPatientMonitoringGroups(
             eq(10001L), eq("patient-dept"), eq(1), eq(tubeParamCodes), eq("42"));
     }
 
@@ -382,7 +384,9 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
     private static class TestContext {
         private final JfkDataSourceSupport support = mockSupport();
         private final BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
-        private final MonitoringConfig monitoringConfig = mock(MonitoringConfig.class);
+        private final PatientMonMetaService patientMonMetaService =
+            mock(PatientMonMetaService.class);
+        private final DeptMonMetaReader deptMonMetaReader = mock(DeptMonMetaReader.class);
         private final PatientMonitoringService patientMonitoringService = mock(PatientMonitoringService.class);
         private final BalanceCalculator balanceCalculator = mock(BalanceCalculator.class);
         private final PatientTubeImpl patientTubeImpl = mock(PatientTubeImpl.class);
@@ -394,13 +398,15 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
             when(userQuery.getCurrentAccount())
                 .thenReturn(new CurrentAccount("nurse", "42", "护士"));
             when(patientTubeImpl.getMonitoringParamCodes(any(), any(), any())).thenReturn(List.of());
-            when(monitoringConfig.getMonitoringGroups(any(), any(), any(Integer.class), any(), any())).thenReturn(List.of());
+            when(patientMonMetaService.listPatientMonitoringGroups(
+                any(), any(), anyInt(), any(), any())).thenReturn(List.of());
         }
 
         private PatientBalanceRecordsDataSourceHandler handler() {
             return new PatientBalanceRecordsDataSourceHandler(
                 support,
-                monitoringConfig,
+                patientMonMetaService,
+                deptMonMetaReader,
                 patientMonitoringService,
                 balanceCalculator,
                 patientTubeImpl,
@@ -424,7 +430,7 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
         }
 
         private void withParams() {
-            when(monitoringConfig.getMonitoringParams("patient-dept")).thenReturn(Map.of(
+            when(deptMonMetaReader.getMonitoringParams("patient-dept")).thenReturn(Map.of(
                 "intravenous_intake", param("intravenous_intake", "静脉入量", 1),
                 "hourly_intake", param("hourly_intake", "每小时入量", 3),
                 "total_intake", param("total_intake", "累计入量", 0),

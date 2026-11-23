@@ -27,7 +27,7 @@ import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.repository.scores.*;
 import com.jingyicare.jingyi_icis_engine.repository.tubes.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
-import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.scores.*;
 import com.jingyicare.jingyi_icis_engine.service.tubes.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -73,7 +73,7 @@ public class DoctorDataFetcher {
 
     public DoctorDataFetcher(
         @Autowired ConfigProtoService protoService,
-        @Autowired MonitoringConfig monitoringConfig,
+        @Autowired DeptMonMetaReader deptMonMetaReader,
         @Autowired ScoreMetaService scoreMetaService,
         @Autowired TubeSetting tubeSetting,
         @Autowired PatientMonitoringRecordRepository patientMonRecRepo,
@@ -111,7 +111,7 @@ public class DoctorDataFetcher {
         );
 
         this.protoService = protoService;
-        this.monitoringConfig = monitoringConfig;
+        this.deptMonMetaReader = deptMonMetaReader;
         this.scoreMetaService = scoreMetaService;
         this.tubeSetting = tubeSetting;
         this.patientMonRecRepo = patientMonRecRepo;
@@ -178,10 +178,11 @@ public class DoctorDataFetcher {
         queryEndUtc = queryEndUtc.isAfter(nowUtc) ? nowUtc : queryEndUtc;
 
         // 获取监测参数元数据
-        Map<String, ValueMetaPB> valueMetaMap = monitoringConfig.getMonitoringParamMetas(
+        Map<String, MonitoringParamPB> paramsByCode = deptMonMetaReader.getMonitoringParams(
             deptId, Set.copyOf(config.monitoringCodes));
-        if (valueMetaMap.isEmpty()) {
-            log.error("No monitoring param meta found for deptId: {}, codes: {}", deptId, config.monitoringCodes);
+        if (paramsByCode.isEmpty()) {
+            log.error("No monitoring param meta found for deptId: {}, codes: {}",
+                deptId, config.monitoringCodes);
             return new Pair<>(false, null);
         }
 
@@ -195,8 +196,9 @@ public class DoctorDataFetcher {
 
         // 遍历监测代码（支持优先级）
         for (String monitoringCode : config.monitoringCodes) {
-            ValueMetaPB meta = valueMetaMap.get(monitoringCode);
-            if (meta == null) continue;
+            MonitoringParamPB param = paramsByCode.get(monitoringCode);
+            if (param == null) continue;
+            ValueMetaPB meta = param.getValueMeta();
 
             List<PatientMonitoringRecord> records = patientMonRecRepo
                 .findByPidAndParamCodeAndEffectiveTimeRange(
@@ -477,7 +479,7 @@ public class DoctorDataFetcher {
     private final Map<String, TubeDurationConfig> tubeDurationConfigs;
 
     private final ConfigProtoService protoService;
-    private final MonitoringConfig monitoringConfig;
+    private final DeptMonMetaReader deptMonMetaReader;
     private final ScoreMetaService scoreMetaService;
     private final TubeSetting tubeSetting;
     private final PatientMonitoringRecordRepository patientMonRecRepo;

@@ -36,7 +36,8 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.ValueMetaPB;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientMonitoringRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.ca.CaSignatureImageService;
-import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.PatientMonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
@@ -71,11 +72,12 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandlerTests {
             account(101L, "体温记录人", SIGNATURE_PNG),
             account(102L, "心率记录人", SIGNATURE_PNG)
         ));
-        when(ctx.monitoringConfig.getMonitoringParams("patient-dept")).thenReturn(Map.of(
+        when(ctx.deptMonMetaReader.getMonitoringParams("patient-dept")).thenReturn(Map.of(
             "temperature", param("temperature", "体温", 10, valueMeta(TypeEnumPB.FLOAT, "℃")),
             "hr", param("hr", "心率", 20, valueMeta(TypeEnumPB.INT32, "次/分"))
         ));
-        when(ctx.monitoringConfig.getMonitoringGroups(any(), any(), anyInt(), any(), any())).thenReturn(List.of(
+        when(ctx.patientMonMetaService.listPatientMonitoringGroups(
+            any(), any(), anyInt(), any(), any())).thenReturn(List.of(
             MonitoringGroupBetaPB.newBuilder()
                 .setId(1)
                 .setDisplayOrder(1)
@@ -222,7 +224,9 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandlerTests {
     private static class TestContext {
         private final JfkDataSourceSupport support = mock(JfkDataSourceSupport.class);
         private final PatientMonitoringRecordRepository monitoringRecordRepo = mock(PatientMonitoringRecordRepository.class);
-        private final MonitoringConfig monitoringConfig = mock(MonitoringConfig.class);
+        private final PatientMonMetaService patientMonMetaService =
+            mock(PatientMonMetaService.class);
+        private final DeptMonMetaReader deptMonMetaReader = mock(DeptMonMetaReader.class);
         private final UserQuery userQuery = mock(UserQuery.class);
         private final AccountRepository accountRepo = mock(AccountRepository.class);
 
@@ -260,7 +264,8 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandlerTests {
             return new PatientNonHourlyMonitoringRecordsDataSourceHandler(
                 support,
                 monitoringRecordRepo,
-                monitoringConfig,
+                patientMonMetaService,
+                deptMonMetaReader,
                 userQuery,
                 signatures,
                 properties,

@@ -45,6 +45,8 @@ import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.lis.*;
 import com.jingyicare.jingyi_icis_engine.service.medications.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.PatientMonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.PatientNursingReportInvalidationService;
@@ -67,6 +69,8 @@ public class NursingRecordService {
         @Autowired PatientReader patientReader,
         @Autowired MedReportUtils medReportUtils,
         @Autowired MonitoringConfig monitoringConfig,
+        @Autowired DeptMonMetaReader deptMonMetaReader,
+        @Autowired PatientMonMetaService patientMonMetaService,
         @Autowired PatientMonitoringService patientMonitoringService,
         @Autowired BalanceCalculator balanceCalculator,
         @Autowired ConfigShiftUtils shiftUtils,
@@ -90,6 +94,8 @@ public class NursingRecordService {
         this.patientReader = patientReader;
         this.medReportUtils = medReportUtils;
         this.monitoringConfig = monitoringConfig;
+        this.deptMonMetaReader = deptMonMetaReader;
+        this.patientMonMetaService = patientMonMetaService;
         this.patientMonitoringService = patientMonitoringService;
         this.balanceCalculator = balanceCalculator;
         this.shiftUtils = shiftUtils;
@@ -495,9 +501,9 @@ public class NursingRecordService {
         List<String> tubeParamCodes = patientTubeImpl.getMonitoringParamCodes(
             pid, queryUtcTimeRange.getFirst(), queryUtcTimeRange.getSecond()
         );
-        List<MonitoringGroupBetaPB> groupBetaList = monitoringConfig.getMonitoringGroups(
-            pid, deptId, MonEnums.GROUP_TYPE_BALANCE, tubeParamCodes, account.autoAcctId()
-        );
+        List<MonitoringGroupBetaPB> groupBetaList = patientMonMetaService
+            .listPatientMonitoringGroups(
+                pid, deptId, MonEnums.GROUP_TYPE_BALANCE, tubeParamCodes, account.autoAcctId());
         PatientMonitoringService.GetMonitoringRecordsResult recordsResult = patientMonitoringService
             .getMonitoringRecords(pid, deptId, MonEnums.GROUP_TYPE_BALANCE,
                 startTime, endTime, true, groupBetaList, account.autoAcctId()
@@ -513,7 +519,7 @@ public class NursingRecordService {
             recordsResult.recordsQueryStartUtc,
             recordsResult.recordsQueryEndUtc,
             recordsResult.balanceStatTimeUtcHistory,
-            monitoringConfig.getMonitoringParams(deptId),
+            deptMonMetaReader.getMonitoringParams(deptId),
             recordsResult.groupBetaList,
             recordsResult.recordList,
             account.autoAcctId()
@@ -636,9 +642,9 @@ public class NursingRecordService {
         List<String> tubeParamCodes = patientTubeImpl.getMonitoringParamCodes(
             pid, queryUtcTimeRange.getFirst(), queryUtcTimeRange.getSecond()
         );
-        List<MonitoringGroupBetaPB> groupBetaList = monitoringConfig.getMonitoringGroups(
-            pid, deptId, MonEnums.GROUP_TYPE_BALANCE, tubeParamCodes, accountId
-        );
+        List<MonitoringGroupBetaPB> groupBetaList = patientMonMetaService
+            .listPatientMonitoringGroups(
+                pid, deptId, MonEnums.GROUP_TYPE_BALANCE, tubeParamCodes, accountId);
         PatientMonitoringService.GetMonitoringRecordsResult recordsResult = patientMonitoringService
             .getMonitoringRecords(pid, deptId, MonEnums.GROUP_TYPE_BALANCE,
                 shiftStartUtc, shiftEndUtc, true, groupBetaList, accountId
@@ -648,12 +654,13 @@ public class NursingRecordService {
             return new Pair<>(recordsResult.statusCode, new ArrayList<>());
         }
 
+        Map<String, MonitoringParamPB> paramMap = deptMonMetaReader.getMonitoringParams(deptId);
         BalanceCalculator.GetGroupRecordsListArgs args = new BalanceCalculator.GetGroupRecordsListArgs(
             pid, deptId,
             recordsResult.recordsQueryStartUtc,
             recordsResult.recordsQueryEndUtc,
             recordsResult.balanceStatTimeUtcHistory,
-            monitoringConfig.getMonitoringParams(deptId),
+            paramMap,
             recordsResult.groupBetaList,
             recordsResult.recordList,
             accountId
@@ -685,7 +692,6 @@ public class NursingRecordService {
             else if (balanceRole == MonEnums.BALANCE_TYPE_NET) netGroupRecords = gr;
         }
 
-        Map<String, MonitoringParamPB> paramMap = monitoringConfig.getMonitoringParams(deptId);
         Map<LocalDateTime, NrShortcutBalancesPB.Builder> balanceMap = new TreeMap<>();
 
         List<PatientMonitoringRecord> hourlyRecords = monitoringRecordRepo
@@ -956,17 +962,6 @@ public class NursingRecordService {
         }
     }
 
-    private String formatMonitoringValue(PatientMonitoringRecord record, String deptId) {
-        String valueStr = record.getParamValueStr();
-        if (!StrUtils.isBlank(valueStr)) return valueStr;
-
-        MonitoringValuePB monitoringValuePB = ProtoUtils.decodeMonitoringValue(record.getParamValue());
-        if (monitoringValuePB == null) return valueStr;
-        ValueMetaPB meta = monitoringConfig.getMonitoringParamMeta(deptId, record.getMonitoringParamCode());
-        if (meta == null) return valueStr;
-        return ValueMetaUtils.extractAndFormatParamValue(monitoringValuePB.getValue(), meta);
-    }
-
     private final String ZONE_ID;
 
     private final ConfigProtoService protoService;
@@ -975,6 +970,8 @@ public class NursingRecordService {
     private final PatientReader patientReader;
     private final MedReportUtils medReportUtils;
     private final MonitoringConfig monitoringConfig;
+    private final DeptMonMetaReader deptMonMetaReader;
+    private final PatientMonMetaService patientMonMetaService;
     private final PatientMonitoringService patientMonitoringService;
     private final BalanceCalculator balanceCalculator;
     private final ConfigShiftUtils shiftUtils;

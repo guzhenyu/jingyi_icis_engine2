@@ -26,7 +26,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringV
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.ValueMetaPB;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientMonitoringRecordRepository;
-import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
@@ -43,13 +43,13 @@ public class PatientMonitoringRecordsDataSourceHandler extends AbstractJfkDataSo
     public PatientMonitoringRecordsDataSourceHandler(
         JfkDataSourceSupport support,
         PatientMonitoringRecordRepository recordRepo,
-        MonitoringConfig monitoringConfig,
+        DeptMonMetaReader deptMonMetaReader,
         ReportProperties reportProperties,
         ResourceLoader resourceLoader
     ) {
         super(support);
         this.recordRepo = recordRepo;
-        this.monitoringConfig = monitoringConfig;
+        this.deptMonMetaReader = deptMonMetaReader;
         this.reportProperties = reportProperties;
         this.resourceLoader = resourceLoader;
     }
@@ -97,7 +97,7 @@ public class PatientMonitoringRecordsDataSourceHandler extends AbstractJfkDataSo
         LocalDateTime monStartUtc = window.monitoringStartUtc();
         LocalDateTime monEndUtc = window.monitoringEndUtc();
 
-        Map<String, MonitoringParamPB> paramMap = monitoringConfig.getMonitoringParams(deptId);
+        Map<String, MonitoringParamPB> paramMap = deptMonMetaReader.getMonitoringParams(deptId);
         List<String> validParamCodes = new ArrayList<>();
         for (String paramCode : paramCodes) {
             if (StrUtils.isBlank(paramCode)) continue;
@@ -360,7 +360,7 @@ public class PatientMonitoringRecordsDataSourceHandler extends AbstractJfkDataSo
     private static final double DEFAULT_FONT_SIZE = 8d;
 
     private final PatientMonitoringRecordRepository recordRepo;
-    private final MonitoringConfig monitoringConfig;
+    private final DeptMonMetaReader deptMonMetaReader;
     private final ReportProperties reportProperties;
     private final ResourceLoader resourceLoader;
 }

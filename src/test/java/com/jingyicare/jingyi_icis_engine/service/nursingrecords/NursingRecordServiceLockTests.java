@@ -60,6 +60,8 @@ import com.jingyicare.jingyi_icis_engine.service.medications.MedReportUtils;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.BalanceCalculator;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.PatientMonitoringService;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.PatientMonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.*;
 import com.jingyicare.jingyi_icis_engine.service.settings.SettingService;
@@ -105,6 +107,7 @@ class NursingRecordServiceLockTests extends TestsBase {
             .thenReturn(NursingRecordSettingsPB.getDefaultInstance());
         return new NursingRecordService(protoService, users, patients,
             mock(MedReportUtils.class), mock(MonitoringConfig.class),
+            mock(DeptMonMetaReader.class), mock(PatientMonMetaService.class),
             mock(PatientMonitoringService.class), mock(BalanceCalculator.class),
             mock(ConfigShiftUtils.class), mock(PatientTubeImpl.class), mock(LisService.class),
             invalidation, settings, records, patientRepo,

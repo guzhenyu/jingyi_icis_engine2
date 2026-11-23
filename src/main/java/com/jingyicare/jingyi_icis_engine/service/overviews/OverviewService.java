@@ -30,6 +30,7 @@ import com.jingyicare.jingyi_icis_engine.repository.overviews.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.lis.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.users.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -41,7 +42,7 @@ public class OverviewService {
         @Autowired ConfigurableApplicationContext context,
         @Autowired ConfigProtoService protoService,
         @Autowired UserQuery userQuery,
-        @Autowired MonitoringConfig monitoringConfig,
+        @Autowired DeptMonMetaReader deptMonMetaReader,
         @Autowired PatientReader patientReader,
         @Autowired LisService lisService,
         @Autowired OverviewTemplateRepository templateRepo,
@@ -77,7 +78,7 @@ public class OverviewService {
         this.statusCodeMsgList = protoService.getConfig().getText().getStatusCodeMsgList();
         this.protoService = protoService;
         this.userQuery = userQuery;
-        this.monitoringConfig = monitoringConfig;
+        this.deptMonMetaReader = deptMonMetaReader;
         this.patientReader = patientReader;
         this.lisService = lisService;
 
@@ -609,7 +610,9 @@ public class OverviewService {
         List<StringIdEntityPB> bgaParams = new ArrayList<>();
         List<StringIdEntityPB> vitalSignalParams = new ArrayList<>();
         List<StringIdEntityPB> balanceParams = new ArrayList<>();
-        for (Map.Entry<String, MonitoringParamPB> entry : monitoringConfig.getMonitoringParams(deptId).entrySet()) {
+        Map<String, MonitoringParamPB> monitoringParams =
+            deptMonMetaReader.getMonitoringParams(deptId);
+        for (Map.Entry<String, MonitoringParamPB> entry : monitoringParams.entrySet()) {
             String paramCode = entry.getKey();
             MonitoringParamPB monParamPB = entry.getValue();
             if (!ValueMetaUtils.isNumber(monParamPB.getValueMeta())) continue;
@@ -748,7 +751,8 @@ public class OverviewService {
 
         param.setParamCode(paramPB.getParamCode());
         String deptId = req.getDeptId();
-        MonitoringParamPB monParamPB = monitoringConfig.getMonitoringParam(deptId, paramPB.getParamCode());
+        MonitoringParamPB monParamPB =
+            deptMonMetaReader.getMonitoringParam(deptId, paramPB.getParamCode());
         ValueMetaPB valueMetaPB = monParamPB != null ? monParamPB.getValueMeta() : null;
         param.setBalanceTypeId(0);
         if (valueMetaPB == null) {
@@ -1058,16 +1062,17 @@ public class OverviewService {
         }
         if (!shouldAppend) return;
 
-        // 提取元数据
-        ValueMetaPB inValueMeta =
-            monitoringConfig.getMonitoringParamMeta(deptId, MonEnums.NET_HOURLY_IN_CODE);
-        if (inValueMeta == null) return;
-        ValueMetaPB outValueMeta =
-            monitoringConfig.getMonitoringParamMeta(deptId, MonEnums.NET_HOURLY_OUT_CODE);
-        if (outValueMeta == null) return;
-        ValueMetaPB netValueMeta =
-            monitoringConfig.getMonitoringParamMeta(deptId, MonEnums.NET_HOURLY_NET_CODE);
-        if (netValueMeta == null) return;
+        // 一次读取计算净入量所需的三个观察项定义。
+        Set<String> balanceCodes = Set.of(
+            MonEnums.NET_HOURLY_IN_CODE,
+            MonEnums.NET_HOURLY_OUT_CODE,
+            MonEnums.NET_HOURLY_NET_CODE);
+        Map<String, MonitoringParamPB> balanceParams =
+            deptMonMetaReader.getMonitoringParams(deptId, balanceCodes);
+        if (!balanceParams.keySet().containsAll(balanceCodes)) return;
+        ValueMetaPB inValueMeta = balanceParams.get(MonEnums.NET_HOURLY_IN_CODE).getValueMeta();
+        ValueMetaPB outValueMeta = balanceParams.get(MonEnums.NET_HOURLY_OUT_CODE).getValueMeta();
+        ValueMetaPB netValueMeta = balanceParams.get(MonEnums.NET_HOURLY_NET_CODE).getValueMeta();
 
         // 统计净入量
         Map<LocalDateTime, Float> netMap = new HashMap<>();
@@ -1129,7 +1134,7 @@ public class OverviewService {
 
     private final ConfigProtoService protoService;
     private final UserQuery userQuery;
-    private final MonitoringConfig monitoringConfig;
+    private final DeptMonMetaReader deptMonMetaReader;
     private final PatientReader patientReader;
     private final LisService lisService;
 

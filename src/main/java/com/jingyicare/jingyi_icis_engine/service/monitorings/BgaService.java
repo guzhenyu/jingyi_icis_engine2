@@ -26,6 +26,7 @@ import com.jingyicare.jingyi_icis_engine.repository.lis.*;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
 import com.jingyicare.jingyi_icis_engine.service.reports.*;
@@ -40,7 +41,7 @@ public class BgaService {
         @Autowired ConfigProtoService protoService,
         @Autowired UserQuery userQuery,
         @Autowired PatientReader patientReader,
-        @Autowired MonitoringConfig monitoringConfig,
+        @Autowired DeptMonMetaReader deptMonMetaReader,
         @Autowired PatientNursingReportInvalidationService pnrUtils,
         @Autowired RbacDepartmentRepository departmentRepo,
         @Autowired BgaParamRepository bgaParamRepo,
@@ -62,7 +63,7 @@ public class BgaService {
         ));
         this.userQuery = userQuery;
         this.patientReader = patientReader;
-        this.monitoringConfig = monitoringConfig;
+        this.deptMonMetaReader = deptMonMetaReader;
         this.pnrUtils = pnrUtils;
         this.departmentRepository = departmentRepo;
 
@@ -90,13 +91,16 @@ public class BgaService {
         }
 
         final String deptId = req.getDeptId();
+        List<BgaParam> bgaParams = bgaParamRepository
+            .findByDeptIdAndIsDeletedFalseOrderByDisplayOrder(deptId);
+        Set<String> paramCodes = bgaParams.stream()
+            .map(BgaParam::getMonitoringParamCode).collect(Collectors.toSet());
+        Map<String, MonitoringParamPB> monitoringParams =
+            deptMonMetaReader.getMonitoringParams(deptId, paramCodes);
         List<BgaParamPB> bgaParamPbs = new ArrayList<>();
-        for (BgaParam bgaParam : bgaParamRepository
-            .findByDeptIdAndIsDeletedFalseOrderByDisplayOrder(deptId)
-        ) {
-            MonitoringParamPB monitoringParamPb = monitoringConfig.getMonitoringParam(
-                deptId, bgaParam.getMonitoringParamCode()
-            );
+        for (BgaParam bgaParam : bgaParams) {
+            MonitoringParamPB monitoringParamPb =
+                monitoringParams.get(bgaParam.getMonitoringParamCode());
             if (monitoringParamPb == null) {
                 log.error("Failed to find monitoring param: {}", bgaParam.getMonitoringParamCode());
                 continue;
@@ -351,6 +355,10 @@ public class BgaService {
             req.getPid(), queryStartUtc, queryEndUtc
         );
         Map<Long, List<PatientBgaRecordDetail>> recordDetails = getRecordDetailsMap(records);
+        Set<String> paramCodes = recordDetails.values().stream().flatMap(List::stream)
+            .map(PatientBgaRecordDetail::getMonitoringParamCode).collect(Collectors.toSet());
+        Map<String, MonitoringParamPB> monitoringParams =
+            deptMonMetaReader.getMonitoringParams(deptId, paramCodes);
         records = records.stream().sorted(
             Comparator.comparing(PatientBgaRecord::getEffectiveTime).reversed()).toList();
 
@@ -384,9 +392,10 @@ public class BgaService {
             ) {
                 GenericValuePB genericValue = ProtoUtils.decodeGenericValue(detail.getParamValue());
                 if (genericValue == null) continue;
-                ValueMetaPB valueMeta = monitoringConfig.getMonitoringParamMeta(deptId, detail.getMonitoringParamCode());
-                if (valueMeta == null) continue;
-                String valueStr = ValueMetaUtils.extractAndFormatParamValue(genericValue, valueMeta);
+                MonitoringParamPB param = monitoringParams.get(detail.getMonitoringParamCode());
+                if (param == null) continue;
+                String valueStr =
+                    ValueMetaUtils.extractAndFormatParamValue(genericValue, param.getValueMeta());
                 recordPb.addBgaResult(BgaResultPB.newBuilder()
                     .setId(detail.getId())
                     .setParamCode(detail.getMonitoringParamCode())
@@ -492,12 +501,18 @@ public class BgaService {
         Long recordId = record.getId();
 
         // 新建BGA记录明细
-        for (BgaResultPB bgaResultPb : req.getRecord().getBgaResultList()) {
+        List<BgaResultPB> bgaResults = req.getRecord().getBgaResultList();
+        Set<String> paramCodes = bgaResults.stream()
+            .map(BgaResultPB::getParamCode).collect(Collectors.toSet());
+        Map<String, MonitoringParamPB> monitoringParams =
+            deptMonMetaReader.getMonitoringParams(deptId, paramCodes);
+        for (BgaResultPB bgaResultPb : bgaResults) {
             GenericValuePB genericValue = bgaResultPb.getValue();
             String paramCode = bgaResultPb.getParamCode();
-            ValueMetaPB valueMeta = monitoringConfig.getMonitoringParamMeta(deptId, paramCode);
-            if (valueMeta == null) continue;
-            String valueStr = ValueMetaUtils.extractAndFormatParamValue(genericValue, valueMeta);
+            MonitoringParamPB param = monitoringParams.get(paramCode);
+            if (param == null) continue;
+            String valueStr =
+                ValueMetaUtils.extractAndFormatParamValue(genericValue, param.getValueMeta());
             PatientBgaRecordDetail recordDetail = PatientBgaRecordDetail.builder()
                 .recordId(recordId)
                 .monitoringParamCode(paramCode)
@@ -787,13 +802,18 @@ public class BgaService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void saveNewDetails(Long recordId, String deptId, List<BgaResultPB> bgaResultList, String accountId, LocalDateTime nowUtc) {
+        Set<String> paramCodes = bgaResultList.stream()
+            .map(BgaResultPB::getParamCode).collect(Collectors.toSet());
+        Map<String, MonitoringParamPB> monitoringParams =
+            deptMonMetaReader.getMonitoringParams(deptId, paramCodes);
         List<PatientBgaRecordDetail> newDetails = new ArrayList<>();
         for (BgaResultPB bgaResultPb : bgaResultList) {
             GenericValuePB genericValue = bgaResultPb.getValue();
             String paramCode = bgaResultPb.getParamCode();
-            ValueMetaPB valueMeta = monitoringConfig.getMonitoringParamMeta(deptId, paramCode);
-            if (valueMeta == null) continue;
-            String valueStr = ValueMetaUtils.extractAndFormatParamValue(genericValue, valueMeta);
+            MonitoringParamPB param = monitoringParams.get(paramCode);
+            if (param == null) continue;
+            String valueStr =
+                ValueMetaUtils.extractAndFormatParamValue(genericValue, param.getValueMeta());
             PatientBgaRecordDetail recordDetail = PatientBgaRecordDetail.builder()
                 .recordId(recordId)
                 .monitoringParamCode(paramCode)
@@ -812,11 +832,12 @@ public class BgaService {
     public Pair<ValueMetaPB, List<TimedGenericValuePB>> fetchArterialBgaRecords(
         Long pid, String deptId, String bgaCode, LocalDateTime queryStartUtc, LocalDateTime queryEndUtc
     ) {
-        ValueMetaPB meta = monitoringConfig.getMonitoringParamMeta(deptId, bgaCode);
-        if (meta == null) {
+        MonitoringParamPB param = deptMonMetaReader.getMonitoringParam(deptId, bgaCode);
+        if (param == null) {
             log.error("Missing meta for param: {}", bgaCode);
             return null;
         }
+        ValueMetaPB meta = param.getValueMeta();
 
         // 获取血气明细记录
         final Integer arterialBgaCategoryId = 1;
@@ -910,6 +931,10 @@ public class BgaService {
             ? Collections.emptyMap()
             : rawBgaRecordDetailRepository.findByRecordIdIn(rawRecordIds).stream()
                 .collect(Collectors.groupingBy(RawBgaRecordDetail::getRecordId));
+        Set<String> paramCodes = rawDetailMap.values().stream().flatMap(List::stream)
+            .map(RawBgaRecordDetail::getMonitoringParamCode).collect(Collectors.toSet());
+        Map<String, MonitoringParamPB> monitoringParams =
+            deptMonMetaReader.getMonitoringParams(deptId, paramCodes);
 
         List<BgaSyncRecordCandidate> candidates = new ArrayList<>();
         for (RawBgaRecord rawRecord : uniqueRawRecords) {
@@ -923,7 +948,7 @@ public class BgaService {
                 nowUtc,
                 buildRawDetailCandidates(
                     rawDetailMap.getOrDefault(rawRecord.getId(), Collections.emptyList()),
-                    deptId
+                    monitoringParams
                 )
             ));
         }
@@ -970,6 +995,14 @@ public class BgaService {
         Map<String, Map<String, PatientLisResult>> latestResultMap = buildLatestLisResultMap(
             reportIdToItemMap, reportIds, externalParamCodes
         );
+        Set<String> paramCodes = latestResultMap.values().stream()
+            .flatMap(results -> results.keySet().stream())
+            .map(lisResultCodeToParamCodes::get)
+            .filter(Objects::nonNull)
+            .flatMap(List::stream)
+            .collect(Collectors.toSet());
+        Map<String, MonitoringParamPB> monitoringParams =
+            deptMonMetaReader.getMonitoringParams(patientRecord.getDeptId(), paramCodes);
 
         List<BgaSyncRecordCandidate> candidates = new ArrayList<>();
         for (PatientLisItem lisItem : lisItems) {
@@ -981,7 +1014,7 @@ public class BgaService {
             List<BgaSyncDetailCandidate> detailCandidates = buildLisDetailCandidates(
                 latestResultMap.getOrDefault(lisItem.getReportId(), Collections.emptyMap()),
                 lisResultCodeToParamCodes,
-                patientRecord.getDeptId(),
+                monitoringParams,
                 lisItem
             );
             if (detailCandidates.isEmpty()) continue;
@@ -1275,24 +1308,26 @@ public class BgaService {
     }
 
     private List<BgaSyncDetailCandidate> buildRawDetailCandidates(
-        List<RawBgaRecordDetail> rawDetails, String deptId
+        List<RawBgaRecordDetail> rawDetails, Map<String, MonitoringParamPB> monitoringParams
     ) {
         List<BgaSyncDetailCandidate> detailCandidates = new ArrayList<>();
         for (RawBgaRecordDetail rawDetail : rawDetails) {
-            ValueMetaPB meta = monitoringConfig.getMonitoringParamMeta(deptId, rawDetail.getMonitoringParamCode());
-            if (meta == null) {
-                log.error("Missing meta for param: {}", rawDetail.getMonitoringParamCode());
+            String paramCode = rawDetail.getMonitoringParamCode();
+            MonitoringParamPB param = monitoringParams.get(paramCode);
+            if (param == null) {
+                log.error("Missing meta for param: {}", paramCode);
                 continue;
             }
 
-            GenericValuePB value = ValueMetaUtils.toGenericValue(rawDetail.getParamValueStr(), meta);
+            GenericValuePB value = ValueMetaUtils.toGenericValue(
+                rawDetail.getParamValueStr(), param.getValueMeta());
             if (value == null) {
                 log.error("Invalid raw BGA value: {}", rawDetail.getParamValueStr());
                 continue;
             }
 
             detailCandidates.add(new BgaSyncDetailCandidate(
-                rawDetail.getMonitoringParamCode(),
+                paramCode,
                 ProtoUtils.encodeGenericValue(value),
                 rawDetail.getParamValueStr()
             ));
@@ -1303,7 +1338,7 @@ public class BgaService {
     private List<BgaSyncDetailCandidate> buildLisDetailCandidates(
         Map<String, PatientLisResult> latestResults,
         Map<String, List<String>> lisResultCodeToParamCodes,
-        String deptId,
+        Map<String, MonitoringParamPB> monitoringParams,
         PatientLisItem lisItem
     ) {
         Map<String, BgaSyncDetailCandidate> detailCandidateMap = new LinkedHashMap<>();
@@ -1312,13 +1347,14 @@ public class BgaService {
             if (monitoringParamCodes == null || monitoringParamCodes.isEmpty()) continue;
 
             for (String monitoringParamCode : monitoringParamCodes) {
-                ValueMetaPB meta = monitoringConfig.getMonitoringParamMeta(deptId, monitoringParamCode);
-                if (meta == null) {
+                MonitoringParamPB param = monitoringParams.get(monitoringParamCode);
+                if (param == null) {
                     log.error("Missing meta for LIS mapped param: {}", monitoringParamCode);
                     continue;
                 }
 
-                GenericValuePB value = ValueMetaUtils.toGenericValue(lisResult.getResultStr(), meta);
+                GenericValuePB value = ValueMetaUtils.toGenericValue(
+                    lisResult.getResultStr(), param.getValueMeta());
                 if (value == null) {
                     log.error(
                         "Invalid LIS result value. reportId={}, lisItemCode={}, externalParamCode={}, result={}",
@@ -1514,7 +1550,7 @@ public class BgaService {
     private final Map<Integer, String> bgaCategoryMap;
     private final UserQuery userQuery;
     private final PatientReader patientReader;
-    private final MonitoringConfig monitoringConfig;
+    private final DeptMonMetaReader deptMonMetaReader;
     private final PatientNursingReportInvalidationService pnrUtils;
     private final RbacDepartmentRepository departmentRepository;
 

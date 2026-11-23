@@ -46,7 +46,7 @@ import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepo
 import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.ca.CaSignatureImageService;
-import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
@@ -91,7 +91,7 @@ public class PatientBgaRecordsDataSourceHandlerTests {
             bgaParam("bga_po2", 1),
             bgaParam("bga_ph", 2)
         ));
-        when(ctx.monitoringConfig.getMonitoringParams("patient-dept")).thenReturn(Map.of(
+        when(ctx.deptMonMetaReader.getMonitoringParams("patient-dept")).thenReturn(Map.of(
             "bga_ph", param("bga_ph", "pH", valueMeta(TypeEnumPB.STRING)),
             "bga_po2", param("bga_po2", "氧分压", valueMeta(TypeEnumPB.INT32))
         ));
@@ -147,7 +147,7 @@ public class PatientBgaRecordsDataSourceHandlerTests {
                 eq(10001L), any(LocalDateTime.class), any(LocalDateTime.class)))
             .thenReturn(List.of());
         when(ctx.bgaParamRepo.findByDeptIdAndIsDeletedFalseOrderByDisplayOrder("patient-dept")).thenReturn(List.of());
-        when(ctx.monitoringConfig.getMonitoringParams("patient-dept")).thenReturn(Map.of());
+        when(ctx.deptMonMetaReader.getMonitoringParams("patient-dept")).thenReturn(Map.of());
 
         Pair<ReturnCode, JfkDataSourcePB> result = handler.handle(input());
 
@@ -293,7 +293,7 @@ public class PatientBgaRecordsDataSourceHandlerTests {
         private final PatientBgaRecordRepository recordRepo = mock(PatientBgaRecordRepository.class);
         private final PatientBgaRecordDetailRepository detailRepo = mock(PatientBgaRecordDetailRepository.class);
         private final BgaParamRepository bgaParamRepo = mock(BgaParamRepository.class);
-        private final MonitoringConfig monitoringConfig = mock(MonitoringConfig.class);
+        private final DeptMonMetaReader deptMonMetaReader = mock(DeptMonMetaReader.class);
         private final ConfigProtoService configProtoService = mock(ConfigProtoService.class);
         private final AccountRepository accountRepo = mock(AccountRepository.class);
 
@@ -332,7 +332,7 @@ public class PatientBgaRecordsDataSourceHandlerTests {
                 recordRepo,
                 detailRepo,
                 bgaParamRepo,
-                monitoringConfig,
+                deptMonMetaReader,
                 configProtoService,
                 signatures,
                 new ReportProperties(),

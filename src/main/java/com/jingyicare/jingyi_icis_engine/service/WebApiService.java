@@ -25,6 +25,7 @@ import com.jingyicare.jingyi_icis_engine.service.metrics.PrometheusMetricService
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaService;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.PatientMonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.nursingorders.*;
 import com.jingyicare.jingyi_icis_engine.service.nursingrecords.*;
 import com.jingyicare.jingyi_icis_engine.service.overviews.*;
@@ -65,7 +66,7 @@ public class WebApiService {
         @Autowired OverviewService overviewService,
         @Autowired TubeService tubeService,
         @Autowired PatientTubeService patientTubeService,
-        @Autowired MonitoringService monitoringService,
+        @Autowired PatientMonMetaService patientMonMetaService,
         @Autowired DeptMonMetaService deptMonMetaService,
         @Autowired MonMetaService monMetaService,
         @Autowired MedicationService medicationService,
@@ -108,7 +109,7 @@ public class WebApiService {
         this.overviewService = overviewService;
         this.tubeService = tubeService;
         this.patientTubeService = patientTubeService;
-        this.monitoringService = monitoringService;
+        this.patientMonMetaService = patientMonMetaService;
         this.deptMonMetaService = deptMonMetaService;
         this.monMetaService = monMetaService;
         this.medicationService = medicationService;
@@ -610,20 +611,23 @@ public class WebApiService {
         return metricService.recordApiMetrics(resp, GenericResp::getRt);
     }
 
-    public GetPatientMonitoringGroupsResp getPatientMonitoringGroups(String getPatientMonitoringGroupsReqJson) {
-        GetPatientMonitoringGroupsResp resp = monitoringService.getPatientMonitoringGroups(getPatientMonitoringGroupsReqJson);
+    public GetPatientMonitoringGroupsResp getPatientMonitoringGroups(String reqJson) {
+        GetPatientMonitoringGroupsResp resp =
+            patientMonMetaService.getPatientMonitoringGroups(reqJson);
         resp = metricService.recordApiMetrics(resp, GetPatientMonitoringGroupsResp::getRt);
         return resp;
     }
 
-    public GenericResp updatePatientMonitoringGroup(String updatePatientMonitoringGroupReqJson) {
-        GenericResp resp = monitoringService.updatePatientMonitoringGroup(updatePatientMonitoringGroupReqJson);
+    public GenericResp updatePatientMonitoringGroup(String reqJson) {
+        GenericResp resp =
+            patientMonMetaService.updatePatientMonitoringGroup(reqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
 
-    public GenericResp syncPatientMonitoringGroupsFromDept(String syncPatientMonitoringGroupsFromDeptReqJson) {
-        GenericResp resp = monitoringService.syncPatientMonitoringGroupsFromDept(syncPatientMonitoringGroupsFromDeptReqJson);
+    public GenericResp syncPatientMonitoringGroupsFromDept(String reqJson) {
+        GenericResp resp =
+            patientMonMetaService.syncPatientMonitoringGroupsFromDept(reqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
@@ -2174,7 +2178,7 @@ public class WebApiService {
     private OverviewService overviewService;
     private TubeService tubeService;
     private PatientTubeService patientTubeService;
-    private MonitoringService monitoringService;
+    private PatientMonMetaService patientMonMetaService;
     private final DeptMonMetaService deptMonMetaService;
     private final MonMetaService monMetaService;
     private MedicationService medicationService;

@@ -25,6 +25,8 @@ import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.medications.MedMonitoringService;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.PatientMonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.PatientNursingReportInvalidationService;
@@ -46,6 +48,8 @@ public class PatientMonitoringService {
         @Autowired PatientTubeImpl patientTubeImpl,
         @Autowired MedMonitoringService medMonitoringService,
         @Autowired MonitoringConfig monitoringConfig,
+        @Autowired DeptMonMetaReader deptMonMetaReader,
+        @Autowired PatientMonMetaService patientMonMetaService,
         @Autowired SettingService settingService,
         @Autowired BalanceCalculator balanceCalculator,
         @Autowired DeviceDataFetcher deviceDataFetcher,
@@ -65,6 +69,8 @@ public class PatientMonitoringService {
         this.patientTubeImpl = patientTubeImpl;
         this.medMonitoringService = medMonitoringService;
         this.monitoringConfig = monitoringConfig;
+        this.deptMonMetaReader = deptMonMetaReader;
+        this.patientMonMetaService = patientMonMetaService;
         this.settingService = settingService;
         this.balanceCalculator = balanceCalculator;
         this.deviceDataFetcher = deviceDataFetcher;
@@ -154,9 +160,9 @@ public class PatientMonitoringService {
             patientTubeImpl.getMonitoringParamCodes(
                 pid, queryUtcTimeRange.getFirst(), queryUtcTimeRange.getSecond()
             ) : Collections.emptyList();
-        List<MonitoringGroupBetaPB> groupBetaList = monitoringConfig.getMonitoringGroups(
-            pid, deptId, groupType, tubeParamCodes, account.autoAcctId()
-        );
+        List<MonitoringGroupBetaPB> groupBetaList = patientMonMetaService
+            .listPatientMonitoringGroups(
+                pid, deptId, groupType, tubeParamCodes, account.autoAcctId());
         GetMonitoringRecordsResult recordsResult = getMonitoringRecords(
             pid, deptId, groupType, startTime, endTime, syncDeviceData, groupBetaList,
             account.autoAcctId()
@@ -174,7 +180,7 @@ public class PatientMonitoringService {
             recordsResult.recordsQueryStartUtc,
             recordsResult.recordsQueryEndUtc,
             recordsResult.balanceStatTimeUtcHistory,
-            monitoringConfig.getMonitoringParams(deptId),
+            deptMonMetaReader.getMonitoringParams(deptId),
             recordsResult.groupBetaList,
             recordsResult.recordList,
             account.autoAcctId()
@@ -226,16 +232,7 @@ public class PatientMonitoringService {
             result.balanceStatTimeUtcHistory = shiftUtils.getBalanceStatTimeUtcHistory(deptId);
         }
 
-        // 获取 groupBetaList
-        /*
-        !!! 不要在这里调用，会导致死锁
-        !!! 1. monitoringConfig.getMonitoringGroups 会读取dept_monitoring_params表
-        !!! 2. dept_monitoring_params表 需要在 patient_monitoring_records 前读取 （读取顺序一致避免死锁）
-        List<MonitoringGroupBetaPB> groupBetaList = monitoringConfig.getMonitoringGroups(
-            pid, deptId, groupType,
-            (isBalanceGroups ? patientTubeImpl.getMonitoringParamCodes(pid, recordsQueryStartUtc, recordsQueryEndUtc) : new ArrayList<>()),
-            accountId);
-        */
+        // 调用方须先读取患者分组和科室参数，再读写观察项记录，保持锁顺序以避免死锁。
         result.groupBetaList = groupBetaList;
 
         /////////////////////////////////////////////
@@ -765,7 +762,8 @@ public class PatientMonitoringService {
         queryEndUtc = queryEndUtc.isAfter(nowUtc) ? nowUtc : queryEndUtc;
 
         // 获取监测参数元数据
-        MonitoringParamPB monParamPb = monitoringConfig.getMonitoringParam(deptId, monitoringCode);
+        MonitoringParamPB monParamPb =
+            deptMonMetaReader.getMonitoringParam(deptId, monitoringCode);
         if (monParamPb == null) {
             log.error("No monitoring param found for code: {}, deptId: {}", monitoringCode, deptId);
             return null;
@@ -807,21 +805,18 @@ public class PatientMonitoringService {
         String accountId
     ) {
         // 查找每日入量，出量，平衡量的元数据
-        ValueMetaPB dailyInMeta = monitoringConfig.getMonitoringParamMeta(
-            deptId, MonEnums.DAILY_TOTAL_INTAKE_CODE);
-        if (dailyInMeta == null) {
+        Map<String, MonitoringParamPB> dailyParams = deptMonMetaReader.getMonitoringParams(
+            deptId, Set.of(MonEnums.DAILY_TOTAL_INTAKE_CODE, MonEnums.DAILY_TOTAL_OUTPUT_CODE,
+                MonEnums.DAILY_TOTAL_BALANCE_CODE));
+        MonitoringParamPB dailyInParam = dailyParams.get(MonEnums.DAILY_TOTAL_INTAKE_CODE);
+        MonitoringParamPB dailyOutParam = dailyParams.get(MonEnums.DAILY_TOTAL_OUTPUT_CODE);
+        MonitoringParamPB dailyBalanceParam = dailyParams.get(MonEnums.DAILY_TOTAL_BALANCE_CODE);
+        if (dailyInParam == null || dailyOutParam == null || dailyBalanceParam == null) {
             return new Pair<>(StatusCode.MONITORING_PARAM_CODE_NOT_EXIST, null);
         }
-        ValueMetaPB dailyOutMeta = monitoringConfig.getMonitoringParamMeta(
-            deptId, MonEnums.DAILY_TOTAL_OUTPUT_CODE);
-        if (dailyOutMeta == null) {
-            return new Pair<>(StatusCode.MONITORING_PARAM_CODE_NOT_EXIST, null);
-        }
-        ValueMetaPB dailyBalanceMeta = monitoringConfig.getMonitoringParamMeta(
-            deptId, MonEnums.DAILY_TOTAL_BALANCE_CODE);
-        if (dailyBalanceMeta == null) {
-            return new Pair<>(StatusCode.MONITORING_PARAM_CODE_NOT_EXIST, null);
-        }
+        ValueMetaPB dailyInMeta = dailyInParam.getValueMeta();
+        ValueMetaPB dailyOutMeta = dailyOutParam.getValueMeta();
+        ValueMetaPB dailyBalanceMeta = dailyBalanceParam.getValueMeta();
 
         // 初始化统计Map
         Map<LocalDateTime, DailyBalanceStats> dailyStatsMap = new HashMap<>();
@@ -893,14 +888,8 @@ public class PatientMonitoringService {
     }
 
     private Optional<ValueMetaPB> fetchValueMeta(String deptId, String paramCode) {
-        Map<String, MonitoringParamPB> deptParams = monitoringConfig.getMonitoringParams(deptId);
-        if (deptParams != null) {
-            MonitoringParamPB paramPb = deptParams.get(paramCode);
-            if (paramPb != null) {
-                return Optional.of(paramPb.getValueMeta());
-            }
-        }
-        return Optional.empty();
+        return Optional.ofNullable(deptMonMetaReader.getMonitoringParams(deptId).get(paramCode))
+            .map(MonitoringParamPB::getValueMeta);
     }
 
     private List<LocalDateTime> getBalanceStatsDates(
@@ -953,6 +942,8 @@ public class PatientMonitoringService {
     private final PatientTubeImpl patientTubeImpl;
     private final MedMonitoringService medMonitoringService;
     private final MonitoringConfig monitoringConfig;
+    private final DeptMonMetaReader deptMonMetaReader;
+    private final PatientMonMetaService patientMonMetaService;
     private final SettingService settingService;
     private final BalanceCalculator balanceCalculator;
     private final DeviceDataFetcher deviceDataFetcher;

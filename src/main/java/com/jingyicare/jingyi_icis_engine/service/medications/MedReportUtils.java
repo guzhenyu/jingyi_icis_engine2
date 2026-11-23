@@ -18,6 +18,8 @@ import com.jingyicare.jingyi_icis_engine.repository.medications.*;
 import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.service.medications.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.PatientMonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.reports.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.PatientNursingReportInvalidationService;
 import com.jingyicare.jingyi_icis_engine.service.tubes.*;
@@ -31,6 +33,8 @@ public class MedReportUtils {
         @Autowired PatientNursingReportInvalidationService reportUtils,
         @Autowired MedMonitoringService medMonService,
         @Autowired MonitoringConfig monConfig,
+        @Autowired DeptMonMetaReader deptMonMetaReader,
+        @Autowired PatientMonMetaService patientMonMetaService,
         @Autowired PatientMonitoringService patMonService,
         @Autowired MonitoringRecordUtils monRecUtils,
         @Autowired PatientTubeImpl patientTubeImpl,
@@ -45,6 +49,8 @@ public class MedReportUtils {
         this.reportUtils = reportUtils;
         this.medMonService = medMonService;
         this.monConfig = monConfig;
+        this.deptMonMetaReader = deptMonMetaReader;
+        this.patientMonMetaService = patientMonMetaService;
         this.patMonService = patMonService;
         this.monRecUtils = monRecUtils;
         this.patientTubeImpl = patientTubeImpl;
@@ -220,8 +226,8 @@ public class MedReportUtils {
     ) {
         final Long pid = orderGroup.getPatientId();
         final String deptId = orderGroup.getDeptId();
-        if (pid == null || StrUtils.isBlank(deptId)) {
-            log.error("Missing pid or deptId: orderGroupId={}, pid={}, deptId={}",
+        if (pid == null || pid <= 0 || StrUtils.isBlank(deptId)) {
+            log.error("无法重算医嘱入量，患者 ID 无效或科室 ID 为空：orderGroupId={}, pid={}, deptId={}",
                 orderGroup.getId(), pid, deptId);
             return;
         }
@@ -280,36 +286,20 @@ public class MedReportUtils {
 
         // 删除对应的观察项记录；重新计算用药入量，小时入量，日入量。
 
-        // 需要先读 dept_monitoring_params 在读 patient_monitoring_records ， 避免死锁
-        /*
-         * 修改前
-         *    MedReportUtils.setDirtyPatientNursingReports
-         *         先调用 MonitoringRecordUtils.deleteRecords 软删除了 patient_monitoring_records
-         *         再调用 PatientMonitoringService.refreshBalanceGroupRecordStats
-         *             => PatientMonitoringService.getMonitoringRecords
-         *                => MonitoringConfig.getMonitoringGroups 读取 dept_monitoring_params
-         *    违反了 先读 dept_monitoring_params 再读 patient_monitoring_records 的顺序，导致死锁
-         *  修改后
-         *    将 MonitoringConfig.getMonitoringGroups 提前到 MonitoringRecordUtils.deleteRecords 之前
-         *        返回 List<MonitoringGroupBetaPB> groupBetaList
-         *    PatientMonitoringService.refreshBalanceGroupRecordStats 传入 groupBetaList 参数
-         *       避免在 PatientMonitoringService.refreshBalanceGroupRecordStats 内部再读 dept_monitoring_params
-         *  避免死锁
-         */
-        // 将 MonitoringConfig.getMonitoringGroups 提前到 MonitoringRecordUtils.deleteRecords 之前
+        // 先读取包含科室参数的患者分组，再修改观察项记录并传入分组重算，保持锁顺序。
         Pair<LocalDateTime, LocalDateTime> queryUtcTimeRange = monConfig.normalizePmrQueryTimeRange(
             MonEnums.GROUP_TYPE_BALANCE, deptId, affectedStartUtc, timeRange.queryEndUtc()
         );
         List<String> tubeParamCodes = patientTubeImpl.getMonitoringParamCodes(
             pid, queryUtcTimeRange.getFirst(), queryUtcTimeRange.getSecond()
         );
-        List<MonitoringGroupBetaPB> groupBetaList = monConfig.getMonitoringGroups(
-            pid, deptId, MonEnums.GROUP_TYPE_BALANCE, tubeParamCodes, accountId
-        );
-        Map<String, MonitoringParamPB> monitoringParams = monConfig.getMonitoringParams(deptId);
+        List<MonitoringGroupBetaPB> groupBetaList = patientMonMetaService
+            .listPatientMonitoringGroups(
+                pid, deptId, MonEnums.GROUP_TYPE_BALANCE, tubeParamCodes, accountId);
+        Map<String, MonitoringParamPB> monitoringParams =
+            deptMonMetaReader.getMonitoringParams(deptId);
         RouteDetails routeDetails = routeDetailsMap.get(routeCode);
 
-        // 避免死锁修改结束
         if (routeDetails != null && !StrUtils.isBlank(routeDetails.getMonitoringParamCode())) {
             final String monitoringParamCode = routeDetails.getMonitoringParamCode();
             monRecUtils.deleteRecords(pid, monitoringParamCode, affectedStartUtc, affectedEndUtc, accountId);
@@ -352,6 +342,8 @@ public class MedReportUtils {
     private final PatientNursingReportInvalidationService reportUtils;
     private final MedMonitoringService medMonService;
     private final MonitoringConfig monConfig;
+    private final DeptMonMetaReader deptMonMetaReader;
+    private final PatientMonMetaService patientMonMetaService;
     private final PatientMonitoringService patMonService;
     private final MonitoringRecordUtils monRecUtils;
     private final PatientTubeImpl patientTubeImpl;

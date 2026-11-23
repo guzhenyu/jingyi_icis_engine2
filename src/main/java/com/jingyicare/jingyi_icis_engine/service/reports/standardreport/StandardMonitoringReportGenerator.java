@@ -10,8 +10,8 @@ import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.GetPatientMonitoringRe
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
-import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.PatientMonitoringService;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.PatientMonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.reports.MonitoringReportGenerator;
 import com.jingyicare.jingyi_icis_engine.service.reports.MonitoringReportRequest;
 import com.jingyicare.jingyi_icis_engine.service.reports.MonitoringReportResult;
@@ -22,12 +22,12 @@ import com.jingyicare.jingyi_icis_engine.utils.ReturnCodeUtils;
 public class StandardMonitoringReportGenerator implements MonitoringReportGenerator {
     public StandardMonitoringReportGenerator(
         @Autowired ConfigProtoService protoService,
-        @Autowired MonitoringService monitoringService,
+        @Autowired PatientMonMetaService patientMonMetaService,
         @Autowired PatientMonitoringService patientMonitoringService,
         @Autowired MonitoringReportService monitoringReportService
     ) {
         this.statusCodeMsgs = protoService.getConfig().getText().getStatusCodeMsgList();
-        this.monitoringService = monitoringService;
+        this.patientMonMetaService = patientMonMetaService;
         this.patientMonitoringService = patientMonitoringService;
         this.monitoringReportService = monitoringReportService;
     }
@@ -40,7 +40,7 @@ public class StandardMonitoringReportGenerator implements MonitoringReportGenera
     @Override
     public MonitoringReportResult generate(MonitoringReportRequest request) {
         GetPatientMonitoringGroupsResp groupsResp =
-            monitoringService.getPatientMonitoringGroups(request.getRawRequestJson());
+            patientMonMetaService.getPatientMonitoringGroups(request.getRawRequestJson());
         if (groupsResp.getRt().getCode() != StatusCode.OK.ordinal()) {
             return new MonitoringReportResult(groupsResp.getRt(), 0);
         }
@@ -69,7 +69,7 @@ public class StandardMonitoringReportGenerator implements MonitoringReportGenera
     }
 
     private final List<String> statusCodeMsgs;
-    private final MonitoringService monitoringService;
+    private final PatientMonMetaService patientMonMetaService;
     private final PatientMonitoringService patientMonitoringService;
     private final MonitoringReportService monitoringReportService;
 }

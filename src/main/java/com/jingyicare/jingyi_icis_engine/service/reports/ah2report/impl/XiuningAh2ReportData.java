@@ -43,6 +43,8 @@ import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.medications.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.PatientMonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.ah2report.*;
@@ -61,6 +63,8 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         @Autowired ConfigShiftUtils configShiftUtils,
         @Autowired PatientReader patientReader,
         @Autowired MonitoringConfig monitoringConfig,
+        @Autowired DeptMonMetaReader deptMonMetaReader,
+        @Autowired PatientMonMetaService patientMonMetaService,
         @Autowired PatientMonitoringService patientMonitoringService,
         @Autowired BalanceCalculator balanceCalculator,
         @Autowired PatientTubeImpl patientTubeImpl,
@@ -89,6 +93,8 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         this.configShiftUtils = configShiftUtils;
         this.patientReader = patientReader;
         this.monitoringConfig = monitoringConfig;
+        this.deptMonMetaReader = deptMonMetaReader;
+        this.patientMonMetaService = patientMonMetaService;
         this.patientMonitoringService = patientMonitoringService;
         this.balanceCalculator = balanceCalculator;
         this.patientTubeImpl = patientTubeImpl;
@@ -149,7 +155,7 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
         if (queryEndUtc.isAfter(nowUtc)) queryEndUtc = nowUtc;
 
-        ctx.mpMap = monitoringConfig.getMonitoringParams(deptId);
+        ctx.mpMap = deptMonMetaReader.getMonitoringParams(deptId);
         if (ctx.mpMap == null || ctx.mpMap.isEmpty()) {
             return new Pair<>(
                 ReturnCodeUtils.getReturnCode(statusCodeMsgs, StatusCode.MONITORING_PARAM_CODE_NOT_EXIST), null
@@ -636,9 +642,9 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
         List<String> tubeParamCodes = patientTubeImpl.getMonitoringParamCodes(
             pid, queryUtcTimeRange.getFirst(), queryUtcTimeRange.getSecond()
         );
-        List<MonitoringGroupBetaPB> groupBetaList = monitoringConfig.getMonitoringGroups(
-            pid, deptId, MonEnums.GROUP_TYPE_BALANCE, tubeParamCodes, accountId
-        );
+        List<MonitoringGroupBetaPB> groupBetaList = patientMonMetaService
+            .listPatientMonitoringGroups(
+                pid, deptId, MonEnums.GROUP_TYPE_BALANCE, tubeParamCodes, accountId);
         PatientMonitoringService.GetMonitoringRecordsResult recordsResult = patientMonitoringService.getMonitoringRecords(
             pid, deptId, MonEnums.GROUP_TYPE_BALANCE, shiftStartUtc, dataEndUtc,
             false, groupBetaList, accountId
@@ -1673,6 +1679,8 @@ public class XiuningAh2ReportData implements Ah2ReportDataProvider {
     private final ConfigShiftUtils configShiftUtils;
     private final PatientReader patientReader;
     private final MonitoringConfig monitoringConfig;
+    private final DeptMonMetaReader deptMonMetaReader;
+    private final PatientMonMetaService patientMonMetaService;
     private final PatientMonitoringService patientMonitoringService;
     private final BalanceCalculator balanceCalculator;
     private final PatientTubeImpl patientTubeImpl;

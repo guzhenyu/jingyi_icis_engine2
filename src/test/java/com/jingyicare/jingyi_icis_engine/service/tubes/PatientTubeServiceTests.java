@@ -30,6 +30,7 @@ import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaService;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.PatientMonMetaService;
 import com.jingyicare.jingyi_icis_engine.testutils.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -41,7 +42,7 @@ public class PatientTubeServiceTests extends TestsBase {
         @Autowired MonitoringConfig monitoringConfig,
         @Autowired DeptMonMetaService deptMonMetaService,
         @Autowired MonMetaService monMetaService,
-        @Autowired MonitoringService monitoringService,
+        @Autowired PatientMonMetaService patientMonMetaService,
         @Autowired TubeTypeRepository tubeTypeRepo,
         @Autowired TubeTypeAttributeRepository tubeTypeAttrRepo,
         @Autowired TubeTypeStatusRepository tubeTypeStatusRepo,
@@ -80,7 +81,7 @@ public class PatientTubeServiceTests extends TestsBase {
         this.monitoringConfig = monitoringConfig;
         this.deptMonMetaService = deptMonMetaService;
         this.monMetaService = monMetaService;
-        this.monitoringService = monitoringService;
+        this.patientMonMetaService = patientMonMetaService;
         this.tubeTypeRepo = tubeTypeRepo;
         this.tubeTypeAttrRepo = tubeTypeAttrRepo;
         this.tubeTypeStatusRepo = tubeTypeStatusRepo;
@@ -660,14 +661,16 @@ public class PatientTubeServiceTests extends TestsBase {
             .setQueryEndIso8601(TimeUtils.toIso8601String(queryEnd, ZONE_ID))
             .build();
         String patientMonitoringReqJson = ProtoUtils.protoToJson(patientMonitoringReq);
-        GetPatientMonitoringGroupsResp monitoringResp = monitoringService
+        GetPatientMonitoringGroupsResp monitoringResp = patientMonMetaService
             .getPatientMonitoringGroups(patientMonitoringReqJson);
         assertThat(monitoringResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
         // 确认引流管存在
         assertThat(monitoringResp.getMonitoringGroupList()).hasSize(3);
         assertThat(monitoringResp.getMonitoringGroup(1).getName()).isEqualTo("出量");
-        assertThat(monitoringResp.getMonitoringGroup(1).getParam(1).getCode()).isEqualTo("tube_ylg_ylg");
+        List<MonitoringParamPB> outParams = monitoringResp.getMonitoringGroup(1).getParamList();
+        assertThat(outParams.get(1).getCode()).isEqualTo("tube_ylg_ylg");
+        assertThat(outParams.get(2).getCode()).isEqualTo("tube_ylg_ylg_color");
     }
 
     private void initTubeType() {
@@ -844,7 +847,7 @@ public class PatientTubeServiceTests extends TestsBase {
     private final MonitoringConfig monitoringConfig;
     private final DeptMonMetaService deptMonMetaService;
     private final MonMetaService monMetaService;
-    private final MonitoringService monitoringService;
+    private final PatientMonMetaService patientMonMetaService;
     private final TubeTypeRepository tubeTypeRepo;
     private final TubeTypeAttributeRepository tubeTypeAttrRepo;
     private final TubeTypeStatusRepository tubeTypeStatusRepo;

@@ -34,7 +34,7 @@ import com.jingyicare.jingyi_icis_engine.repository.monitorings.BgaParamReposito
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientBgaRecordDetailRepository;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientBgaRecordRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
-import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
@@ -54,7 +54,7 @@ public class PatientBgaRecordsDataSourceHandler extends AbstractJfkDataSourceHan
         PatientBgaRecordRepository recordRepo,
         PatientBgaRecordDetailRepository detailRepo,
         BgaParamRepository bgaParamRepo,
-        MonitoringConfig monitoringConfig,
+        DeptMonMetaReader deptMonMetaReader,
         ConfigProtoService configProtoService,
         JfkSignatureValueResolver signatureResolver,
         ReportProperties reportProperties,
@@ -64,7 +64,7 @@ public class PatientBgaRecordsDataSourceHandler extends AbstractJfkDataSourceHan
         this.recordRepo = recordRepo;
         this.detailRepo = detailRepo;
         this.bgaParamRepo = bgaParamRepo;
-        this.monitoringConfig = monitoringConfig;
+        this.deptMonMetaReader = deptMonMetaReader;
         this.configProtoService = configProtoService;
         this.signatureResolver = signatureResolver;
         this.reportProperties = reportProperties;
@@ -104,7 +104,7 @@ public class PatientBgaRecordsDataSourceHandler extends AbstractJfkDataSourceHan
             .findByPidAndEffectiveTimeGreaterThanEqualAndEffectiveTimeLessThanAndIsDeletedFalseOrderByEffectiveTimeAsc(
                 pid, window.monitoringStartUtc(), window.monitoringEndUtc());
         Map<Long, List<PatientBgaRecordDetail>> detailsByRecordId = findDetails(records);
-        Map<String, MonitoringParamPB> paramMap = monitoringConfig.getMonitoringParams(deptId);
+        Map<String, MonitoringParamPB> paramMap = deptMonMetaReader.getMonitoringParams(deptId);
         Map<String, Integer> bgaParamOrder = bgaParamOrder(deptId);
         Map<Long, Account> accounts = signatureResolver.loadAccounts(
             bgaSignatureAccountRefs(records));
@@ -391,7 +391,7 @@ public class PatientBgaRecordsDataSourceHandler extends AbstractJfkDataSourceHan
     private final PatientBgaRecordRepository recordRepo;
     private final PatientBgaRecordDetailRepository detailRepo;
     private final BgaParamRepository bgaParamRepo;
-    private final MonitoringConfig monitoringConfig;
+    private final DeptMonMetaReader deptMonMetaReader;
     private final ConfigProtoService configProtoService;
     private final JfkSignatureValueResolver signatureResolver;
     private final ReportProperties reportProperties;
