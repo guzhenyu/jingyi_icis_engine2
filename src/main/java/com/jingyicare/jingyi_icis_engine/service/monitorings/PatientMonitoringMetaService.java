@@ -20,6 +20,7 @@ import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
@@ -29,13 +30,13 @@ public class PatientMonitoringMetaService {
     public PatientMonitoringMetaService(
         PatientReader patientReader,
         LockExecutor lockExecutor,
-        DeptMonitoringGroupRepository deptGroupRepository,
+        DeptMonMetaReader deptMonMetaReader,
         PatientMonitoringGroupRepository patientGroupRepository,
         PatientMonitoringGroupParamRepository patientGroupParamRepository
     ) {
         this.patientReader = patientReader;
         this.lockExecutor = lockExecutor;
-        this.deptGroupRepository = deptGroupRepository;
+        this.deptMonMetaReader = deptMonMetaReader;
         this.patientGroupRepository = patientGroupRepository;
         this.patientGroupParamRepository = patientGroupParamRepository;
     }
@@ -64,8 +65,7 @@ public class PatientMonitoringMetaService {
                 pid, deptId, patient.getDeptId());
             return List.of();
         }
-        List<DeptMonitoringGroup> deptGroups = deptGroupRepository
-            .findByDeptIdAndIsDeletedFalse(deptId);
+        List<DeptMonitoringGroup> deptGroups = deptMonMetaReader.listActiveGroups(deptId);
         return createGroups(pid, deptGroups, accountId, TimeUtils.getNowUtc());
     }
 
@@ -77,8 +77,8 @@ public class PatientMonitoringMetaService {
             .findByPidAndIsDeletedFalse(patient.getId());
         if (!patientGroups.isEmpty()) return patientGroups;
 
-        List<DeptMonitoringGroup> deptGroups = deptGroupRepository
-            .findByDeptIdAndIsDeletedFalse(patient.getDeptId());
+        List<DeptMonitoringGroup> deptGroups = deptMonMetaReader
+            .listActiveGroups(patient.getDeptId());
         return createGroups(patient.getId(), deptGroups, accountId, TimeUtils.getNowUtc());
     }
 
@@ -87,8 +87,7 @@ public class PatientMonitoringMetaService {
             PatientRecord patient = patientReader.findById(pid).orElse(null);
             if (patient == null || !Objects.equals(patient.getDeptId(), deptId)) return null;
 
-            List<DeptMonitoringGroup> deptGroups = deptGroupRepository
-                .findByDeptIdAndIsDeletedFalse(deptId);
+            List<DeptMonitoringGroup> deptGroups = deptMonMetaReader.listActiveGroups(deptId);
             List<PatientMonitoringGroup> patientGroups = patientGroupRepository
                 .findByPidAndIsDeletedFalse(pid);
             Set<Integer> deptGroupIds = deptGroups.stream()
@@ -136,7 +135,7 @@ public class PatientMonitoringMetaService {
 
     private final PatientReader patientReader;
     private final LockExecutor lockExecutor;
-    private final DeptMonitoringGroupRepository deptGroupRepository;
+    private final DeptMonMetaReader deptMonMetaReader;
     private final PatientMonitoringGroupRepository patientGroupRepository;
     private final PatientMonitoringGroupParamRepository patientGroupParamRepository;
 }

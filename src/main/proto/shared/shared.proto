@@ -29,3 +29,12 @@ message EmptyReq {
 message GenericResp {
     ReturnCode rt = 1;
 }
+
+message IdReq {
+    int32 id = 1;
+}
+
+message IdResp {
+    ReturnCode rt = 1;
+    int32 id = 2;
+}

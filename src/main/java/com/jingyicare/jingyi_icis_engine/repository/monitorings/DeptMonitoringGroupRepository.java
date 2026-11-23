@@ -31,7 +31,7 @@ public interface DeptMonitoringGroupRepository extends JpaRepository<DeptMonitor
 
     Optional<DeptMonitoringGroup> findByDeptIdAndNameAndIsDeletedFalse(String deptId, String name);
 
-    Optional<DeptMonitoringGroup> findByIdAndDeptId(Integer id, String deptId);
+    Optional<DeptMonitoringGroup> findByIdAndDeptIdAndIsDeletedFalse(Integer id, String deptId);
 
     Boolean existsByDeptIdAndIsDeletedFalse(String deptId);
 }

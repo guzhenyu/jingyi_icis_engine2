@@ -18,6 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.DeptMonitoringParam;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.MonitoringParam;
 import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
+import com.jingyicare.jingyi_icis_engine.entity.users.Department;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.AddMonitoringParamReq;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.GetMonitoringParamReq;
@@ -268,6 +269,8 @@ public class MonMetaService {
         }
     }
 
+    // 生效范围为查询时的有效科室。若查完目录后新增科室，本次锁列表不包含它，
+    // 该科室的并发写入仍由数据库外键保护引用完整性。
     public StatusCode deleteMonitoringParam(String paramCode) {
         if (StrUtils.isBlank(paramCode)) return StatusCode.MONITORING_PARAM_CODE_EMPTY;
 
@@ -275,7 +278,12 @@ public class MonMetaService {
         if (account == null) return StatusCode.ACCOUNT_NOT_FOUND;
 
         try {
-            return lockExecutor.execute(List.of(LockKeys.monitoringParam()), () -> {
+            List<String> lockKeys = new ArrayList<>();
+            lockKeys.add(LockKeys.monitoringParam());
+            for (Department dept : userQuery.getAllDeptInfo()) {
+                lockKeys.add(LockKeys.deptMonitoringGroup(dept.getDeptId()));
+            }
+            return lockExecutor.execute(lockKeys, () -> {
                 MonitoringParam param = monMetaReader.findGlobalParam(paramCode).orElse(null);
                 if (param == null) return StatusCode.OK;
 

@@ -42,7 +42,7 @@ import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.BgaMetaService;
-import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringMetaService;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.nursingrecords.NursingOrderTemplateService;
 import com.jingyicare.jingyi_icis_engine.service.scores.ScoreMetaService;
 import com.jingyicare.jingyi_icis_engine.service.settings.SettingsStore;
@@ -97,7 +97,7 @@ class DepartmentCommandTests extends TestsBase {
                 """, code);
             jdbc.update("DELETE FROM dept_monitoring_groups WHERE dept_id = ?", code);
             jdbc.update("DELETE FROM app_transaction_locks WHERE resource_key = ?",
-                LockKeys.deptMonitoringGroups(code));
+                LockKeys.deptMonitoringGroup(code));
             jdbc.update("DELETE FROM departments WHERE dept_id = ?", code);
             jdbc.update("DELETE FROM rbac_departments WHERE dept_id = ?", code);
             jdbc.update("DELETE FROM app_transaction_locks WHERE resource_key = ?",
@@ -190,7 +190,7 @@ class DepartmentCommandTests extends TestsBase {
         }).when(failing).save(any(RbacDepartment.class));
         DepartmentCommand command = new DepartmentCommand(
             deptRepo, failing, membershipRepo, businessMembershipRepo, bgaMetaService,
-            monitoringMetaService, scoreMetaService, nursingTemplateService, locks,
+            deptMonMetaService, scoreMetaService, nursingTemplateService, locks,
             config, settingsStore);
 
         assertThatThrownBy(() -> command.updateDepartment(firstId(), FIRST, UPDATED_NAME,
@@ -210,7 +210,7 @@ class DepartmentCommandTests extends TestsBase {
         }).when(failing).deleteById(FIRST);
         DepartmentCommand command = new DepartmentCommand(
             deptRepo, failing, membershipRepo, businessMembershipRepo, bgaMetaService,
-            monitoringMetaService, scoreMetaService, nursingTemplateService, locks,
+            deptMonMetaService, scoreMetaService, nursingTemplateService, locks,
             config, settingsStore);
 
         assertThatThrownBy(() -> command.deleteDepartment(FIRST, OPERATOR))
@@ -365,7 +365,7 @@ class DepartmentCommandTests extends TestsBase {
     @Autowired private LockExecutor locks;
     @Autowired private ProtoConfig config;
     @Autowired private SettingsStore settingsStore;
-    @Autowired private MonitoringMetaService monitoringMetaService;
+    @Autowired private DeptMonMetaService deptMonMetaService;
     @MockBean private BgaMetaService bgaMetaService;
     @MockBean private ScoreMetaService scoreMetaService;
     @MockBean private NursingOrderTemplateService nursingTemplateService;

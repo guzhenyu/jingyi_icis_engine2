@@ -37,7 +37,7 @@ import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.medications.MedicationConfig;
 import com.jingyicare.jingyi_icis_engine.service.medications.MedicationService;
-import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringMetaService;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaService;
 import com.jingyicare.jingyi_icis_engine.testutils.MedicationTestUtils;
 import com.jingyicare.jingyi_icis_engine.testutils.PatientTestUtils;
@@ -57,7 +57,7 @@ public class MedicationPageDataTests extends TestsBase {
         @Autowired ConfigProtoService protoService,
         @Autowired MedicationConfig medConfig,
         @Autowired MedicationService medService,
-        @Autowired MonitoringMetaService monitoringMetaService,
+        @Autowired DeptMonMetaService deptMonMetaService,
         @Autowired MonMetaService monMetaService,
         @Autowired LockExecutor lockExecutor,
         @Autowired MedicationRepository medRepo,
@@ -112,8 +112,8 @@ public class MedicationPageDataTests extends TestsBase {
         this.patientTestUtils = new PatientTestUtils();
 
         monMetaService.initMonitoringParams();
-        lockExecutor.execute(List.of(LockKeys.deptMonitoringGroups(deptId)), () -> {
-            monitoringMetaService.initDept(deptId);
+        lockExecutor.execute(List.of(LockKeys.deptMonitoringGroup(deptId)), () -> {
+            deptMonMetaService.initDept(deptId);
             return null;
         });
         medTestUtils.initFreqRepo();

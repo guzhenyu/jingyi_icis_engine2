@@ -116,9 +116,9 @@ class LockKeysTests {
 
     @Test
     void shouldScopeDepartmentMonitoringConfigurationToOneKey() {
-        assertThat(LockKeys.deptMonitoringGroups("icu"))
+        assertThat(LockKeys.deptMonitoringGroup("icu"))
             .isEqualTo("dept_monitoring_groups:icu")
-            .isNotEqualTo(LockKeys.deptMonitoringGroups("other-icu"))
+            .isNotEqualTo(LockKeys.deptMonitoringGroup("other-icu"))
             .isNotEqualTo(LockKeys.department("icu"))
             .isNotEqualTo(LockKeys.monitoringParam());
     }
@@ -128,7 +128,7 @@ class LockKeysTests {
     @ValueSource(strings = {" ", "\t\n"})
     void shouldRejectMissingMonitoringDepartment(String invalid) {
         assertThatIllegalArgumentException()
-            .isThrownBy(() -> LockKeys.deptMonitoringGroups(invalid));
+            .isThrownBy(() -> LockKeys.deptMonitoringGroup(invalid));
     }
 
     @Test
@@ -137,7 +137,7 @@ class LockKeysTests {
         assertThat(LockKeys.patientMonitoringGroups(42L))
             .isEqualTo("patient_monitoring_groups:42")
             .isNotEqualTo(LockKeys.patientMonitoringGroups(43L))
-            .isNotEqualTo(LockKeys.deptMonitoringGroups("42"))
+            .isNotEqualTo(LockKeys.deptMonitoringGroup("42"))
             .isNotEqualTo(LockKeys.patientMonitoringRecord(42L, "gcs", time));
     }
 

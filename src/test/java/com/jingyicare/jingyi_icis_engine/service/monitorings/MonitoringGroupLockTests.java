@@ -3,6 +3,7 @@ package com.jingyicare.jingyi_icis_engine.service.monitorings;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
@@ -33,18 +34,18 @@ import com.jingyicare.jingyi_icis_engine.entity.monitorings.DeptMonitoringGroupP
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.MonitoringParam;
 import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
+import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.IdReq;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.TypeEnumPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.ValueMetaPB;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
-import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaService;
-import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
-import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
-import com.jingyicare.jingyi_icis_engine.service.tubes.PatientTubeImpl;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.PatientMonMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
@@ -53,18 +54,17 @@ class MonitoringGroupLockTests extends TestsBase {
     @BeforeEach
     void prepare() {
         UserQuery user = mock(UserQuery.class);
-        when(user.getCurrentAccount()).thenReturn(new CurrentAccount("rbac", "123", "测试用户"));
+        CurrentAccount account = new CurrentAccount("rbac", "123", "测试用户");
+        when(user.getCurrentAccount()).thenReturn(account);
+        when(user.getDepartmentId(DEPT)).thenReturn(1);
+        when(user.getDepartmentId(OTHER_DEPT)).thenReturn(2);
         trackedExecutor = spy(executor);
-        service = new MonitoringService(protoService, user,
-            context.getBean(PatientService.class), context.getBean(PatientReader.class),
-            context.getBean(PatientTubeImpl.class), context.getBean(MonitoringConfig.class),
-            context.getBean(MonitoringMetaService.class),
-            context.getBean(PatientMonitoringMetaService.class), trackedExecutor, jdbc,
-            context.getBean(MonMetaReader.class), context.getBean(DeptMonMetaReader.class),
+        trackedDeptReader = spy(context.getBean(DeptMonMetaReader.class));
+        service = new DeptMonMetaService(protoConfig.getConfig(), trackedDeptReader,
+            context.getBean(PatientMonMetaReader.class), context.getBean(MonMetaReader.class),
             context.getBean(MonMetaService.class),
             context.getBean(DeptMonitoringParamRepository.class), groups, groupParams,
-            context.getBean(PatientMonitoringGroupRepository.class),
-            context.getBean(PatientMonitoringGroupParamRepository.class));
+            trackedExecutor, jdbc, user);
         LocalDateTime now = LocalDateTime.of(2026, 11, 19, 0, 0);
         String meta = ProtoUtils.encodeValueMeta(ValueMetaPB.newBuilder()
             .setValueType(TypeEnumPB.FLOAT).build());
@@ -84,6 +84,10 @@ class MonitoringGroupLockTests extends TestsBase {
     @AfterEach
     void cleanUp() {
         jdbc.update("""
+            DELETE FROM patient_monitoring_groups WHERE dept_monitoring_group_id IN
+            (SELECT id FROM dept_monitoring_groups WHERE dept_id = ?)
+            """, DEPT);
+        jdbc.update("""
             DELETE FROM dept_monitoring_group_params WHERE dept_monitoring_group_id IN
             (SELECT id FROM dept_monitoring_groups WHERE dept_id = ?)
             """, DEPT);
@@ -93,7 +97,7 @@ class MonitoringGroupLockTests extends TestsBase {
             DEPT, OTHER_DEPT);
         jdbc.update("DELETE FROM monitoring_params WHERE code IN (?, ?)", FIRST_CODE, SECOND_CODE);
         jdbc.update("DELETE FROM app_transaction_locks WHERE resource_key IN (?, ?)",
-            LockKeys.deptMonitoringGroups(DEPT), LockKeys.deptMonitoringGroups(OTHER_DEPT));
+            LockKeys.deptMonitoringGroup(DEPT), LockKeys.deptMonitoringGroup(OTHER_DEPT));
     }
 
     @ParameterizedTest
@@ -103,13 +107,10 @@ class MonitoringGroupLockTests extends TestsBase {
         CountDownLatch held = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
         CountDownLatch attempted = new CountDownLatch(1);
-        List<String> deptKeys = List.of(LockKeys.deptMonitoringGroups(DEPT));
+        List<String> deptKeys = List.of(LockKeys.deptMonitoringGroup(DEPT));
         boolean deptParam = operation == Operation.CREATE_DEPT_PARAM
-            || operation == Operation.UPDATE_DEPT_PARAM;
-        List<String> keys = deptParam
-            ? List.of(LockKeys.deptMonitoringGroups(DEPT), LockKeys.monitoringParam())
-            : deptKeys;
-        if (operation == Operation.UPDATE_DEPT_PARAM) {
+            || operation == Operation.UPDATE_DEPT_PARAM || operation == Operation.DELETE_DEPT_PARAM;
+        if (operation == Operation.UPDATE_DEPT_PARAM || operation == Operation.DELETE_DEPT_PARAM) {
             jdbc.update("""
                 INSERT INTO dept_monitoring_params (code, dept_id, type_pb) VALUES (?, ?, ?)
                 """, FIRST_CODE, DEPT, params.findByCode(FIRST_CODE).orElseThrow().getTypePb());
@@ -117,7 +118,7 @@ class MonitoringGroupLockTests extends TestsBase {
         doAnswer(invocation -> {
             attempted.countDown();
             return invocation.callRealMethod();
-        }).when(trackedExecutor).execute(eq(keys), any());
+        }).when(trackedExecutor).execute(eq(deptKeys), any());
 
         ExecutorService pool = Executors.newFixedThreadPool(2);
         try {
@@ -136,12 +137,16 @@ class MonitoringGroupLockTests extends TestsBase {
             release.countDown();
             blocker.get(10, TimeUnit.SECONDS);
             assertThat(mutation.get(10, TimeUnit.SECONDS)).isEqualTo(StatusCode.OK_VALUE);
-            verify(trackedExecutor).execute(eq(keys), any());
+            verify(trackedExecutor).execute(eq(deptKeys), any());
             if (deptParam) {
-                assertThat(jdbc.queryForObject("""
+                List<String> typePbs = jdbc.queryForList("""
                     SELECT type_pb FROM dept_monitoring_params WHERE dept_id = ? AND code = ?
-                    """, String.class, DEPT, FIRST_CODE))
-                    .isEqualTo(ProtoUtils.encodeValueMeta(DEPT_META));
+                    """, String.class, DEPT, FIRST_CODE);
+                if (operation == Operation.DELETE_DEPT_PARAM) {
+                    assertThat(typePbs).isEmpty();
+                } else {
+                    assertThat(typePbs).containsExactly(ProtoUtils.encodeValueMeta(DEPT_META));
+                }
                 assertThat(jdbc.queryForObject("""
                     SELECT COUNT(*) FROM monitoring_params_history WHERE dept_id = ?
                     """, Integer.class, DEPT))
@@ -155,21 +160,15 @@ class MonitoringGroupLockTests extends TestsBase {
     }
 
     @Test
-    void differentDepartmentsWaitForTheSameGlobalParamLock() throws Exception {
+    void anotherDepartmentOverrideDoesNotWaitForTheGlobalKey() throws Exception {
         CountDownLatch held = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
-        CountDownLatch attempted = new CountDownLatch(1);
-        List<String> otherDeptKeys = List.of(
-            LockKeys.deptMonitoringGroups(OTHER_DEPT), LockKeys.monitoringParam());
-        doAnswer(invocation -> {
-            attempted.countDown();
-            return invocation.callRealMethod();
-        }).when(trackedExecutor).execute(eq(otherDeptKeys), any());
+        List<String> otherDeptKeys = List.of(LockKeys.deptMonitoringGroup(OTHER_DEPT));
 
         ExecutorService pool = Executors.newFixedThreadPool(2);
         try {
             Future<?> blocker = pool.submit(() -> executor.execute(List.of(
-                LockKeys.deptMonitoringGroups(DEPT), LockKeys.monitoringParam()), () -> {
+                LockKeys.deptMonitoringGroup(DEPT), LockKeys.monitoringParam()), () -> {
                     held.countDown();
                     await(release);
                     return null;
@@ -181,23 +180,42 @@ class MonitoringGroupLockTests extends TestsBase {
                     .setDepartmentId(OTHER_DEPT).setCode(FIRST_CODE)
                     .setValueMeta(DEPT_META).build()))
                 .getRt().getCode());
-            assertThat(attempted.await(10, TimeUnit.SECONDS)).isTrue();
-            assertThatThrownBy(() -> mutation.get(200, TimeUnit.MILLISECONDS))
-                .isInstanceOf(TimeoutException.class);
-
-            release.countDown();
-            blocker.get(10, TimeUnit.SECONDS);
-            assertThat(mutation.get(10, TimeUnit.SECONDS)).isEqualTo(StatusCode.OK_VALUE);
+            assertThat(mutation.get(5, TimeUnit.SECONDS)).isEqualTo(StatusCode.OK_VALUE);
             assertThat(jdbc.queryForObject("""
                 SELECT type_pb FROM dept_monitoring_params WHERE dept_id = ? AND code = ?
                 """, String.class, OTHER_DEPT, FIRST_CODE))
                 .isEqualTo(ProtoUtils.encodeValueMeta(DEPT_META));
             verify(trackedExecutor).execute(eq(otherDeptKeys), any());
+            release.countDown();
+            blocker.get(10, TimeUnit.SECONDS);
         } finally {
             release.countDown();
             pool.shutdownNow();
             assertThat(pool.awaitTermination(10, TimeUnit.SECONDS)).isTrue();
         }
+    }
+
+    @Test
+    void addingAParamChecksTheGroupOnceEvenWhenPatientBindingTriggersACopy() {
+        jdbc.update("""
+            INSERT INTO patient_monitoring_groups
+                (dept_monitoring_group_id, pid, is_deleted, modified_by, modified_at)
+            VALUES (?, ?, FALSE, '123', CURRENT_TIMESTAMP)
+            """, group.getId(), PATIENT_ID);
+
+        assertThat(mutate(Operation.ADD_PARAM)).isEqualTo(StatusCode.OK_VALUE);
+        verify(trackedDeptReader).findGroupByIdIncludingDeleted(anyInt());
+
+        List<DeptMonitoringGroup> currentGroups = groups.findByDeptIdAndIsDeletedFalse(DEPT);
+        assertThat(currentGroups).hasSize(1);
+        DeptMonitoringGroup currentGroup = currentGroups.getFirst();
+        assertThat(currentGroup.getId()).isNotEqualTo(group.getId());
+        assertThat(groupParams.findByDeptMonitoringGroupIdAndIsDeletedFalse(group.getId()))
+            .extracting(DeptMonitoringGroupParam::getMonitoringParamCode)
+            .containsExactly(FIRST_CODE);
+        assertThat(groupParams.findByDeptMonitoringGroupIdAndIsDeletedFalse(currentGroup.getId()))
+            .extracting(DeptMonitoringGroupParam::getMonitoringParamCode)
+            .containsExactlyInAnyOrder(FIRST_CODE, SECOND_CODE);
     }
 
     @Test
@@ -231,14 +249,17 @@ class MonitoringGroupLockTests extends TestsBase {
                 ProtoUtils.protoToJson(UpdateDeptMonitoringParamReq.newBuilder()
                     .setDepartmentId(DEPT).setCode(FIRST_CODE).setValueMeta(DEPT_META).build()))
                 .getRt().getCode();
+            case DELETE_DEPT_PARAM -> service.deleteMonitoringParam(ProtoUtils.protoToJson(
+                DeleteMonitoringParamReq.newBuilder().setDepartmentId(DEPT).setCode(FIRST_CODE)
+                    .build())).getRt().getCode();
             case ADD_GROUP -> service.addDeptMonitoringGroup(ProtoUtils.protoToJson(
                 AddDeptMonitoringGroupReq.newBuilder().setDepartmentId(DEPT).setName("新组")
                     .setGroupType(MonEnums.GROUP_TYPE_MONITORING).build())).getRt().getCode();
-            case RENAME_GROUP -> service.updateDeptMonGroupName(ProtoUtils.protoToJson(
+            case RENAME_GROUP -> service.updateDeptMonitoringGroupName(ProtoUtils.protoToJson(
                 UpdateDeptMonGroupNameReq.newBuilder().setId(group.getId()).setName("改名组")
                     .build())).getRt().getCode();
             case DELETE_GROUP -> service.deleteDeptMonitoringGroup(ProtoUtils.protoToJson(
-                DeleteDeptMonitoringGroupReq.newBuilder().setId(group.getId()).build()))
+                IdReq.newBuilder().setId(group.getId()).build()))
                 .getRt().getCode();
             case REORDER_GROUP -> service.reorderDeptMonitoringGroup(ProtoUtils.protoToJson(
                 ReorderDeptMonitoringGroupReq.newBuilder().setDepartmentId(DEPT)
@@ -250,7 +271,7 @@ class MonitoringGroupLockTests extends TestsBase {
                     .setDeptMonitoringGroupId(group.getId()).setCode(SECOND_CODE).build()))
                 .getRt().getCode();
             case DELETE_PARAM -> service.deleteDeptMonitoringGroupParam(ProtoUtils.protoToJson(
-                DeleteDeptMonitoringGroupParamReq.newBuilder().setId(groupParam.getId()).build()))
+                IdReq.newBuilder().setId(groupParam.getId()).build()))
                 .getRt().getCode();
             case REORDER_PARAM -> service.reorderDeptMonitoringGroupParam(ProtoUtils.protoToJson(
                 ReorderDeptMonitoringGroupParamReq.newBuilder().setDeptId(DEPT)
@@ -273,22 +294,24 @@ class MonitoringGroupLockTests extends TestsBase {
 
     private enum Operation {
         ADD_GROUP, RENAME_GROUP, DELETE_GROUP, REORDER_GROUP, ADD_PARAM, DELETE_PARAM,
-        REORDER_PARAM, CREATE_DEPT_PARAM, UPDATE_DEPT_PARAM
+        REORDER_PARAM, CREATE_DEPT_PARAM, UPDATE_DEPT_PARAM, DELETE_DEPT_PARAM
     }
 
     @Autowired private ApplicationContext context;
-    @Autowired private ConfigProtoService protoService;
+    @Autowired private ProtoConfig protoConfig;
     @Autowired private LockExecutor executor;
     @Autowired private JdbcTemplate jdbc;
     @Autowired private MonitoringParamRepository params;
     @Autowired private DeptMonitoringGroupRepository groups;
     @Autowired private DeptMonitoringGroupParamRepository groupParams;
 
-    private MonitoringService service;
+    private DeptMonMetaService service;
     private LockExecutor trackedExecutor;
+    private DeptMonMetaReader trackedDeptReader;
     private DeptMonitoringGroup group;
     private DeptMonitoringGroupParam groupParam;
 
+    private static final long PATIENT_ID = 900000001L;
     private static final String DEPT = "test-monitoring-group-lock";
     private static final String OTHER_DEPT = "test-monitoring-group-lock-other";
     private static final String FIRST_CODE = "test_group_lock_first";

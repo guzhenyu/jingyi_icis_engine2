@@ -22,7 +22,7 @@ import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.BgaMetaService;
-import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringMetaService;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.nursingrecords.NursingOrderTemplateService;
 import com.jingyicare.jingyi_icis_engine.service.scores.ScoreMetaService;
 import com.jingyicare.jingyi_icis_engine.service.settings.SettingsStore;
@@ -37,7 +37,7 @@ public class DepartmentCommand {
         RbacDepartmentAccountRepository rbacDeptAcctRepo,
         DepartmentAccountRepository deptAcctRepo,
         BgaMetaService bgaMetaService,
-        MonitoringMetaService monitoringMetaService,
+        DeptMonMetaService deptMonMetaService,
         ScoreMetaService scoreMetaService,
         NursingOrderTemplateService nursingOrderTemplateService,
         LockExecutor lockExecutor,
@@ -49,7 +49,7 @@ public class DepartmentCommand {
         this.rbacDeptAcctRepo = rbacDeptAcctRepo;
         this.deptAcctRepo = deptAcctRepo;
         this.bgaMetaService = bgaMetaService;
-        this.monitoringMetaService = monitoringMetaService;
+        this.deptMonMetaService = deptMonMetaService;
         this.scoreMetaService = scoreMetaService;
         this.nursingOrderTemplateService = nursingOrderTemplateService;
         this.lockExecutor = lockExecutor;
@@ -107,7 +107,7 @@ public class DepartmentCommand {
         if (deptId == null || deptId.isBlank()) return StatusCode.DEPT_IS_EMPTY;
         List<String> lockKeys = new ArrayList<>(List.of(
             LockKeys.department(deptId), LockKeys.bgaParam(deptId),
-            LockKeys.deptMonitoringGroups(deptId),
+            LockKeys.deptMonitoringGroup(deptId),
             LockKeys.deptScoreGroup(deptId)));
         List<DisplayFieldSettingsPB> patientSettings = protoConfig.getConfig().getPatient()
             .getDefaultDisplayFieldSettingsList();
@@ -119,7 +119,7 @@ public class DepartmentCommand {
 
             initPatientDisplaySettings(deptId, patientSettings, modifiedByAutoAcctId);
             bgaMetaService.initDept(deptId);
-            monitoringMetaService.initDept(deptId);
+            deptMonMetaService.initDept(deptId);
             scoreMetaService.initDept(deptId);
             nursingOrderTemplateService.initDept(deptId);
             log.info("Department initialized: {}, by {}", dept, modifiedByAutoAcctId);
@@ -242,7 +242,7 @@ public class DepartmentCommand {
     private final RbacDepartmentAccountRepository rbacDeptAcctRepo;
     private final DepartmentAccountRepository deptAcctRepo;
     private final BgaMetaService bgaMetaService;
-    private final MonitoringMetaService monitoringMetaService;
+    private final DeptMonMetaService deptMonMetaService;
     private final ScoreMetaService scoreMetaService;
     private final NursingOrderTemplateService nursingOrderTemplateService;
     private final LockExecutor lockExecutor;

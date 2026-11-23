@@ -103,7 +103,7 @@ public final class LockKeys {
 
     // 同一科室的分组和参数配置共用此锁，覆盖 dept_monitoring_groups、
     // dept_monitoring_group_params 和 dept_monitoring_params。
-    public static String deptMonitoringGroups(String deptId) {
+    public static String deptMonitoringGroup(String deptId) {
         StrUtils.requireNonBlank(deptId, "deptId");
         return "dept_monitoring_groups:" + deptId;
     }

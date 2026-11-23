@@ -28,6 +28,7 @@ import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaService;
 import com.jingyicare.jingyi_icis_engine.testutils.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -38,7 +39,7 @@ public class PatientTubeServiceTests extends TestsBase {
         @Autowired TubeSetting tubeSetting,
         @Autowired TubeService tubeService,
         @Autowired MonitoringConfig monitoringConfig,
-        @Autowired MonitoringMetaService monitoringMetaService,
+        @Autowired DeptMonMetaService deptMonMetaService,
         @Autowired MonMetaService monMetaService,
         @Autowired MonitoringService monitoringService,
         @Autowired TubeTypeRepository tubeTypeRepo,
@@ -77,7 +78,7 @@ public class PatientTubeServiceTests extends TestsBase {
         this.tubeSetting = tubeSetting;
         this.tubeService = tubeService;
         this.monitoringConfig = monitoringConfig;
-        this.monitoringMetaService = monitoringMetaService;
+        this.deptMonMetaService = deptMonMetaService;
         this.monMetaService = monMetaService;
         this.monitoringService = monitoringService;
         this.tubeTypeRepo = tubeTypeRepo;
@@ -797,8 +798,8 @@ public class PatientTubeServiceTests extends TestsBase {
         dept1.setDeptName("dept-1");
         rbacDepartmentRepo.save(dept1);
         monMetaService.initMonitoringParams();
-        lockExecutor.execute(List.of(LockKeys.deptMonitoringGroups(deptId)), () -> {
-            monitoringMetaService.initDept(deptId);
+        lockExecutor.execute(List.of(LockKeys.deptMonitoringGroup(deptId)), () -> {
+            deptMonMetaService.initDept(deptId);
             return null;
         });
     }
@@ -841,7 +842,7 @@ public class PatientTubeServiceTests extends TestsBase {
     private final TubeSetting tubeSetting;
     private final TubeService tubeService;
     private final MonitoringConfig monitoringConfig;
-    private final MonitoringMetaService monitoringMetaService;
+    private final DeptMonMetaService deptMonMetaService;
     private final MonMetaService monMetaService;
     private final MonitoringService monitoringService;
     private final TubeTypeRepository tubeTypeRepo;

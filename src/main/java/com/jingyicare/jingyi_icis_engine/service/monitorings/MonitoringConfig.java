@@ -12,14 +12,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import lombok.extern.slf4j.Slf4j;
 
+import com.jingyicare.jingyi_icis_engine.entity.monitorings.*;
+import com.jingyicare.jingyi_icis_engine.entity.settings.*;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisTube.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
-
-import com.jingyicare.jingyi_icis_engine.entity.monitorings.*;
-import com.jingyicare.jingyi_icis_engine.entity.settings.*;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.repository.settings.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
@@ -40,8 +39,6 @@ public class MonitoringConfig {
         @Autowired MonMetaReader monMetaReader,
         @Autowired DeptMonMetaReader deptMonMetaReader,
         @Autowired MonMetaService monMetaService,
-        @Autowired DeptMonitoringGroupRepository deptMonitoringGroupRepository,
-        @Autowired DeptMonitoringGroupParamRepository deptMonitoringGroupParamRepository,
         @Autowired PatientMonitoringMetaService patientMonitoringMetaService,
         @Autowired PatientMonitoringGroupParamRepository patientMonitoringGroupParamRepository,
         @Autowired DeptSystemSettingsRepository deptSettingRepository,
@@ -60,8 +57,6 @@ public class MonitoringConfig {
         this.monMetaService = monMetaService;
         validateMonitoringConfig();
 
-        this.deptMonitoringGroupRepository = deptMonitoringGroupRepository;
-        this.deptMonitoringGroupParamRepository = deptMonitoringGroupParamRepository;
         this.patientMonitoringMetaService = patientMonitoringMetaService;
         this.patientMonitoringGroupParamRepository = patientMonitoringGroupParamRepository;
         this.deptSettingRepository = deptSettingRepository;
@@ -351,22 +346,14 @@ public class MonitoringConfig {
         return paramMap;
     }
 
-    @Transactional
-    private Map<Integer/*deptGroupId*/, List<MonitoringGroupParamPB>> getDeptGroupParams(List<Integer> deptGroupIds) {
-        return deptMonitoringGroupParamRepository
-            .findByDeptMonitoringGroupIdInAndIsDeletedFalse(deptGroupIds)
-            .stream()
-            .collect(Collectors.groupingBy(
-                DeptMonitoringGroupParam::getDeptMonitoringGroupId,
-                Collectors.mapping(
-                    param -> MonitoringGroupParamPB.newBuilder()
-                        .setId(param.getId())
-                        .setCode(param.getMonitoringParamCode())
-                        .setDisplayOrder(param.getDisplayOrder())
-                        .build(),
-                    Collectors.toList()
-                )
-            ));
+    private Map<Integer, List<MonitoringGroupParamPB>> getDeptGroupParams(
+        List<Integer> deptGroupIds
+    ) {
+        Map<Integer, List<MonitoringGroupParamPB>> paramsByGroup = new HashMap<>();
+        deptMonMetaReader.listActiveGroupParamsByGroupIds(deptGroupIds).forEach(
+            (groupId, groupParams) -> paramsByGroup.put(groupId,
+                groupParams.stream().map(MonMapper::toMonitoringGroupParamPB).toList()));
+        return paramsByGroup;
     }
 
     private Pair<List<DeptMonitoringGroup>, Map<Integer, List<MonitoringGroupParamPB>>> getGroupsAndParams(
@@ -398,7 +385,8 @@ public class MonitoringConfig {
         for (PatientMonitoringGroup patientGroup : patientGroups) {
             allDeptGroupIds.add(patientGroup.getDeptMonitoringGroupId());
         }
-        deptGroups = deptMonitoringGroupRepository.findByIdInAndGroupType(allDeptGroupIds, groupType);  // **
+        deptGroups = deptMonMetaReader
+            .listGroupsByIdsAndTypeIncludingDeleted(allDeptGroupIds, groupType);
         List<Integer> deptGroupIds = new ArrayList<>();
         Set<Integer> deptGroupIdsSet = new HashSet<>();
         for (DeptMonitoringGroup deptGroup : deptGroups) {
@@ -453,9 +441,11 @@ public class MonitoringConfig {
         String deptId
     ) {
         List<MonitoringGroupBetaPB> monitoringGroups = new ArrayList<>();
-        deptGroups.sort(Comparator.comparingInt(DeptMonitoringGroup::getDisplayOrder)
-            .thenComparingInt(DeptMonitoringGroup::getId));
-        for (DeptMonitoringGroup deptGroup : deptGroups) {
+        List<DeptMonitoringGroup> orderedGroups = deptGroups.stream()
+            .sorted(Comparator.comparingInt(DeptMonitoringGroup::getDisplayOrder)
+                .thenComparingInt(DeptMonitoringGroup::getId))
+            .toList();
+        for (DeptMonitoringGroup deptGroup : orderedGroups) {
             Integer groupId = deptGroup.getId();
             boolean isBalanceGroup = Objects.equals(deptGroup.getGroupType(),
                 MonEnums.GROUP_TYPE_BALANCE);
@@ -523,18 +513,7 @@ public class MonitoringConfig {
                 }
             }
 
-            MonitoringGroupBetaPB.Builder groupBuilder = MonitoringGroupBetaPB.newBuilder()
-                .setId(groupId)
-                .setName(deptGroup.getName())
-                .setGroupType(deptGroup.getGroupType())
-                .setDisplayOrder(deptGroup.getDisplayOrder());
-            if (balanceRole != null) {
-                groupBuilder.setBalanceRole(balanceRole);
-            }
-            ValueMetaPB sumValueMeta = ProtoUtils.decodeValueMeta(deptGroup.getSumTypePb());
-            if (sumValueMeta != null) groupBuilder.setSumValueMeta(sumValueMeta);
-            groupBuilder.addAllParam(paramPbList);
-            monitoringGroups.add(groupBuilder.build());
+            monitoringGroups.add(MonMapper.toMonitoringGroupBetaPB(deptGroup, paramPbList));
         }
 
         return monitoringGroups;
@@ -583,8 +562,6 @@ public class MonitoringConfig {
     private final MonMetaReader monMetaReader;
     private final DeptMonMetaReader deptMonMetaReader;
     private final MonMetaService monMetaService;
-    private final DeptMonitoringGroupRepository deptMonitoringGroupRepository;
-    private final DeptMonitoringGroupParamRepository deptMonitoringGroupParamRepository;
     private final PatientMonitoringMetaService patientMonitoringMetaService;
     private final PatientMonitoringGroupParamRepository patientMonitoringGroupParamRepository;
     private final DeptSystemSettingsRepository deptSettingRepository;

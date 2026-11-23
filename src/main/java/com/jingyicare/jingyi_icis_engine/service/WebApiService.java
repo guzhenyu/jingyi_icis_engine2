@@ -23,6 +23,7 @@ import com.jingyicare.jingyi_icis_engine.service.lis.*;
 import com.jingyicare.jingyi_icis_engine.service.medications.MedicationService;
 import com.jingyicare.jingyi_icis_engine.service.metrics.PrometheusMetricService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.nursingorders.*;
 import com.jingyicare.jingyi_icis_engine.service.nursingrecords.*;
@@ -65,7 +66,7 @@ public class WebApiService {
         @Autowired TubeService tubeService,
         @Autowired PatientTubeService patientTubeService,
         @Autowired MonitoringService monitoringService,
-        @Autowired MonitoringMetaService monitoringMetaService,
+        @Autowired DeptMonMetaService deptMonMetaService,
         @Autowired MonMetaService monMetaService,
         @Autowired MedicationService medicationService,
         @Autowired PatientMonitoringService patientMonitoringService,
@@ -108,7 +109,7 @@ public class WebApiService {
         this.tubeService = tubeService;
         this.patientTubeService = patientTubeService;
         this.monitoringService = monitoringService;
-        this.monitoringMetaService = monitoringMetaService;
+        this.deptMonMetaService = deptMonMetaService;
         this.monMetaService = monMetaService;
         this.medicationService = medicationService;
         this.patientMonitoringService = patientMonitoringService;
@@ -559,64 +560,54 @@ public class WebApiService {
         return resp;
     }
 
-    public GenericResp deleteMonitoringParam(String deleteMonitoringParamReqJson) {
-        GenericResp resp = monitoringMetaService.deleteMonitoringParam(deleteMonitoringParamReqJson);
-        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
-        return resp;
+    public GenericResp deleteMonitoringParam(String reqJson) {
+        GenericResp resp = deptMonMetaService.deleteMonitoringParam(reqJson);
+        return metricService.recordApiMetrics(resp, GenericResp::getRt);
     }
 
-    public GenericResp updateDeptMonitoringParam(String updateDeptMonitoringParamReqJson) {
-        GenericResp resp = monitoringService.updateDeptMonitoringParam(updateDeptMonitoringParamReqJson);
-        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
-        return resp;
+    public GenericResp updateDeptMonitoringParam(String reqJson) {
+        GenericResp resp = deptMonMetaService.updateDeptMonitoringParam(reqJson);
+        return metricService.recordApiMetrics(resp, GenericResp::getRt);
     }
 
-    public GetDeptMonitoringGroupsResp getDeptMonitoringGroups(String getDeptMonitoringGroupsReqJson) {
-        GetDeptMonitoringGroupsResp resp = monitoringService.getDeptMonitoringGroups(getDeptMonitoringGroupsReqJson);
-        resp = metricService.recordApiMetrics(resp, GetDeptMonitoringGroupsResp::getRt);
-        return resp;
+    public GetDeptMonitoringGroupsResp getDeptMonitoringGroups(String reqJson) {
+        GetDeptMonitoringGroupsResp resp = deptMonMetaService.getDeptMonitoringGroups(reqJson);
+        return metricService.recordApiMetrics(resp, GetDeptMonitoringGroupsResp::getRt);
     }
 
-    public AddDeptMonitoringGroupResp addDeptMonitoringGroup(String addDeptMonitoringGroupReqJson) {
-        AddDeptMonitoringGroupResp resp = monitoringService.addDeptMonitoringGroup(addDeptMonitoringGroupReqJson);
-        resp = metricService.recordApiMetrics(resp, AddDeptMonitoringGroupResp::getRt);
-        return resp;
+    public IdResp addDeptMonitoringGroup(String reqJson) {
+        IdResp resp = deptMonMetaService.addDeptMonitoringGroup(reqJson);
+        return metricService.recordApiMetrics(resp, IdResp::getRt);
     }
 
-    public GenericResp updateDeptMonGroupName(String updateDeptMonGroupNameReqJson) {
-        GenericResp resp = monitoringService.updateDeptMonGroupName(updateDeptMonGroupNameReqJson);
-        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
-        return resp;
+    public GenericResp updateDeptMonGroupName(String reqJson) {
+        GenericResp resp = deptMonMetaService.updateDeptMonitoringGroupName(reqJson);
+        return metricService.recordApiMetrics(resp, GenericResp::getRt);
     }
 
-    public GenericResp deleteDeptMonitoringGroup(String deleteDeptMonitoringGroupReqJson) {
-        GenericResp resp = monitoringService.deleteDeptMonitoringGroup(deleteDeptMonitoringGroupReqJson);
-        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
-        return resp;
+    public GenericResp deleteDeptMonitoringGroup(String reqJson) {
+        GenericResp resp = deptMonMetaService.deleteDeptMonitoringGroup(reqJson);
+        return metricService.recordApiMetrics(resp, GenericResp::getRt);
     }
 
-    public GenericResp reorderDeptMonitoringGroup(String reorderDeptMonitoringGroupReqJson) {
-        GenericResp resp = monitoringService.reorderDeptMonitoringGroup(reorderDeptMonitoringGroupReqJson);
-        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
-        return resp;
+    public GenericResp reorderDeptMonitoringGroup(String reqJson) {
+        GenericResp resp = deptMonMetaService.reorderDeptMonitoringGroup(reqJson);
+        return metricService.recordApiMetrics(resp, GenericResp::getRt);
     }
 
-    public AddDeptMonitoringGroupParamResp addDeptMonitoringGroupParam(String addDeptMonitoringGroupParamReqJson) {
-    AddDeptMonitoringGroupParamResp resp = monitoringService.addDeptMonitoringGroupParam(addDeptMonitoringGroupParamReqJson);
-    resp = metricService.recordApiMetrics(resp, AddDeptMonitoringGroupParamResp::getRt);
-    return resp;
-}
-
-    public GenericResp deleteDeptMonitoringGroupParam(String deleteDeptMonitoringGroupParamReqJson) {
-        GenericResp resp = monitoringService.deleteDeptMonitoringGroupParam(deleteDeptMonitoringGroupParamReqJson);
-        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
-        return resp;
+    public IdResp addDeptMonitoringGroupParam(String reqJson) {
+        IdResp resp = deptMonMetaService.addDeptMonitoringGroupParam(reqJson);
+        return metricService.recordApiMetrics(resp, IdResp::getRt);
     }
 
-    public GenericResp reorderDeptMonitoringGroupParam(String reorderDeptMonitoringGroupParamReqJson) {
-        GenericResp resp = monitoringService.reorderDeptMonitoringGroupParam(reorderDeptMonitoringGroupParamReqJson);
-        resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
-        return resp;
+    public GenericResp deleteDeptMonitoringGroupParam(String reqJson) {
+        GenericResp resp = deptMonMetaService.deleteDeptMonitoringGroupParam(reqJson);
+        return metricService.recordApiMetrics(resp, GenericResp::getRt);
+    }
+
+    public GenericResp reorderDeptMonitoringGroupParam(String reqJson) {
+        GenericResp resp = deptMonMetaService.reorderDeptMonitoringGroupParam(reqJson);
+        return metricService.recordApiMetrics(resp, GenericResp::getRt);
     }
 
     public GetPatientMonitoringGroupsResp getPatientMonitoringGroups(String getPatientMonitoringGroupsReqJson) {
@@ -2184,7 +2175,7 @@ public class WebApiService {
     private TubeService tubeService;
     private PatientTubeService patientTubeService;
     private MonitoringService monitoringService;
-    private final MonitoringMetaService monitoringMetaService;
+    private final DeptMonMetaService deptMonMetaService;
     private final MonMetaService monMetaService;
     private MedicationService medicationService;
     private PatientMonitoringService patientMonitoringService;

@@ -36,6 +36,7 @@ import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.medications.*;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.settings.SettingsStore;
 import com.jingyicare.jingyi_icis_engine.testutils.*;
@@ -45,8 +46,7 @@ public class PatientMonitoringServiceTests extends TestsBase {
     public PatientMonitoringServiceTests(
         @Autowired ConfigProtoService protoService,
         @Autowired MonitoringConfig monitoringConfig,
-        @Autowired MonitoringService monitoringService,
-        @Autowired MonitoringMetaService monitoringMetaService,
+        @Autowired DeptMonMetaService deptMonMetaService,
         @Autowired MonMetaService monMetaService,
         @Autowired PatientMonitoringService patientMonitoringService,
         @Autowired MedicationConfig medConfig,
@@ -85,8 +85,7 @@ public class PatientMonitoringServiceTests extends TestsBase {
         this.ACTION_TYPE_COMPLETE = medEnums.getMedicationExecutionActionTypeComplete().getId();
 
         this.monitoringConfig = monitoringConfig;
-        this.monitoringService = monitoringService;
-        this.monitoringMetaService = monitoringMetaService;
+        this.deptMonMetaService = deptMonMetaService;
         this.monMetaService = monMetaService;
         this.patientMonitoringService = patientMonitoringService;
         this.medConfig = medConfig;
@@ -457,7 +456,7 @@ public class PatientMonitoringServiceTests extends TestsBase {
             .setGroupType(MonEnums.GROUP_TYPE_MONITORING)
             .build();
         String addDeptGroupReqJson = ProtoUtils.protoToJson(addDeptGroupReq);
-        AddDeptMonitoringGroupResp addDeptGroupResp = monitoringService.addDeptMonitoringGroup(addDeptGroupReqJson);
+        IdResp addDeptGroupResp = deptMonMetaService.addDeptMonitoringGroup(addDeptGroupReqJson);
         assertThat(addDeptGroupResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
         // A. 新增分组-参数
@@ -465,10 +464,10 @@ public class PatientMonitoringServiceTests extends TestsBase {
             .setDeptId(deptId)
             .setDeptMonitoringGroupId(addDeptGroupResp.getId()) // 入量分组 ID
             .setCode(paramCode)
-            .setDisplayOrder(1)
             .build();
         String addGroupParamReqJson = ProtoUtils.protoToJson(addGroupParamReq);
-        AddDeptMonitoringGroupParamResp addGroupParamResp = monitoringService.addDeptMonitoringGroupParam(addGroupParamReqJson);
+        IdResp addGroupParamResp =
+            deptMonMetaService.addDeptMonitoringGroupParam(addGroupParamReqJson);
         assertThat(addGroupParamResp.getRt().getCode()).isEqualTo(StatusCode.OK.ordinal());
 
         PatientRecord patient = PatientTestUtils.newPatientRecord(
@@ -586,8 +585,8 @@ public class PatientMonitoringServiceTests extends TestsBase {
         rbacDepartmentRepo.save(dept);
 
         // 2. 初始化监测参数
-        lockExecutor.execute(List.of(LockKeys.deptMonitoringGroups(deptId)), () -> {
-            monitoringMetaService.initDept(deptId);
+        lockExecutor.execute(List.of(LockKeys.deptMonitoringGroup(deptId)), () -> {
+            deptMonMetaService.initDept(deptId);
             return null;
         });
 
@@ -704,8 +703,7 @@ public class PatientMonitoringServiceTests extends TestsBase {
     private final Integer ACTION_TYPE_COMPLETE;
 
     private final MonitoringConfig monitoringConfig;
-    private final MonitoringService monitoringService;
-    private final MonitoringMetaService monitoringMetaService;
+    private final DeptMonMetaService deptMonMetaService;
     private final MonMetaService monMetaService;
     private final PatientMonitoringService patientMonitoringService;
 

@@ -2051,19 +2051,13 @@ message GetDeptMonitoringGroupsResp {
 /*
  * /api/monitoring/adddeptmonitoringgroup
  *  input: AddDeptMonitoringGroupReq
- *  output: AddDeptMonitoringGroupResp
+ *  output: shared.IdResp (dept_monitoring_groups.id)
  */
 message AddDeptMonitoringGroupReq {
     string department_id = 1;
     string name = 2;
     int32 group_type = 3;
-    int32 display_order = 4;
-    shared.ValueMetaPB sum_value_meta = 5;
-}
-
-message AddDeptMonitoringGroupResp {
-    shared.ReturnCode rt = 1;
-    int32 id = 2;  // dept_monitoring_groups.id
+    shared.ValueMetaPB sum_value_meta = 4;
 }
 
 /*
@@ -2078,12 +2072,9 @@ message UpdateDeptMonGroupNameReq {
 
 /*
  * /api/monitoring/deletedeptmonitoringgroup
- *  input: DeleteDeptMonitoringGroupReq
+ *  input: shared.IdReq (dept_monitoring_groups.id)
  *  output: GenericResp
  */
-message DeleteDeptMonitoringGroupReq {
-    int32 id = 1;  // dept_monitoring_groups.id
-}
 
 /*
  * /api/monitoring/reorderdeptmonitoringgroup
@@ -2103,28 +2094,19 @@ message ReorderDeptMonitoringGroupReq {
 /*
  * /api/monitoring/adddeptmonitoringgroupparam
  *  input: AddDeptMonitoringGroupParamReq
- *  output: AddDeptMonitoringGroupParamResp
+ *  output: shared.IdResp (dept_monitoring_group_params.id)
  */
 message AddDeptMonitoringGroupParamReq {
     string dept_id = 1;
     int32 dept_monitoring_group_id = 2;  // dept_monitoring_groups.id
     string code = 3;  // monitoring_params.code
-    int32 display_order = 4;
-}
-
-message AddDeptMonitoringGroupParamResp {
-    shared.ReturnCode rt = 1;
-    int32 id = 2;  // dept_monitoring_group_params.id
 }
 
 /*
  * /api/monitoring/deletedeptmonitoringgroupparam
- *  input: DeleteDeptMonitoringGroupParamReq
+ *  input: shared.IdReq (dept_monitoring_group_params.id)
  *  output: GenericResp
  */
-message DeleteDeptMonitoringGroupParamReq {
-    int32 id = 1;  // dept_monitoring_group_params.id
-}
 
 /*
  * /api/monitoring/reorderdeptmonitoringgroupparam

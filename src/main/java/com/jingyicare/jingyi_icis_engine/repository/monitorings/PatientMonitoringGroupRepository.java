@@ -17,7 +17,7 @@ public interface PatientMonitoringGroupRepository extends JpaRepository<PatientM
 
     List<PatientMonitoringGroup> findByPid(Long pid);
 
-    List<PatientMonitoringGroup> findByDeptMonitoringGroupIdInAndIsDeletedFalse(List<Integer> deptMonitoringGroupIds);
+    boolean existsByDeptMonitoringGroupIdInAndIsDeletedFalse(List<Integer> groupIds);
 
     Optional<PatientMonitoringGroup> findByDeptMonitoringGroupIdAndPidAndIsDeletedFalse(Integer deptMonitoringGroupId, Long pid);
 }

@@ -49,7 +49,7 @@ import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.BgaMetaService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonEnums;
-import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringMetaService;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.nursingrecords.NursingOrderTemplateService;
 import com.jingyicare.jingyi_icis_engine.service.scores.ScoreMetaService;
 import com.jingyicare.jingyi_icis_engine.service.settings.SettingsStore;
@@ -265,7 +265,7 @@ class DepartmentInitializationTests extends TestsBase {
         String key = switch (resource) {
             case "department" -> LockKeys.department(FIRST);
             case "bga" -> LockKeys.bgaParam(FIRST);
-            case "monitoring" -> LockKeys.deptMonitoringGroups(FIRST);
+            case "monitoring" -> LockKeys.deptMonitoringGroup(FIRST);
             case "score" -> LockKeys.deptScoreGroup(FIRST);
             case "templateGroup" -> LockKeys.nursingRecordTemplateGroup(1, FIRST, group.getName());
             case "patientsInIcu" -> LockKeys.deptSystemSettings(
@@ -462,7 +462,7 @@ class DepartmentInitializationTests extends TestsBase {
     @Autowired private ProtoConfig config;
     @Autowired private UserQuery userQuery;
     @Autowired private BgaMetaService bga;
-    @Autowired private MonitoringMetaService monitoring;
+    @Autowired private DeptMonMetaService monitoring;
     @Autowired private ScoreMetaService scores;
     @Autowired private SettingsStore settingsStore;
     @Autowired private NursingOrderTemplateService templates;
