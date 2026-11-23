@@ -28,6 +28,7 @@ import com.jingyicare.jingyi_icis_engine.service.medications.MedMonitoringServic
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.PatientNursingReportInvalidationService;
+import com.jingyicare.jingyi_icis_engine.service.settings.SettingService;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
 import com.jingyicare.jingyi_icis_engine.service.tubes.*;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
@@ -45,6 +46,7 @@ public class PatientMonitoringService {
         @Autowired PatientTubeImpl patientTubeImpl,
         @Autowired MedMonitoringService medMonitoringService,
         @Autowired MonitoringConfig monitoringConfig,
+        @Autowired SettingService settingService,
         @Autowired BalanceCalculator balanceCalculator,
         @Autowired DeviceDataFetcher deviceDataFetcher,
         @Autowired MonitoringRecordUtils monitoringRecordUtils,
@@ -63,6 +65,7 @@ public class PatientMonitoringService {
         this.patientTubeImpl = patientTubeImpl;
         this.medMonitoringService = medMonitoringService;
         this.monitoringConfig = monitoringConfig;
+        this.settingService = settingService;
         this.balanceCalculator = balanceCalculator;
         this.deviceDataFetcher = deviceDataFetcher;
         this.monitoringRecordUtils = monitoringRecordUtils;
@@ -359,7 +362,7 @@ public class PatientMonitoringService {
         // 根据科室设置决定是否按观察项配置的小数位数保存。
         GenericValuePB value = req.getValue();
         List<GenericValuePB> values = req.getValuesList();
-        if (!monitoringConfig.getDeptMonitoringSettings(deptId).getKeepInputPrecision()) {
+        if (!settingService.getDeptMonitoringSettings(deptId).getKeepInputPrecision()) {
             value = ValueMetaUtils.formatParamValue(value, valueMeta);
             values = values.stream()
                 .map(v -> ValueMetaUtils.formatParamValue(v, valueMeta))
@@ -512,7 +515,7 @@ public class PatientMonitoringService {
         // 根据科室设置决定是否按观察项配置的小数位数保存。
         GenericValuePB value = req.getValue();
         List<GenericValuePB> values = req.getValuesList();
-        if (!monitoringConfig.getDeptMonitoringSettings(deptId).getKeepInputPrecision()) {
+        if (!settingService.getDeptMonitoringSettings(deptId).getKeepInputPrecision()) {
             value = ValueMetaUtils.formatParamValue(value, valueMeta);
             values = values.stream()
                 .map(v -> ValueMetaUtils.formatParamValue(v, valueMeta))
@@ -950,6 +953,7 @@ public class PatientMonitoringService {
     private final PatientTubeImpl patientTubeImpl;
     private final MedMonitoringService medMonitoringService;
     private final MonitoringConfig monitoringConfig;
+    private final SettingService settingService;
     private final BalanceCalculator balanceCalculator;
     private final DeviceDataFetcher deviceDataFetcher;
     private final MonitoringRecordUtils monitoringRecordUtils;

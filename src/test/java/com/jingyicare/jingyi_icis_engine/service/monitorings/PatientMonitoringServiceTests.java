@@ -45,7 +45,7 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class PatientMonitoringServiceTests extends TestsBase {
     public PatientMonitoringServiceTests(
         @Autowired ConfigProtoService protoService,
-        @Autowired MonitoringConfig monitoringConfig,
+        @Autowired SettingsStore settingsStore,
         @Autowired DeptMonMetaService deptMonMetaService,
         @Autowired MonMetaService monMetaService,
         @Autowired PatientMonitoringService patientMonitoringService,
@@ -84,7 +84,7 @@ public class PatientMonitoringServiceTests extends TestsBase {
         this.ACTION_TYPE_FAST_PUSH = medEnums.getMedicationExecutionActionTypeFastPush().getId();
         this.ACTION_TYPE_COMPLETE = medEnums.getMedicationExecutionActionTypeComplete().getId();
 
-        this.monitoringConfig = monitoringConfig;
+        this.settingsStore = settingsStore;
         this.deptMonMetaService = deptMonMetaService;
         this.monMetaService = monMetaService;
         this.patientMonitoringService = patientMonitoringService;
@@ -520,7 +520,7 @@ public class PatientMonitoringServiceTests extends TestsBase {
             String key = LockKeys.deptSystemSettings(
                 precisionDeptId, SettingsStore.GET_DEPT_MONITORING_SETTINGS);
             lockExecutor.execute(List.of(key), () -> {
-                monitoringConfig.setDeptMonitoringSettings(precisionDeptId,
+                settingsStore.saveDeptMonitoringSettingsPB(precisionDeptId,
                     DeptMonitoringSettingsPB.newBuilder().setKeepInputPrecision(true).build(),
                     accountId);
                 return null;
@@ -702,7 +702,7 @@ public class PatientMonitoringServiceTests extends TestsBase {
     private final Integer ACTION_TYPE_FAST_PUSH;
     private final Integer ACTION_TYPE_COMPLETE;
 
-    private final MonitoringConfig monitoringConfig;
+    private final SettingsStore settingsStore;
     private final DeptMonMetaService deptMonMetaService;
     private final MonMetaService monMetaService;
     private final PatientMonitoringService patientMonitoringService;

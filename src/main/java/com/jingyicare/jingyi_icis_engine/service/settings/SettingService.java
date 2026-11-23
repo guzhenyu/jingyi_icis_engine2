@@ -173,7 +173,7 @@ public class SettingService {
     @Transactional(readOnly = true)
     public AppSettingsPB getAppSettingsForService(String deptId) {
         MedOrderGroupSettingsPB medSettingsPb = loadMedOrderGroupSettings(deptId);
-        DeptMonitoringSettingsPB monitoringSettingsPb = loadDeptMonitoringSettings(deptId);
+        DeptMonitoringSettingsPB monitoringSettingsPb = getDeptMonitoringSettings(deptId);
         NursingRecordSettingsPB nursingRecordSettingsPb = getNursingRecordSettings(deptId);
         ScoreSettingsPB scoreSettingsPb = getDeptScoreSettings(deptId);
         AppGeneralSettingsPB generalSettingsPb = loadGeneralSettings(deptId);
@@ -272,7 +272,7 @@ public class SettingService {
             || settingTypes.contains(AppSettingTypeEnum.AST_KEEP_INPUT_PRECISION)
         ) {
             DeptMonitoringSettingsPB.Builder monitoringSettingsPbBuilder =
-                loadDeptMonitoringSettings(deptId).toBuilder();
+                getDeptMonitoringSettings(deptId).toBuilder();
             if (settingTypes.contains(AppSettingTypeEnum.AST_HEAD_CUSTOM_TIME_GRACE_MINUTES)) {
                 monitoringSettingsPbBuilder.setHeadCustomTimePointGraceMinutes(
                     appSettingsPb.getHeadCustomTimeGraceMinutes());
@@ -328,6 +328,11 @@ public class SettingService {
             .build();
     }
 
+    public DeptMonitoringSettingsPB getDeptMonitoringSettings(String deptId) {
+        return loadSettingsOrDefault(() -> settingsStore.getDeptMonitoringSettingsPB(deptId),
+            DeptMonitoringSettingsPB.getDefaultInstance());
+    }
+
     public NursingRecordSettingsPB getNursingRecordSettings(String deptId) {
         return loadSettingsOrDefault(() -> settingsStore.getNursingRecordSettingsPB(deptId),
             NursingRecordSettingsPB.newBuilder().build());
@@ -373,11 +378,6 @@ public class SettingService {
     private MedOrderGroupSettingsPB loadMedOrderGroupSettings(String deptId) {
         return loadSettingsOrDefault(() -> settingsStore.getMedOrderGroupSettingsPB(deptId),
             defaultMedOrderGroupSettings);
-    }
-
-    private DeptMonitoringSettingsPB loadDeptMonitoringSettings(String deptId) {
-        return loadSettingsOrDefault(() -> settingsStore.getDeptMonitoringSettingsPB(deptId),
-            DeptMonitoringSettingsPB.getDefaultInstance());
     }
 
     private <T> T loadSettingsOrDefault(Supplier<T> reader, T fallback) {

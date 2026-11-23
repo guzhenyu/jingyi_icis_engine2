@@ -13,18 +13,16 @@ import org.springframework.transaction.annotation.Transactional;
 import lombok.extern.slf4j.Slf4j;
 
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.*;
-import com.jingyicare.jingyi_icis_engine.entity.settings.*;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisTube.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
-import com.jingyicare.jingyi_icis_engine.repository.settings.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaService;
+import com.jingyicare.jingyi_icis_engine.service.settings.SettingService;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
 import com.jingyicare.jingyi_icis_engine.utils.LogUtils;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -42,7 +40,7 @@ public class MonitoringConfig {
         @Autowired MonMetaService monMetaService,
         @Autowired PatientMonitoringMetaService patientMonitoringMetaService,
         @Autowired PatientMonitoringGroupParamRepository patientMonitoringGroupParamRepository,
-        @Autowired DeptSystemSettingsRepository deptSettingRepository,
+        @Autowired SettingService settingService,
         @Value("${monitoring.enable_drainage:true}") boolean enableDrainage,
         @Value("${monitoring.enable_drainage_params:true}") boolean enableDrainageParams
     ) {
@@ -60,7 +58,7 @@ public class MonitoringConfig {
 
         this.patientMonitoringMetaService = patientMonitoringMetaService;
         this.patientMonitoringGroupParamRepository = patientMonitoringGroupParamRepository;
-        this.deptSettingRepository = deptSettingRepository;
+        this.settingService = settingService;
         this.enableDrainage = enableDrainage;
         this.enableDrainageParams = enableDrainageParams;
     }
@@ -288,7 +286,8 @@ public class MonitoringConfig {
             pmrQueryEndUtc = configShiftUtils.getBalanceStatStartUtc(balanceStatTimeUtcHistory, endTime);
             if (!endTime.equals(pmrQueryEndUtc)) pmrQueryEndUtc = pmrQueryEndUtc.plusDays(1);
         } else {
-            DeptMonitoringSettingsPB monitoringSettings = getDeptMonitoringSettings(deptId);
+            DeptMonitoringSettingsPB monitoringSettings =
+                settingService.getDeptMonitoringSettings(deptId);
             int headCustomTimeGraceMinutes = monitoringSettings.getHeadCustomTimePointGraceMinutes();
             int tailCustomTimeGraceMinutes = monitoringSettings.getTailCustomTimePointGraceMinutes();
             pmrQueryStartUtc = pmrQueryStartUtc.minusMinutes(headCustomTimeGraceMinutes);
@@ -517,37 +516,6 @@ public class MonitoringConfig {
         return monitoringGroups;
     }
 
-    public DeptMonitoringSettingsPB getDeptMonitoringSettings(String deptId) {
-        DeptSystemSettingsId settingsId = new DeptSystemSettingsId(
-            deptId, SystemSettingFunctionId.GET_DEPT_MONITORING_SETTINGS.getNumber());
-        DeptSystemSettings entity = deptSettingRepository.findById(settingsId).orElse(null);
-
-        DeptMonitoringSettingsPB settingsPb = null;
-        if (entity != null) {
-            settingsPb = ProtoUtils.decodeDeptMonitoringSettings(entity.getSettingsPb());
-        }
-        if (settingsPb == null) return DeptMonitoringSettingsPB.newBuilder().build();
-
-        return settingsPb;
-    }
-
-    public void setDeptMonitoringSettings(String deptId, DeptMonitoringSettingsPB settingsPb, String modifiedBy) {
-        DeptSystemSettingsId settingsId = new DeptSystemSettingsId(
-            deptId, SystemSettingFunctionId.GET_DEPT_MONITORING_SETTINGS.getNumber());
-        DeptSystemSettings entity = deptSettingRepository.findById(settingsId).orElse(null);
-        String settingsStr = ProtoUtils.encodeDeptMonitoringSettings(settingsPb);
-
-        // 保存到数据库
-        LocalDateTime nowUtc = TimeUtils.getNowUtc();
-        if (entity == null) entity = new DeptSystemSettings(settingsId, settingsStr, nowUtc, modifiedBy);
-        else {
-            entity.setSettingsPb(settingsStr);
-            entity.setModifiedAt(nowUtc);
-            entity.setModifiedBy(modifiedBy);
-        }
-        deptSettingRepository.save(entity);
-    }
-
     private final List<MonitoringParamPB> tubeParamList;
     private final boolean enableDrainage;
     private final boolean enableDrainageParams;
@@ -562,5 +530,5 @@ public class MonitoringConfig {
     private final MonMetaService monMetaService;
     private final PatientMonitoringMetaService patientMonitoringMetaService;
     private final PatientMonitoringGroupParamRepository patientMonitoringGroupParamRepository;
-    private final DeptSystemSettingsRepository deptSettingRepository;
+    private final SettingService settingService;
 }
