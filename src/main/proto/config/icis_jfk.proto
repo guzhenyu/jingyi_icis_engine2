@@ -19,6 +19,8 @@ message JfkTemplatePB {
 
     repeated JfkPagePB pages = 9;  // 模板页面列表
     bool page_expandable = 10; // 在模板的实例中，是否允许手动扩展页面
+
+    int32 next_element_id = 11;  // 下一个待分配的序号，缺失时需要根据当前配置扫描推导
 }
 
 message JfkPagePB {
@@ -116,11 +118,12 @@ message JfkTableColumnMetaPB {
     int32 h_align_id = 6;  // 水平对齐方式， JfkEnumsPB.h_align.id
 }
 
-// next_id: 27
+// next_id: 28
 message JfkTablePB {
     string id = 1;
     string custom_name = 2;  // 自定义名称
     string type = 3;  // 组件类型，'table'
+    int32 next_column_id = 27;  // 列的下一个待分配的编号，缺失时需要根据当前配置扫描推导
 
     // 页面左下角为(0,0)
     float x = 4;  // X坐标
