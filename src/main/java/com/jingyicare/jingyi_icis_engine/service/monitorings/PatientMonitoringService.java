@@ -43,7 +43,6 @@ public class PatientMonitoringService {
         @Autowired ConfigProtoService protoService,
         @Autowired ConfigShiftUtils shiftUtils,
         @Autowired UserQuery userQuery,
-        @Autowired PatientService patientService,
         @Autowired PatientReader patientReader,
         @Autowired PatientTubeImpl patientTubeImpl,
         @Autowired MedMonitoringService medMonitoringService,
@@ -64,7 +63,6 @@ public class PatientMonitoringService {
         this.protoService = protoService;
         this.shiftUtils = shiftUtils;
         this.userQuery = userQuery;
-        this.patientService = patientService;
         this.patientReader = patientReader;
         this.patientTubeImpl = patientTubeImpl;
         this.medMonitoringService = medMonitoringService;
@@ -393,7 +391,7 @@ public class PatientMonitoringService {
                 .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
                 .build();
         }
-        StatusCode statusCode = patientService.validateTime(patientRecord, effectiveTime);
+        StatusCode statusCode = patientReader.validateTime(patientRecord, effectiveTime);
         if (statusCode != StatusCode.OK) {
             log.warn("Effective time is out of range.");
             return AddPatientMonitoringRecordResp.newBuilder()
@@ -637,7 +635,7 @@ public class PatientMonitoringService {
 
         // 检查日期的合法性
         for (LocalDateTime timePoint : timePointSet) {
-            StatusCode statusCode = patientService.validateTime(patientRecord, timePoint);
+            StatusCode statusCode = patientReader.validateTime(patientRecord, timePoint);
             if (statusCode != StatusCode.OK) {
                 log.warn("Effective time is out of range.");
                 return AddPatientMonitoringTimePointsResp.newBuilder()
@@ -937,7 +935,6 @@ public class PatientMonitoringService {
     private final ConfigProtoService protoService;
     private final ConfigShiftUtils shiftUtils;
     private final UserQuery userQuery;
-    private final PatientService patientService;
     private final PatientReader patientReader;
     private final PatientTubeImpl patientTubeImpl;
     private final MedMonitoringService medMonitoringService;

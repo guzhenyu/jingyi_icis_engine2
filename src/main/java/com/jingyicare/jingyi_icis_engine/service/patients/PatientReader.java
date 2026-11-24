@@ -51,6 +51,24 @@ public class PatientReader {
             .collect(Collectors.toMap(PatientRecord::getId, Function.identity()));
     }
 
+    public StatusCode validateTime(PatientRecord patientRecord, LocalDateTime timepoint) {
+        if (timepoint == null) {
+            log.error("Timepoint is null");
+            return StatusCode.INVALID_SHIFT_TIME;
+        }
+        LocalDateTime admissionTime = patientRecord.getAdmissionTime();
+        if (admissionTime == null || timepoint.isBefore(admissionTime)) {
+            log.error("Timepoint is before admission time: {} - {}", timepoint, admissionTime);
+            return StatusCode.EFFECTIVE_TIME_BEFORE_ADMISSION;
+        }
+        LocalDateTime dischargeTime = patientRecord.getDischargeTime();
+        if (dischargeTime != null && timepoint.isAfter(dischargeTime)) {
+            log.error("Timepoint is after discharge time: {} - {}", timepoint, dischargeTime);
+            return StatusCode.EFFECTIVE_TIME_AFTER_DISCHARGE;
+        }
+        return StatusCode.OK;
+    }
+
     public Optional<BedConfig> findBed(PatientRecord patient) {
         return bedMetaReader.findActiveBedByHisNumber(
             patient.getDeptId(), patient.getHisBedNumber());

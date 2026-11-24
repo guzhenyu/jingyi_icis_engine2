@@ -643,22 +643,6 @@ public class PatientService {
         return StatusCode.OK;
     }
 
-    public StatusCode validateTime(PatientRecord patientRecord, LocalDateTime timepoint) {
-        if (timepoint == null) {
-            log.error("Timepoint is null");
-            return StatusCode.INVALID_SHIFT_TIME;
-        }
-        if (patientRecord.getAdmissionTime() == null || timepoint.isBefore(patientRecord.getAdmissionTime())) {
-            log.error("Timepoint is before admission time: {} - {}", timepoint, patientRecord.getAdmissionTime());
-            return StatusCode.EFFECTIVE_TIME_BEFORE_ADMISSION;
-        }
-        if (patientRecord.getDischargeTime() != null && timepoint.isAfter(patientRecord.getDischargeTime())) {
-            log.error("Timepoint is after discharge time: {} - {}", timepoint, patientRecord.getDischargeTime());
-            return StatusCode.EFFECTIVE_TIME_AFTER_DISCHARGE;
-        }
-        return StatusCode.OK;
-    }
-
     public PatientShift getShiftSettings(Long patientId) {
         final PatientRecord patientRecord = patientReader.findById(patientId).orElse(null);
         if (patientRecord == null) {
