@@ -30,7 +30,8 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkFieldDataPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
-import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindowResolver;
+import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayConfigReader;
+import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 
 public class BalanceTimeRangeDataSourceHandlerTests {
@@ -44,7 +45,7 @@ public class BalanceTimeRangeDataSourceHandlerTests {
         BalanceTimeRangeDataSourceHandler handler =
             new BalanceTimeRangeDataSourceHandler(support);
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-            new StatisticsDayWindowResolver(balanceStatsShiftRepo));
+            new StatsDayWindowResolver(new StatsDayConfigReader(balanceStatsShiftRepo)));
 
         LocalDateTime utcEnd = LocalDateTime.of(2026, 4, 17, 16, 0);
         when(balanceStatsShiftRepo
@@ -88,7 +89,7 @@ public class BalanceTimeRangeDataSourceHandlerTests {
         BalanceTimeRangeDataSourceHandler handler =
             new BalanceTimeRangeDataSourceHandler(support);
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-            new StatisticsDayWindowResolver(balanceStatsShiftRepo));
+            new StatsDayWindowResolver(new StatsDayConfigReader(balanceStatsShiftRepo)));
 
         when(balanceStatsShiftRepo
             .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc(anyString()))
@@ -113,7 +114,7 @@ public class BalanceTimeRangeDataSourceHandlerTests {
         JfkDataSourceSupport support = mockSupport();
         BalanceStatsShiftRepository repo = mock(BalanceStatsShiftRepository.class);
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-            new StatisticsDayWindowResolver(repo));
+            new StatsDayWindowResolver(new StatsDayConfigReader(repo)));
         when(repo.findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("10042"))
             .thenReturn(List.of(BalanceStatsShift.builder().startHour(startHour).monStartHour(7)
                 .effectiveTime(LocalDateTime.of(2026, 4, 1, 0, 0))

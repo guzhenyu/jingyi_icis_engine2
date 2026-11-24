@@ -5,92 +5,33 @@ import java.util.*;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.*;
-import com.jingyicare.jingyi_icis_engine.proto.config.IcisShift.*;
-
-import com.jingyicare.jingyi_icis_engine.entity.settings.*;
-import com.jingyicare.jingyi_icis_engine.entity.shifts.*;
-import com.jingyicare.jingyi_icis_engine.repository.settings.*;
-import com.jingyicare.jingyi_icis_engine.repository.shifts.*;
+import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisShift.ShiftSettingsPB;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
-import com.jingyicare.jingyi_icis_engine.utils.*;
+import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayConfigReader;
+import com.jingyicare.jingyi_icis_engine.utils.Consts;
+import com.jingyicare.jingyi_icis_engine.utils.Pair;
+import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
 @Component
 public class ConfigShiftUtils {
-    public static LocalDateTime getShiftStartTime(
-        ShiftSettingsPB shift, LocalDateTime utcTime, String zoneId
-    ) {
-        if (utcTime == null) return null;
-
-        LocalDateTime localTime = TimeUtils.getLocalDateTimeFromUtc(utcTime, zoneId);
-        final Integer startHour = shift.getShift(0).getDefaultShift().getStartHour();
-
-        return localTime.getHour() < startHour
-            ? localTime.minusDays(1).withHour(startHour).withMinute(0).withSecond(0).withNano(0)
-            : localTime.withHour(startHour).withMinute(0).withSecond(0).withNano(0);
-    }
-
-    public static LocalDateTime getShiftLocalMidnightUtc(
-        ShiftSettingsPB shift, LocalDateTime utcTime, String zoneId
-    ) {
-        LocalDateTime shiftStartLocal = getShiftStartTime(shift, utcTime, zoneId);
-        shiftStartLocal = shiftStartLocal.withHour(0).withMinute(0).withSecond(0);
-        return TimeUtils.getUtcFromLocalDateTime(shiftStartLocal, zoneId);
-    }
-
-    public static LocalDateTime getShiftStartTimeUtc(
-        ShiftSettingsPB shift, LocalDateTime utcTime, String zoneId
-    ) {
-        LocalDateTime localTime = getShiftStartTime(shift, utcTime, zoneId);
-        return TimeUtils.getUtcFromLocalDateTime(localTime, zoneId);
-    }
-
-    public static List<LocalDateTime> getShiftStartTimes(
-        ShiftSettingsPB shift, LocalDateTime startUtc, LocalDateTime endUtc, String zoneId
-    ) {
-        List<LocalDateTime> shiftTimes = new ArrayList<>();
-        if (startUtc == null || endUtc == null) return shiftTimes;
-
-        LocalDateTime startShift = getShiftStartTime(shift, startUtc, zoneId);
-        LocalDateTime endShift = getShiftStartTime(shift, endUtc, zoneId);
-
-        while (!startShift.isAfter(endShift)) {
-            shiftTimes.add(startShift);
-            startShift = startShift.plusDays(1);
-        }
-
-        return shiftTimes;
-    }
-
-    public static List<LocalDateTime> getShiftStartTimeUtcs(
-        ShiftSettingsPB shift, LocalDateTime startUtc, LocalDateTime endUtc, String zoneId
-    ) {
-        return getShiftStartTimes(shift, startUtc, endUtc, zoneId).stream()
-            .map(time -> TimeUtils.getUtcFromLocalDateTime(time, zoneId))
-            .toList();
-    }
-
     public ConfigShiftUtils(
         @Autowired ConfigProtoService protoService,
-        @Autowired DeptSystemSettingsRepository deptSystemSettingsRepo,
-        @Autowired BalanceStatsShiftRepository balanceStatsShiftRepo
+        @Autowired StatsDayConfigReader statsDayConfigReader
     ) {
         this.ZONE_ID = protoService.getConfig().getZoneId();
-        this.defaultShiftSettings = protoService.getConfig().getShift().getDefaultSetting();
+        ShiftSettingsPB defaultShiftSettings =
+            protoService.getConfig().getShift().getDefaultSetting();
         this.DEFAULT_SHIFT_START_HOUR = defaultShiftSettings.getShiftCount() > 0
             ? defaultShiftSettings.getShift(0).getBalanceTimeRange().getStartHour()
             : Consts.DEFAULT_SHIFT_START_HOUR;
 
-        this.deptSystemSettingsRepo = deptSystemSettingsRepo;
-        this.balanceStatsShiftRepo = balanceStatsShiftRepo;
+        this.statsDayConfigReader = statsDayConfigReader;
     }
 
     public List<Pair<LocalDateTime, Integer>> getBalanceDailyShiftHours(String deptId) {
-        List<BalanceStatsShift> balanceStatsShifts = balanceStatsShiftRepo
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc(deptId);
-        return balanceStatsShifts.stream()
+        return statsDayConfigReader.listActiveByDept(deptId).stream()
             .map(shift -> new Pair<>(shift.getEffectiveTime(), shift.getStartHour()))
             .toList();
     }
@@ -102,30 +43,18 @@ public class ConfigShiftUtils {
     // - Shanghai time 2025-01-01 to 2025-05-31: daily stats from 04:00 to next day 04:00
     // - Shanghai time from 2025-06-01: daily stats from 06:00 to next day 06:00
     public List<LocalDateTime> getBalanceStatTimeUtcHistory(String deptId) {
-        Integer defaultShiftStartHour = this.DEFAULT_SHIFT_START_HOUR;
-        DeptSystemSettingsId deptSettingsId = DeptSystemSettingsId.builder()
-            .deptId(deptId)
-            .functionId(SystemSettingFunctionId.GET_SHIFT.getNumber())
-            .build();
-        DeptSystemSettings deptSettings = deptSystemSettingsRepo.findById(deptSettingsId).orElse(null);
-        if (deptSettings != null) {
-            ShiftSettingsPB shiftSettings = ProtoUtils.decodeShiftSettings(deptSettings.getSettingsPb());
-            if (shiftSettings != null && shiftSettings.getShiftCount() > 0) {
-                defaultShiftStartHour = shiftSettings.getShift(0).getBalanceTimeRange().getStartHour();
-            }
-        }
-
         List<LocalDateTime> statsUtcs = new ArrayList<>();
         LocalDateTime dt = TimeUtils.getUtcFromLocalDateTime(
-            TimeUtils.getMin().withHour(defaultShiftStartHour), ZONE_ID
+            TimeUtils.getMin().withHour(DEFAULT_SHIFT_START_HOUR), ZONE_ID
         );
         statsUtcs.add(dt);
 
         Map<LocalDateTime/*local date*/, Integer/*start hour*/> statsLocalMap = new HashMap<>();
-        for (BalanceStatsShift bss : balanceStatsShiftRepo.findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeAsc(deptId)) {
-            LocalDateTime localDate = TimeUtils.getLocalDateTimeFromUtc(bss.getEffectiveTime(), ZONE_ID);
+        for (BalanceStatsShift shift : statsDayConfigReader.listActiveByDept(deptId).reversed()) {
+            LocalDateTime localDate = TimeUtils.getLocalDateTimeFromUtc(
+                shift.getEffectiveTime(), ZONE_ID);
             localDate = TimeUtils.truncateToDay(localDate);
-            statsLocalMap.put(localDate, bss.getStartHour());
+            statsLocalMap.put(localDate, shift.getStartHour());
         }
 
         for (Map.Entry<LocalDateTime, Integer> entry : statsLocalMap.entrySet()) {
@@ -158,27 +87,8 @@ public class ConfigShiftUtils {
         return TimeUtils.getUtcFromLocalDateTime(dateTimeStatLocal.withHour(startHour), ZONE_ID);
     }
 
-    @Transactional
-    public ShiftSettingsPB getShiftByDeptId(String deptId) {
-        // 获取班次配置，如果没有特殊设置，返回系统配置
-        ShiftSettingsPB shiftSettings = null;
-
-        DeptSystemSettingsId deptSettingsId = DeptSystemSettingsId.builder()
-            .deptId(deptId)
-            .functionId(SystemSettingFunctionId.GET_SHIFT.getNumber())
-            .build();
-        DeptSystemSettings deptSettings = deptSystemSettingsRepo.findById(deptSettingsId).orElse(null);
-        if (deptSettings != null) {
-            shiftSettings = ProtoUtils.decodeShiftSettings(deptSettings.getSettingsPb());
-        }
-
-        return shiftSettings == null ? defaultShiftSettings : shiftSettings;
-    }
-
     private final String ZONE_ID;
-    private final ShiftSettingsPB defaultShiftSettings;
     private final Integer DEFAULT_SHIFT_START_HOUR;
 
-    private final DeptSystemSettingsRepository deptSystemSettingsRepo;
-    private final BalanceStatsShiftRepository balanceStatsShiftRepo;
+    private final StatsDayConfigReader statsDayConfigReader;
 }

@@ -14,4 +14,5 @@ public interface BalanceStatsShiftRepository extends JpaRepository<BalanceStatsS
     );
     Optional<BalanceStatsShift> findByDeptIdAndEffectiveTimeAndIsDeletedFalse(String deptId, LocalDateTime effectiveTime);
     Optional<BalanceStatsShift> findByIdAndIsDeletedFalse(Long id);
+    Optional<BalanceStatsShift> findByIdAndDeptIdAndIsDeletedFalse(Long id, String deptId);
 }

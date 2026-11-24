@@ -33,7 +33,8 @@ import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.service.medications.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
-import com.jingyicare.jingyi_icis_engine.service.shifts.*;
+import com.jingyicare.jingyi_icis_engine.service.settings.SettingsStore;
+import com.jingyicare.jingyi_icis_engine.service.settings.ShiftDayResolver;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -45,7 +46,7 @@ public class NursingOrderService {
     public NursingOrderService(
         @Autowired ConfigProtoService protoService,
         @Autowired UserQuery userQuery,
-        @Autowired ConfigShiftUtils shiftUtils,
+        @Autowired SettingsStore settingsStore,
         @Autowired PatientService patientService,
         @Autowired PatientReader patientReader,
         @Autowired MedicationConfig medConfig,
@@ -62,7 +63,7 @@ public class NursingOrderService {
 
         this.protoService = protoService;
         this.userQuery = userQuery;
-        this.shiftUtils = shiftUtils;
+        this.settingsStore = settingsStore;
         this.patientService = patientService;
         this.patientReader = patientReader;
         this.medConfig = medConfig;
@@ -750,7 +751,7 @@ public class NursingOrderService {
         final Boolean patientInIcu =
             (patientRecord.getAdmissionStatus() == PatientEnums.ADMISSION_STATUS_ADMITTED);
         final String deptId = patientRecord.getDeptId();
-        final ShiftSettingsPB shiftSettings = shiftUtils.getShiftByDeptId(deptId);
+        final ShiftSettingsPB shiftSettings = settingsStore.getShiftSettingsPB(deptId);
 
         StatusCode syncStatus = nursingOrderSyncService.syncFromMedicalOrders(
             patientRecord, account.autoAcctId());
@@ -767,8 +768,10 @@ public class NursingOrderService {
             new HashMap<>() :
             recordRepo
                 .findByNursingOrderIdInAndPlanTimeBetween(
-                    orderIds, shiftUtils.getShiftStartTimeUtc(shiftSettings, queryStartUtc, ZONE_ID),
-                    shiftUtils.getShiftStartTimeUtc(shiftSettings, queryEndUtc, ZONE_ID).plusDays(1).minusMinutes(1)
+                    orderIds,
+                    ShiftDayResolver.getShiftDayStartUtc(shiftSettings, queryStartUtc, ZONE_ID),
+                    ShiftDayResolver.getShiftDayStartUtc(shiftSettings, queryEndUtc, ZONE_ID)
+                        .plusDays(1).minusMinutes(1)
                 ).stream()
                 .collect(Collectors.groupingBy(NursingExecutionRecord::getNursingOrderId));
 
@@ -892,7 +895,8 @@ public class NursingOrderService {
                 .setRt(protoService.getReturnCode(StatusCode.PATIENT_NOT_FOUND))
                 .build();
         }
-        final ShiftSettingsPB shiftSettings = shiftUtils.getShiftByDeptId(patientRecord.getDeptId());
+        final ShiftSettingsPB shiftSettings =
+            settingsStore.getShiftSettingsPB(patientRecord.getDeptId());
 
         // 获取相关执行记录
         final LocalDateTime queryStartUtc = TimeUtils.fromIso8601String(
@@ -1325,7 +1329,7 @@ public class NursingOrderService {
         } else {
             // 长期
             queryStartTimeUtc = queryStartTimeUtc.isBefore(orderTimeUtc) ? orderTimeUtc : queryStartTimeUtc;
-            List<LocalDateTime> shiftStartUtcList = shiftUtils.getShiftStartTimeUtcs(
+            List<LocalDateTime> shiftStartUtcList = ShiftDayResolver.listShiftDayStartsUtc(
                 shiftSettings, queryStartTimeUtc, queryStopTimeUtc.minusMinutes(1), ZONE_ID
             );
 
@@ -1528,7 +1532,7 @@ public class NursingOrderService {
 
     private final ConfigProtoService protoService;
     private final UserQuery userQuery;
-    private final ConfigShiftUtils shiftUtils;
+    private final SettingsStore settingsStore;
     private final PatientService patientService;
     private final PatientReader patientReader;
     private final MedicationConfig medConfig;

@@ -33,7 +33,8 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
-import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindowResolver;
+import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayConfigReader;
+import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 
 public class MedexeTimeRangeDataSourceHandlerTests {
@@ -47,7 +48,7 @@ public class MedexeTimeRangeDataSourceHandlerTests {
         MedexeTimeRangeDataSourceHandler handler =
             new MedexeTimeRangeDataSourceHandler(support);
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-            new StatisticsDayWindowResolver(balanceStatsShiftRepo));
+            new StatsDayWindowResolver(new StatsDayConfigReader(balanceStatsShiftRepo)));
 
         LocalDateTime utcEnd = LocalDateTime.of(2026, 4, 17, 16, 0);
         when(balanceStatsShiftRepo
@@ -122,7 +123,7 @@ public class MedexeTimeRangeDataSourceHandlerTests {
         MedexeTimeRangeDataSourceHandler handler =
             new MedexeTimeRangeDataSourceHandler(support);
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-            new StatisticsDayWindowResolver(balanceStatsShiftRepo));
+            new StatsDayWindowResolver(new StatsDayConfigReader(balanceStatsShiftRepo)));
 
         when(balanceStatsShiftRepo
             .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc(anyString()))
@@ -144,7 +145,7 @@ public class MedexeTimeRangeDataSourceHandlerTests {
         MedexeTimeRangeDataSourceHandler handler =
             new MedexeTimeRangeDataSourceHandler(support);
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-            new StatisticsDayWindowResolver(balanceStatsShiftRepo));
+            new StatsDayWindowResolver(new StatsDayConfigReader(balanceStatsShiftRepo)));
 
         when(balanceStatsShiftRepo
             .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc(anyString()))
@@ -177,7 +178,7 @@ public class MedexeTimeRangeDataSourceHandlerTests {
         MedexeTimeRangeDataSourceHandler handler =
             new MedexeTimeRangeDataSourceHandler(support);
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-            new StatisticsDayWindowResolver(balanceStatsShiftRepo));
+            new StatsDayWindowResolver(new StatsDayConfigReader(balanceStatsShiftRepo)));
 
         when(balanceStatsShiftRepo
             .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept"))
@@ -206,7 +207,7 @@ public class MedexeTimeRangeDataSourceHandlerTests {
             patientExists ? Optional.of(new PatientRecord()) : Optional.empty());
         BalanceStatsShiftRepository repo = mock(BalanceStatsShiftRepository.class);
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-            new StatisticsDayWindowResolver(repo));
+            new StatsDayWindowResolver(new StatsDayConfigReader(repo)));
 
         var result = new MedexeTimeRangeDataSourceHandler(support)
             .handle(input(10001L, "request-dept", "2026-04-16T00:00Z"));

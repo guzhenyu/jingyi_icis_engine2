@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Objects;
 
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.SystemSettingFunctionId;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
@@ -84,6 +85,22 @@ public final class LockKeys {
         if (functionId <= 0) {
             throw new IllegalArgumentException("functionId must be positive");
         }
+        return deptSystemSettingsKey(deptId, functionId);
+    }
+
+    public static String deptShiftSettings(String deptId) {
+        // 班次接口接受历史科室编码，由数据库校验科室是否存在。
+        Objects.requireNonNull(deptId, "deptId");
+        return truncateResourceKey(deptSystemSettingsKey(
+            deptId, SystemSettingFunctionId.GET_SHIFT_VALUE));
+    }
+
+    public static String statsDayConfig(String deptId) {
+        Objects.requireNonNull(deptId, "deptId");
+        return truncateResourceKey("balance_stats_shifts:" + deptId);
+    }
+
+    private static String deptSystemSettingsKey(String deptId, int functionId) {
         return "dept_system_settings:" + deptId + ":" + functionId;
     }
 

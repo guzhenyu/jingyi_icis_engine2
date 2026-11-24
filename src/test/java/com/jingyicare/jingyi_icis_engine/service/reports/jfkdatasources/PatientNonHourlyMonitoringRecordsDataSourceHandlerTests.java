@@ -40,8 +40,8 @@ import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaRea
 import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.PatientMonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
+import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindow;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
-import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
@@ -247,7 +247,7 @@ public class PatientNonHourlyMonitoringRecordsDataSourceHandlerTests {
                 .thenReturn(new Pair<>(
                     ReturnCode.newBuilder().setCode(StatusCode.OK.ordinal()).build(),
                     new JfkDataSourceSupport.PatientDayContext(
-                        patient, new StatisticsDayWindow(
+                        patient, new StatsDayWindow(
                             MON_START_UTC, MON_END_UTC, MON_START_UTC, MON_END_UTC,
                             7, 7, 12)
                     )

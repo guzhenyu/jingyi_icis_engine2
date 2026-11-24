@@ -26,7 +26,7 @@ import com.jingyicare.jingyi_icis_engine.repository.reports.*;
 import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
-import com.jingyicare.jingyi_icis_engine.service.shifts.*;
+import com.jingyicare.jingyi_icis_engine.service.settings.ShiftDayResolver;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -36,7 +36,6 @@ public class ReportService {
     public ReportService(
         @Autowired ReportProperties reportProperties,
         @Autowired ConfigProtoService protoService,
-        @Autowired ConfigShiftUtils shiftUtils,
         @Autowired UserQuery userQuery,
         @Autowired PatientService patientService,
         @Autowired PatientReader patientReader,
@@ -55,7 +54,6 @@ public class ReportService {
         this.doctorRoleIdSet = new HashSet<>(protoService.getConfig().getJfk().getDoctorRoleIdsList());
 
         this.protoService = protoService;
-        this.shiftUtils = shiftUtils;
         this.userQuery = userQuery;
         this.patientService = patientService;
         this.patientReader = patientReader;
@@ -709,14 +707,16 @@ public class ReportService {
         if (startTime == null || endTime == null) return new Pair<>(StatusCode.INVALID_TIME_FORMAT, null);
 
         final ShiftSettingsPB shiftSettings = patientShift.shiftSettings;
-        LocalDateTime shiftStartTime = shiftUtils.getShiftStartTime(shiftSettings, startTime, ZONE_ID);
+        LocalDateTime shiftStartTime = ShiftDayResolver.getShiftDayStartLocal(
+            shiftSettings, startTime, ZONE_ID);
         LocalDateTime shiftStartUtc = TimeUtils.getUtcFromLocalDateTime(shiftStartTime, ZONE_ID);
         LocalDateTime validationEndUtc = resolveReportValidationEnd(
             shiftStartUtc, endTime, patientShift.patient.getDischargeTime());
         StatusCode statusCode = patientService.validateTimeRange(
             patientShift.patient, shiftStartUtc, validationEndUtc);
         if (statusCode != StatusCode.OK) return new Pair<>(statusCode, null);
-        // if (!shiftStartTime.equals(shiftUtils.getShiftStartTime(shiftSettings, endTime, ZONE_ID)))
+        // if (!shiftStartTime.equals(
+        //     ShiftDayResolver.getShiftDayStartLocal(shiftSettings, endTime, ZONE_ID)))
         //     return new Pair<>(StatusCode.INVALID_TIME_RANGE, null);
 
         return new Pair<>(StatusCode.OK, shiftStartTime);
@@ -796,7 +796,6 @@ public class ReportService {
     private final Set<Integer> doctorRoleIdSet;
 
     private final ConfigProtoService protoService;
-    private final ConfigShiftUtils shiftUtils;
     private final UserQuery userQuery;
     private final PatientService patientService;
     private final PatientReader patientReader;

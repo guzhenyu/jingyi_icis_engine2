@@ -20,7 +20,6 @@ import com.jingyicare.jingyi_icis_engine.service.medications.MedicationConfig;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.MonitoringConfig;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaService;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientConfig;
-import com.jingyicare.jingyi_icis_engine.service.shifts.ConfigShiftService;
 import com.jingyicare.jingyi_icis_engine.service.users.DepartmentCommand;
 import com.jingyicare.jingyi_icis_engine.service.users.UserConfig;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
@@ -32,7 +31,6 @@ public class SystemInitializer {
     public SystemInitializer(
         ConfigurableApplicationContext context,
         @Autowired ConfigProtoService configProtoService,
-        @Autowired ConfigShiftService shiftConfig,
         @Autowired UserConfig userConfig,
         @Autowired UserQuery userQuery,
         @Autowired DepartmentCommand departmentCommand,
@@ -46,7 +44,6 @@ public class SystemInitializer {
     ) {
         this.context = context;
         this.config = configProtoService.getConfig();
-        this.shiftConfig = shiftConfig;
         this.userConfig = userConfig;
         this.userQuery = userQuery;
         this.departmentCommand = departmentCommand;
@@ -87,7 +84,7 @@ public class SystemInitializer {
                 " v.s. " + config.getText().getStatusCodeMsgCount());
             LogUtils.flushAndQuit(context);
         }
-        shiftConfig.checkIntegrity();
+        checkConfigProto();
         userConfig.checkIntegrity();
         patientConfig.checkIntegrity();
         medicationConfig.checkIntegrity();
@@ -105,9 +102,17 @@ public class SystemInitializer {
         log.info("Certificate and ICIS department scope checked");
     }
 
+    private void checkConfigProto() {
+        if (config.getShift().getDefaultSetting().getShiftCount() <= 0) {
+            log.error("Shift is not set, count(shift) == 0");
+            LogUtils.flushAndQuit(context);
+        }
+
+        // todo(guzhenyu): 校验班次配置的合法性
+    }
+
     private ConfigurableApplicationContext context;
     private Config config;
-    private ConfigShiftService shiftConfig;
     private UserConfig userConfig;
     private UserQuery userQuery;
     private DepartmentCommand departmentCommand;

@@ -46,7 +46,7 @@ import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.PdfFontSet;
-import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
+import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindow;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
@@ -129,7 +129,7 @@ public class MedexeRecordsDataSourceHandler extends AbstractJfkDataSourceHandler
         if (utcStart == null) {
             return error(StatusCode.INVALID_TIME_FORMAT, FIELD_QUERY_START);
         }
-        final StatisticsDayWindow window;
+        final StatsDayWindow window;
         try {
             window = support.resolveStatisticsDayWindow(deptId, utcStart);
         } catch (IllegalArgumentException e) {

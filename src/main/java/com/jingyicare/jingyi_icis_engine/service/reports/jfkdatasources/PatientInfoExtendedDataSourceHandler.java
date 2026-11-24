@@ -22,7 +22,7 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.repository.patients.SurgeryHistoryRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patientshifts.PatientShiftRecordRepository;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
-import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
+import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindow;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
@@ -62,7 +62,7 @@ public class PatientInfoExtendedDataSourceHandler extends AbstractJfkDataSourceH
             return new Pair<>(windowResult.getFirst(), null);
         }
 
-        StatisticsDayWindow window = windowResult.getSecond().dayWindow();
+        StatsDayWindow window = windowResult.getSecond().dayWindow();
         PatientRecord patient = windowResult.getSecond().patient();
         RbacDepartment department = support.getDeptRepo().findByDeptId(patient.getDeptId()).orElse(
             null);

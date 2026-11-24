@@ -35,7 +35,8 @@ import com.jingyicare.jingyi_icis_engine.service.medications.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
-import com.jingyicare.jingyi_icis_engine.service.shifts.*;
+import com.jingyicare.jingyi_icis_engine.service.settings.SettingsStore;
+import com.jingyicare.jingyi_icis_engine.service.settings.ShiftDayResolver;
 import com.jingyicare.jingyi_icis_engine.service.users.*;
 import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -45,7 +46,7 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class PatientOverviewService {
     public PatientOverviewService(
         @Autowired ConfigProtoService protoService,
-        @Autowired ConfigShiftUtils shiftUtils,
+        @Autowired SettingsStore settingsStore,
         @Autowired UserQuery userQuery,
         @Autowired PatientReader patientReader,
         @Autowired DeptMonMetaReader deptMonMetaReader,
@@ -69,7 +70,7 @@ public class PatientOverviewService {
         }
 
         this.protoService = protoService;
-        this.shiftUtils = shiftUtils;
+        this.settingsStore = settingsStore;
         this.userQuery = userQuery;
         this.patientReader = patientReader;
         this.deptMonMetaReader = deptMonMetaReader;
@@ -248,7 +249,7 @@ public class PatientOverviewService {
                 .build();
         }
         final String deptId = patientRecord.getDeptId();
-        ShiftSettingsPB shiftSettingsPb = shiftUtils.getShiftByDeptId(deptId);
+        ShiftSettingsPB shiftSettingsPb = settingsStore.getShiftSettingsPB(deptId);
 
         // 解析输入: 时间范围
         LocalDateTime queryStartUtc = TimeUtils.fromIso8601String(req.getQueryStartIso8601(), "UTC");
@@ -260,8 +261,10 @@ public class PatientOverviewService {
                 .build();
         }
         // 将时间转换成科室的午夜时间
-        queryStartUtc = shiftUtils.getShiftLocalMidnightUtc(shiftSettingsPb, queryStartUtc, ZONE_ID);
-        queryEndUtc = shiftUtils.getShiftLocalMidnightUtc(shiftSettingsPb, queryEndUtc, ZONE_ID);
+        queryStartUtc = ShiftDayResolver.getShiftDayLocalMidnightAsUtc(
+            shiftSettingsPb, queryStartUtc, ZONE_ID);
+        queryEndUtc = ShiftDayResolver.getShiftDayLocalMidnightAsUtc(
+            shiftSettingsPb, queryEndUtc, ZONE_ID);
 
         // 获取每日出入量数据
         Pair<StatusCode, List<DailyBalancePB>> codeListPair = patientMonitoringService.getDailyBalanceStats(
@@ -311,7 +314,7 @@ public class PatientOverviewService {
                 .build();
         }
         final String deptId = patientRecord.getDeptId();
-        ShiftSettingsPB shiftSettingsPb = shiftUtils.getShiftByDeptId(deptId);
+        ShiftSettingsPB shiftSettingsPb = settingsStore.getShiftSettingsPB(deptId);
 
         // 解析输入: 时间
         LocalDateTime targetDateUtc = TimeUtils.fromIso8601String(req.getTargetDateIso8601(), "UTC");
@@ -703,7 +706,7 @@ public class PatientOverviewService {
     private final Map<Integer, String> vitalSignTypeMap;
 
     private final ConfigProtoService protoService;
-    private final ConfigShiftUtils shiftUtils;
+    private final SettingsStore settingsStore;
     private final UserQuery userQuery;
     private final PatientReader patientReader;
     private final DeptMonMetaReader deptMonMetaReader;

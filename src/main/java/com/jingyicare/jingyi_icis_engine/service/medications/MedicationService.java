@@ -31,7 +31,8 @@ import com.jingyicare.jingyi_icis_engine.repository.users.*;
 import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientService;
-import com.jingyicare.jingyi_icis_engine.service.shifts.*;
+import com.jingyicare.jingyi_icis_engine.service.settings.SettingsStore;
+import com.jingyicare.jingyi_icis_engine.service.settings.ShiftDayResolver;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -40,7 +41,7 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class MedicationService {
     public MedicationService(
         @Autowired ConfigProtoService protoService,
-        @Autowired ConfigShiftUtils shiftUtils,
+        @Autowired SettingsStore settingsStore,
         @Autowired MedicationConfig medConfig,
         @Autowired UserQuery userQuery,
         @Autowired PatientService patientService,
@@ -59,7 +60,7 @@ public class MedicationService {
         @Autowired AccountRepository accountRepo
     ) {
         this.protoService = protoService;
-        this.shiftUtils = shiftUtils;
+        this.settingsStore = settingsStore;
         this.ZONE_ID = protoService.getConfig().getZoneId();
 
         final MEnums medEnums = protoService.getConfig().getMedication().getEnums();
@@ -131,7 +132,7 @@ public class MedicationService {
             patientRecord.getAdmissionStatus() == PatientEnums.ADMISSION_STATUS_DISCHARGED
         );
         final String deptId = patientRecord.getDeptId();
-        final ShiftSettingsPB shiftSettings = shiftUtils.getShiftByDeptId(deptId);
+        final ShiftSettingsPB shiftSettings = settingsStore.getShiftSettingsPB(deptId);
         final MedOrderGroupSettingsPB medOgSettings = medConfig.getMedOrderGroupSettings(deptId);
         final Boolean expandExeRecord = req.getExpandExeRecord();  // 是否分解医嘱
 
@@ -158,7 +159,7 @@ public class MedicationService {
             }
 
             if (patientInIcu) {
-                List<LocalDateTime> shiftUtcList = shiftUtils.getShiftStartTimeUtcs(
+                List<LocalDateTime> shiftUtcList = ShiftDayResolver.listShiftDayStartsUtc(
                     shiftSettings, queryStartUtc, queryEndUtc.minusMinutes(1), ZONE_ID
                 );
                 for (LocalDateTime shiftUtc : shiftUtcList) {
@@ -218,13 +219,13 @@ public class MedicationService {
         final Boolean patientInIcu =
             (patientRecord.getAdmissionStatus() == PatientEnums.ADMISSION_STATUS_ADMITTED);
         final String deptId = patientRecord.getDeptId();
-        final ShiftSettingsPB shiftSettings = shiftUtils.getShiftByDeptId(deptId);
+        final ShiftSettingsPB shiftSettings = settingsStore.getShiftSettingsPB(deptId);
         final MedOrderGroupSettingsPB medOgSettings = medConfig.getMedOrderGroupSettings(deptId);
 
         // 生成执行记录和过程
         final LocalDateTime queryStartUtc = TimeUtils.fromIso8601String(req.getQueryStartIso8601(), "UTC");
         final LocalDateTime queryEndUtc = TimeUtils.fromIso8601String(req.getQueryEndIso8601(), "UTC");
-        List<LocalDateTime> shiftUtcList = shiftUtils.getShiftStartTimeUtcs(
+        List<LocalDateTime> shiftUtcList = ShiftDayResolver.listShiftDayStartsUtc(
             shiftSettings, queryStartUtc, queryEndUtc.minusMinutes(1), ZONE_ID
         );
         for (LocalDateTime shiftUtc : shiftUtcList) {
@@ -298,7 +299,7 @@ public class MedicationService {
 
         // 获取部门配置
         final String deptId = patientRecord.getDeptId();
-        ShiftSettingsPB shiftSettings = shiftUtils.getShiftByDeptId(deptId);
+        ShiftSettingsPB shiftSettings = settingsStore.getShiftSettingsPB(deptId);
         final MedOrderGroupSettingsPB medOgSettings = medConfig.getMedOrderGroupSettings(deptId);
 
         // 检查病人是否在ICU
@@ -370,7 +371,8 @@ public class MedicationService {
         final Boolean isPersonalMedications = req.getIsPersonalMedications() > 0;
         List<MedicationExecutionRecord> records = ordExecutor.retrieveExeRecords(
             true, shiftSettings, medOgSettings, accountId, orderGroup, isPersonalMedications,
-            shiftUtils.getShiftStartTimeUtc(shiftSettings, orderTime, ZONE_ID), patientRecord.getDischargeTime()
+            ShiftDayResolver.getShiftDayStartUtc(shiftSettings, orderTime, ZONE_ID),
+            patientRecord.getDischargeTime()
         );
 
         // 必须有且仅有 1 条执行记录
@@ -2111,7 +2113,7 @@ public class MedicationService {
     final String ORDER_GROUP_COMPLETED_TXT;
 
     private ConfigProtoService protoService;
-    private ConfigShiftUtils shiftUtils;
+    private final SettingsStore settingsStore;
     private MedicationConfig medConfig;
     private UserQuery userQuery;
     private PatientService patientService;

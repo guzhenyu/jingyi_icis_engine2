@@ -350,7 +350,7 @@ is_deleted = false
 ```
 
 2. 只使用当前 `patient_tube_record_id` 的状态，不合并 root 链其他记录。
-3. 通过 `ConfigShiftUtils.getShiftByDeptId(deptId)` 获取 `ShiftSettingsPB`。
+3. 通过 `SettingsStore.getShiftSettingsPB(deptId)` 获取 `ShiftSettingsPB`。
 4. 使用 `ShiftSettingsPB.shift[].default_shift` 定义各班次时间段，忽略 `Shift.name == "全天"` 的配置项。
 5. 将每条 `status_record.recorded_at` 转成本地时间后分配到对应班次范围。
 6. 同一个班次内，按 `recorded_at` 分组，得到：

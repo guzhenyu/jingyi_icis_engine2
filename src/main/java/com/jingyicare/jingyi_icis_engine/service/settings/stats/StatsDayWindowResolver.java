@@ -1,4 +1,4 @@
-package com.jingyicare.jingyi_icis_engine.service.shifts;
+package com.jingyicare.jingyi_icis_engine.service.settings.stats;
 
 import java.time.DateTimeException;
 import java.time.LocalDate;
@@ -12,18 +12,17 @@ import java.util.Objects;
 import org.springframework.stereotype.Component;
 
 import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
-import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.utils.Consts;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
 @Component
-public class StatisticsDayWindowResolver {
-    public StatisticsDayWindowResolver(BalanceStatsShiftRepository balanceStatsShiftRepo) {
-        this.balanceStatsShiftRepo = balanceStatsShiftRepo;
+public class StatsDayWindowResolver {
+    public StatsDayWindowResolver(StatsDayConfigReader statsDayConfigReader) {
+        this.statsDayConfigReader = statsDayConfigReader;
     }
 
     /** dayMidnightUtc 是当地统计日午夜对应的 UTC 时刻，不是模块查询起点。 */
-    public StatisticsDayWindow resolve(LocalDateTime dayMidnightUtc, String zoneId, String deptId) {
+    public StatsDayWindow resolve(LocalDateTime dayMidnightUtc, String zoneId, String deptId) {
         return resolveInternal(Collections.singletonList(dayMidnightUtc), zoneId, deptId).get(0);
     }
 
@@ -31,7 +30,7 @@ public class StatisticsDayWindowResolver {
      * 批量解析当地统计日午夜对应的 UTC，结果与输入逐项对应，保留顺序和重复项。
      * 非空输入只读取一次科室配置历史；空列表返回空列表。
      */
-    public List<StatisticsDayWindow> resolveInternal(
+    public List<StatsDayWindow> resolveInternal(
         List<LocalDateTime> dayMidnightUtcs, String zoneId, String deptId
     ) {
         ZoneId zone = validateArguments(zoneId, deptId);
@@ -53,9 +52,8 @@ public class StatisticsDayWindowResolver {
         }
         if (days.isEmpty()) return List.of();
 
-        List<BalanceStatsShift> shifts = balanceStatsShiftRepo
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc(deptId);
-        List<StatisticsDayWindow> windows = new ArrayList<>(days.size());
+        List<BalanceStatsShift> shifts = statsDayConfigReader.listActiveByDept(deptId);
+        List<StatsDayWindow> windows = new ArrayList<>(days.size());
         for (LocalDate day : days) {
             windows.add(resolveDay(day, zone, shifts));
         }
@@ -72,8 +70,7 @@ public class StatisticsDayWindowResolver {
     public List<LocalDate> resolveStatisticDates(LocalDateTime utc, String zoneId, String deptId) {
         validateArguments(zoneId, deptId);
         if (utc == null) throw new IllegalArgumentException("Time is required");
-        List<BalanceStatsShift> shifts = balanceStatsShiftRepo
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc(deptId);
+        List<BalanceStatsShift> shifts = statsDayConfigReader.listActiveByDept(deptId);
         return resolveStatisticDatesFromShifts(utc, zoneId, shifts);
     }
 
@@ -91,10 +88,10 @@ public class StatisticsDayWindowResolver {
 
         // 获取合法统计日
         List<LocalDate> statisticDates = new ArrayList<>();
-        List<StatisticsDayWindow> windows = candidateDays.stream()
+        List<StatsDayWindow> windows = candidateDays.stream()
             .map(candidate -> resolveDay(candidate, zone, shifts)).toList();
         for (int i = 0; i < windows.size(); i++) {
-            StatisticsDayWindow window = windows.get(i);
+            StatsDayWindow window = windows.get(i);
             if (containsUtc(utc, window.monitoringStartUtc(), window.monitoringEndUtc())
                 || containsUtc(utc, window.balanceStartUtc(), window.balanceEndUtc())
             ) {
@@ -126,7 +123,7 @@ public class StatisticsDayWindowResolver {
         }
     }
 
-    private StatisticsDayWindow resolveDay(LocalDate day, ZoneId zone,
+    private StatsDayWindow resolveDay(LocalDate day, ZoneId zone,
         List<BalanceStatsShift> shifts) {
         String zoneId = zone.getId();
         LocalDate nextDay = day.plusDays(1);
@@ -147,7 +144,7 @@ public class StatisticsDayWindowResolver {
             DEFAULT_HALF_DAY_HOURS;
 
         // 两个当地端点分别换算，保留相邻统计日之间的重叠或空缺。
-        return new StatisticsDayWindow(
+        return new StatsDayWindow(
             getHourUtc(day, monHour, zoneId),
             getHourUtc(nextDay, monHour, zoneId),
             getHourUtc(day, startHour, zoneId),
@@ -160,5 +157,5 @@ public class StatisticsDayWindowResolver {
     }
 
     private static final int DEFAULT_HALF_DAY_HOURS = 12;
-    private final BalanceStatsShiftRepository balanceStatsShiftRepo;
+    private final StatsDayConfigReader statsDayConfigReader;
 }

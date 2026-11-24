@@ -65,8 +65,8 @@ import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.PatientMonMeta
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.*;
 import com.jingyicare.jingyi_icis_engine.service.settings.SettingService;
+import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.service.shifts.ConfigShiftUtils;
-import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.service.snapshots.SnapshotService;
 import com.jingyicare.jingyi_icis_engine.service.tubes.PatientTubeImpl;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
@@ -824,5 +824,5 @@ class NursingRecordServiceLockTests extends TestsBase {
     @Autowired private JdbcTemplate jdbcTemplate;
     @Autowired private NursingRecordReader recordReader;
     @Autowired private SnapshotService snapshots;
-    @Autowired private StatisticsDayWindowResolver windowResolver;
+    @Autowired private StatsDayWindowResolver windowResolver;
 }

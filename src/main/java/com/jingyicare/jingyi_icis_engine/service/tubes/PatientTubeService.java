@@ -27,7 +27,8 @@ import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.PatientNursingReportInvalidationService;
-import com.jingyicare.jingyi_icis_engine.service.shifts.*;
+import com.jingyicare.jingyi_icis_engine.service.settings.SettingsStore;
+import com.jingyicare.jingyi_icis_engine.service.settings.ShiftDayResolver;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -37,7 +38,7 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class PatientTubeService {
     public PatientTubeService(
         @Autowired ConfigProtoService protoService,
-        @Autowired ConfigShiftUtils shiftUtils,
+        @Autowired SettingsStore settingsStore,
         @Autowired PatientReader patientReader,
         @Autowired UserQuery userQuery,
         @Autowired TubeSetting setting,
@@ -52,7 +53,7 @@ public class PatientTubeService {
         this.PATIENT_TUBE_REMOVED = tubeEnums.getPatientTubeStatusRemoved().getId();
 
         this.protoService = protoService;
-        this.shiftUtils = shiftUtils;
+        this.settingsStore = settingsStore;
         this.patientReader = patientReader;
         this.userQuery = userQuery;
         this.setting = setting;
@@ -80,7 +81,7 @@ public class PatientTubeService {
                 .build();
         }
         final String deptId = patientRecord.getDeptId();
-        final ShiftSettingsPB shiftPb = shiftUtils.getShiftByDeptId(deptId);
+        final ShiftSettingsPB shiftPb = settingsStore.getShiftSettingsPB(deptId);
 
         // 获取相关属性
         final Boolean isDeleted = (req.getIsDeleted() == 1);
@@ -89,7 +90,8 @@ public class PatientTubeService {
 
         // 获取相关状态
         List<Long> recordIds = records.stream().map(PatientTubeRecord::getId).collect(Collectors.toList());
-        LocalDateTime shiftStart = shiftUtils.getShiftStartTimeUtc(shiftPb, TimeUtils.getNowUtc(), ZONE_ID);
+        LocalDateTime shiftStart = ShiftDayResolver.getShiftDayStartUtc(
+            shiftPb, TimeUtils.getNowUtc(), ZONE_ID);
         Set<Long> recordIdsWithStatus = patientTubeImpl.fetchPatientTubeStatuses(
             recordIds, shiftStart, shiftStart.plusDays(1)
         ).stream().map(PatientTubeStatusRecord::getPatientTubeRecordId).collect(Collectors.toSet());
@@ -653,7 +655,7 @@ public class PatientTubeService {
     private final Integer PATIENT_TUBE_INSERTED;
     private final Integer PATIENT_TUBE_REMOVED;
     private final ConfigProtoService protoService;  // 配置协议服务
-    private final ConfigShiftUtils shiftUtils;  // 班次工具类
+    private final SettingsStore settingsStore;
     private final PatientReader patientReader;    // 病人服务
     private final UserQuery userQuery;  // 用户服务
     private final TubeSetting setting;       // 管道设置

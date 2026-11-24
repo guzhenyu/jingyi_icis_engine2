@@ -36,9 +36,10 @@ import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentReposito
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
-import com.jingyicare.jingyi_icis_engine.service.shifts.ConfigShiftUtils;
-import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
-import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindowResolver;
+import com.jingyicare.jingyi_icis_engine.service.settings.SettingsStore;
+import com.jingyicare.jingyi_icis_engine.service.settings.ShiftDayResolver;
+import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindow;
+import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ReturnCodeUtils;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
@@ -50,7 +51,7 @@ public class JfkDataSourceSupport {
     public JfkDataSourceSupport(
         @Autowired ConfigProtoService protoService,
         @Autowired PatientReader patientReader,
-        @Autowired ConfigShiftUtils shiftUtils,
+        @Autowired SettingsStore settingsStore,
         @Autowired RbacDepartmentRepository deptRepo,
         @Autowired WardReportRepository wardReportRepo,
         @Autowired AccountRepository accountRepo,
@@ -58,10 +59,10 @@ public class JfkDataSourceSupport {
         @Autowired PatientScoreRepository patientScoreRepo,
         @Autowired ReportProperties reportProperties,
         @Autowired ResourceLoader resourceLoader,
-        @Autowired StatisticsDayWindowResolver statisticsDayWindowResolver
+        @Autowired StatsDayWindowResolver statisticsDayWindowResolver
     ) {
         this.patientReader = patientReader;
-        this.shiftUtils = shiftUtils;
+        this.settingsStore = settingsStore;
         this.deptRepo = deptRepo;
         this.wardReportRepo = wardReportRepo;
         this.accountRepo = accountRepo;
@@ -226,10 +227,12 @@ public class JfkDataSourceSupport {
         }
         String deptId = patient.getDeptId();
 
-        ShiftSettingsPB shiftSettings = shiftUtils.getShiftByDeptId(deptId);
-        shiftTimeStart = shiftUtils.getShiftStartTime(shiftSettings, shiftTimeStart, zoneId);
+        ShiftSettingsPB shiftSettings = settingsStore.getShiftSettingsPB(deptId);
+        shiftTimeStart = ShiftDayResolver.getShiftDayStartLocal(
+            shiftSettings, shiftTimeStart, zoneId);
         LocalDateTime nowUtc = TimeUtils.getNowUtc();
-        LocalDateTime nowUtcShiftStart = shiftUtils.getShiftStartTime(shiftSettings, nowUtc, zoneId);
+        LocalDateTime nowUtcShiftStart = ShiftDayResolver.getShiftDayStartLocal(
+            shiftSettings, nowUtc, zoneId);
         if (shiftTimeStart.isAfter(nowUtcShiftStart)) {
             shiftTimeStart = nowUtc;
         } else {
@@ -258,7 +261,7 @@ public class JfkDataSourceSupport {
         return new Pair<>(ReturnCodeUtils.getReturnCode(statusMsgList, StatusCode.OK), info);
     }
 
-    public record PatientDayContext(PatientRecord patient, StatisticsDayWindow dayWindow) {}
+    public record PatientDayContext(PatientRecord patient, StatsDayWindow dayWindow) {}
 
     public Pair<ReturnCode, PatientDayContext> resolvePatientDayContext(Long pid,
         String queryStartIso) {
@@ -275,7 +278,7 @@ public class JfkDataSourceSupport {
             return patientDayError(StatusCode.INVALID_TIME_FORMAT, "query_start");
         }
         try {
-            StatisticsDayWindow day = resolveStatisticsDayWindow(deptId, utcStart);
+            StatsDayWindow day = resolveStatisticsDayWindow(deptId, utcStart);
             return new Pair<>(ReturnCodeUtils.getReturnCode(getStatusMsgList(), StatusCode.OK),
                 new PatientDayContext(patient, day));
         } catch (IllegalArgumentException e) {
@@ -283,7 +286,7 @@ public class JfkDataSourceSupport {
         }
     }
 
-    public StatisticsDayWindow resolveStatisticsDayWindow(String deptId,
+    public StatsDayWindow resolveStatisticsDayWindow(String deptId,
         LocalDateTime queryStartUtc) {
         // 旧 JFK query_start 以中点所在当地日期定日；公共入口只接收当地午夜 UTC。
         LocalDateTime localMiddle = TimeUtils.getLocalDateTimeFromUtc(queryStartUtc.plusHours(12),
@@ -352,13 +355,13 @@ public class JfkDataSourceSupport {
     }
 
     private final PatientReader patientReader;
-    private final ConfigShiftUtils shiftUtils;
+    private final SettingsStore settingsStore;
     private final RbacDepartmentRepository deptRepo;
     private final WardReportRepository wardReportRepo;
     private final AccountRepository accountRepo;
     private final DeptScoreGroupRepository deptScoreGroupRepo;
     private final PatientScoreRepository patientScoreRepo;
-    private final StatisticsDayWindowResolver statisticsDayWindowResolver;
+    private final StatsDayWindowResolver statisticsDayWindowResolver;
 
     private final String zoneId;
     private final List<String> statusMsgList;

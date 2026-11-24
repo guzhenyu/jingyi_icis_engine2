@@ -39,8 +39,8 @@ import com.jingyicare.jingyi_icis_engine.repository.snapshots.PatientSnapshotRep
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
-import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
-import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindowResolver;
+import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindow;
+import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
@@ -88,7 +88,7 @@ class SnapshotServiceTests extends TestsBase {
 
     @Test
     void createsSortedUniqueSnapshotsUsingMonitoringHalfOpenWindowsAndOneTimestamp() {
-        StatisticsDayWindow window = window(DAY);
+        StatsDayWindow window = window(DAY);
         saveRecord(window.monitoringStartUtc().minusNanos(1000), "之前", false);
         NursingRecord first = saveRecord(window.monitoringStartUtc(), "起点", false);
         NursingRecord sameTime = saveRecord(window.monitoringStartUtc(), "相同时刻", false);
@@ -292,7 +292,7 @@ class SnapshotServiceTests extends TestsBase {
     @Test
     void equivalentWindowOffsetsAllowCacheHit() {
         PatientSnapshotPB.Builder payload = getAt(NOW, List.of(DAY), false).get(0).toBuilder();
-        StatisticsDayWindow current = window(DAY);
+        StatsDayWindow current = window(DAY);
         payload.setMonitoringStartIso8601(offsetIso(current.monitoringStartUtc()));
         payload.setMonitoringEndIso8601(offsetIso(current.monitoringEndUtc()));
         payload.setBalanceStartIso8601(offsetIso(current.balanceStartUtc()));
@@ -385,7 +385,7 @@ class SnapshotServiceTests extends TestsBase {
         if (code != StatusCode.OK) assertThat(result.getSecond()).isEmpty();
     }
 
-    private StatisticsDayWindow window(LocalDate day) {
+    private StatsDayWindow window(LocalDate day) {
         String zone = protoService.getZoneId();
         return resolver.resolve(TimeUtils.getDayMidnightUtc(day, ZoneId.of(zone)), zone, DEPT);
     }
@@ -467,7 +467,7 @@ class SnapshotServiceTests extends TestsBase {
     @Autowired private PatientSnapshotRepository snapshots;
     @Autowired private NursingRecordRepository records;
     @Autowired private ConfigProtoService protoService;
-    @Autowired private StatisticsDayWindowResolver resolver;
+    @Autowired private StatsDayWindowResolver resolver;
     @Autowired private LockExecutor executor;
     @Autowired private JdbcTemplate jdbcTemplate;
 }

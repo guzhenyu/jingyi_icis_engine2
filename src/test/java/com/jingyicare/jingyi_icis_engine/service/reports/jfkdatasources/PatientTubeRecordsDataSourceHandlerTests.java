@@ -30,8 +30,8 @@ import com.jingyicare.jingyi_icis_engine.repository.tubes.PatientTubeStatusRecor
 import com.jingyicare.jingyi_icis_engine.repository.tubes.TubeTypeStatusRepository;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
-import com.jingyicare.jingyi_icis_engine.service.shifts.ConfigShiftUtils;
-import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
+import com.jingyicare.jingyi_icis_engine.service.settings.SettingsStore;
+import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindow;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 
 public class PatientTubeRecordsDataSourceHandlerTests {
@@ -148,7 +148,8 @@ public class PatientTubeRecordsDataSourceHandlerTests {
             LocalDateTime.of(2026, 4, 16, 23, 30),
             null
         )));
-        when(ctx.configShiftUtils.getShiftByDeptId("patient-dept")).thenReturn(ShiftSettingsPB.getDefaultInstance());
+        when(ctx.settingsStore.getShiftSettingsPB("patient-dept"))
+            .thenReturn(ShiftSettingsPB.getDefaultInstance());
 
         Pair<ReturnCode, JfkDataSourcePB> result = ctx.handler().handle(input());
 
@@ -262,7 +263,7 @@ public class PatientTubeRecordsDataSourceHandlerTests {
         private final PatientTubeRecordRepository tubeRecordRepo = mock(PatientTubeRecordRepository.class);
         private final PatientTubeStatusRecordRepository tubeStatusRecordRepo = mock(PatientTubeStatusRecordRepository.class);
         private final TubeTypeStatusRepository tubeTypeStatusRepo = mock(TubeTypeStatusRepository.class);
-        private final ConfigShiftUtils configShiftUtils = mock(ConfigShiftUtils.class);
+        private final SettingsStore settingsStore = mock(SettingsStore.class);
 
         private TestContext(boolean firstRecordInShift) {
             PatientRecord patient = new PatientRecord();
@@ -281,12 +282,12 @@ public class PatientTubeRecordsDataSourceHandlerTests {
                 .thenReturn(new Pair<>(
                     ReturnCode.newBuilder().setCode(StatusCode.OK.ordinal()).build(),
                     new JfkDataSourceSupport.PatientDayContext(
-                        patient, new StatisticsDayWindow(
+                        patient, new StatsDayWindow(
                             MON_START_UTC, MON_END_UTC, MON_START_UTC, MON_END_UTC,
                             7, 7, 12)
                     )
                 ));
-            when(configShiftUtils.getShiftByDeptId("patient-dept")).thenReturn(shiftSettings());
+            when(settingsStore.getShiftSettingsPB("patient-dept")).thenReturn(shiftSettings());
             this.firstRecordInShift = firstRecordInShift;
         }
 
@@ -299,7 +300,7 @@ public class PatientTubeRecordsDataSourceHandlerTests {
                 tubeRecordRepo,
                 tubeStatusRecordRepo,
                 tubeTypeStatusRepo,
-                configShiftUtils,
+                settingsStore,
                 properties,
                 new DefaultResourceLoader()
             );

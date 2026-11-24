@@ -19,6 +19,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingRecord.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisNursingScore.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.*;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisShift.ShiftSettingsPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 
 import com.jingyicare.jingyi_icis_engine.entity.reports.DragableFormTemplate;
@@ -47,6 +48,67 @@ public class SettingService {
         this.settingsStore = settingsStore;
         this.jfkTemplateReader = jfkTemplateReader;
         this.lockExecutor = lockExecutor;
+    }
+
+    @Transactional(readOnly = true)
+    public GetDeptShiftResp getDeptShift(String requestJson) {
+        final GetDeptShiftReq req;
+        try {
+            req = ProtoUtils.parseJsonToProto(requestJson, GetDeptShiftReq.newBuilder());
+        } catch (Exception e) {
+            log.error("Failed to parse GetDeptShiftReq", e);
+            return GetDeptShiftResp.newBuilder()
+                .setRt(ReturnCodeUtils.getReturnCode(
+                    statusCodeMsgList, StatusCode.PARSE_JSON_FAILED))
+                .build();
+        }
+
+        ShiftSettingsPB shiftSettings = settingsStore.getShiftSettingsPB(req.getDeptId());
+        if (shiftSettings == null) {
+            log.error("ShiftSettings not found: {}", req.getDeptId());
+            return GetDeptShiftResp.newBuilder()
+                .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList,
+                    StatusCode.NO_SHIFT_SETTING))
+                .build();
+        }
+
+        return GetDeptShiftResp.newBuilder()
+            .setRt(ReturnCodeUtils.getReturnCode(statusCodeMsgList, StatusCode.OK))
+            .setShift(shiftSettings)
+            .build();
+    }
+
+    public GenericResp updateDeptShift(String requestJson) {
+        final UpdateDeptShiftReq req;
+        try {
+            req = ProtoUtils.parseJsonToProto(requestJson, UpdateDeptShiftReq.newBuilder());
+        } catch (Exception e) {
+            log.error("Failed to parse UpdateDeptShiftReq", e);
+            return ReturnCodeUtils.genericResponse(statusCodeMsgList, StatusCode.PARSE_JSON_FAILED);
+        }
+
+        ShiftSettingsPB shiftSettings = req.getShift();
+        if (shiftSettings.getShiftCount() == 0) {
+            log.error("Shift is not set, count(shift) == 0");
+            return ReturnCodeUtils.genericResponse(statusCodeMsgList, StatusCode.NO_SHIFT_SETTING);
+        }
+
+        CurrentAccount account = userQuery.getCurrentAccount();
+        if (account == null) {
+            log.error("accountId is empty.");
+            return ReturnCodeUtils.genericResponse(statusCodeMsgList, StatusCode.ACCOUNT_NOT_FOUND);
+        }
+
+        String deptId = req.getDeptId();
+        String accountId = account.autoAcctId();
+        lockExecutor.execute(List.of(LockKeys.deptShiftSettings(deptId)), () -> {
+            settingsStore.saveShiftSettingsPB(deptId, shiftSettings, accountId);
+            return null;
+        });
+
+        log.info("ShiftSettings updated (by {}): deptId = {}, shift = {}",
+            accountId, deptId, ProtoUtils.protoToTxt(shiftSettings));
+        return ReturnCodeUtils.genericResponse(statusCodeMsgList, StatusCode.OK);
     }
 
     @Transactional(readOnly = true)

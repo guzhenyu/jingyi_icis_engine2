@@ -1,4 +1,4 @@
-package com.jingyicare.jingyi_icis_engine.service.shifts;
+package com.jingyicare.jingyi_icis_engine.service.settings.stats;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
@@ -24,32 +24,24 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.dao.DataAccessResourceFailureException;
 
 import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
-import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
 
-class StatisticsDayWindowResolverTests {
-    private static final LocalDateTime ANCHOR = LocalDateTime.of(2026, 10, 22, 16, 0);
-    private static final String ZONE = "Asia/Shanghai";
-    private static final String DEPT = "dept-history";
-    private final BalanceStatsShiftRepository repo = mock(BalanceStatsShiftRepository.class);
-    private final StatisticsDayWindowResolver resolver = new StatisticsDayWindowResolver(repo);
-    private final List<BalanceStatsShift> history = new ArrayList<>();
-
+class StatsDayWindowResolverTests {
     @Test
     void shouldResolveBothWindowsFromOneSelectionBeforeNextLocalMidnight() {
         configure(ANCHOR, shift(6, 7, 9));
-        StatisticsDayWindow window = resolver.resolve(ANCHOR, ZONE, DEPT);
+        StatsDayWindow window = resolver.resolve(ANCHOR, ZONE, DEPT);
         assertThat(window.balanceStartUtc()).isEqualTo("2026-10-22T22:00:00");
         assertThat(window.balanceEndUtc()).isEqualTo("2026-10-23T22:00:00");
         assertThat(window.monitoringStartUtc()).isEqualTo("2026-10-22T23:00:00");
         assertThat(window.monitoringEndUtc()).isEqualTo("2026-10-23T23:00:00");
         assertThat(window.halfDayShiftHours()).isEqualTo(9);
-        verify(repo).findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc(DEPT);
-        verifyNoMoreInteractions(repo);
+        verify(reader).listActiveByDept(DEPT);
+        verifyNoMoreInteractions(reader);
     }
 
     @Test
     void shouldUseEightTwelveEightOnlyWhenNoConfigurationExists() {
-        StatisticsDayWindow window = resolver.resolve(ANCHOR, ZONE, DEPT);
+        StatsDayWindow window = resolver.resolve(ANCHOR, ZONE, DEPT);
         assertThat(window.startHour()).isEqualTo(8);
         assertThat(window.monStartHour()).isEqualTo(8);
         assertThat(window.halfDayShiftHours()).isEqualTo(12);
@@ -73,7 +65,7 @@ class StatisticsDayWindowResolverTests {
         int start, Integer mon, Integer half, int expectedMon, int expectedHalf
     ) {
         configure(ANCHOR, shift(start, mon, half));
-        StatisticsDayWindow window = resolver.resolve(ANCHOR, ZONE, DEPT);
+        StatsDayWindow window = resolver.resolve(ANCHOR, ZONE, DEPT);
         assertThat(window.monStartHour()).isEqualTo(expectedMon);
         assertThat(window.halfDayShiftHours()).isEqualTo(expectedHalf);
         assertThat(window.monitoringStartUtc()).isEqualTo(ANCHOR.plusHours(expectedMon));
@@ -93,8 +85,8 @@ class StatisticsDayWindowResolverTests {
     void shouldLeaveAdjacentDayOverlapOrGapUnadjusted(int nextHour) {
         configure(ANCHOR, shift(8, 8, 12));
         configure(ANCHOR.plusDays(1), shift(nextHour, nextHour, 12));
-        StatisticsDayWindow first = resolver.resolve(ANCHOR, ZONE, DEPT);
-        StatisticsDayWindow next = resolver.resolve(ANCHOR.plusDays(1), ZONE, DEPT);
+        StatsDayWindow first = resolver.resolve(ANCHOR, ZONE, DEPT);
+        StatsDayWindow next = resolver.resolve(ANCHOR.plusDays(1), ZONE, DEPT);
         assertThat(first.monitoringEndUtc()).isEqualTo("2026-10-24T00:00:00");
         assertThat(next.monitoringStartUtc()).isEqualTo(first.monitoringEndUtc().plusHours(
             nextHour - 8));
@@ -112,14 +104,14 @@ class StatisticsDayWindowResolverTests {
             long hours
     ) {
         configure(anchor, shift(0, 8, 12));
-        StatisticsDayWindow window = resolver.resolve(anchor, "America/New_York", DEPT);
+        StatsDayWindow window = resolver.resolve(anchor, "America/New_York", DEPT);
         assertThat(window.balanceStartUtc()).isEqualTo(anchor);
         assertThat(window.balanceEndUtc()).isEqualTo(cutoff);
         assertThat(Duration.between(window.balanceStartUtc(), window.balanceEndUtc()).toHours())
             .isEqualTo(hours);
         assertThat(window.monitoringStartUtc()).isEqualTo(monStart);
         assertThat(window.monitoringEndUtc()).isEqualTo(monEnd);
-        verify(repo).findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc(DEPT);
+        verify(reader).listActiveByDept(DEPT);
     }
 
     @Test
@@ -138,13 +130,13 @@ class StatisticsDayWindowResolverTests {
             .isThrownBy(() -> resolver.resolve(ANCHOR, "not-a-zone", DEPT));
         assertThatIllegalArgumentException()
             .isThrownBy(() -> resolver.resolve(ANCHOR, ZONE, " "));
-        verifyNoMoreInteractions(repo);
+        verifyNoMoreInteractions(reader);
     }
 
     @Test
     void shouldPropagateDatabaseFailureWithoutDefaulting() {
         var failure = new DataAccessResourceFailureException("database unavailable");
-        when(repo.findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc(DEPT)).thenThrow(failure);
+        when(reader.listActiveByDept(DEPT)).thenThrow(failure);
         assertThatThrownBy(() -> resolver.resolve(ANCHOR, ZONE, DEPT)).isSameAs(failure);
     }
 
@@ -153,19 +145,19 @@ class StatisticsDayWindowResolverTests {
         configure(ANCHOR, shift(6, 7, 9));
         configure(ANCHOR.plusDays(1), shift(10, 11, 6));
 
-        List<StatisticsDayWindow> windows = resolver.resolveInternal(
+        List<StatsDayWindow> windows = resolver.resolveInternal(
             List.of(ANCHOR.plusDays(1), ANCHOR, ANCHOR.plusDays(1)), ZONE, DEPT);
 
         assertThat(windows).hasSize(3);
-        assertThat(windows).extracting(StatisticsDayWindow::startHour).containsExactly(10, 6, 10);
-        assertThat(windows).extracting(StatisticsDayWindow::monitoringStartUtc).containsExactly(
+        assertThat(windows).extracting(StatsDayWindow::startHour).containsExactly(10, 6, 10);
+        assertThat(windows).extracting(StatsDayWindow::monitoringStartUtc).containsExactly(
             ANCHOR.plusDays(1).plusHours(11), ANCHOR.plusHours(7),
             ANCHOR.plusDays(1).plusHours(11));
-        assertThat(windows).extracting(StatisticsDayWindow::halfDayShiftHours)
+        assertThat(windows).extracting(StatsDayWindow::halfDayShiftHours)
             .containsExactly(6, 9, 6);
         assertThat(windows.get(0)).isEqualTo(windows.get(2));
-        verify(repo).findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc(DEPT);
-        verifyNoMoreInteractions(repo);
+        verify(reader).listActiveByDept(DEPT);
+        verifyNoMoreInteractions(reader);
     }
 
     @Test
@@ -175,21 +167,21 @@ class StatisticsDayWindowResolverTests {
         configure(cutoff, shift(10, 11, 6));
         configure(ANCHOR.plusDays(3), shift(null, 8, 12));
 
-        List<StatisticsDayWindow> windows = resolver.resolveInternal(
+        List<StatsDayWindow> windows = resolver.resolveInternal(
             List.of(ANCHOR, ANCHOR.plusDays(1), ANCHOR.minusDays(1)), ZONE, DEPT);
 
-        assertThat(windows).extracting(StatisticsDayWindow::startHour).containsExactly(6, 10, 8);
-        assertThat(windows).extracting(StatisticsDayWindow::monStartHour).containsExactly(7, 11, 8);
-        assertThat(windows).extracting(StatisticsDayWindow::halfDayShiftHours)
+        assertThat(windows).extracting(StatsDayWindow::startHour).containsExactly(6, 10, 8);
+        assertThat(windows).extracting(StatsDayWindow::monStartHour).containsExactly(7, 11, 8);
+        assertThat(windows).extracting(StatsDayWindow::halfDayShiftHours)
             .containsExactly(9, 6, 12);
-        verify(repo).findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc(DEPT);
-        verifyNoMoreInteractions(repo);
+        verify(reader).listActiveByDept(DEPT);
+        verifyNoMoreInteractions(reader);
     }
 
     @Test
     void shouldReturnEmptyBatchWithoutQueryingConfiguration() {
         assertThat(resolver.resolveInternal(List.of(), ZONE, DEPT)).isEmpty();
-        verifyNoMoreInteractions(repo);
+        verifyNoMoreInteractions(reader);
     }
 
     @Test
@@ -200,7 +192,7 @@ class StatisticsDayWindowResolverTests {
             Arrays.asList(ANCHOR, null), ZONE, DEPT));
         assertThatIllegalArgumentException().isThrownBy(() -> resolver.resolveInternal(
             List.of(ANCHOR, ANCHOR.plusDays(1).plusNanos(1)), ZONE, DEPT));
-        verifyNoMoreInteractions(repo);
+        verifyNoMoreInteractions(reader);
     }
 
     @Test
@@ -215,18 +207,18 @@ class StatisticsDayWindowResolverTests {
             .isThrownBy(() -> resolver.resolveInternal(List.of(), ZONE, null));
         assertThatIllegalArgumentException()
             .isThrownBy(() -> resolver.resolveInternal(List.of(), ZONE, " "));
-        verifyNoMoreInteractions(repo);
+        verifyNoMoreInteractions(reader);
     }
 
     @Test
     void shouldPropagateDatabaseFailureForBatch() {
         var failure = new DataAccessResourceFailureException("database unavailable");
-        when(repo.findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc(DEPT)).thenThrow(failure);
+        when(reader.listActiveByDept(DEPT)).thenThrow(failure);
 
         assertThatThrownBy(() -> resolver.resolveInternal(
             List.of(ANCHOR, ANCHOR.plusDays(1)), ZONE, DEPT)).isSameAs(failure);
-        verify(repo).findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc(DEPT);
-        verifyNoMoreInteractions(repo);
+        verify(reader).listActiveByDept(DEPT);
+        verifyNoMoreInteractions(reader);
     }
 
     @ParameterizedTest
@@ -278,8 +270,8 @@ class StatisticsDayWindowResolverTests {
         configure(ANCHOR.plusDays(1), shift(10, 10, 12));
 
         assertThat(resolver.resolveStatisticDates(utc, ZONE, DEPT)).isEmpty();
-        verify(repo).findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc(DEPT);
-        verifyNoMoreInteractions(repo);
+        verify(reader).listActiveByDept(DEPT);
+        verifyNoMoreInteractions(reader);
     }
 
     @Test
@@ -300,8 +292,8 @@ class StatisticsDayWindowResolverTests {
 
         assertThat(resolver.resolveStatisticDates(utc, ZONE, DEPT))
             .containsExactly(LocalDate.of(2026, 10, 23), LocalDate.of(2026, 10, 24));
-        verify(repo).findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc(DEPT);
-        verifyNoMoreInteractions(repo);
+        verify(reader).listActiveByDept(DEPT);
+        verifyNoMoreInteractions(reader);
     }
 
     @ParameterizedTest
@@ -330,8 +322,8 @@ class StatisticsDayWindowResolverTests {
 
         assertThatIllegalArgumentException().isThrownBy(() -> resolver.resolveStatisticDates(
             LocalDateTime.of(2026, 10, 24, 1, 0), ZONE, DEPT));
-        verify(repo).findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc(DEPT);
-        verifyNoMoreInteractions(repo);
+        verify(reader).listActiveByDept(DEPT);
+        verifyNoMoreInteractions(reader);
     }
 
     @ParameterizedTest
@@ -386,8 +378,8 @@ class StatisticsDayWindowResolverTests {
         assertThat(resolver.resolveStatisticDates(
             LocalDateTime.of(2018, 11, 4, 3, 30), "America/Sao_Paulo", DEPT))
             .containsExactly(LocalDate.of(2018, 11, 4));
-        verify(repo).findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc(DEPT);
-        verifyNoMoreInteractions(repo);
+        verify(reader).listActiveByDept(DEPT);
+        verifyNoMoreInteractions(reader);
     }
 
     @Test
@@ -414,7 +406,7 @@ class StatisticsDayWindowResolverTests {
             .isThrownBy(() -> resolver.resolveStatisticDates(ANCHOR, ZONE, null));
         assertThatIllegalArgumentException()
             .isThrownBy(() -> resolver.resolveStatisticDates(ANCHOR, ZONE, " "));
-        verifyNoMoreInteractions(repo);
+        verifyNoMoreInteractions(reader);
     }
 
     @ParameterizedTest
@@ -430,7 +422,7 @@ class StatisticsDayWindowResolverTests {
     @Test
     void shouldPropagateDatabaseFailureWhenFindingStatisticDates() {
         var failure = new DataAccessResourceFailureException("database unavailable");
-        when(repo.findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc(DEPT)).thenThrow(failure);
+        when(reader.listActiveByDept(DEPT)).thenThrow(failure);
 
         assertThatThrownBy(() -> resolver.resolveStatisticDates(
             ANCHOR.plusHours(12), ZONE, DEPT)).isSameAs(failure);
@@ -444,7 +436,7 @@ class StatisticsDayWindowResolverTests {
         shift.setEffectiveTime(effectiveTime);
         history.add(shift);
         history.sort(Comparator.comparing(BalanceStatsShift::getEffectiveTime).reversed());
-        when(repo.findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc(DEPT))
+        when(reader.listActiveByDept(DEPT))
             .thenReturn(List.copyOf(history));
     }
 
@@ -452,4 +444,11 @@ class StatisticsDayWindowResolverTests {
         return BalanceStatsShift.builder().deptId(DEPT)
             .startHour(start).monStartHour(mon).halfDayShiftHours(half).build();
     }
+
+    private static final LocalDateTime ANCHOR = LocalDateTime.of(2026, 10, 22, 16, 0);
+    private static final String ZONE = "Asia/Shanghai";
+    private static final String DEPT = "dept-history";
+    private final StatsDayConfigReader reader = mock(StatsDayConfigReader.class);
+    private final StatsDayWindowResolver resolver = new StatsDayWindowResolver(reader);
+    private final List<BalanceStatsShift> history = new ArrayList<>();
 }

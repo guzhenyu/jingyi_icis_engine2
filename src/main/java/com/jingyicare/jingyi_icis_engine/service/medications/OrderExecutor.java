@@ -25,7 +25,8 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisShift.*;
 import com.jingyicare.jingyi_icis_engine.entity.medications.*;
 import com.jingyicare.jingyi_icis_engine.entity.patients.*;
 import com.jingyicare.jingyi_icis_engine.repository.medications.*;
-import com.jingyicare.jingyi_icis_engine.service.shifts.*;
+import com.jingyicare.jingyi_icis_engine.service.settings.SettingsStore;
+import com.jingyicare.jingyi_icis_engine.service.settings.ShiftDayResolver;
 import com.jingyicare.jingyi_icis_engine.service.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -35,7 +36,7 @@ public class OrderExecutor {
     public OrderExecutor(
         @Autowired ConfigurableApplicationContext context,
         @Autowired ConfigProtoService protoService,
-        @Autowired ConfigShiftUtils shiftUtils,
+        @Autowired SettingsStore settingsStore,
         @Autowired MedicationConfig medCfg,
         @Autowired MedMonitoringService medMonitoringService,
         @Autowired MedicationOrderGroupRepository medOrdGroupRepo,
@@ -59,7 +60,7 @@ public class OrderExecutor {
         this.DELETE_REASON_STOPPED = medicationPb.getDeleteReasonStopped();
         this.DELETE_REASON_MANUALLY = medicationPb.getDeleteReasonManually();
         this.ADMINISTRATION_ROUTE_GROUP_INFUSION_PUMP = medicationPb.getEnums().getAdministrationRouteGroupInfusionPump().getId();
-        this.shiftUtils = shiftUtils;
+        this.settingsStore = settingsStore;
         this.medCfg = medCfg;
         this.medMonitoringService = medMonitoringService;
         this.medOrdGroupRepo = medOrdGroupRepo;
@@ -103,11 +104,13 @@ public class OrderExecutor {
         String accountId, MedicationOrderGroup medOrdGroup, Boolean isPersonalMedications,
         LocalDateTime retrieveUtcTime, LocalDateTime dischargeTime
     ) {
-        final LocalDateTime retrieveShiftTime = shiftUtils.getShiftStartTime(shiftSettings, retrieveUtcTime, ZONE_ID);
+        final LocalDateTime retrieveShiftTime = ShiftDayResolver.getShiftDayStartLocal(
+            shiftSettings, retrieveUtcTime, ZONE_ID);
 
         // 不允许分解未来的医嘱
         final LocalDateTime curUtcTime = TimeUtils.getNowUtc();
-        final LocalDateTime curShiftTime = shiftUtils.getShiftStartTime(shiftSettings, curUtcTime, ZONE_ID);
+        final LocalDateTime curShiftTime = ShiftDayResolver.getShiftDayStartLocal(
+            shiftSettings, curUtcTime, ZONE_ID);
         if (retrieveShiftTime.isAfter(curShiftTime)) return new ArrayList<>();
 
         // 查询医嘱执行记录, 补录医嘱中没有his_group_id
@@ -121,7 +124,8 @@ public class OrderExecutor {
          // 取消的两种情况：1. medOrdGroup.status为已取消，或者 2. medOrdGroup.cancelTime不为空
         final boolean isCanceled = orderValidity == ORDER_GROUP_CANCELED;
         final LocalDateTime stopUtcTime = medOrdGroup.getStopTime();
-        final LocalDateTime stopShiftTime = shiftUtils.getShiftStartTime(shiftSettings, stopUtcTime, ZONE_ID);
+        final LocalDateTime stopShiftTime = ShiftDayResolver.getShiftDayStartLocal(
+            shiftSettings, stopUtcTime, ZONE_ID);
         final String orderDosageGroupDisplayName = ProtoUtils.decodeDosageGroup(medOrdGroup.getMedicationDosageGroup()).getDisplayName();
         clearCanceledAndStoppedRecords(
             records, durationType, isCanceled, stopUtcTime, stopShiftTime,
@@ -140,9 +144,11 @@ public class OrderExecutor {
         // 生成执行记录
         final MedicationFrequencySpec freqSpec = medOrdGroup.getFreqCode() == FREQ_CODE_ONCE ?
             null : medCfg.getMedicationFrequencySpec(medOrdGroup.getFreqCode());
-        final LocalDateTime cancelShiftTime = shiftUtils.getShiftStartTime(shiftSettings, medOrdGroup.getCancelTime(), ZONE_ID);
+        final LocalDateTime cancelShiftTime = ShiftDayResolver.getShiftDayStartLocal(
+            shiftSettings, medOrdGroup.getCancelTime(), ZONE_ID);
         final LocalDateTime orderUtcTime = medOrdGroup.getOrderTime();
-        final LocalDateTime orderShiftTime = shiftUtils.getShiftStartTime(shiftSettings, orderUtcTime, ZONE_ID);
+        final LocalDateTime orderShiftTime = ShiftDayResolver.getShiftDayStartLocal(
+            shiftSettings, orderUtcTime, ZONE_ID);
         final LocalDateTime planTime = TimeUtils.getLocalDateTimeFromUtc(medOrdGroup.getPlanTime(), ZONE_ID);
         List<LocalDateTime> exeTimeList = getExeTimeList(
             durationType, isCanceled, cancelShiftTime, stopShiftTime, orderShiftTime,
@@ -256,8 +262,10 @@ public class OrderExecutor {
     }
 
     public List<MedicationExecutionRecord> getDeletedExeRecords(PatientRecord patientRecord, LocalDateTime retrieveUtcTime) {
-        final ShiftSettingsPB shiftSettings = shiftUtils.getShiftByDeptId(patientRecord.getDeptId());
-        final LocalDateTime retrieveShiftTime = shiftUtils.getShiftStartTime(shiftSettings, retrieveUtcTime, ZONE_ID);
+        final ShiftSettingsPB shiftSettings =
+            settingsStore.getShiftSettingsPB(patientRecord.getDeptId());
+        final LocalDateTime retrieveShiftTime = ShiftDayResolver.getShiftDayStartLocal(
+            shiftSettings, retrieveUtcTime, ZONE_ID);
 
         final LocalDateTime queryStartUtc = TimeUtils.getUtcFromLocalDateTime(retrieveShiftTime, ZONE_ID);
         return medExeRecordRepo.findDeletedRecordsByPatientIdAndTimeRange(
@@ -459,7 +467,8 @@ public class OrderExecutor {
             final int intervalDays = freqSpec.getByInterval().getIntervalDays();
             final long days = Duration.between(
                 retrieveShiftTime,
-                shiftUtils.getShiftStartTime(shiftSettings, latestRecord.get().getPlanTime(), ZONE_ID)
+                ShiftDayResolver.getShiftDayStartLocal(
+                    shiftSettings, latestRecord.get().getPlanTime(), ZONE_ID)
             ).toDays();
 // TESTED
             return (days % (intervalDays + 1) == 0);
@@ -678,7 +687,7 @@ public class OrderExecutor {
     private final String DELETE_REASON_STOPPED;
     private final String DELETE_REASON_MANUALLY;
 
-    private ConfigShiftUtils shiftUtils;
+    private final SettingsStore settingsStore;
     private MedicationConfig medCfg;
     private MedMonitoringService medMonitoringService;
     private MedicationOrderGroupRepository medOrdGroupRepo;

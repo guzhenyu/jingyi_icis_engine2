@@ -26,7 +26,8 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkFieldDataPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
-import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindowResolver;
+import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayConfigReader;
+import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 
 public class MonitoringTimeRangeDataSourceHandlerTests {
@@ -35,7 +36,7 @@ public class MonitoringTimeRangeDataSourceHandlerTests {
         JfkDataSourceSupport support = mockSupport();
         BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-            new StatisticsDayWindowResolver(balanceStatsShiftRepo));
+            new StatsDayWindowResolver(new StatsDayConfigReader(balanceStatsShiftRepo)));
         MonitoringTimeRangeDataSourceHandler handler = new MonitoringTimeRangeDataSourceHandler(
             support);
 
@@ -79,7 +80,7 @@ public class MonitoringTimeRangeDataSourceHandlerTests {
         JfkDataSourceSupport support = mockSupport();
         BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-            new StatisticsDayWindowResolver(balanceStatsShiftRepo));
+            new StatsDayWindowResolver(new StatsDayConfigReader(balanceStatsShiftRepo)));
         MonitoringTimeRangeDataSourceHandler handler = new MonitoringTimeRangeDataSourceHandler(
             support);
 
@@ -112,7 +113,7 @@ public class MonitoringTimeRangeDataSourceHandlerTests {
         when(support.getZoneId()).thenReturn("Asia/Shanghai");
         BalanceStatsShiftRepository repo = mock(BalanceStatsShiftRepository.class);
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-            new StatisticsDayWindowResolver(repo));
+            new StatsDayWindowResolver(new StatsDayConfigReader(repo)));
         var window = support.resolveStatisticsDayWindow("10042", LocalDateTime.of(2026, 4, 16, 6,
             0));
         assertThat(window.monitoringStartUtc()).isEqualTo("2026-04-17T00:00:00");

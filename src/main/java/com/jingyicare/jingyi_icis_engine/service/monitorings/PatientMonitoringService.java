@@ -31,6 +31,7 @@ import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.*;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.PatientNursingReportInvalidationService;
 import com.jingyicare.jingyi_icis_engine.service.settings.SettingService;
+import com.jingyicare.jingyi_icis_engine.service.settings.ShiftDayResolver;
 import com.jingyicare.jingyi_icis_engine.service.shifts.*;
 import com.jingyicare.jingyi_icis_engine.service.tubes.*;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
@@ -916,7 +917,7 @@ public class PatientMonitoringService {
         }
 
         if (balanceLocalMidnightUtcList.isEmpty()) {
-            LocalDateTime defaultMidnightUtc = shiftUtils.getShiftLocalMidnightUtc(
+            LocalDateTime defaultMidnightUtc = ShiftDayResolver.getShiftDayLocalMidnightAsUtc(
                 shiftSettings, effectiveTimeUtc, ZONE_ID
             );
             balanceLocalMidnightUtcList.add(defaultMidnightUtc);

@@ -37,8 +37,8 @@ import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.PdfFontSet;
-import com.jingyicare.jingyi_icis_engine.service.shifts.ConfigShiftUtils;
-import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
+import com.jingyicare.jingyi_icis_engine.service.settings.SettingsStore;
+import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindow;
 import com.jingyicare.jingyi_icis_engine.utils.Consts;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
@@ -52,7 +52,7 @@ public class PatientTubeRecordsDataSourceHandler extends AbstractJfkDataSourceHa
         PatientTubeRecordRepository tubeRecordRepo,
         PatientTubeStatusRecordRepository tubeStatusRecordRepo,
         TubeTypeStatusRepository tubeTypeStatusRepo,
-        ConfigShiftUtils configShiftUtils,
+        SettingsStore settingsStore,
         ReportProperties reportProperties,
         ResourceLoader resourceLoader
     ) {
@@ -60,7 +60,7 @@ public class PatientTubeRecordsDataSourceHandler extends AbstractJfkDataSourceHa
         this.tubeRecordRepo = tubeRecordRepo;
         this.tubeStatusRecordRepo = tubeStatusRecordRepo;
         this.tubeTypeStatusRepo = tubeTypeStatusRepo;
-        this.configShiftUtils = configShiftUtils;
+        this.settingsStore = settingsStore;
         this.reportProperties = reportProperties;
         this.resourceLoader = resourceLoader;
     }
@@ -95,7 +95,7 @@ public class PatientTubeRecordsDataSourceHandler extends AbstractJfkDataSourceHa
             return new Pair<>(windowResult.getFirst(), null);
         }
 
-        StatisticsDayWindow window = windowResult.getSecond().dayWindow();
+        StatsDayWindow window = windowResult.getSecond().dayWindow();
         String deptId = windowResult.getSecond().patient().getDeptId();
         if (!StrUtils.isBlank(requestDeptId) && !requestDeptId.equals(deptId)) {
             log.warn(
@@ -113,7 +113,7 @@ public class PatientTubeRecordsDataSourceHandler extends AbstractJfkDataSourceHa
             return new Pair<>(returnCode(StatusCode.OK), outputBuilder.build());
         }
 
-        ShiftSettingsPB shiftSettings = configShiftUtils.getShiftByDeptId(deptId);
+        ShiftSettingsPB shiftSettings = settingsStore.getShiftSettingsPB(deptId);
         if (shiftSettings == null || shiftSettings.getShiftCount() == 0) {
             return error(StatusCode.NO_SHIFT_SETTING, "deptId: " + deptId);
         }
@@ -247,7 +247,7 @@ public class PatientTubeRecordsDataSourceHandler extends AbstractJfkDataSourceHa
 
     private Map<Long, List<PatientTubeStatusRecord>> statusesByRecordId(
         List<PatientTubeRecord> records,
-        StatisticsDayWindow window
+        StatsDayWindow window
     ) {
         List<Long> recordIds = records.stream()
             .map(PatientTubeRecord::getId)
@@ -595,7 +595,7 @@ public class PatientTubeRecordsDataSourceHandler extends AbstractJfkDataSourceHa
     private final PatientTubeRecordRepository tubeRecordRepo;
     private final PatientTubeStatusRecordRepository tubeStatusRecordRepo;
     private final TubeTypeStatusRepository tubeTypeStatusRepo;
-    private final ConfigShiftUtils configShiftUtils;
+    private final SettingsStore settingsStore;
     private final ReportProperties reportProperties;
     private final ResourceLoader resourceLoader;
 }

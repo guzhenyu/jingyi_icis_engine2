@@ -40,7 +40,7 @@ import com.jingyicare.jingyi_icis_engine.service.qcs.*;
 import com.jingyicare.jingyi_icis_engine.service.scores.ScoreMetaService;
 import com.jingyicare.jingyi_icis_engine.service.scores.ScoreService;
 import com.jingyicare.jingyi_icis_engine.service.settings.*;
-import com.jingyicare.jingyi_icis_engine.service.shifts.*;
+import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayConfigService;
 import com.jingyicare.jingyi_icis_engine.service.skincares.*;
 import com.jingyicare.jingyi_icis_engine.service.therapies.*;
 import com.jingyicare.jingyi_icis_engine.service.tubes.*;
@@ -53,7 +53,7 @@ import com.jingyicare.jingyi_icis_engine.utils.*;
 public class WebApiService {
     public WebApiService(
         @Autowired ConfigProtoService protoService,
-        @Autowired ConfigShiftService shiftService,
+        @Autowired StatsDayConfigService statsDayConfigService,
         @Autowired UserService userService,
         @Autowired MenuService menuService,
         @Autowired PatientService patientService,
@@ -96,7 +96,7 @@ public class WebApiService {
     ) {
         this.ZONE_ID = protoService.getConfig().getZoneId();
         this.protoService = protoService;
-        this.shiftService = shiftService;
+        this.statsDayConfigService = statsDayConfigService;
         this.userService = userService;
         this.menuService = menuService;
         this.patientService = patientService;
@@ -819,37 +819,43 @@ public class WebApiService {
     }
 
     public GetDeptShiftResp getDeptShift(String getDeptShiftReqJson) {
-        GetDeptShiftResp resp = shiftService.getDeptShift(getDeptShiftReqJson);
+        GetDeptShiftResp resp = settingService.getDeptShift(getDeptShiftReqJson);
         // resp = metricService.recordApiMetrics(resp, GetDeptShiftResp::getRt);
         return resp;
     }
 
     public GenericResp updateDeptShift(String updateDeptShiftReqJson) {
-        GenericResp resp = shiftService.updateDeptShift(updateDeptShiftReqJson);
+        GenericResp resp = settingService.updateDeptShift(updateDeptShiftReqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
 
-    public GetDeptBalanceStatsShiftsResp getDeptBalanceStatsShifts(String getDeptBalanceStatsShiftsReqJson) {
-        GetDeptBalanceStatsShiftsResp resp = shiftService.getDeptBalanceStatsShifts(getDeptBalanceStatsShiftsReqJson);
+    public GetDeptBalanceStatsShiftsResp getDeptBalanceStatsShifts(
+        String getDeptBalanceStatsShiftsReqJson
+    ) {
+        GetDeptBalanceStatsShiftsResp resp =
+            statsDayConfigService.list(getDeptBalanceStatsShiftsReqJson);
         resp = metricService.recordApiMetrics(resp, GetDeptBalanceStatsShiftsResp::getRt);
         return resp;
     }
 
-    public AddDeptBalanceStatsShiftResp addDeptBalanceStatsShift(String addDeptBalanceStatsShiftReqJson) {
-        AddDeptBalanceStatsShiftResp resp = shiftService.addDeptBalanceStatsShift(addDeptBalanceStatsShiftReqJson);
+    public AddDeptBalanceStatsShiftResp addDeptBalanceStatsShift(
+        String addDeptBalanceStatsShiftReqJson
+    ) {
+        AddDeptBalanceStatsShiftResp resp =
+            statsDayConfigService.add(addDeptBalanceStatsShiftReqJson);
         resp = metricService.recordApiMetrics(resp, AddDeptBalanceStatsShiftResp::getRt);
         return resp;
     }
 
     public GenericResp updateDeptBalanceStatsShift(String updateDeptBalanceStatsShiftReqJson) {
-        GenericResp resp = shiftService.updateDeptBalanceStatsShift(updateDeptBalanceStatsShiftReqJson);
+        GenericResp resp = statsDayConfigService.update(updateDeptBalanceStatsShiftReqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
 
     public GenericResp deleteDeptBalanceStatsShift(String deleteDeptBalanceStatsShiftReqJson) {
-        GenericResp resp = shiftService.deleteDeptBalanceStatsShift(deleteDeptBalanceStatsShiftReqJson);
+        GenericResp resp = statsDayConfigService.delete(deleteDeptBalanceStatsShiftReqJson);
         resp = metricService.recordApiMetrics(resp, GenericResp::getRt);
         return resp;
     }
@@ -2165,7 +2171,7 @@ public class WebApiService {
     private String ZONE_ID;
 
     private ConfigProtoService protoService;
-    private ConfigShiftService shiftService;
+    private final StatsDayConfigService statsDayConfigService;
     private UserService userService;
     private MenuService menuService;
     private PatientService patientService;

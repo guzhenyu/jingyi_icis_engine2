@@ -39,7 +39,7 @@ import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.JfkPdfUtils;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.PdfFontSet;
-import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
+import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindow;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
@@ -98,7 +98,7 @@ public class PatientBgaRecordsDataSourceHandler extends AbstractJfkDataSourceHan
             return new Pair<>(windowResult.getFirst(), null);
         }
 
-        StatisticsDayWindow window = windowResult.getSecond().dayWindow();
+        StatsDayWindow window = windowResult.getSecond().dayWindow();
         String deptId = windowResult.getSecond().patient().getDeptId();
         List<PatientBgaRecord> records = recordRepo
             .findByPidAndEffectiveTimeGreaterThanEqualAndEffectiveTimeLessThanAndIsDeletedFalseOrderByEffectiveTimeAsc(

@@ -34,7 +34,6 @@ import com.jingyicare.jingyi_icis_engine.service.patients.write.PatientEditServi
 import com.jingyicare.jingyi_icis_engine.service.patients.write.PatientRecordMapper;
 import com.jingyicare.jingyi_icis_engine.service.patients.write.PatientSyncService;
 import com.jingyicare.jingyi_icis_engine.service.settings.SettingsStore;
-import com.jingyicare.jingyi_icis_engine.service.shifts.*;
 import com.jingyicare.jingyi_icis_engine.service.therapies.SepsisAndSepticShockBundleService;
 import com.jingyicare.jingyi_icis_engine.service.users.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -50,8 +49,7 @@ public class PatientService {
     }
 
     public PatientService(
-        ConfigProtoService protoService, PatientEnums patientEnums, ConfigShiftUtils shiftUtils,
-        SettingsStore settingsStore,
+        ConfigProtoService protoService, PatientEnums patientEnums, SettingsStore settingsStore,
         PatientAdmissionService admissionService, PatientDischargeService dischargeService,
         PatientEditService editService, PatientDiagnosisHistoryService diagnosisHistoryService,
         PatientSyncService patientSyncService, PatientRecordMapper patientRecordMapper,
@@ -66,7 +64,6 @@ public class PatientService {
         this.settingsStore = settingsStore;
         this.patientEnums = patientEnums;
         this.statusCodeMsgs = protoService.getConfig().getText().getStatusCodeMsgList();
-        this.shiftUtils = shiftUtils;
         this.admissionService = admissionService;
         this.dischargeService = dischargeService;
         this.editService = editService;
@@ -650,7 +647,7 @@ public class PatientService {
             return new PatientShift(StatusCode.PATIENT_NOT_FOUND, null, null);
         }
         final String deptId = patientRecord.getDeptId();
-        final ShiftSettingsPB shiftSettings = shiftUtils.getShiftByDeptId(deptId);
+        final ShiftSettingsPB shiftSettings = settingsStore.getShiftSettingsPB(deptId);
         if (shiftSettings == null) {
             log.error("ShiftSettings not found for deptId: ", deptId);
             return new PatientShift(StatusCode.NO_SHIFT_SETTING, patientRecord, null);
@@ -1086,7 +1083,6 @@ public class PatientService {
 
     private final ConfigProtoService protoService;
     private final SettingsStore settingsStore;
-    private final ConfigShiftUtils shiftUtils;
     private final UserQuery userQuery;
     private final PatientEnums patientEnums;
     private final PatientRecordRepository patientRecordRepository;

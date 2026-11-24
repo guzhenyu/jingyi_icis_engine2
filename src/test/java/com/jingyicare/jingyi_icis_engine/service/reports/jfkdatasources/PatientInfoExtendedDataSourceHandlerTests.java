@@ -35,7 +35,8 @@ import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepo
 import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
-import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindowResolver;
+import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayConfigReader;
+import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 
 public class PatientInfoExtendedDataSourceHandlerTests {
@@ -276,7 +277,7 @@ public class PatientInfoExtendedDataSourceHandlerTests {
             when(support.getZoneId()).thenReturn("Asia/Shanghai");
             when(support.getPatientReader()).thenReturn(patientReader);
             ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-                new StatisticsDayWindowResolver(balanceStatsShiftRepo));
+                new StatsDayWindowResolver(new StatsDayConfigReader(balanceStatsShiftRepo)));
             doCallRealMethod().when(support).resolvePatientDayContext(any(), any());
             doCallRealMethod().when(support).resolveStatisticsDayWindow(any(), any());
             when(support.getDeptRepo()).thenReturn(deptRepo);

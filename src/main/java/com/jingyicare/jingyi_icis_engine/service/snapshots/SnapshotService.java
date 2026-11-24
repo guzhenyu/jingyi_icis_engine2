@@ -33,8 +33,8 @@ import com.jingyicare.jingyi_icis_engine.repository.snapshots.SnapshotJdbc;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
-import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
-import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindowResolver;
+import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindow;
+import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.service.snapshots.SnapshotChangePlan.Change;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
@@ -46,7 +46,7 @@ import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 public class SnapshotService {
     public SnapshotService(
         ConfigProtoService protoService, PatientRecordRepository patientRepo,
-        PatientSnapshotRepository snapshotRepo, StatisticsDayWindowResolver windowResolver,
+        PatientSnapshotRepository snapshotRepo, StatsDayWindowResolver windowResolver,
         LockExecutor lockExecutor, JdbcTemplate jdbcTemplate, List<SnapshotModule> modules
     ) {
         this.protoService = protoService;
@@ -174,7 +174,7 @@ public class SnapshotService {
         if (patient == null || StrUtils.isBlank(patient.getDeptId())) {
             return response(StatusCode.PATIENT_NOT_FOUND, List.of());
         }
-        List<StatisticsDayWindow> windows = windowResolver.resolveInternal(dates.stream()
+        List<StatsDayWindow> windows = windowResolver.resolveInternal(dates.stream()
             .map(date -> TimeUtils.getDayMidnightUtc(date, ZoneId.of(zoneId))).toList(),
             zoneId, patient.getDeptId());
         Map<LocalDate, PatientSnapshot> existing = loadSnapshots(pid, dates);
@@ -182,7 +182,7 @@ public class SnapshotService {
         List<PatientSnapshotPB> result = new ArrayList<>();
         for (int i = 0; i < dates.size(); i++) {
             LocalDate date = dates.get(i);
-            StatisticsDayWindow window = windows.get(i);
+            StatsDayWindow window = windows.get(i);
             PatientSnapshot row = existing.getOrDefault(date, newSnapshot(pid, date));
             PatientSnapshotPB pb = ProtoUtils.decodePatientSnapshot(row.getPayload());
             boolean valid = matchesIdentity(pb, pid, date);
@@ -228,7 +228,7 @@ public class SnapshotService {
         return pb != null && pb.getPid() == pid && pb.getStatisticsDate().equals(date.toString());
     }
 
-    private boolean matchesWindow(PatientSnapshotPB pb, StatisticsDayWindow window) {
+    private boolean matchesWindow(PatientSnapshotPB pb, StatsDayWindow window) {
         return pb != null
             && matchesTime(pb.getMonitoringStartIso8601(), window.monitoringStartUtc())
             && matchesTime(pb.getMonitoringEndIso8601(), window.monitoringEndUtc())
@@ -240,7 +240,7 @@ public class SnapshotService {
         return utc.equals(TimeUtils.fromIso8601String(iso, "UTC"));
     }
 
-    private void updateWindow(PatientSnapshotPB.Builder builder, StatisticsDayWindow window) {
+    private void updateWindow(PatientSnapshotPB.Builder builder, StatsDayWindow window) {
         builder.setMonitoringStartIso8601(
             TimeUtils.toIso8601StringWithSeconds(window.monitoringStartUtc(), "UTC"));
         builder.setMonitoringEndIso8601(
@@ -260,7 +260,7 @@ public class SnapshotService {
     private final ConfigProtoService protoService;
     private final PatientRecordRepository patientRepo;
     private final PatientSnapshotRepository snapshotRepo;
-    private final StatisticsDayWindowResolver windowResolver;
+    private final StatsDayWindowResolver windowResolver;
     private final LockExecutor lockExecutor;
     private final JdbcTemplate jdbcTemplate;
     private final String zoneId;

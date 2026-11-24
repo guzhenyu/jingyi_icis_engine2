@@ -41,7 +41,7 @@ class PatientReadmissionInfoTests {
         when(protoConfig.getConfig()).thenReturn(config);
         patientRepo = mock(PatientRecordRepository.class);
         patientService = new PatientService(
-            protoService, new PatientEnums(protoConfig), null, null,
+            protoService, new PatientEnums(protoConfig), null,
             null, null, null, null, null, null,
             null, patientRepo, null, null, null);
     }

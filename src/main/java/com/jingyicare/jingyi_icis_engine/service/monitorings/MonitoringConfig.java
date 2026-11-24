@@ -39,9 +39,14 @@ public class MonitoringConfig {
         this.monitoringPb = protoService.getConfig().getMonitoring();
         this.monMetaReader = monMetaReader;
         this.monMetaService = monMetaService;
-        validateMonitoringConfig();
-
         this.settingService = settingService;
+    }
+
+    ////// 系统初始化工具函数: checkIntegrity, refresh
+    @Transactional
+    public void checkIntegrity() {
+        validateMonitoringConfig();
+        checkBgaParamIntegrity();
     }
 
     private void validateMonitoringConfig() {
@@ -103,12 +108,6 @@ public class MonitoringConfig {
                 requiredBalanceRoles);
             LogUtils.flushAndQuit(context);
         }
-    }
-
-    ////// 系统初始化工具函数: checkIntegrity, refresh
-    @Transactional
-    public void checkIntegrity() {
-        checkBgaParamIntegrity();
     }
 
     private void checkBgaParamIntegrity() {

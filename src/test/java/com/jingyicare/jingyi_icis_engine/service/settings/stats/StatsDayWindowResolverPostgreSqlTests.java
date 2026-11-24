@@ -1,4 +1,4 @@
-package com.jingyicare.jingyi_icis_engine.service.shifts;
+package com.jingyicare.jingyi_icis_engine.service.settings.stats;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -18,7 +18,7 @@ import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepo
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 
 @Transactional
-class StatisticsDayWindowResolverPostgreSqlTests extends TestsBase {
+class StatsDayWindowResolverPostgreSqlTests extends TestsBase {
     private static final LocalDateTime ANCHOR = LocalDateTime.of(2026, 10, 22, 16, 0);
     private static final String ZONE = "Asia/Shanghai";
     private static final String DEPT = "statistics-window-history";
@@ -26,7 +26,7 @@ class StatisticsDayWindowResolverPostgreSqlTests extends TestsBase {
     @Autowired
     private BalanceStatsShiftRepository repository;
     @Autowired
-    private StatisticsDayWindowResolver resolver;
+    private StatsDayWindowResolver resolver;
     @Autowired
     private EntityManager entityManager;
 
@@ -40,20 +40,20 @@ class StatisticsDayWindowResolverPostgreSqlTests extends TestsBase {
         repository.flush();
         entityManager.clear();
 
-        List<StatisticsDayWindow> windows = resolver.resolveInternal(
+        List<StatsDayWindow> windows = resolver.resolveInternal(
             List.of(ANCHOR.plusDays(1), ANCHOR, ANCHOR.plusDays(1)), ZONE, DEPT);
         assertThat(windows).hasSize(3);
         assertThat(windows.get(2)).isEqualTo(windows.get(0));
 
         // 输入乱序且重复，各日期仍须分别按严格截止时间选择配置。
-        StatisticsDayWindow day = windows.get(1);
+        StatsDayWindow day = windows.get(1);
         assertThat(day.balanceStartUtc()).isEqualTo(ANCHOR.plusHours(6));
         assertThat(day.balanceEndUtc()).isEqualTo(ANCHOR.plusDays(1).plusHours(6));
         assertThat(day.monitoringStartUtc()).isEqualTo(ANCHOR.plusHours(7));
         assertThat(day.monitoringEndUtc()).isEqualTo(ANCHOR.plusDays(1).plusHours(7));
         assertThat(day.halfDayShiftHours()).isEqualTo(9);
 
-        StatisticsDayWindow next = windows.get(0);
+        StatsDayWindow next = windows.get(0);
         assertThat(next.balanceStartUtc()).isEqualTo(ANCHOR.plusDays(1).plusHours(10));
         assertThat(next.monitoringStartUtc()).isEqualTo(ANCHOR.plusDays(1).plusHours(11));
     }
@@ -65,7 +65,7 @@ class StatisticsDayWindowResolverPostgreSqlTests extends TestsBase {
         repository.flush();
         entityManager.clear();
 
-        StatisticsDayWindow day = resolver.resolve(ANCHOR, ZONE, deptId);
+        StatsDayWindow day = resolver.resolve(ANCHOR, ZONE, deptId);
         assertThat(day.startHour()).isEqualTo(8);
         assertThat(day.monStartHour()).isEqualTo(8);
         assertThat(day.halfDayShiftHours()).isEqualTo(12);

@@ -25,6 +25,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisPatient.DisplayFieldSe
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.AppGeneralSettingsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.DeptArchiveSettings;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSettings.SystemSettingFunctionId;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisShift.ShiftSettingsPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisUser.MenuConfigPB;
 import com.jingyicare.jingyi_icis_engine.repository.settings.DeptSystemSettingsRepository;
 import com.jingyicare.jingyi_icis_engine.repository.settings.SystemSettingsRepository;
@@ -34,8 +35,8 @@ import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
 /**
- * 设置的类型化存取；患者显示配置读取包含默认回退、列名生成及校验。
- * 其他设置的默认值和业务校验，以及写入的修改人和锁事务由调用方编排。
+ * 提供类型化的设置存取。读取患者显示配置时生成并校验列名。
+ * 患者显示配置和班次配置读取包含默认回退。调用方负责其他设置的默认值及写入编排。
  */
 @Component
 @Slf4j
@@ -48,6 +49,7 @@ public class SettingsStore {
         SystemSettingFunctionId.GET_PATIENTS_PENDING_DISCHARGED_VALUE;
     public static final int GET_PATIENTS_DISCHARGED =
         SystemSettingFunctionId.GET_PATIENTS_DISCHARGED_VALUE;
+    public static final int GET_SHIFT = SystemSettingFunctionId.GET_SHIFT_VALUE;
     public static final int GET_MEDICAL_ORDER_SETTINGS =
         SystemSettingFunctionId.GET_MEDICAL_ORDER_SETTINGS_VALUE;
     public static final int GET_DEPT_MENU_SETTINGS =
@@ -131,6 +133,21 @@ public class SettingsStore {
     public void saveMenuConfigPB(String deptId, MenuConfigPB config, String modifiedBy) {
         saveDeptSettings(deptId, GET_DEPT_MENU_SETTINGS, config, modifiedBy,
             ProtoUtils::encodeMenuConfig);
+    }
+
+    public ShiftSettingsPB getShiftSettingsPB(String deptId) {
+        try {
+            ShiftSettingsPB settings = getDeptSettings(deptId, GET_SHIFT,
+                ProtoUtils::decodeShiftSettings);
+            if (settings != null) return settings;
+        } catch (DecodeException e) {
+            // 兼容原有行为，科室班次无法解码时使用系统默认班次。
+        }
+        return protoConfig.getConfig().getShift().getDefaultSetting();
+    }
+
+    public void saveShiftSettingsPB(String deptId, ShiftSettingsPB settings, String modifiedBy) {
+        saveDeptSettings(deptId, GET_SHIFT, settings, modifiedBy, ProtoUtils::encodeShiftSettings);
     }
 
     public MedOrderGroupSettingsPB getMedOrderGroupSettingsPB(String deptId) {

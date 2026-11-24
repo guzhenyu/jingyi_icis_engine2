@@ -4,7 +4,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSnapshot.PatientSnapshotPB;
-import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
+import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindow;
 import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
@@ -15,7 +15,7 @@ public interface SnapshotModule {
     /** refresh 动作的上下文 */
     record Context(
         Long pid, String deptId, LocalDate statisticsDate,
-        StatisticsDayWindow window, LocalDateTime snapshotAt
+        StatsDayWindow window, LocalDateTime snapshotAt
     ) {}
 
     Kind kind();

@@ -53,8 +53,8 @@ import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.MonMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.reports.common.*;
-import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindow;
-import com.jingyicare.jingyi_icis_engine.service.shifts.StatisticsDayWindowResolver;
+import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindow;
+import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.service.snapshots.SnapshotService;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
@@ -713,7 +713,7 @@ class ScoreMetadataServiceTests extends TestsBase {
     @Test
     void readerAndSnapshotUseHalfOpenWindowAllCodesAndDoNotRecalculateHistoricalText() {
         LocalDate day = dates(TIME).get(0);
-        StatisticsDayWindow window = resolver.resolve(
+        StatsDayWindow window = resolver.resolve(
             TimeUtils.getDayMidnightUtc(day, ZoneId.of("Asia/Shanghai")),
             "Asia/Shanghai", DEPT);
         PatientScore first = seed(window.monitoringStartUtc(), CODE);
@@ -1172,7 +1172,7 @@ class ScoreMetadataServiceTests extends TestsBase {
     @Autowired private PatientNursingReportInvalidationService realInvalidation;
     @Autowired private ScoreReader reader;
     @Autowired private SnapshotService snapshots;
-    @Autowired private StatisticsDayWindowResolver resolver;
+    @Autowired private StatsDayWindowResolver resolver;
     @Autowired private LockExecutor executor;
     @Autowired private JdbcTemplate jdbc;
 }
