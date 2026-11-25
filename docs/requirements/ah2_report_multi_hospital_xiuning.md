@@ -140,7 +140,7 @@ half_day_shift_hours INTEGER
 相关实体和接口也需要同步扩展：
 
 ```text
-src/main/java/com/jingyicare/jingyi_icis_engine/entity/shifts/BalanceStatsShift.java
+src/main/java/com/jingyicare/jingyi_icis_engine/entity/settings/BalanceStatsShift.java
 jingyi_icis_frontend/src/pages/home/tabs/settings/BasicFeaturesConfig/components/BalanceStatsShift/index.tsx
 ```
 

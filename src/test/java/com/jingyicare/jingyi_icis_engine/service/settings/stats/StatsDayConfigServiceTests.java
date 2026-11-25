@@ -15,7 +15,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
-import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
+import com.jingyicare.jingyi_icis_engine.entity.settings.BalanceStatsShift;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.AddDeptBalanceStatsShiftReq;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.AddDeptBalanceStatsShiftResp;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.BalanceStatsShiftPB;
@@ -23,7 +23,7 @@ import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.DeleteDeptBalanceStats
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.GetDeptBalanceStatsShiftsReq;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.GetDeptBalanceStatsShiftsResp;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
-import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
+import com.jingyicare.jingyi_icis_engine.repository.settings.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.service.WebApiService;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;

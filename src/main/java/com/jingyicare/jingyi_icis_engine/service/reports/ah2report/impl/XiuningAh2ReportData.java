@@ -19,7 +19,7 @@ import com.jingyicare.jingyi_icis_engine.entity.patientshifts.PatientShiftRecord
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientSettings;
 import com.jingyicare.jingyi_icis_engine.entity.scores.PatientScore;
-import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
+import com.jingyicare.jingyi_icis_engine.entity.settings.BalanceStatsShift;
 import com.jingyicare.jingyi_icis_engine.entity.tubes.*;
 import com.jingyicare.jingyi_icis_engine.entity.users.Account;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
@@ -37,7 +37,7 @@ import com.jingyicare.jingyi_icis_engine.repository.nursingrecords.NursingRecord
 import com.jingyicare.jingyi_icis_engine.repository.patientshifts.PatientShiftRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patients.PatientSettingsRepository;
 import com.jingyicare.jingyi_icis_engine.repository.scores.PatientScoreRepository;
-import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
+import com.jingyicare.jingyi_icis_engine.repository.settings.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.repository.tubes.*;
 import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;

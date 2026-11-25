@@ -1,5 +1,6 @@
 package com.jingyicare.jingyi_icis_engine.service.reports.jfkdatasources;
 
+import static com.jingyicare.jingyi_icis_engine.testutils.StatsDayTestUtils.newStatsDayWindowResolver;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -25,16 +26,14 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
-import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
+import com.jingyicare.jingyi_icis_engine.entity.settings.BalanceStatsShift;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkFieldDataPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
-import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayConfigReader;
-import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 
 public class MedexeTimeRangeDataSourceHandlerTests {
@@ -44,15 +43,14 @@ public class MedexeTimeRangeDataSourceHandlerTests {
         int startHour, String hour2, String hour18, String hour24
     ) {
         JfkDataSourceSupport support = mockSupport();
-        BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
+        StatsDayConfigReader statsDayConfigReader = mock(StatsDayConfigReader.class);
         MedexeTimeRangeDataSourceHandler handler =
             new MedexeTimeRangeDataSourceHandler(support);
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-            new StatsDayWindowResolver(new StatsDayConfigReader(balanceStatsShiftRepo)));
+            newStatsDayWindowResolver(statsDayConfigReader, support.getZoneId()));
 
         LocalDateTime utcEnd = LocalDateTime.of(2026, 4, 17, 16, 0);
-        when(balanceStatsShiftRepo
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("10042"))
+        when(statsDayConfigReader.listActiveByDept("10042"))
             .thenReturn(List.of(
                 BalanceStatsShift.builder().startHour(23).monStartHour(23)
                     .effectiveTime(utcEnd).build(),
@@ -79,8 +77,7 @@ public class MedexeTimeRangeDataSourceHandlerTests {
         assertThat(output.get("hour24")).containsExactly(hour24);
         assertThat(output).containsKeys("hour1", "hour24").hasSize(27);
 
-        verify(balanceStatsShiftRepo)
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("10042");
+        verify(statsDayConfigReader).listActiveByDept("10042");
     }
 
     @Test
@@ -119,14 +116,13 @@ public class MedexeTimeRangeDataSourceHandlerTests {
     @Test
     public void handleUsesEightHourLabelsWhenShiftIsMissing() {
         JfkDataSourceSupport support = mockSupport();
-        BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
+        StatsDayConfigReader statsDayConfigReader = mock(StatsDayConfigReader.class);
         MedexeTimeRangeDataSourceHandler handler =
             new MedexeTimeRangeDataSourceHandler(support);
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-            new StatsDayWindowResolver(new StatsDayConfigReader(balanceStatsShiftRepo)));
+            newStatsDayWindowResolver(statsDayConfigReader, support.getZoneId()));
 
-        when(balanceStatsShiftRepo
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc(anyString()))
+        when(statsDayConfigReader.listActiveByDept(anyString()))
             .thenReturn(List.of());
 
         Pair<ReturnCode, JfkDataSourcePB> result = handler.handle(input("10042", "2026-04-16T00:00Z"));
@@ -141,14 +137,13 @@ public class MedexeTimeRangeDataSourceHandlerTests {
     @ValueSource(ints = {-1, 24})
     public void handleReturnsInvalidParamValueWhenStartHourIsInvalid(Integer startHour) {
         JfkDataSourceSupport support = mockSupport();
-        BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
+        StatsDayConfigReader statsDayConfigReader = mock(StatsDayConfigReader.class);
         MedexeTimeRangeDataSourceHandler handler =
             new MedexeTimeRangeDataSourceHandler(support);
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-            new StatsDayWindowResolver(new StatsDayConfigReader(balanceStatsShiftRepo)));
+            newStatsDayWindowResolver(statsDayConfigReader, support.getZoneId()));
 
-        when(balanceStatsShiftRepo
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc(anyString()))
+        when(statsDayConfigReader.listActiveByDept(anyString()))
             .thenReturn(List.of(BalanceStatsShift.builder()
                 .id(1L)
                 .deptId("10042")
@@ -174,14 +169,13 @@ public class MedexeTimeRangeDataSourceHandlerTests {
 
         JfkDataSourceSupport support = mockSupport();
         when(support.getPatientReader()).thenReturn(patientReader);
-        BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
+        StatsDayConfigReader statsDayConfigReader = mock(StatsDayConfigReader.class);
         MedexeTimeRangeDataSourceHandler handler =
             new MedexeTimeRangeDataSourceHandler(support);
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-            new StatsDayWindowResolver(new StatsDayConfigReader(balanceStatsShiftRepo)));
+            newStatsDayWindowResolver(statsDayConfigReader, support.getZoneId()));
 
-        when(balanceStatsShiftRepo
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept"))
+        when(statsDayConfigReader.listActiveByDept("patient-dept"))
             .thenReturn(List.of(BalanceStatsShift.builder()
                 .id(1L)
                 .deptId("patient-dept")
@@ -193,8 +187,7 @@ public class MedexeTimeRangeDataSourceHandlerTests {
         Pair<ReturnCode, JfkDataSourcePB> result = handler.handle(input(10001L, "request-dept", "2026-04-16T00:00Z"));
 
         assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
-        verify(balanceStatsShiftRepo)
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept");
+        verify(statsDayConfigReader).listActiveByDept("patient-dept");
     }
 
     @ParameterizedTest
@@ -205,17 +198,16 @@ public class MedexeTimeRangeDataSourceHandlerTests {
         when(support.getPatientReader()).thenReturn(patientReader);
         when(patientReader.findById(10001L)).thenReturn(
             patientExists ? Optional.of(new PatientRecord()) : Optional.empty());
-        BalanceStatsShiftRepository repo = mock(BalanceStatsShiftRepository.class);
+        StatsDayConfigReader statsDayConfigReader = mock(StatsDayConfigReader.class);
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-            new StatsDayWindowResolver(new StatsDayConfigReader(repo)));
+            newStatsDayWindowResolver(statsDayConfigReader, support.getZoneId()));
 
         var result = new MedexeTimeRangeDataSourceHandler(support)
             .handle(input(10001L, "request-dept", "2026-04-16T00:00Z"));
 
         assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
         assertThat(toOutputMap(result.getSecond()).get("hour1")).containsExactly("8:00");
-        verify(repo)
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("request-dept");
+        verify(statsDayConfigReader).listActiveByDept("request-dept");
     }
 
     private JfkDataSourceSupport mockSupport() {

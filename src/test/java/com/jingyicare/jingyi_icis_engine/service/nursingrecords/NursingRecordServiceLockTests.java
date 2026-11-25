@@ -671,8 +671,7 @@ class NursingRecordServiceLockTests extends TestsBase {
     }
 
     private List<LocalDate> statDates(LocalDateTime effectiveTime) {
-        return windowResolver.resolveStatisticDates(
-            effectiveTime, protoService.getZoneId(), DEPT_ID);
+        return windowResolver.resolveStatisticDates(effectiveTime, DEPT_ID);
     }
 
     private void assertSnapshotModified(long pid, LocalDateTime effectiveTime,

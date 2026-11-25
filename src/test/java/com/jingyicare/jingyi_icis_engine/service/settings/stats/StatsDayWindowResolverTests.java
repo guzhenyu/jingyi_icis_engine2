@@ -1,5 +1,6 @@
 package com.jingyicare.jingyi_icis_engine.service.settings.stats;
 
+import static com.jingyicare.jingyi_icis_engine.testutils.StatsDayTestUtils.mockProtoConfig;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -8,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
+import java.time.DateTimeException;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -15,6 +17,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -23,13 +26,14 @@ import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.dao.DataAccessResourceFailureException;
 
-import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
+import com.jingyicare.jingyi_icis_engine.entity.settings.BalanceStatsShift;
+import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 
 class StatsDayWindowResolverTests {
     @Test
     void shouldResolveBothWindowsFromOneSelectionBeforeNextLocalMidnight() {
         configure(ANCHOR, shift(6, 7, 9));
-        StatsDayWindow window = resolver.resolve(ANCHOR, ZONE, DEPT);
+        StatsDayWindow window = resolver.resolve(ANCHOR, DEPT);
         assertThat(window.balanceStartUtc()).isEqualTo("2026-10-22T22:00:00");
         assertThat(window.balanceEndUtc()).isEqualTo("2026-10-23T22:00:00");
         assertThat(window.monitoringStartUtc()).isEqualTo("2026-10-22T23:00:00");
@@ -41,7 +45,7 @@ class StatsDayWindowResolverTests {
 
     @Test
     void shouldUseEightTwelveEightOnlyWhenNoConfigurationExists() {
-        StatsDayWindow window = resolver.resolve(ANCHOR, ZONE, DEPT);
+        StatsDayWindow window = resolver.resolve(ANCHOR, DEPT);
         assertThat(window.startHour()).isEqualTo(8);
         assertThat(window.monStartHour()).isEqualTo(8);
         assertThat(window.halfDayShiftHours()).isEqualTo(12);
@@ -65,7 +69,7 @@ class StatsDayWindowResolverTests {
         int start, Integer mon, Integer half, int expectedMon, int expectedHalf
     ) {
         configure(ANCHOR, shift(start, mon, half));
-        StatsDayWindow window = resolver.resolve(ANCHOR, ZONE, DEPT);
+        StatsDayWindow window = resolver.resolve(ANCHOR, DEPT);
         assertThat(window.monStartHour()).isEqualTo(expectedMon);
         assertThat(window.halfDayShiftHours()).isEqualTo(expectedHalf);
         assertThat(window.monitoringStartUtc()).isEqualTo(ANCHOR.plusHours(expectedMon));
@@ -77,7 +81,7 @@ class StatsDayWindowResolverTests {
     @ValueSource(ints = {-1, 24})
     void shouldRejectInvalidBalanceHourEvenWhenMonitoringHourIsValid(Integer start) {
         configure(ANCHOR, shift(start, 7, 12));
-        assertThatIllegalArgumentException().isThrownBy(() -> resolver.resolve(ANCHOR, ZONE, DEPT));
+        assertThatIllegalArgumentException().isThrownBy(() -> resolver.resolve(ANCHOR, DEPT));
     }
 
     @ParameterizedTest
@@ -85,8 +89,8 @@ class StatsDayWindowResolverTests {
     void shouldLeaveAdjacentDayOverlapOrGapUnadjusted(int nextHour) {
         configure(ANCHOR, shift(8, 8, 12));
         configure(ANCHOR.plusDays(1), shift(nextHour, nextHour, 12));
-        StatsDayWindow first = resolver.resolve(ANCHOR, ZONE, DEPT);
-        StatsDayWindow next = resolver.resolve(ANCHOR.plusDays(1), ZONE, DEPT);
+        StatsDayWindow first = resolver.resolve(ANCHOR, DEPT);
+        StatsDayWindow next = resolver.resolve(ANCHOR.plusDays(1), DEPT);
         assertThat(first.monitoringEndUtc()).isEqualTo("2026-10-24T00:00:00");
         assertThat(next.monitoringStartUtc()).isEqualTo(first.monitoringEndUtc().plusHours(
             nextHour - 8));
@@ -104,7 +108,7 @@ class StatsDayWindowResolverTests {
             long hours
     ) {
         configure(anchor, shift(0, 8, 12));
-        StatsDayWindow window = resolver.resolve(anchor, "America/New_York", DEPT);
+        StatsDayWindow window = resolverForZone("America/New_York").resolve(anchor, DEPT);
         assertThat(window.balanceStartUtc()).isEqualTo(anchor);
         assertThat(window.balanceEndUtc()).isEqualTo(cutoff);
         assertThat(Duration.between(window.balanceStartUtc(), window.balanceEndUtc()).toHours())
@@ -115,21 +119,19 @@ class StatsDayWindowResolverTests {
     }
 
     @Test
-    void shouldRejectNonMidnightAnchorInvalidZoneAndBlankDepartment() {
+    void shouldRejectNonMidnightAnchorAndBlankDepartment() {
         assertThatIllegalArgumentException()
-            .isThrownBy(() -> resolver.resolve(null, ZONE, DEPT));
+            .isThrownBy(() -> resolver.resolve((LocalDateTime) null, DEPT));
         assertThatIllegalArgumentException()
-            .isThrownBy(() -> resolver.resolve(ANCHOR.plusHours(1), ZONE, DEPT));
+            .isThrownBy(() -> resolver.resolve(ANCHOR.plusHours(1), DEPT));
         assertThatIllegalArgumentException()
-            .isThrownBy(() -> resolver.resolve(ANCHOR.plusMinutes(1), ZONE, DEPT));
+            .isThrownBy(() -> resolver.resolve(ANCHOR.plusMinutes(1), DEPT));
         assertThatIllegalArgumentException()
-            .isThrownBy(() -> resolver.resolve(ANCHOR.plusSeconds(1), ZONE, DEPT));
+            .isThrownBy(() -> resolver.resolve(ANCHOR.plusSeconds(1), DEPT));
         assertThatIllegalArgumentException()
-            .isThrownBy(() -> resolver.resolve(ANCHOR.plusNanos(1), ZONE, DEPT));
+            .isThrownBy(() -> resolver.resolve(ANCHOR.plusNanos(1), DEPT));
         assertThatIllegalArgumentException()
-            .isThrownBy(() -> resolver.resolve(ANCHOR, "not-a-zone", DEPT));
-        assertThatIllegalArgumentException()
-            .isThrownBy(() -> resolver.resolve(ANCHOR, ZONE, " "));
+            .isThrownBy(() -> resolver.resolve(ANCHOR, " "));
         verifyNoMoreInteractions(reader);
     }
 
@@ -137,7 +139,7 @@ class StatsDayWindowResolverTests {
     void shouldPropagateDatabaseFailureWithoutDefaulting() {
         var failure = new DataAccessResourceFailureException("database unavailable");
         when(reader.listActiveByDept(DEPT)).thenThrow(failure);
-        assertThatThrownBy(() -> resolver.resolve(ANCHOR, ZONE, DEPT)).isSameAs(failure);
+        assertThatThrownBy(() -> resolver.resolve(ANCHOR, DEPT)).isSameAs(failure);
     }
 
     @Test
@@ -145,8 +147,8 @@ class StatsDayWindowResolverTests {
         configure(ANCHOR, shift(6, 7, 9));
         configure(ANCHOR.plusDays(1), shift(10, 11, 6));
 
-        List<StatsDayWindow> windows = resolver.resolveInternal(
-            List.of(ANCHOR.plusDays(1), ANCHOR, ANCHOR.plusDays(1)), ZONE, DEPT);
+        List<StatsDayWindow> windows = resolver.resolve(
+            List.of(ANCHOR.plusDays(1), ANCHOR, ANCHOR.plusDays(1)), DEPT);
 
         assertThat(windows).hasSize(3);
         assertThat(windows).extracting(StatsDayWindow::startHour).containsExactly(10, 6, 10);
@@ -167,8 +169,8 @@ class StatsDayWindowResolverTests {
         configure(cutoff, shift(10, 11, 6));
         configure(ANCHOR.plusDays(3), shift(null, 8, 12));
 
-        List<StatsDayWindow> windows = resolver.resolveInternal(
-            List.of(ANCHOR, ANCHOR.plusDays(1), ANCHOR.minusDays(1)), ZONE, DEPT);
+        List<StatsDayWindow> windows = resolver.resolve(
+            List.of(ANCHOR, ANCHOR.plusDays(1), ANCHOR.minusDays(1)), DEPT);
 
         assertThat(windows).extracting(StatsDayWindow::startHour).containsExactly(6, 10, 8);
         assertThat(windows).extracting(StatsDayWindow::monStartHour).containsExactly(7, 11, 8);
@@ -180,33 +182,34 @@ class StatsDayWindowResolverTests {
 
     @Test
     void shouldReturnEmptyBatchWithoutQueryingConfiguration() {
-        assertThat(resolver.resolveInternal(List.of(), ZONE, DEPT)).isEmpty();
+        assertThat(resolver.resolve(List.of(), DEPT)).isEmpty();
         verifyNoMoreInteractions(reader);
     }
 
     @Test
     void shouldValidateEveryBatchAnchorBeforeQueryingConfiguration() {
         assertThatIllegalArgumentException()
-            .isThrownBy(() -> resolver.resolveInternal(null, ZONE, DEPT));
-        assertThatIllegalArgumentException().isThrownBy(() -> resolver.resolveInternal(
-            Arrays.asList(ANCHOR, null), ZONE, DEPT));
-        assertThatIllegalArgumentException().isThrownBy(() -> resolver.resolveInternal(
-            List.of(ANCHOR, ANCHOR.plusDays(1).plusNanos(1)), ZONE, DEPT));
+            .isThrownBy(() -> resolver.resolve((List<LocalDateTime>) null, DEPT));
+        assertThatIllegalArgumentException().isThrownBy(() -> resolver.resolve(
+            Arrays.asList(ANCHOR, null), DEPT));
+        assertThatIllegalArgumentException().isThrownBy(() -> resolver.resolve(
+            List.of(ANCHOR, ANCHOR.plusDays(1).plusNanos(1)), DEPT));
+        verifyNoMoreInteractions(reader);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", " ", "not-a-zone"})
+    void shouldRejectInvalidConfiguredTimezone(String zoneId) {
+        assertThatThrownBy(() -> resolverForZone(zoneId)).isInstanceOf(DateTimeException.class);
         verifyNoMoreInteractions(reader);
     }
 
     @Test
-    void shouldValidateTimezoneAndDepartmentEvenForEmptyBatch() {
+    void shouldValidateDepartmentEvenForEmptyBatch() {
         assertThatIllegalArgumentException()
-            .isThrownBy(() -> resolver.resolveInternal(List.of(), null, DEPT));
+            .isThrownBy(() -> resolver.resolve(List.of(), null));
         assertThatIllegalArgumentException()
-            .isThrownBy(() -> resolver.resolveInternal(List.of(), " ", DEPT));
-        assertThatIllegalArgumentException()
-            .isThrownBy(() -> resolver.resolveInternal(List.of(), "not-a-zone", DEPT));
-        assertThatIllegalArgumentException()
-            .isThrownBy(() -> resolver.resolveInternal(List.of(), ZONE, null));
-        assertThatIllegalArgumentException()
-            .isThrownBy(() -> resolver.resolveInternal(List.of(), ZONE, " "));
+            .isThrownBy(() -> resolver.resolve(List.of(), " "));
         verifyNoMoreInteractions(reader);
     }
 
@@ -215,8 +218,8 @@ class StatsDayWindowResolverTests {
         var failure = new DataAccessResourceFailureException("database unavailable");
         when(reader.listActiveByDept(DEPT)).thenThrow(failure);
 
-        assertThatThrownBy(() -> resolver.resolveInternal(
-            List.of(ANCHOR, ANCHOR.plusDays(1)), ZONE, DEPT)).isSameAs(failure);
+        assertThatThrownBy(() -> resolver.resolve(
+            List.of(ANCHOR, ANCHOR.plusDays(1)), DEPT)).isSameAs(failure);
         verify(reader).listActiveByDept(DEPT);
         verifyNoMoreInteractions(reader);
     }
@@ -232,7 +235,44 @@ class StatsDayWindowResolverTests {
     void shouldFindDefaultStatisticDateUsingHalfOpenWindows(
         LocalDateTime utc, LocalDate expectedDate
     ) {
-        assertThat(resolver.resolveStatisticDates(utc, ZONE, DEPT)).containsExactly(expectedDate);
+        assertThat(resolver.resolveStatisticDates(utc, DEPT)).containsExactly(expectedDate);
+    }
+
+    @Test
+    void shouldFindBatchStatisticDatesInFirstSeenOrderWithOneQuery() {
+        LocalDateTime nextDay = ANCHOR.plusDays(1);
+        configure(ANCHOR, shift(8, 8, 12));
+        configure(nextDay, shift(10, 10, 12));
+        LocalDateTime first = ANCHOR.plusHours(8);
+        LocalDateTime gap = nextDay.plusHours(9);
+        LocalDateTime last = nextDay.plusHours(10);
+
+        Map<LocalDateTime, List<LocalDate>> dates = resolver.resolveStatisticDates(
+            List.of(last, gap, first, last), DEPT);
+
+        assertThat(dates.keySet()).containsExactly(last, gap, first);
+        assertThat(dates.get(last)).containsExactly(LocalDate.of(2026, 10, 24));
+        assertThat(dates.get(gap)).isEmpty();
+        assertThat(dates.get(first)).containsExactly(LocalDate.of(2026, 10, 23));
+        verify(reader).listActiveByDept(DEPT);
+        verifyNoMoreInteractions(reader);
+    }
+
+    @Test
+    void shouldReturnEmptyStatisticDateBatchWithoutQuerying() {
+        assertThat(resolver.resolveStatisticDates(List.of(), DEPT)).isEmpty();
+        verifyNoMoreInteractions(reader);
+    }
+
+    @Test
+    void shouldRejectInvalidStatisticDateBatchBeforeQuerying() {
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> resolver.resolveStatisticDates((List<LocalDateTime>) null, DEPT));
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> resolver.resolveStatisticDates(Arrays.asList(ANCHOR, null), DEPT));
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> resolver.resolveStatisticDates(List.of(ANCHOR), " "));
+        verifyNoMoreInteractions(reader);
     }
 
     @ParameterizedTest
@@ -245,7 +285,7 @@ class StatsDayWindowResolverTests {
         configure(ANCHOR, shift(8, 8, 12));
         configure(ANCHOR.plusDays(1), shift(6, 6, 12));
 
-        assertThat(resolver.resolveStatisticDates(utc, ZONE, DEPT))
+        assertThat(resolver.resolveStatisticDates(utc, DEPT))
             .containsExactly(LocalDate.of(2026, 10, 23), LocalDate.of(2026, 10, 24));
     }
 
@@ -255,7 +295,7 @@ class StatsDayWindowResolverTests {
         configure(ANCHOR.plusDays(1), shift(6, 6, 12));
 
         assertThat(resolver.resolveStatisticDates(
-            LocalDateTime.of(2026, 10, 24, 0, 0), ZONE, DEPT))
+            LocalDateTime.of(2026, 10, 24, 0, 0), DEPT))
             .containsExactly(LocalDate.of(2026, 10, 24));
     }
 
@@ -269,7 +309,7 @@ class StatsDayWindowResolverTests {
         configure(ANCHOR, shift(8, 8, 12));
         configure(ANCHOR.plusDays(1), shift(10, 10, 12));
 
-        assertThat(resolver.resolveStatisticDates(utc, ZONE, DEPT)).isEmpty();
+        assertThat(resolver.resolveStatisticDates(utc, DEPT)).isEmpty();
         verify(reader).listActiveByDept(DEPT);
         verifyNoMoreInteractions(reader);
     }
@@ -280,7 +320,7 @@ class StatsDayWindowResolverTests {
         configure(ANCHOR.plusDays(1), shift(10, 10, 12));
 
         assertThat(resolver.resolveStatisticDates(
-            LocalDateTime.of(2026, 10, 24, 2, 0), ZONE, DEPT))
+            LocalDateTime.of(2026, 10, 24, 2, 0), DEPT))
             .containsExactly(LocalDate.of(2026, 10, 24));
     }
 
@@ -290,7 +330,7 @@ class StatsDayWindowResolverTests {
         configure(ANCHOR.plusDays(1).plusHours(12), shift(6, 6, 12));
         LocalDateTime utc = LocalDateTime.of(2026, 10, 23, 23, 0);
 
-        assertThat(resolver.resolveStatisticDates(utc, ZONE, DEPT))
+        assertThat(resolver.resolveStatisticDates(utc, DEPT))
             .containsExactly(LocalDate.of(2026, 10, 23), LocalDate.of(2026, 10, 24));
         verify(reader).listActiveByDept(DEPT);
         verifyNoMoreInteractions(reader);
@@ -302,7 +342,7 @@ class StatsDayWindowResolverTests {
         configureEveryDay(shift(start, mon, 12));
 
         assertThat(resolver.resolveStatisticDates(
-            LocalDateTime.of(2026, 10, 23, 23, 0), ZONE, DEPT))
+            LocalDateTime.of(2026, 10, 23, 23, 0), DEPT))
             .containsExactly(LocalDate.of(2026, 10, 23), LocalDate.of(2026, 10, 24));
     }
 
@@ -311,7 +351,7 @@ class StatsDayWindowResolverTests {
         configureEveryDay(shift(6, 8, 12));
 
         assertThat(resolver.resolveStatisticDates(
-            LocalDateTime.of(2026, 10, 24, 1, 0), ZONE, DEPT))
+            LocalDateTime.of(2026, 10, 24, 1, 0), DEPT))
             .containsExactly(LocalDate.of(2026, 10, 24));
     }
 
@@ -321,7 +361,7 @@ class StatsDayWindowResolverTests {
         configure(ANCHOR.plusDays(2), shift(null, 8, 12));
 
         assertThatIllegalArgumentException().isThrownBy(() -> resolver.resolveStatisticDates(
-            LocalDateTime.of(2026, 10, 24, 1, 0), ZONE, DEPT));
+            LocalDateTime.of(2026, 10, 24, 1, 0), DEPT));
         verify(reader).listActiveByDept(DEPT);
         verifyNoMoreInteractions(reader);
     }
@@ -333,7 +373,7 @@ class StatsDayWindowResolverTests {
         configureEveryDay(shift(6, mon, 12));
 
         assertThat(resolver.resolveStatisticDates(
-            LocalDateTime.of(2026, 10, 23, 23, 0), ZONE, DEPT))
+            LocalDateTime.of(2026, 10, 23, 23, 0), DEPT))
             .containsExactly(LocalDate.of(2026, 10, 24));
     }
 
@@ -357,7 +397,7 @@ class StatsDayWindowResolverTests {
     ) {
         configureEveryDay(shift(0, 0, 12));
 
-        assertThat(resolver.resolveStatisticDates(utc, "America/New_York", DEPT))
+        assertThat(resolverForZone("America/New_York").resolveStatisticDates(utc, DEPT))
             .containsExactly(expectedDate);
     }
 
@@ -365,8 +405,8 @@ class StatsDayWindowResolverTests {
     void shouldFindPreviousStatisticDateBeforeStartHourInModernApia() {
         configureEveryDay(shift(8, 8, 12));
 
-        assertThat(resolver.resolveStatisticDates(
-            LocalDateTime.of(2026, 11, 3, 18, 0), "Pacific/Apia", DEPT))
+        assertThat(resolverForZone("Pacific/Apia").resolveStatisticDates(
+            LocalDateTime.of(2026, 11, 3, 18, 0), DEPT))
             .containsExactly(LocalDate.of(2026, 11, 3));
     }
 
@@ -375,8 +415,8 @@ class StatsDayWindowResolverTests {
         configureEveryDay(shift(0, 0, 12));
 
         // 当天从 01:00 开始，前后两天仍从 00:00 开始。
-        assertThat(resolver.resolveStatisticDates(
-            LocalDateTime.of(2018, 11, 4, 3, 30), "America/Sao_Paulo", DEPT))
+        assertThat(resolverForZone("America/Sao_Paulo").resolveStatisticDates(
+            LocalDateTime.of(2018, 11, 4, 3, 30), DEPT))
             .containsExactly(LocalDate.of(2018, 11, 4));
         verify(reader).listActiveByDept(DEPT);
         verifyNoMoreInteractions(reader);
@@ -387,25 +427,19 @@ class StatsDayWindowResolverTests {
         configureEveryDay(shift(0, 0, 12));
 
         // 午夜后回拨至前一日 23 点，但后一统计日的窗口已经开始。
-        assertThat(resolver.resolveStatisticDates(
-            LocalDateTime.of(1987, 10, 25, 3, 30), "America/Goose_Bay", DEPT))
+        assertThat(resolverForZone("America/Goose_Bay").resolveStatisticDates(
+            LocalDateTime.of(1987, 10, 25, 3, 30), DEPT))
             .containsExactly(LocalDate.of(1987, 10, 25));
     }
 
     @Test
-    void shouldRejectMissingArgumentsAndInvalidTimezoneWhenFindingDates() {
+    void shouldRejectMissingArgumentsWhenFindingDates() {
         assertThatIllegalArgumentException()
-            .isThrownBy(() -> resolver.resolveStatisticDates(null, ZONE, DEPT));
+            .isThrownBy(() -> resolver.resolveStatisticDates((LocalDateTime) null, DEPT));
         assertThatIllegalArgumentException()
-            .isThrownBy(() -> resolver.resolveStatisticDates(ANCHOR, null, DEPT));
+            .isThrownBy(() -> resolver.resolveStatisticDates(ANCHOR, null));
         assertThatIllegalArgumentException()
-            .isThrownBy(() -> resolver.resolveStatisticDates(ANCHOR, " ", DEPT));
-        assertThatIllegalArgumentException()
-            .isThrownBy(() -> resolver.resolveStatisticDates(ANCHOR, "not-a-zone", DEPT));
-        assertThatIllegalArgumentException()
-            .isThrownBy(() -> resolver.resolveStatisticDates(ANCHOR, ZONE, null));
-        assertThatIllegalArgumentException()
-            .isThrownBy(() -> resolver.resolveStatisticDates(ANCHOR, ZONE, " "));
+            .isThrownBy(() -> resolver.resolveStatisticDates(ANCHOR, " "));
         verifyNoMoreInteractions(reader);
     }
 
@@ -416,7 +450,7 @@ class StatsDayWindowResolverTests {
         configureEveryDay(shift(start, 8, 12));
 
         assertThatIllegalArgumentException()
-            .isThrownBy(() -> resolver.resolveStatisticDates(ANCHOR.plusHours(12), ZONE, DEPT));
+            .isThrownBy(() -> resolver.resolveStatisticDates(ANCHOR.plusHours(12), DEPT));
     }
 
     @Test
@@ -425,7 +459,7 @@ class StatsDayWindowResolverTests {
         when(reader.listActiveByDept(DEPT)).thenThrow(failure);
 
         assertThatThrownBy(() -> resolver.resolveStatisticDates(
-            ANCHOR.plusHours(12), ZONE, DEPT)).isSameAs(failure);
+            ANCHOR.plusHours(12), DEPT)).isSameAs(failure);
     }
 
     private void configureEveryDay(BalanceStatsShift shift) {
@@ -445,10 +479,14 @@ class StatsDayWindowResolverTests {
             .startHour(start).monStartHour(mon).halfDayShiftHours(half).build();
     }
 
+    private StatsDayWindowResolver resolverForZone(String zoneId) {
+        return new StatsDayWindowResolver(mockProtoConfig(
+            Config.newBuilder().setZoneId(zoneId).build()), reader);
+    }
+
     private static final LocalDateTime ANCHOR = LocalDateTime.of(2026, 10, 22, 16, 0);
-    private static final String ZONE = "Asia/Shanghai";
     private static final String DEPT = "dept-history";
     private final StatsDayConfigReader reader = mock(StatsDayConfigReader.class);
-    private final StatsDayWindowResolver resolver = new StatsDayWindowResolver(reader);
+    private final StatsDayWindowResolver resolver = resolverForZone("Asia/Shanghai");
     private final List<BalanceStatsShift> history = new ArrayList<>();
 }

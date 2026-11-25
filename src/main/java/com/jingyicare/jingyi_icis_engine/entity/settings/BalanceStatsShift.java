@@ -1,4 +1,4 @@
-package com.jingyicare.jingyi_icis_engine.entity.shifts;
+package com.jingyicare.jingyi_icis_engine.entity.settings;
 
 import jakarta.persistence.*;
 import lombok.*;

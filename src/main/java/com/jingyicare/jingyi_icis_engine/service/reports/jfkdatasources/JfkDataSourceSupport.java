@@ -293,7 +293,7 @@ public class JfkDataSourceSupport {
             getZoneId());
         LocalDateTime midnightUtc = TimeUtils.getUtcFromLocalDateTime(localMiddle.toLocalDate()
             .atStartOfDay(), getZoneId());
-        return statisticsDayWindowResolver.resolve(midnightUtc, getZoneId(), deptId);
+        return statisticsDayWindowResolver.resolve(midnightUtc, deptId);
     }
 
     private Pair<ReturnCode, PatientDayContext> patientDayError(StatusCode statusCode,

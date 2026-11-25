@@ -1,39 +1,46 @@
 package com.jingyicare.jingyi_icis_engine.service.settings.stats;
 
-import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import org.springframework.stereotype.Component;
 
-import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
+import com.jingyicare.jingyi_icis_engine.entity.settings.BalanceStatsShift;
+import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 import com.jingyicare.jingyi_icis_engine.utils.Consts;
 import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
 @Component
 public class StatsDayWindowResolver {
-    public StatsDayWindowResolver(StatsDayConfigReader statsDayConfigReader) {
+    public StatsDayWindowResolver(
+        ProtoConfig protoConfig,
+        StatsDayConfigReader statsDayConfigReader
+    ) {
+        this.ZONE_ID = protoConfig.getConfig().getZoneId();
+        this.zone = ZoneId.of(ZONE_ID);
         this.statsDayConfigReader = statsDayConfigReader;
     }
 
     /** dayMidnightUtc 是当地统计日午夜对应的 UTC 时刻，不是模块查询起点。 */
-    public StatsDayWindow resolve(LocalDateTime dayMidnightUtc, String zoneId, String deptId) {
-        return resolveInternal(Collections.singletonList(dayMidnightUtc), zoneId, deptId).get(0);
+    public StatsDayWindow resolve(LocalDateTime dayMidnightUtc, String deptId) {
+        return resolve(Collections.singletonList(dayMidnightUtc), deptId).get(0);
     }
 
     /**
      * 批量解析当地统计日午夜对应的 UTC，结果与输入逐项对应，保留顺序和重复项。
      * 非空输入只读取一次科室配置历史；空列表返回空列表。
      */
-    public List<StatsDayWindow> resolveInternal(
-        List<LocalDateTime> dayMidnightUtcs, String zoneId, String deptId
-    ) {
-        ZoneId zone = validateArguments(zoneId, deptId);
+    public List<StatsDayWindow> resolve(List<LocalDateTime> dayMidnightUtcs, String deptId) {
+        if (deptId == null || deptId.isBlank()) {
+            throw new IllegalArgumentException("Department is required");
+        }
         if (dayMidnightUtcs == null) {
             throw new IllegalArgumentException("Statistical days are required");
         }
@@ -44,7 +51,8 @@ public class StatsDayWindowResolver {
             if (dayMidnightUtc == null) {
                 throw new IllegalArgumentException("Statistical day is required");
             }
-            LocalDate day = TimeUtils.getLocalDateTimeFromUtc(dayMidnightUtc, zoneId).toLocalDate();
+            LocalDate day = TimeUtils.getLocalDateTimeFromUtc(dayMidnightUtc, ZONE_ID)
+                .toLocalDate();
             if (!dayMidnightUtc.equals(TimeUtils.getDayMidnightUtc(day, zone))) {
                 throw new IllegalArgumentException("Statistical day must start at local midnight");
             }
@@ -55,7 +63,7 @@ public class StatsDayWindowResolver {
         List<BalanceStatsShift> shifts = statsDayConfigReader.listActiveByDept(deptId);
         List<StatsDayWindow> windows = new ArrayList<>(days.size());
         for (LocalDate day : days) {
-            windows.add(resolveDay(day, zone, shifts));
+            windows.add(resolveDay(day, shifts));
         }
         return windows;
     }
@@ -67,35 +75,53 @@ public class StatsDayWindowResolver {
      * 例如萨摩亚、托克劳（2011）、基里巴斯（1994）、马绍尔群岛（1993）的跳日，
      * 以及莫斯科（1918）的跨午夜前拨，可能使时间点归属当地前两天的统计窗口。
      */
-    public List<LocalDate> resolveStatisticDates(LocalDateTime utc, String zoneId, String deptId) {
-        validateArguments(zoneId, deptId);
+    public List<LocalDate> resolveStatisticDates(LocalDateTime utc, String deptId) {
+        if (deptId == null || deptId.isBlank()) {
+            throw new IllegalArgumentException("Department is required");
+        }
         if (utc == null) throw new IllegalArgumentException("Time is required");
         List<BalanceStatsShift> shifts = statsDayConfigReader.listActiveByDept(deptId);
-        return resolveStatisticDatesFromShifts(utc, zoneId, shifts);
+        return resolveStatisticDatesFromShifts(utc, shifts);
     }
 
-    /** 动态锁计划使用 JDBC 预读的配置，按生效时间倒序传入，不再通过 JPA 查询。 */
-    public List<LocalDate> resolveStatisticDatesFromShifts(
-        LocalDateTime utc, String zoneId, List<BalanceStatsShift> shifts
+    /** 按输入首次出现的顺序解析统计日。非空批次查询一次，空批次返回空映射。 */
+    public Map<LocalDateTime, List<LocalDate>> resolveStatisticDates(
+        List<LocalDateTime> utcs, String deptId
     ) {
-        ZoneId zone = validateZoneId(zoneId);
+        if (deptId == null || deptId.isBlank()) {
+            throw new IllegalArgumentException("Department is required");
+        }
+        if (utcs == null || utcs.stream().anyMatch(Objects::isNull)) {
+            throw new IllegalArgumentException("Time is required");
+        }
+        if (utcs.isEmpty()) return Map.of();
+
+        List<BalanceStatsShift> shifts = statsDayConfigReader.listActiveByDept(deptId);
+        Map<LocalDateTime, List<LocalDate>> statisticDates = new LinkedHashMap<>();
+        for (LocalDateTime utc : utcs) {
+            statisticDates.computeIfAbsent(utc,
+                time -> resolveStatisticDatesFromShifts(time, shifts));
+        }
+        return statisticDates;
+    }
+
+    private List<LocalDate> resolveStatisticDatesFromShifts(
+        LocalDateTime utc, List<BalanceStatsShift> shifts
+    ) {
         if (utc == null) throw new IllegalArgumentException("Time is required");
         Objects.requireNonNull(shifts, "shifts");
 
         // 取当前时间点的当地日期及前后各一天，避免配置变更时遗漏。
-        LocalDate day = TimeUtils.getLocalDateTimeFromUtc(utc, zoneId).toLocalDate();
+        LocalDate day = TimeUtils.getLocalDateTimeFromUtc(utc, ZONE_ID).toLocalDate();
         List<LocalDate> candidateDays = List.of(day.minusDays(1), day, day.plusDays(1));
 
-        // 获取合法统计日
         List<LocalDate> statisticDates = new ArrayList<>();
-        List<StatsDayWindow> windows = candidateDays.stream()
-            .map(candidate -> resolveDay(candidate, zone, shifts)).toList();
-        for (int i = 0; i < windows.size(); i++) {
-            StatsDayWindow window = windows.get(i);
+        for (LocalDate candidateDay : candidateDays) {
+            StatsDayWindow window = resolveDay(candidateDay, shifts);
             if (containsUtc(utc, window.monitoringStartUtc(), window.monitoringEndUtc())
                 || containsUtc(utc, window.balanceStartUtc(), window.balanceEndUtc())
             ) {
-                statisticDates.add(candidateDays.get(i));
+                statisticDates.add(candidateDay);
             }
         }
         return statisticDates;
@@ -105,27 +131,7 @@ public class StatsDayWindowResolver {
         return !utc.isBefore(start) && utc.isBefore(end);
     }
 
-    private ZoneId validateArguments(String zoneId, String deptId) {
-        if (deptId == null || deptId.isBlank()) {
-            throw new IllegalArgumentException("Department is required");
-        }
-        return validateZoneId(zoneId);
-    }
-
-    private ZoneId validateZoneId(String zoneId) {
-        if (zoneId == null || zoneId.isBlank()) {
-            throw new IllegalArgumentException("Timezone is required");
-        }
-        try {
-            return ZoneId.of(zoneId);
-        } catch (DateTimeException e) {
-            throw new IllegalArgumentException("Invalid timezone: " + zoneId, e);
-        }
-    }
-
-    private StatsDayWindow resolveDay(LocalDate day, ZoneId zone,
-        List<BalanceStatsShift> shifts) {
-        String zoneId = zone.getId();
+    private StatsDayWindow resolveDay(LocalDate day, List<BalanceStatsShift> shifts) {
         LocalDate nextDay = day.plusDays(1);
         LocalDateTime cutoff = TimeUtils.getDayMidnightUtc(nextDay, zone);
         // 配置已按生效时间倒序排列，严格排除恰好在截止时刻生效的记录。
@@ -137,25 +143,29 @@ public class StatsDayWindowResolver {
         if (startHour == null || !TimeUtils.isValidHour(startHour)) {
             throw new IllegalArgumentException("Invalid balance start hour: " + startHour);
         }
-        Integer monHour = shift == null ? startHour : shift.getMonStartHour();
-        if (monHour == null || !TimeUtils.isValidHour(monHour)) monHour = startHour;
-        Integer halfHours = shift == null ? null : shift.getHalfDayShiftHours();
-        if (halfHours == null || halfHours < 1 || halfHours > 23) halfHours =
-            DEFAULT_HALF_DAY_HOURS;
+        Integer configuredMonHour = shift == null ? null : shift.getMonStartHour();
+        int monHour = configuredMonHour != null && TimeUtils.isValidHour(configuredMonHour)
+            ? configuredMonHour : startHour;
+        Integer configuredHalfHours = shift == null ? null : shift.getHalfDayShiftHours();
+        int halfHours = configuredHalfHours != null && configuredHalfHours >= 1
+            && configuredHalfHours <= 23 ? configuredHalfHours : DEFAULT_HALF_DAY_HOURS;
 
         // 两个当地端点分别换算，保留相邻统计日之间的重叠或空缺。
         return new StatsDayWindow(
-            getHourUtc(day, monHour, zoneId),
-            getHourUtc(nextDay, monHour, zoneId),
-            getHourUtc(day, startHour, zoneId),
-            getHourUtc(nextDay, startHour, zoneId),
+            getHourUtc(day, monHour),
+            getHourUtc(nextDay, monHour),
+            getHourUtc(day, startHour),
+            getHourUtc(nextDay, startHour),
             startHour, monHour, halfHours);
     }
 
-    private LocalDateTime getHourUtc(LocalDate day, int hour, String zoneId) {
-        return TimeUtils.getUtcFromLocalDateTime(day.atTime(hour, 0), zoneId);
+    private LocalDateTime getHourUtc(LocalDate day, int hour) {
+        return TimeUtils.getUtcFromLocalDateTime(day.atTime(hour, 0), ZONE_ID);
     }
 
     private static final int DEFAULT_HALF_DAY_HOURS = 12;
+
+    private final String ZONE_ID;
+    private final ZoneId zone;
     private final StatsDayConfigReader statsDayConfigReader;
 }

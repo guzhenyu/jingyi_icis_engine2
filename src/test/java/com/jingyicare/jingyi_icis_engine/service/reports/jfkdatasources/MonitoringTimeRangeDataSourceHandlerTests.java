@@ -1,5 +1,6 @@
 package com.jingyicare.jingyi_icis_engine.service.reports.jfkdatasources;
 
+import static com.jingyicare.jingyi_icis_engine.testutils.StatsDayTestUtils.newStatsDayWindowResolver;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -19,30 +20,27 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
+import com.jingyicare.jingyi_icis_engine.entity.settings.BalanceStatsShift;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkFieldDataPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
-import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayConfigReader;
-import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 
 public class MonitoringTimeRangeDataSourceHandlerTests {
     @Test
     public void handleReturnsTwentyFourHourLabelsFromMonitoringStartHour() {
         JfkDataSourceSupport support = mockSupport();
-        BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
+        StatsDayConfigReader statsDayConfigReader = mock(StatsDayConfigReader.class);
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-            new StatsDayWindowResolver(new StatsDayConfigReader(balanceStatsShiftRepo)));
+            newStatsDayWindowResolver(statsDayConfigReader, support.getZoneId()));
         MonitoringTimeRangeDataSourceHandler handler = new MonitoringTimeRangeDataSourceHandler(
             support);
 
         LocalDateTime utcEnd = LocalDateTime.of(2026, 4, 17, 0, 0);
-        when(balanceStatsShiftRepo
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("10042"))
+        when(statsDayConfigReader.listActiveByDept("10042"))
             .thenReturn(List.of(
                 BalanceStatsShift.builder().startHour(23).monStartHour(23)
                     .effectiveTime(utcEnd).build(),
@@ -71,21 +69,19 @@ public class MonitoringTimeRangeDataSourceHandlerTests {
         assertThat(output.get("hour24")).containsExactly("6:00");
         assertThat(output).containsKeys("hour1", "hour24").hasSize(26);
 
-        verify(balanceStatsShiftRepo)
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("10042");
+        verify(statsDayConfigReader).listActiveByDept("10042");
     }
 
     @Test
     public void handleFallsBackToBalanceStartHourWhenMonitoringStartHourIsMissing() {
         JfkDataSourceSupport support = mockSupport();
-        BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
+        StatsDayConfigReader statsDayConfigReader = mock(StatsDayConfigReader.class);
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-            new StatsDayWindowResolver(new StatsDayConfigReader(balanceStatsShiftRepo)));
+            newStatsDayWindowResolver(statsDayConfigReader, support.getZoneId()));
         MonitoringTimeRangeDataSourceHandler handler = new MonitoringTimeRangeDataSourceHandler(
             support);
 
-        when(balanceStatsShiftRepo
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("10042"))
+        when(statsDayConfigReader.listActiveByDept("10042"))
             .thenReturn(List.of(BalanceStatsShift.builder()
                 .deptId("10042")
                 .startHour(6)
@@ -111,15 +107,14 @@ public class MonitoringTimeRangeDataSourceHandlerTests {
     public void legacyMidpointMaySelectTheFollowingLocalDate() {
         JfkDataSourceSupport support = mockSupport();
         when(support.getZoneId()).thenReturn("Asia/Shanghai");
-        BalanceStatsShiftRepository repo = mock(BalanceStatsShiftRepository.class);
+        StatsDayConfigReader statsDayConfigReader = mock(StatsDayConfigReader.class);
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-            new StatsDayWindowResolver(new StatsDayConfigReader(repo)));
+            newStatsDayWindowResolver(statsDayConfigReader, support.getZoneId()));
         var window = support.resolveStatisticsDayWindow("10042", LocalDateTime.of(2026, 4, 16, 6,
             0));
         assertThat(window.monitoringStartUtc()).isEqualTo("2026-04-17T00:00:00");
         assertThat(window.monitoringEndUtc()).isEqualTo("2026-04-18T00:00:00");
-        verify(repo)
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("10042");
+        verify(statsDayConfigReader).listActiveByDept("10042");
     }
 
     private JfkDataSourceSupport mockSupport() {

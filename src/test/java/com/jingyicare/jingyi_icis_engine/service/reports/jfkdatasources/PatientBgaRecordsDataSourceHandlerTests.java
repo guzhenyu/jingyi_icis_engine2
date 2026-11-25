@@ -1,5 +1,6 @@
 package com.jingyicare.jingyi_icis_engine.service.reports.jfkdatasources;
 
+import static com.jingyicare.jingyi_icis_engine.testutils.StatsDayTestUtils.newStatsDayWindowResolver;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -24,7 +25,7 @@ import com.jingyicare.jingyi_icis_engine.entity.monitorings.BgaParam;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientBgaRecord;
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientBgaRecordDetail;
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
-import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
+import com.jingyicare.jingyi_icis_engine.entity.settings.BalanceStatsShift;
 import com.jingyicare.jingyi_icis_engine.entity.users.Account;
 import com.jingyicare.jingyi_icis_engine.proto.IcisConfig.Config;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
@@ -42,7 +43,6 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.ValueMetaPB;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.BgaParamRepository;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientBgaRecordDetailRepository;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientBgaRecordRepository;
-import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.repository.users.AccountRepository;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.ca.CaSignatureImageService;
@@ -51,7 +51,6 @@ import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayConfigReader;
-import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
@@ -62,8 +61,7 @@ public class PatientBgaRecordsDataSourceHandlerTests {
         PatientBgaRecordsDataSourceHandler handler = ctx.handler();
 
         LocalDateTime queryUtcEnd = LocalDateTime.of(2026, 4, 16, 16, 0);
-        when(ctx.balanceStatsShiftRepo
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept"))
+        when(ctx.statsDayConfigReader.listActiveByDept("patient-dept"))
             .thenReturn(List.of(
                 BalanceStatsShift.builder().startHour(23).monStartHour(23)
                     .effectiveTime(queryUtcEnd).build(),
@@ -134,8 +132,7 @@ public class PatientBgaRecordsDataSourceHandlerTests {
         TestContext ctx = new TestContext();
         PatientBgaRecordsDataSourceHandler handler = ctx.handler();
 
-        when(ctx.balanceStatsShiftRepo
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept"))
+        when(ctx.statsDayConfigReader.listActiveByDept("patient-dept"))
             .thenReturn(List.of(BalanceStatsShift.builder()
                 .id(1L)
                 .deptId("patient-dept")
@@ -290,7 +287,7 @@ public class PatientBgaRecordsDataSourceHandlerTests {
     private class TestContext {
         private final JfkDataSourceSupport support = mock(JfkDataSourceSupport.class);
         private final PatientReader patientReader = mock(PatientReader.class);
-        private final BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
+        private final StatsDayConfigReader statsDayConfigReader = mock(StatsDayConfigReader.class);
         private final PatientBgaRecordRepository recordRepo = mock(PatientBgaRecordRepository.class);
         private final PatientBgaRecordDetailRepository detailRepo = mock(PatientBgaRecordDetailRepository.class);
         private final BgaParamRepository bgaParamRepo = mock(BgaParamRepository.class);
@@ -308,7 +305,7 @@ public class PatientBgaRecordsDataSourceHandlerTests {
             when(support.getZoneId()).thenReturn("Asia/Shanghai");
             when(support.getPatientReader()).thenReturn(patientReader);
             ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-                new StatsDayWindowResolver(new StatsDayConfigReader(balanceStatsShiftRepo)));
+                newStatsDayWindowResolver(statsDayConfigReader, support.getZoneId()));
             doCallRealMethod().when(support).resolvePatientDayContext(any(), any());
             doCallRealMethod().when(support).resolveStatisticsDayWindow(any(), any());
             when(support.newOutputBuilder(any(JfkDataSourcePB.class))).thenAnswer(invocation -> {

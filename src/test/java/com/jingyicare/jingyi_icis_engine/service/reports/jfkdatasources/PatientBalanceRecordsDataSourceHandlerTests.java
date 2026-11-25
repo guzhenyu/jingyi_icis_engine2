@@ -1,5 +1,6 @@
 package com.jingyicare.jingyi_icis_engine.service.reports.jfkdatasources;
 
+import static com.jingyicare.jingyi_icis_engine.testutils.StatsDayTestUtils.newStatsDayWindowResolver;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -31,7 +32,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientMonitoringRecord;
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
-import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
+import com.jingyicare.jingyi_icis_engine.entity.settings.BalanceStatsShift;
 import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
@@ -45,7 +46,6 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.GenericValuePB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.TypeEnumPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.ValueMetaPB;
-import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.BalanceCalculator;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.PatientMonitoringService;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
@@ -54,7 +54,6 @@ import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayConfigReader;
-import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.service.tubes.PatientTubeImpl;
 import com.jingyicare.jingyi_icis_engine.service.users.UserQuery;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
@@ -63,14 +62,12 @@ import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 public class PatientBalanceRecordsDataSourceHandlerTests {
     @Test
     public void handleBuildsRowsFromBalanceCalculatorAndMatchesStrictHours() {
-        TestContext ctx = new TestContext();
-        when(ctx.support.getZoneId()).thenReturn("Asia/Shanghai");
+        TestContext ctx = new TestContext("Asia/Shanghai");
         LocalDateTime balanceStart = LocalDateTime.of(2026, 4, 15, 22, 0);
         LocalDateTime balanceEnd = balanceStart.plusDays(1);
         LocalDateTime cutoff = LocalDateTime.of(2026, 4, 16, 16, 0);
         // 次日零点及其后的配置均不属于本统计日；旧 UTC +24h 截止会误选 10 点配置。
-        when(ctx.balanceStatsShiftRepo
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept"))
+        when(ctx.statsDayConfigReader.listActiveByDept("patient-dept"))
             .thenReturn(List.of(
                 BalanceStatsShift.builder().startHour(10).monStartHour(7)
                     .effectiveTime(cutoff.plusHours(2)).build(),
@@ -150,9 +147,8 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
             .collect(Collectors.toMap(JfkFieldDataPB::getId, field -> field.getVals(0).getStrVal(
                 )));
         assertThat(labels).containsEntry("hour1", "6:00").containsEntry("hour24", "5:00");
-        verify(ctx.balanceStatsShiftRepo, times(2))
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept");
-        verifyNoMoreInteractions(ctx.balanceStatsShiftRepo);
+        verify(ctx.statsDayConfigReader, times(2)).listActiveByDept("patient-dept");
+        verifyNoMoreInteractions(ctx.statsDayConfigReader);
     }
 
     @Test
@@ -257,7 +253,7 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
             assertThat(result.getFirst().getCode()).isEqualTo(expected.ordinal());
             assertThat(result.getSecond()).isNull();
         }
-        verifyNoInteractions(ctx.balanceStatsShiftRepo, ctx.patientMonitoringService, ctx
+        verifyNoInteractions(ctx.statsDayConfigReader, ctx.patientMonitoringService, ctx
             .balanceCalculator);
     }
 
@@ -383,8 +379,8 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
     }
 
     private static class TestContext {
-        private final JfkDataSourceSupport support = mockSupport();
-        private final BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
+        private final JfkDataSourceSupport support;
+        private final StatsDayConfigReader statsDayConfigReader = mock(StatsDayConfigReader.class);
         private final PatientMonMetaService patientMonMetaService =
             mock(PatientMonMetaService.class);
         private final DeptMonMetaReader deptMonMetaReader = mock(DeptMonMetaReader.class);
@@ -394,8 +390,13 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
         private final UserQuery userQuery = mock(UserQuery.class);
 
         private TestContext() {
+            this("UTC");
+        }
+
+        private TestContext(String zoneId) {
+            this.support = mockSupport(zoneId);
             ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-                new StatsDayWindowResolver(new StatsDayConfigReader(balanceStatsShiftRepo)));
+                newStatsDayWindowResolver(statsDayConfigReader, zoneId));
             when(userQuery.getCurrentAccount())
                 .thenReturn(new CurrentAccount("nurse", "42", "护士"));
             when(patientTubeImpl.getMonitoringParamCodes(any(), any(), any())).thenReturn(List.of());
@@ -418,8 +419,7 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
         }
 
         private void withShift(Integer startHour) {
-            when(balanceStatsShiftRepo
-                .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept"))
+            when(statsDayConfigReader.listActiveByDept("patient-dept"))
                 .thenReturn(List.of(BalanceStatsShift.builder()
                     .id(1L)
                     .deptId("patient-dept")
@@ -462,7 +462,7 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
             return recordsResult;
         }
 
-        private static JfkDataSourceSupport mockSupport() {
+        private static JfkDataSourceSupport mockSupport(String zoneId) {
             PatientReader patientReader = mock(PatientReader.class);
             PatientRecord patient = new PatientRecord();
             patient.setId(10001L);
@@ -471,7 +471,7 @@ public class PatientBalanceRecordsDataSourceHandlerTests {
 
             JfkDataSourceSupport support = mock(JfkDataSourceSupport.class);
             when(support.getStatusMsgList()).thenReturn(Collections.nCopies(400, "status"));
-            when(support.getZoneId()).thenReturn("UTC");
+            when(support.getZoneId()).thenReturn(zoneId);
             when(support.getPatientReader()).thenReturn(patientReader);
             doCallRealMethod().when(support).addArrayOutput(any(), any(), any());
             doCallRealMethod().when(support).resolvePatientDayContext(any(), any());

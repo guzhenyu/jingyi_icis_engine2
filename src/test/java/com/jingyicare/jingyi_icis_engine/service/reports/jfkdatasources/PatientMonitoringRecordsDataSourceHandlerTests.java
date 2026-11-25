@@ -1,5 +1,6 @@
 package com.jingyicare.jingyi_icis_engine.service.reports.jfkdatasources;
 
+import static com.jingyicare.jingyi_icis_engine.testutils.StatsDayTestUtils.newStatsDayWindowResolver;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doCallRealMethod;
@@ -22,7 +23,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientMonitoringRecord;
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
-import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
+import com.jingyicare.jingyi_icis_engine.entity.settings.BalanceStatsShift;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkFieldDataPB;
@@ -34,13 +35,11 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.GenericValuePB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.TypeEnumPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.ValueMetaPB;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.PatientMonitoringRecordRepository;
-import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.service.monitorings.meta.DeptMonMetaReader;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayConfigReader;
-import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
@@ -50,9 +49,9 @@ public class PatientMonitoringRecordsDataSourceHandlerTests {
         JfkDataSourceSupport support = mockSupport();
         when(support.getZoneId()).thenReturn("Asia/Shanghai");
         PatientMonitoringRecordRepository recordRepo = mock(PatientMonitoringRecordRepository.class);
-        BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
+        StatsDayConfigReader statsDayConfigReader = mock(StatsDayConfigReader.class);
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-            new StatsDayWindowResolver(new StatsDayConfigReader(balanceStatsShiftRepo)));
+            newStatsDayWindowResolver(statsDayConfigReader, support.getZoneId()));
         DeptMonMetaReader deptMonMetaReader = mock(DeptMonMetaReader.class);
         PatientMonitoringRecordsDataSourceHandler handler = new PatientMonitoringRecordsDataSourceHandler(
             support,
@@ -63,8 +62,7 @@ public class PatientMonitoringRecordsDataSourceHandlerTests {
         );
 
         LocalDateTime utcEnd = LocalDateTime.of(2026, 4, 16, 16, 0);
-        when(balanceStatsShiftRepo
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept"))
+        when(statsDayConfigReader.listActiveByDept("patient-dept"))
             .thenReturn(List.of(
                 BalanceStatsShift.builder().startHour(23).monStartHour(23)
                     .effectiveTime(utcEnd).build(),
@@ -127,18 +125,17 @@ public class PatientMonitoringRecordsDataSourceHandlerTests {
             .filteredOn(field -> field.getId().equals("hour1"))
             .flatExtracting(JfkFieldDataPB::getValsList)
             .extracting(JfkValPB::getStrVal).containsExactly("7:00");
-        verify(balanceStatsShiftRepo, times(2))
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept");
-        verifyNoMoreInteractions(balanceStatsShiftRepo);
+        verify(statsDayConfigReader, times(2)).listActiveByDept("patient-dept");
+        verifyNoMoreInteractions(statsDayConfigReader);
     }
 
     @Test
     public void handleFiltersParamsWithoutRecordsWhenConfigured() {
         JfkDataSourceSupport support = mockSupport();
         PatientMonitoringRecordRepository recordRepo = mock(PatientMonitoringRecordRepository.class);
-        BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
+        StatsDayConfigReader statsDayConfigReader = mock(StatsDayConfigReader.class);
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-            new StatsDayWindowResolver(new StatsDayConfigReader(balanceStatsShiftRepo)));
+            newStatsDayWindowResolver(statsDayConfigReader, support.getZoneId()));
         DeptMonMetaReader deptMonMetaReader = mock(DeptMonMetaReader.class);
         ReportProperties reportProperties = new ReportProperties();
         reportProperties.getCompact().getPatientMonitoringRecords().setFilterEmptyParams(true);
@@ -150,8 +147,7 @@ public class PatientMonitoringRecordsDataSourceHandlerTests {
             new DefaultResourceLoader()
         );
 
-        when(balanceStatsShiftRepo
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept"))
+        when(statsDayConfigReader.listActiveByDept("patient-dept"))
             .thenReturn(List.of(BalanceStatsShift.builder()
                 .id(1L)
                 .deptId("patient-dept")

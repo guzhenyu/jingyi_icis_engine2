@@ -1,5 +1,6 @@
 package com.jingyicare.jingyi_icis_engine.service.reports.jfkdatasources;
 
+import static com.jingyicare.jingyi_icis_engine.testutils.StatsDayTestUtils.newStatsDayWindowResolver;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -33,7 +34,7 @@ import com.jingyicare.jingyi_icis_engine.entity.medications.MedicationExecutionR
 import com.jingyicare.jingyi_icis_engine.entity.medications.MedicationExecutionRecordStat;
 import com.jingyicare.jingyi_icis_engine.entity.medications.MedicationOrderGroup;
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
-import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
+import com.jingyicare.jingyi_icis_engine.entity.settings.BalanceStatsShift;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkFieldDataPB;
@@ -47,14 +48,12 @@ import com.jingyicare.jingyi_icis_engine.repository.medications.MedicationExecut
 import com.jingyicare.jingyi_icis_engine.repository.medications.MedicationExecutionRecordRepository;
 import com.jingyicare.jingyi_icis_engine.repository.medications.MedicationExecutionRecordStatRepository;
 import com.jingyicare.jingyi_icis_engine.repository.medications.MedicationOrderGroupRepository;
-import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.service.medications.MedicationConfig;
 import com.jingyicare.jingyi_icis_engine.service.medications.MedMonitoringService;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.reports.ReportProperties;
 import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayConfigReader;
-import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
 
@@ -65,8 +64,7 @@ public class MedexeRecordsDataSourceHandlerTests {
         ctx.startUtc = LocalDateTime.of(2026, 4, 15, 22, 0);
         ctx.endUtc = LocalDateTime.of(2026, 4, 16, 22, 0);
         // 次日零点及其后的配置均不属于本统计日；旧 UTC +24h 截止会误选 10 点配置。
-        when(ctx.balanceStatsShiftRepo
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept"))
+        when(ctx.statsDayConfigReader.listActiveByDept("patient-dept"))
             .thenReturn(List.of(
                 BalanceStatsShift.builder().startHour(10).monStartHour(7)
                     .effectiveTime(QUERY_UTC_END.plusHours(2)).build(),
@@ -120,9 +118,8 @@ public class MedexeRecordsDataSourceHandlerTests {
             .collect(Collectors.toMap(JfkFieldDataPB::getId, field -> field.getVals(0).getStrVal(
                 )));
         assertThat(labels).containsEntry("hour1", "6:00").containsEntry("hour24", "5:00");
-        verify(ctx.balanceStatsShiftRepo, times(2))
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept");
-        verifyNoMoreInteractions(ctx.balanceStatsShiftRepo);
+        verify(ctx.statsDayConfigReader, times(2)).listActiveByDept("patient-dept");
+        verifyNoMoreInteractions(ctx.statsDayConfigReader);
     }
 
     @Test
@@ -266,7 +263,7 @@ public class MedexeRecordsDataSourceHandlerTests {
 
         assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.PATIENT_NOT_FOUND.ordinal());
         assertThat(result.getSecond()).isNull();
-        verifyNoInteractions(ctx.balanceStatsShiftRepo, ctx.exeRecordRepo, ctx.statRepo);
+        verifyNoInteractions(ctx.statsDayConfigReader, ctx.exeRecordRepo, ctx.statRepo);
     }
 
     @Test
@@ -281,8 +278,7 @@ public class MedexeRecordsDataSourceHandlerTests {
         Pair<ReturnCode, JfkDataSourcePB> result = ctx.handler().handle(input());
 
         assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
-        verify(ctx.balanceStatsShiftRepo)
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept");
+        verify(ctx.statsDayConfigReader).listActiveByDept("patient-dept");
     }
 
     @ParameterizedTest
@@ -294,8 +290,7 @@ public class MedexeRecordsDataSourceHandlerTests {
             when(ctx.patientReader.findById(10001L))
                 .thenReturn(Optional.of(new PatientRecord()));
         }
-        when(ctx.balanceStatsShiftRepo
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("request-dept"))
+        when(ctx.statsDayConfigReader.listActiveByDept("request-dept"))
             .thenReturn(List.of(BalanceStatsShift.builder()
                 .id(1L)
                 .deptId("request-dept")
@@ -310,8 +305,7 @@ public class MedexeRecordsDataSourceHandlerTests {
         assertThat(result.getFirst().getCode()).isEqualTo(StatusCode.OK.ordinal());
         Map<String, List<List<String>>> output = toOutputMap(result.getSecond());
         assertThat(output.get("med_order_txt")).isEmpty();
-        verify(ctx.balanceStatsShiftRepo)
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("request-dept");
+        verify(ctx.statsDayConfigReader).listActiveByDept("request-dept");
         assertThat(output).hasSize(27);
         assertThat(output.values()).allSatisfy(values -> assertThat(values).isEmpty());
         verifyNoInteractions(ctx.statRepo);
@@ -491,7 +485,7 @@ public class MedexeRecordsDataSourceHandlerTests {
     private static class TestContext {
         private final JfkDataSourceSupport support = mock(JfkDataSourceSupport.class);
         private final PatientReader patientReader = mock(PatientReader.class);
-        private final BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
+        private final StatsDayConfigReader statsDayConfigReader = mock(StatsDayConfigReader.class);
         private final MedicationExecutionRecordRepository exeRecordRepo = mock(MedicationExecutionRecordRepository.class);
         private final MedicationExecutionRecordStatRepository statRepo = mock(MedicationExecutionRecordStatRepository.class);
         private final MedicationOrderGroupRepository orderGroupRepo = mock(MedicationOrderGroupRepository.class);
@@ -513,7 +507,7 @@ public class MedexeRecordsDataSourceHandlerTests {
             doCallRealMethod().when(support).resolveStatisticsDayWindow(any(), any());
             doCallRealMethod().when(support).addArrayOutput(any(), any(), any());
             ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-                new StatsDayWindowResolver(new StatsDayConfigReader(balanceStatsShiftRepo)));
+                newStatsDayWindowResolver(statsDayConfigReader, support.getZoneId()));
             when(support.newOutputBuilder(any(JfkDataSourcePB.class))).thenAnswer(invocation -> {
                 JfkDataSourcePB input = invocation.getArgument(0);
                 return JfkDataSourcePB.newBuilder()
@@ -547,8 +541,7 @@ public class MedexeRecordsDataSourceHandlerTests {
         }
 
         private void withShift(Integer startHour) {
-            when(balanceStatsShiftRepo
-                .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept"))
+            when(statsDayConfigReader.listActiveByDept("patient-dept"))
                 .thenReturn(List.of(BalanceStatsShift.builder()
                     .id(1L)
                     .deptId("patient-dept")

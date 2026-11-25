@@ -11,16 +11,16 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
-import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
+import com.jingyicare.jingyi_icis_engine.entity.settings.BalanceStatsShift;
+import com.jingyicare.jingyi_icis_engine.repository.settings.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 
 @Transactional
 class StatsDayWindowResolverPostgreSqlTests extends TestsBase {
     private static final LocalDateTime ANCHOR = LocalDateTime.of(2026, 10, 22, 16, 0);
-    private static final String ZONE = "Asia/Shanghai";
     private static final String DEPT = "statistics-window-history";
 
     @Autowired
@@ -40,8 +40,8 @@ class StatsDayWindowResolverPostgreSqlTests extends TestsBase {
         repository.flush();
         entityManager.clear();
 
-        List<StatsDayWindow> windows = resolver.resolveInternal(
-            List.of(ANCHOR.plusDays(1), ANCHOR, ANCHOR.plusDays(1)), ZONE, DEPT);
+        List<StatsDayWindow> windows = resolver.resolve(
+            List.of(ANCHOR.plusDays(1), ANCHOR, ANCHOR.plusDays(1)), DEPT);
         assertThat(windows).hasSize(3);
         assertThat(windows.get(2)).isEqualTo(windows.get(0));
 
@@ -65,7 +65,7 @@ class StatsDayWindowResolverPostgreSqlTests extends TestsBase {
         repository.flush();
         entityManager.clear();
 
-        StatsDayWindow day = resolver.resolve(ANCHOR, ZONE, deptId);
+        StatsDayWindow day = resolver.resolve(ANCHOR, deptId);
         assertThat(day.startHour()).isEqualTo(8);
         assertThat(day.monStartHour()).isEqualTo(8);
         assertThat(day.halfDayShiftHours()).isEqualTo(12);
@@ -93,14 +93,32 @@ class StatsDayWindowResolverPostgreSqlTests extends TestsBase {
         List<LocalDate> expected = nextStartHour == 6
             ? List.of(LocalDate.of(2026, 10, 22), LocalDate.of(2026, 10, 23))
             : List.of();
-        assertThat(resolver.resolveStatisticDates(ANCHOR.plusHours(instantHour), ZONE, DEPT))
+        assertThat(resolver.resolveStatisticDates(ANCHOR.plusHours(instantHour), DEPT))
             .containsExactlyElementsOf(expected);
     }
 
-    private void save(
+    @Test
+    void shouldResolveBatchStatisticDatesFromDatabaseDespiteManagedConfiguration() {
+        BalanceStatsShift managed = save(DEPT, ANCHOR.minusDays(2), 8, 8, false);
+        repository.flush();
+        LocalDateTime utc = ANCHOR.plusHours(7);
+        assertThat(resolver.resolveStatisticDates(List.of(utc), DEPT).get(utc))
+            .containsExactly(LocalDate.of(2026, 10, 22));
+
+        jdbcTemplate.update("""
+            UPDATE balance_stats_shifts SET start_hour = 6, mon_start_hour = 6 WHERE id = ?
+            """, managed.getId());
+
+        assertThat(entityManager.contains(managed)).isTrue();
+        assertThat(managed.getStartHour()).isEqualTo(8);
+        assertThat(resolver.resolveStatisticDates(List.of(utc), DEPT).get(utc))
+            .containsExactly(LocalDate.of(2026, 10, 23));
+    }
+
+    private BalanceStatsShift save(
         String deptId, LocalDateTime effectiveTime, int startHour, int monHour, boolean deleted
     ) {
-        repository.save(BalanceStatsShift.builder()
+        return repository.save(BalanceStatsShift.builder()
             .deptId(deptId)
             .effectiveTime(effectiveTime)
             .startHour(startHour)
@@ -110,4 +128,7 @@ class StatsDayWindowResolverPostgreSqlTests extends TestsBase {
             .modifiedAt(effectiveTime)
             .build());
     }
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 }

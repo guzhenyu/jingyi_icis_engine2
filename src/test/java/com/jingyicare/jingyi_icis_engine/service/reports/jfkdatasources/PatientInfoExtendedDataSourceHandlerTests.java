@@ -1,5 +1,6 @@
 package com.jingyicare.jingyi_icis_engine.service.reports.jfkdatasources;
 
+import static com.jingyicare.jingyi_icis_engine.testutils.StatsDayTestUtils.newStatsDayWindowResolver;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -22,7 +23,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
 import com.jingyicare.jingyi_icis_engine.entity.patients.SurgeryHistory;
 import com.jingyicare.jingyi_icis_engine.entity.patientshifts.PatientShiftRecord;
-import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
+import com.jingyicare.jingyi_icis_engine.entity.settings.BalanceStatsShift;
 import com.jingyicare.jingyi_icis_engine.entity.users.RbacDepartment;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
@@ -31,12 +32,10 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
 import com.jingyicare.jingyi_icis_engine.repository.patients.SurgeryHistoryRepository;
 import com.jingyicare.jingyi_icis_engine.repository.patientshifts.PatientShiftRecordRepository;
-import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientReader;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkDataSourceIds;
 import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayConfigReader;
-import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 
 public class PatientInfoExtendedDataSourceHandlerTests {
@@ -51,8 +50,7 @@ public class PatientInfoExtendedDataSourceHandlerTests {
             .thenReturn(Optional.of(new RbacDepartment("patient-dept", "重症医学科")));
 
         LocalDateTime queryUtcEnd = LocalDateTime.of(2026, 4, 16, 16, 0);
-        when(ctx.balanceStatsShiftRepo
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept"))
+        when(ctx.statsDayConfigReader.listActiveByDept("patient-dept"))
             .thenReturn(List.of(
                 BalanceStatsShift.builder().startHour(23).monStartHour(23)
                     .effectiveTime(queryUtcEnd).build(),
@@ -104,8 +102,7 @@ public class PatientInfoExtendedDataSourceHandlerTests {
         assertThat(output.get("diagnosis_and_surgery")).isEqualTo("ICU诊断; 手术: 手术B + 手术A");
         assertThat(output.get("patient_shift_info")).isEqualTo("白班: 张护士  夜班: 李护士");
 
-        verify(ctx.balanceStatsShiftRepo)
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept");
+        verify(ctx.statsDayConfigReader).listActiveByDept("patient-dept");
         verify(ctx.patientShiftRecordRepo).findByPidAndContainedInTimeRange(10001L, monStartUtc, monEndUtc);
     }
 
@@ -118,8 +115,7 @@ public class PatientInfoExtendedDataSourceHandlerTests {
         when(ctx.patientReader.findById(10001L)).thenReturn(Optional.of(patient));
         when(ctx.deptRepo.findByDeptId("patient-dept"))
             .thenReturn(Optional.of(new RbacDepartment("patient-dept", "重症医学科")));
-        when(ctx.balanceStatsShiftRepo
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept"))
+        when(ctx.statsDayConfigReader.listActiveByDept("patient-dept"))
             .thenReturn(List.of());
 
         Pair<ReturnCode, JfkDataSourcePB> result = handler.handle(JfkDataSourcePB.newBuilder()
@@ -146,8 +142,7 @@ public class PatientInfoExtendedDataSourceHandlerTests {
         when(ctx.patientReader.findById(10001L)).thenReturn(Optional.of(patient));
         when(ctx.deptRepo.findByDeptId("patient-dept"))
             .thenReturn(Optional.of(new RbacDepartment("patient-dept", "重症医学科")));
-        when(ctx.balanceStatsShiftRepo
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept"))
+        when(ctx.statsDayConfigReader.listActiveByDept("patient-dept"))
             .thenReturn(List.of(BalanceStatsShift.builder()
                 .id(1L)
                 .deptId("patient-dept")
@@ -198,8 +193,7 @@ public class PatientInfoExtendedDataSourceHandlerTests {
             .ordinal());
         assertThat(invalidTime.getSecond()).isNull();
 
-        when(ctx.balanceStatsShiftRepo
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("patient-dept"))
+        when(ctx.statsDayConfigReader.listActiveByDept("patient-dept"))
             .thenReturn(List.of(BalanceStatsShift.builder().startHour(24).monStartHour(7)
                 .effectiveTime(LocalDateTime.of(2026, 4, 1, 0, 0)).build()));
         var invalidHour = ctx.support.resolvePatientDayContext(10001L, queryStart);
@@ -269,7 +263,7 @@ public class PatientInfoExtendedDataSourceHandlerTests {
         private final JfkDataSourceSupport support = mock(JfkDataSourceSupport.class);
         private final PatientReader patientReader = mock(PatientReader.class);
         private final RbacDepartmentRepository deptRepo = mock(RbacDepartmentRepository.class);
-        private final BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
+        private final StatsDayConfigReader statsDayConfigReader = mock(StatsDayConfigReader.class);
         private final SurgeryHistoryRepository surgeryHistoryRepo = mock(SurgeryHistoryRepository.class);
         private final PatientShiftRecordRepository patientShiftRecordRepo = mock(PatientShiftRecordRepository.class);
         private TestContext() {
@@ -277,7 +271,7 @@ public class PatientInfoExtendedDataSourceHandlerTests {
             when(support.getZoneId()).thenReturn("Asia/Shanghai");
             when(support.getPatientReader()).thenReturn(patientReader);
             ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-                new StatsDayWindowResolver(new StatsDayConfigReader(balanceStatsShiftRepo)));
+                newStatsDayWindowResolver(statsDayConfigReader, support.getZoneId()));
             doCallRealMethod().when(support).resolvePatientDayContext(any(), any());
             doCallRealMethod().when(support).resolveStatisticsDayWindow(any(), any());
             when(support.getDeptRepo()).thenReturn(deptRepo);

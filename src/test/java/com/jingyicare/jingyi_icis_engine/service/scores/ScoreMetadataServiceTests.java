@@ -714,8 +714,7 @@ class ScoreMetadataServiceTests extends TestsBase {
     void readerAndSnapshotUseHalfOpenWindowAllCodesAndDoNotRecalculateHistoricalText() {
         LocalDate day = dates(TIME).get(0);
         StatsDayWindow window = resolver.resolve(
-            TimeUtils.getDayMidnightUtc(day, ZoneId.of("Asia/Shanghai")),
-            "Asia/Shanghai", DEPT);
+            TimeUtils.getDayMidnightUtc(day, ZoneId.of("Asia/Shanghai")), DEPT);
         PatientScore first = seed(window.monitoringStartUtc(), CODE);
         PatientScore retired = seed(window.monitoringStartUtc().plusHours(1), "retired");
         PatientScore next = seed(window.monitoringEndUtc(), CODE);
@@ -1085,7 +1084,7 @@ class ScoreMetadataServiceTests extends TestsBase {
     }
 
     private List<LocalDate> dates(LocalDateTime time) {
-        return resolver.resolveStatisticDates(time, "Asia/Shanghai", DEPT);
+        return resolver.resolveStatisticDates(time, DEPT);
     }
 
     private void assertMarked(LocalDateTime time) {

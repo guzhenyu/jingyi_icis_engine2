@@ -22,7 +22,6 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import lombok.extern.slf4j.Slf4j;
 
 import com.jingyicare.jingyi_icis_engine.entity.patients.PatientRecord;
-import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
 import com.jingyicare.jingyi_icis_engine.entity.snapshots.PatientSnapshot;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisSnapshot.PatientSnapshotPB;
@@ -96,7 +95,7 @@ public class SnapshotService {
     /**
      * 供 executePlanned 的 planSupplier 从事务外预读快照锁计划。
      * isPlanCurrent 在锁后复用本方法，比较患者科室和时间点对应的统计日。
-     * 缺失患者由业务入口返回对应错误，不在此创建快照。
+     * 缺失患者或科室为空时跳过统计日解析，保留空日期供业务加锁及锁后复查。
      */
     public SnapshotChangePlan planChanges(Collection<Change> changes) {
         List<Change> points = changes.stream().distinct()
@@ -104,14 +103,24 @@ public class SnapshotService {
             .toList();
         List<Long> pids = points.stream().map(Change::pid).distinct().toList();
         Map<Long, String> departments = SnapshotJdbc.findPatientDepartments(jdbcTemplate, pids);
-        Map<String, List<BalanceStatsShift>> shifts = SnapshotJdbc.findActiveBalanceStatsShifts(
-            jdbcTemplate, departments.values().stream().distinct().toList());
+        Map<String, List<LocalDateTime>> timesByDept = new LinkedHashMap<>();
+        for (Change change : points) {
+            String deptId = departments.get(change.pid());
+            if (deptId != null) {
+                timesByDept.computeIfAbsent(deptId, ignored -> new ArrayList<>())
+                    .add(change.effectiveTime());
+            }
+        }
+
+        Map<String, Map<LocalDateTime, List<LocalDate>>> datesByDept = new LinkedHashMap<>();
+        timesByDept.forEach((deptId, times) ->
+            datesByDept.put(deptId, windowResolver.resolveStatisticDates(times, deptId)));
+
         Map<Change, List<LocalDate>> dates = new LinkedHashMap<>();
         for (Change change : points) {
             String deptId = departments.get(change.pid());
             dates.put(change, deptId == null ? List.of()
-                : windowResolver.resolveStatisticDatesFromShifts(change.effectiveTime(), zoneId,
-                    shifts.getOrDefault(deptId, List.of())));
+                : datesByDept.get(deptId).get(change.effectiveTime()));
         }
         return new SnapshotChangePlan(departments, dates);
     }
@@ -174,9 +183,9 @@ public class SnapshotService {
         if (patient == null || StrUtils.isBlank(patient.getDeptId())) {
             return response(StatusCode.PATIENT_NOT_FOUND, List.of());
         }
-        List<StatsDayWindow> windows = windowResolver.resolveInternal(dates.stream()
+        List<StatsDayWindow> windows = windowResolver.resolve(dates.stream()
             .map(date -> TimeUtils.getDayMidnightUtc(date, ZoneId.of(zoneId))).toList(),
-            zoneId, patient.getDeptId());
+            patient.getDeptId());
         Map<LocalDate, PatientSnapshot> existing = loadSnapshots(pid, dates);
         List<PatientSnapshot> updates = new ArrayList<>();
         List<PatientSnapshotPB> result = new ArrayList<>();

@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 
 import lombok.extern.slf4j.Slf4j;
 
-import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
+import com.jingyicare.jingyi_icis_engine.entity.settings.BalanceStatsShift;
 import com.jingyicare.jingyi_icis_engine.entity.users.CurrentAccount;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.AddDeptBalanceStatsShiftReq;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.AddDeptBalanceStatsShiftResp;
@@ -20,8 +20,8 @@ import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.GetDeptBalanceStatsShi
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
-import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftJdbc;
-import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
+import com.jingyicare.jingyi_icis_engine.repository.settings.BalanceStatsShiftJdbc;
+import com.jingyicare.jingyi_icis_engine.repository.settings.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;

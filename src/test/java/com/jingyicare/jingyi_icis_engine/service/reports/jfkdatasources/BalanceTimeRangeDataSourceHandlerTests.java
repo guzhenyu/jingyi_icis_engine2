@@ -1,5 +1,6 @@
 package com.jingyicare.jingyi_icis_engine.service.reports.jfkdatasources;
 
+import static com.jingyicare.jingyi_icis_engine.testutils.StatsDayTestUtils.newStatsDayWindowResolver;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -23,15 +24,13 @@ import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import com.jingyicare.jingyi_icis_engine.entity.shifts.BalanceStatsShift;
+import com.jingyicare.jingyi_icis_engine.entity.settings.BalanceStatsShift;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkDataSourcePB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkFieldDataPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkValPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.ReturnCode;
-import com.jingyicare.jingyi_icis_engine.repository.shifts.BalanceStatsShiftRepository;
 import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayConfigReader;
-import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindowResolver;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 
 public class BalanceTimeRangeDataSourceHandlerTests {
@@ -41,15 +40,14 @@ public class BalanceTimeRangeDataSourceHandlerTests {
         int startHour, String hour2, String hour17, String hour24
     ) {
         JfkDataSourceSupport support = mockSupport();
-        BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
+        StatsDayConfigReader statsDayConfigReader = mock(StatsDayConfigReader.class);
         BalanceTimeRangeDataSourceHandler handler =
             new BalanceTimeRangeDataSourceHandler(support);
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-            new StatsDayWindowResolver(new StatsDayConfigReader(balanceStatsShiftRepo)));
+            newStatsDayWindowResolver(statsDayConfigReader, support.getZoneId()));
 
         LocalDateTime utcEnd = LocalDateTime.of(2026, 4, 17, 16, 0);
-        when(balanceStatsShiftRepo
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("10042"))
+        when(statsDayConfigReader.listActiveByDept("10042"))
             .thenReturn(List.of(
                 BalanceStatsShift.builder().startHour(23).monStartHour(23)
                     .effectiveTime(utcEnd).build(),
@@ -78,21 +76,19 @@ public class BalanceTimeRangeDataSourceHandlerTests {
         assertThat(output.get("hour24")).containsExactly(hour24);
         assertThat(output).containsKeys("hour1", "hour24").hasSize(26);
 
-        verify(balanceStatsShiftRepo)
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("10042");
+        verify(statsDayConfigReader).listActiveByDept("10042");
     }
 
     @Test
     public void handleUsesEightHourLabelsWhenShiftIsMissing() {
         JfkDataSourceSupport support = mockSupport();
-        BalanceStatsShiftRepository balanceStatsShiftRepo = mock(BalanceStatsShiftRepository.class);
+        StatsDayConfigReader statsDayConfigReader = mock(StatsDayConfigReader.class);
         BalanceTimeRangeDataSourceHandler handler =
             new BalanceTimeRangeDataSourceHandler(support);
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-            new StatsDayWindowResolver(new StatsDayConfigReader(balanceStatsShiftRepo)));
+            newStatsDayWindowResolver(statsDayConfigReader, support.getZoneId()));
 
-        when(balanceStatsShiftRepo
-            .findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc(anyString()))
+        when(statsDayConfigReader.listActiveByDept(anyString()))
             .thenReturn(List.of());
 
         Pair<ReturnCode, JfkDataSourcePB> result = handler.handle(JfkDataSourcePB.newBuilder()
@@ -112,10 +108,10 @@ public class BalanceTimeRangeDataSourceHandlerTests {
     @ValueSource(ints = {-1, 24})
     public void handleRejectsInvalidStartHourWithoutPid(Integer startHour) {
         JfkDataSourceSupport support = mockSupport();
-        BalanceStatsShiftRepository repo = mock(BalanceStatsShiftRepository.class);
+        StatsDayConfigReader statsDayConfigReader = mock(StatsDayConfigReader.class);
         ReflectionTestUtils.setField(support, "statisticsDayWindowResolver",
-            new StatsDayWindowResolver(new StatsDayConfigReader(repo)));
-        when(repo.findByDeptIdAndIsDeletedFalseOrderByEffectiveTimeDesc("10042"))
+            newStatsDayWindowResolver(statsDayConfigReader, support.getZoneId()));
+        when(statsDayConfigReader.listActiveByDept("10042"))
             .thenReturn(List.of(BalanceStatsShift.builder().startHour(startHour).monStartHour(7)
                 .effectiveTime(LocalDateTime.of(2026, 4, 1, 0, 0))
                 .build()));

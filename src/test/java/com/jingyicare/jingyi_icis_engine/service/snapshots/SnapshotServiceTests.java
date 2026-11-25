@@ -12,6 +12,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -41,6 +43,7 @@ import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
 import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindow;
 import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindowResolver;
+import com.jingyicare.jingyi_icis_engine.service.snapshots.SnapshotChangePlan.Change;
 import com.jingyicare.jingyi_icis_engine.testutils.TestsBase;
 import com.jingyicare.jingyi_icis_engine.utils.Pair;
 import com.jingyicare.jingyi_icis_engine.utils.ProtoUtils;
@@ -84,6 +87,65 @@ class SnapshotServiceTests extends TestsBase {
         assertCode(service.get(PID, List.of(DAY), false), StatusCode.PATIENT_NOT_FOUND);
 
         assertThat(snapshotCount()).isZero();
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", " ", "\u3000"})
+    void skipsStatisticsForBlankDepartmentAndRechecksTheChange(String deptId) {
+        jdbcTemplate.update("UPDATE patient_records SET dept_id = ? WHERE id = ?", deptId, PID);
+        LocalDateTime utc = TimeUtils.getUtcFromLocalDateTime(
+            DAY.atTime(12, 0), protoService.getZoneId());
+        Change change = new Change(PID, utc);
+
+        SnapshotChangePlan plan = service.planChanges(List.of(change));
+
+        assertThat(plan.departments()).isEmpty();
+        assertThat(plan.changes()).containsExactly(change);
+        assertThat(plan.statisticsDates()).containsEntry(change, List.of());
+        assertThat(plan.resourceKeys()).isEmpty();
+        assertThat(service.isPlanCurrent(plan)).isTrue();
+
+        jdbcTemplate.update("UPDATE patient_records SET dept_id = ? WHERE id = ?", DEPT, PID);
+
+        assertThat(service.isPlanCurrent(plan)).isFalse();
+    }
+
+    @Test
+    void plansStatisticDatesIndependentlyForEachDepartmentAtTheSameTime() {
+        long sameDeptPid = PID + 1;
+        long otherDeptPid = PID + 2;
+        String otherDept = DEPT + "-other";
+        ZoneId zone = ZoneId.of(protoService.getZoneId());
+        LocalDateTime since = TimeUtils.getDayMidnightUtc(DAY.minusDays(2), zone);
+        LocalDateTime utc = TimeUtils.getUtcFromLocalDateTime(DAY.atTime(7, 0), zone.getId());
+        try {
+            jdbcTemplate.update("INSERT INTO patient_records (id, dept_id) VALUES (?, ?), (?, ?)",
+                sameDeptPid, DEPT, otherDeptPid, otherDept);
+            jdbcTemplate.update("""
+                INSERT INTO balance_stats_shifts
+                    (dept_id, start_hour, mon_start_hour, effective_time, is_deleted, modified_at)
+                VALUES (?, 6, 6, ?, FALSE, ?), (?, 10, 10, ?, FALSE, ?)
+                """, DEPT, since, since, otherDept, since, since);
+
+            Change first = new Change(PID, utc);
+            Change sameDepartment = new Change(sameDeptPid, utc);
+            Change otherDepartment = new Change(otherDeptPid, utc);
+            Change missing = new Change(Long.MAX_VALUE, utc);
+            SnapshotChangePlan plan = service.planChanges(
+                List.of(otherDepartment, first, missing, sameDepartment, first));
+
+            assertThat(plan.departments())
+                .isEqualTo(Map.of(PID, DEPT, sameDeptPid, DEPT, otherDeptPid, otherDept));
+            assertThat(plan.statisticsDates()).isEqualTo(Map.of(
+                first, List.of(DAY), sameDepartment, List.of(DAY),
+                otherDepartment, List.of(DAY.minusDays(1)), missing, List.of()));
+        } finally {
+            jdbcTemplate.update("DELETE FROM balance_stats_shifts WHERE dept_id IN (?, ?)",
+                DEPT, otherDept);
+            jdbcTemplate.update("DELETE FROM patient_records WHERE id IN (?, ?)",
+                sameDeptPid, otherDeptPid);
+        }
     }
 
     @Test
@@ -387,7 +449,7 @@ class SnapshotServiceTests extends TestsBase {
 
     private StatsDayWindow window(LocalDate day) {
         String zone = protoService.getZoneId();
-        return resolver.resolve(TimeUtils.getDayMidnightUtc(day, ZoneId.of(zone)), zone, DEPT);
+        return resolver.resolve(TimeUtils.getDayMidnightUtc(day, ZoneId.of(zone)), DEPT);
     }
 
     private NursingRecord saveRecord(LocalDateTime effectiveTime, String content, boolean deleted) {
