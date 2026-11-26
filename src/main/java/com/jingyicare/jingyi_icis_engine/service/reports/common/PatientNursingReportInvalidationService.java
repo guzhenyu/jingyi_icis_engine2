@@ -1,31 +1,33 @@
 package com.jingyicare.jingyi_icis_engine.service.reports.common;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.time.ZoneId;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import lombok.*;
-import lombok.extern.slf4j.Slf4j;
-
-import com.jingyicare.jingyi_icis_engine.entity.reports.*;
-import com.jingyicare.jingyi_icis_engine.repository.reports.*;
-import com.jingyicare.jingyi_icis_engine.service.*;
-import com.jingyicare.jingyi_icis_engine.service.shifts.*;
-import com.jingyicare.jingyi_icis_engine.utils.*;
+import com.jingyicare.jingyi_icis_engine.entity.reports.PatientNursingReport;
+import com.jingyicare.jingyi_icis_engine.repository.reports.PatientNursingReportRepository;
+import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
+import com.jingyicare.jingyi_icis_engine.service.settings.stats.StatsDayWindowResolver;
+import com.jingyicare.jingyi_icis_engine.utils.Consts;
+import com.jingyicare.jingyi_icis_engine.utils.StrUtils;
+import com.jingyicare.jingyi_icis_engine.utils.TimeUtils;
 
 @Component
-@Slf4j
 public class PatientNursingReportInvalidationService {
     public PatientNursingReportInvalidationService(
-        @Autowired ConfigProtoService protoService,
-        @Autowired ConfigShiftUtils configShiftUtils,
-        @Autowired PatientNursingReportRepository pnrRepo
+        ConfigProtoService protoService,
+        StatsDayWindowResolver statsDayWindowResolver,
+        PatientNursingReportRepository pnrRepo
     ) {
-        this.ZONE_ID = protoService.getConfig().getZoneId();
-        this.configShiftUtils = configShiftUtils;
+        this.zone = ZoneId.of(protoService.getConfig().getZoneId());
+        this.statsDayWindowResolver = statsDayWindowResolver;
         this.pnrRepo = pnrRepo;
     }
 
@@ -33,45 +35,61 @@ public class PatientNursingReportInvalidationService {
     public void updateLatestDataTime(
         Long pid, String deptId, LocalDateTime startUtc, LocalDateTime endUtc, LocalDateTime calcUtc
     ) {
-        List<LocalDateTime> deptBalanceStatsUtcs = configShiftUtils.getBalanceStatTimeUtcHistory(deptId);
-        LocalDateTime startMidnightUtc = getMidnightUtc(deptBalanceStatsUtcs, startUtc);
-        LocalDateTime endMidnightUtc = getMidnightUtc(deptBalanceStatsUtcs, endUtc);
+        if (StrUtils.isBlank(deptId) || startUtc == null || endUtc == null
+            || startUtc.isAfter(endUtc)) return;
+        Map<LocalDateTime, List<LocalDateTime>> startsByInputUtc =
+            statsDayWindowResolver.resolveBalanceStartsUtc(deptId, List.of(startUtc, endUtc));
+        List<LocalDateTime> startsUtc = new ArrayList<>();
+        startsUtc.addAll(startsByInputUtc.values().stream().flatMap(List::stream).toList());
 
-        List<PatientNursingReport> pnrList = pnrRepo.findByPidAndEffectiveTimeMidnightBetween(
-            pid, startMidnightUtc, endMidnightUtc
-        );
-        Set<LocalDateTime> existMidnights = new HashSet<>();
-        for (PatientNursingReport pnr : pnrList) {
-            pnr.setLatestDataTime(calcUtc);
-            existMidnights.add(pnr.getEffectiveTimeMidnight());
+        List<LocalDateTime> starts = startsByInputUtc.getOrDefault(startUtc, List.of());
+        if (starts.isEmpty()) {
+            startsUtc.addAll(getFallbackReportMidnightsUtc(startUtc));
         }
-
-        // 补齐缺失的护理单记录
-        for (LocalDateTime midnightUtc = startMidnightUtc;
-             !midnightUtc.isAfter(endMidnightUtc);
-             midnightUtc = midnightUtc.plusDays(1)
-        ) {
-            if (!existMidnights.contains(midnightUtc)) {
-                PatientNursingReport newPnr = new PatientNursingReport();
-                newPnr.setPid(pid);
-                newPnr.setEffectiveTimeMidnight(midnightUtc);
-                newPnr.setLatestDataTime(calcUtc);
-                pnrList.add(newPnr);
-            }
+        List<LocalDateTime> ends = startsByInputUtc.getOrDefault(endUtc, List.of());
+        if (ends.isEmpty()) {
+            startsUtc.addAll(getFallbackReportMidnightsUtc(endUtc));
         }
+        startsUtc.sort(Comparator.naturalOrder());
 
-        pnrRepo.saveAll(pnrList);
+        LocalDateTime firstMidnightUtc =
+            TimeUtils.getLocalMidnightUtc(startsUtc.getFirst(), zone.getId());
+        LocalDateTime lastMidnightUtc =
+            TimeUtils.getLocalMidnightUtc(startsUtc.getLast(), zone.getId());
+        List<PatientNursingReport> reportsToUpdate = pnrRepo
+            .findByPidAndEffectiveTimeMidnightBetween(pid, firstMidnightUtc, lastMidnightUtc);
+        for (PatientNursingReport report : reportsToUpdate) {
+            report.setLatestDataTime(calcUtc);
+        }
+        pnrRepo.saveAll(reportsToUpdate);
     }
 
-    public LocalDateTime getMidnightUtc(List<LocalDateTime> deptBalanceStatsUtcs, LocalDateTime inputUtc) {
-        LocalDateTime startLocal = TimeUtils.getLocalDateTimeFromUtc(
-            configShiftUtils.getBalanceStatStartUtc(deptBalanceStatsUtcs, inputUtc), ZONE_ID
+    private List<LocalDateTime> getFallbackReportMidnightsUtc(LocalDateTime inputUtc) {
+        LocalDate day = TimeUtils.getLocalDateTimeFromUtc(inputUtc, zone.getId()).toLocalDate();
+        return List.of(
+            TimeUtils.getDayMidnightUtc(day.minusDays(1), zone),
+            TimeUtils.getDayMidnightUtc(day, zone)
         );
-        LocalDateTime midnightLocal = TimeUtils.truncateToDay(startLocal);
-        return TimeUtils.getUtcFromLocalDateTime(midnightLocal, ZONE_ID);
     }
 
-    private final String ZONE_ID;
-    private final ConfigShiftUtils configShiftUtils;
+    // AH2 分页和护理快捷项仍使用旧切点定位单个统计日。
+    public LocalDateTime getMidnightUtc(
+        List<LocalDateTime> deptBalanceStatsUtcs, LocalDateTime inputUtc
+    ) {
+        LocalDateTime cutoffUtc = null;
+        for (LocalDateTime cutoff : deptBalanceStatsUtcs) {
+            if (!inputUtc.isBefore(cutoff)) cutoffUtc = cutoff;
+        }
+        int startHour = cutoffUtc == null ? Consts.DEFAULT_SHIFT_START_HOUR
+            : TimeUtils.getLocalDateTimeFromUtc(cutoffUtc, zone.getId()).getHour();
+        LocalDateTime inputLocal = TimeUtils.getLocalDateTimeFromUtc(inputUtc, zone.getId());
+        LocalDate day = inputLocal.toLocalDate();
+        if (inputLocal.getHour() < startHour) day = day.minusDays(1);
+        LocalDateTime startLocal = day.atTime(startHour, 0).atZone(zone).toLocalDateTime();
+        return TimeUtils.getUtcFromLocalDateTime(TimeUtils.truncateToDay(startLocal), zone.getId());
+    }
+
+    private final ZoneId zone;
+    private final StatsDayWindowResolver statsDayWindowResolver;
     private final PatientNursingReportRepository pnrRepo;
 }

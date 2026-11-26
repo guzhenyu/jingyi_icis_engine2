@@ -9,6 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Component;
 
@@ -105,18 +106,75 @@ public class StatsDayWindowResolver {
         return statisticDates;
     }
 
+    /**
+     * 按输入首次出现的顺序，返回各时间点命中的出入量窗口起点（UTC）。
+     * 窗口包含起点，排除结束时刻。窗口重叠可命中多个起点，空缺时返回空列表。
+     */
+    public Map<LocalDateTime, List<LocalDateTime>> resolveBalanceStartsUtc(
+        String deptId, List<LocalDateTime> inputTimesUtc
+    ) {
+        if (deptId == null || deptId.isBlank()) {
+            throw new IllegalArgumentException("Department is required");
+        }
+        if (inputTimesUtc == null || inputTimesUtc.stream().anyMatch(Objects::isNull)) {
+            throw new IllegalArgumentException("Time is required");
+        }
+        if (inputTimesUtc.isEmpty()) return Map.of();
+
+        List<BalanceStatsShift> shifts = statsDayConfigReader.listActiveByDept(deptId);
+        Map<LocalDateTime, List<LocalDateTime>> balanceStarts = new LinkedHashMap<>();
+        for (LocalDateTime utc : inputTimesUtc) {
+            balanceStarts.computeIfAbsent(utc, time -> resolveBalanceWindows(time, shifts).stream()
+                .map(StatsDayWindow::balanceStartUtc)
+                .collect(Collectors.toCollection(ArrayList::new)));
+        }
+        return balanceStarts;
+    }
+
+    /**
+     * 按当地日期升序返回两个端点命中的出入量统计日及其间每日的窗口，包含首尾。
+     * 端点无命中时纳入当地当天和前一天。整批只读取一次科室配置。
+     */
+    public List<StatsDayWindow> getAffectedStatsDayWindows(
+        String deptId, LocalDateTime startUtc, LocalDateTime endUtc
+    ) {
+        if (startUtc == null || endUtc == null || startUtc.isAfter(endUtc)) {
+            throw new IllegalArgumentException("Invalid time range");
+        }
+        if (deptId == null || deptId.isBlank()) {
+            throw new IllegalArgumentException("Department is required");
+        }
+
+        List<BalanceStatsShift> shifts = statsDayConfigReader.listActiveByDept(deptId);
+        List<LocalDate> affectedDays = new ArrayList<>();
+        for (LocalDateTime utc : List.of(startUtc, endUtc)) {
+            List<StatsDayWindow> matches = resolveBalanceWindows(utc, shifts);
+            if (matches.isEmpty()) {
+                LocalDate day = TimeUtils.getLocalDateTimeFromUtc(utc, ZONE_ID).toLocalDate();
+                affectedDays.add(day.minusDays(1));
+                affectedDays.add(day);
+            } else {
+                for (StatsDayWindow window : matches) {
+                    affectedDays.add(TimeUtils.getLocalDateTimeFromUtc(
+                        window.dayMidnightUtc(), ZONE_ID).toLocalDate());
+                }
+            }
+        }
+        LocalDate firstDay = Collections.min(affectedDays);
+        LocalDate lastDay = Collections.max(affectedDays);
+        return firstDay.datesUntil(lastDay.plusDays(1))
+            .map(day -> resolveDay(day, shifts))
+            .toList();
+    }
+
     private List<LocalDate> resolveStatisticDatesFromShifts(
         LocalDateTime utc, List<BalanceStatsShift> shifts
     ) {
         if (utc == null) throw new IllegalArgumentException("Time is required");
         Objects.requireNonNull(shifts, "shifts");
 
-        // 取当前时间点的当地日期及前后各一天，避免配置变更时遗漏。
-        LocalDate day = TimeUtils.getLocalDateTimeFromUtc(utc, ZONE_ID).toLocalDate();
-        List<LocalDate> candidateDays = List.of(day.minusDays(1), day, day.plusDays(1));
-
         List<LocalDate> statisticDates = new ArrayList<>();
-        for (LocalDate candidateDay : candidateDays) {
+        for (LocalDate candidateDay : candidateDays(utc)) {
             StatsDayWindow window = resolveDay(candidateDay, shifts);
             if (containsUtc(utc, window.monitoringStartUtc(), window.monitoringEndUtc())
                 || containsUtc(utc, window.balanceStartUtc(), window.balanceEndUtc())
@@ -125,6 +183,25 @@ public class StatsDayWindowResolver {
             }
         }
         return statisticDates;
+    }
+
+    private List<StatsDayWindow> resolveBalanceWindows(
+        LocalDateTime utc, List<BalanceStatsShift> shifts
+    ) {
+        List<StatsDayWindow> windows = new ArrayList<>();
+        for (LocalDate candidateDay : candidateDays(utc)) {
+            StatsDayWindow window = resolveDay(candidateDay, shifts);
+            if (containsUtc(utc, window.balanceStartUtc(), window.balanceEndUtc())) {
+                windows.add(window);
+            }
+        }
+        return windows;
+    }
+
+    private List<LocalDate> candidateDays(LocalDateTime utc) {
+        // 取当前时间点的当地日期及前后各一天，避免配置变更时遗漏。
+        LocalDate day = TimeUtils.getLocalDateTimeFromUtc(utc, ZONE_ID).toLocalDate();
+        return List.of(day.minusDays(1), day, day.plusDays(1));
     }
 
     private boolean containsUtc(LocalDateTime utc, LocalDateTime start, LocalDateTime end) {
@@ -152,6 +229,7 @@ public class StatsDayWindowResolver {
 
         // 两个当地端点分别换算，保留相邻统计日之间的重叠或空缺。
         return new StatsDayWindow(
+            TimeUtils.getDayMidnightUtc(day, zone),
             getHourUtc(day, monHour),
             getHourUtc(nextDay, monHour),
             getHourUtc(day, startHour),

@@ -4,6 +4,7 @@ import static com.jingyicare.jingyi_icis_engine.testutils.StatsDayTestUtils.mock
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
@@ -34,6 +35,7 @@ class StatsDayWindowResolverTests {
     void shouldResolveBothWindowsFromOneSelectionBeforeNextLocalMidnight() {
         configure(ANCHOR, shift(6, 7, 9));
         StatsDayWindow window = resolver.resolve(ANCHOR, DEPT);
+        assertThat(window.dayMidnightUtc()).isEqualTo(ANCHOR);
         assertThat(window.balanceStartUtc()).isEqualTo("2026-10-22T22:00:00");
         assertThat(window.balanceEndUtc()).isEqualTo("2026-10-23T22:00:00");
         assertThat(window.monitoringStartUtc()).isEqualTo("2026-10-22T23:00:00");
@@ -151,6 +153,8 @@ class StatsDayWindowResolverTests {
             List.of(ANCHOR.plusDays(1), ANCHOR, ANCHOR.plusDays(1)), DEPT);
 
         assertThat(windows).hasSize(3);
+        assertThat(windows).extracting(StatsDayWindow::dayMidnightUtc)
+            .containsExactly(ANCHOR.plusDays(1), ANCHOR, ANCHOR.plusDays(1));
         assertThat(windows).extracting(StatsDayWindow::startHour).containsExactly(10, 6, 10);
         assertThat(windows).extracting(StatsDayWindow::monitoringStartUtc).containsExactly(
             ANCHOR.plusDays(1).plusHours(11), ANCHOR.plusHours(7),
@@ -272,6 +276,133 @@ class StatsDayWindowResolverTests {
             .isThrownBy(() -> resolver.resolveStatisticDates(Arrays.asList(ANCHOR, null), DEPT));
         assertThatIllegalArgumentException()
             .isThrownBy(() -> resolver.resolveStatisticDates(List.of(ANCHOR), " "));
+        verifyNoMoreInteractions(reader);
+    }
+
+    @Test
+    void shouldResolveOnlyMatchingBalanceStartsInFirstSeenOrderWithOneQuery() {
+        LocalDateTime secondDay = ANCHOR.plusDays(1);
+        LocalDateTime thirdDay = ANCHOR.plusDays(2);
+        configure(ANCHOR, shift(8, 8, 12));
+        configure(secondDay, shift(10, 6, 12));
+        configure(thirdDay, shift(6, 6, 12));
+        LocalDateTime firstStart = ANCHOR.plusHours(8);
+        LocalDateTime secondStart = secondDay.plusHours(10);
+        LocalDateTime thirdStart = thirdDay.plusHours(6);
+        LocalDateTime overlap = thirdDay.plusHours(7);
+        LocalDateTime monitoringOnly = secondDay.plusHours(9);
+        LocalDateTime beforeGap = secondDay.plusHours(7);
+        LocalDateTime overlapEnd = thirdDay.plusHours(10);
+
+        Map<LocalDateTime, List<LocalDateTime>> starts = resolver.resolveBalanceStartsUtc(DEPT,
+            List.of(overlap, monitoringOnly, beforeGap, secondStart, overlap, overlapEnd));
+
+        assertThat(starts.keySet())
+            .containsExactly(overlap, monitoringOnly, beforeGap, secondStart, overlapEnd);
+        assertThat(starts.get(overlap)).containsExactly(secondStart, thirdStart);
+        assertThat(starts.get(monitoringOnly)).isEmpty();
+        assertThat(starts.get(beforeGap)).containsExactly(firstStart);
+        assertThat(starts.get(secondStart)).containsExactly(secondStart);
+        assertThat(starts.get(overlapEnd)).containsExactly(thirdStart);
+        verify(reader).listActiveByDept(DEPT);
+        verifyNoMoreInteractions(reader);
+    }
+
+    @Test
+    void shouldReturnEmptyBalanceStartBatchWithoutQuerying() {
+        assertThat(resolver.resolveBalanceStartsUtc(DEPT, List.of())).isEmpty();
+        verifyNoMoreInteractions(reader);
+    }
+
+    @Test
+    void shouldRejectInvalidBalanceStartBatchBeforeQuerying() {
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> resolver.resolveBalanceStartsUtc(DEPT, null));
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> resolver.resolveBalanceStartsUtc(DEPT, Arrays.asList(ANCHOR, null)));
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> resolver.resolveBalanceStartsUtc(" ", List.of()));
+        verifyNoMoreInteractions(reader);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"0, 12, 12", "0, 12, 9", "1, 7, 12", "1, 7, 9"})
+    void shouldFillAffectedDaysAndApplyFallbackToEachUnmatchedEndpoint(
+        int startDayOffset, int startHour, int endHour
+    ) {
+        LocalDateTime secondDay = ANCHOR.plusDays(1);
+        LocalDateTime thirdDay = ANCHOR.plusDays(2);
+        configure(ANCHOR, shift(6, 6, 9));
+        configure(secondDay, shift(8, 6, 10));
+        configure(thirdDay, shift(10, 8, 11));
+        // 空缺中的端点仍命中观察窗口，出入量统计日仍需按端点分别兜底。
+        List<StatsDayWindow> windows = resolver.getAffectedStatsDayWindows(DEPT,
+            ANCHOR.plusDays(startDayOffset).plusHours(startHour), thirdDay.plusHours(endHour));
+
+        assertThat(windows).extracting(StatsDayWindow::dayMidnightUtc,
+            StatsDayWindow::balanceStartUtc, StatsDayWindow::balanceEndUtc,
+            StatsDayWindow::halfDayShiftHours)
+            .containsExactly(
+                tuple(ANCHOR, ANCHOR.plusHours(6), secondDay.plusHours(6), 9),
+                tuple(secondDay, secondDay.plusHours(8), thirdDay.plusHours(8), 10),
+                tuple(thirdDay, thirdDay.plusHours(10), thirdDay.plusDays(1).plusHours(10), 11)
+            );
+        verify(reader).listActiveByDept(DEPT);
+        verifyNoMoreInteractions(reader);
+    }
+
+    @Test
+    void shouldReturnBothAffectedWindowsForOneTimeInAnOverlap() {
+        LocalDateTime nextDay = ANCHOR.plusDays(1);
+        configure(ANCHOR, shift(10, 10, 12));
+        configure(nextDay, shift(6, 6, 12));
+        LocalDateTime overlap = nextDay.plusHours(7);
+
+        List<StatsDayWindow> windows = resolver.getAffectedStatsDayWindows(DEPT, overlap, overlap);
+
+        assertThat(windows).extracting(StatsDayWindow::dayMidnightUtc,
+            StatsDayWindow::balanceStartUtc, StatsDayWindow::balanceEndUtc)
+            .containsExactly(
+                tuple(ANCHOR, ANCHOR.plusHours(10), nextDay.plusHours(10)),
+                tuple(nextDay, nextDay.plusHours(6), nextDay.plusDays(1).plusHours(6))
+            );
+        verify(reader).listActiveByDept(DEPT);
+        verifyNoMoreInteractions(reader);
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "2026-03-08T05:00, 2026-03-09T04:00, 23",
+        "2026-11-01T04:00, 2026-11-02T05:00, 25"
+    })
+    void shouldReturnAffectedMidnightsAcrossDaylightSavingTime(
+        LocalDateTime firstMidnightUtc, LocalDateTime secondMidnightUtc, long hours
+    ) {
+        List<StatsDayWindow> windows = resolverForZone("America/New_York")
+            .getAffectedStatsDayWindows(DEPT,
+                firstMidnightUtc.plusHours(12), secondMidnightUtc.plusHours(12));
+
+        assertThat(windows).extracting(StatsDayWindow::dayMidnightUtc)
+            .containsExactly(firstMidnightUtc, secondMidnightUtc);
+        assertThat(Duration.between(
+            windows.getFirst().dayMidnightUtc(), windows.getLast().dayMidnightUtc()))
+            .isEqualTo(Duration.ofHours(hours));
+        verify(reader).listActiveByDept(DEPT);
+        verifyNoMoreInteractions(reader);
+    }
+
+    @Test
+    void shouldRejectInvalidAffectedWindowRangeBeforeQuerying() {
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> resolver.getAffectedStatsDayWindows(DEPT, null, ANCHOR));
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> resolver.getAffectedStatsDayWindows(DEPT, ANCHOR, null));
+        assertThatIllegalArgumentException().isThrownBy(() ->
+            resolver.getAffectedStatsDayWindows(DEPT, ANCHOR.plusDays(1), ANCHOR));
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> resolver.getAffectedStatsDayWindows(null, ANCHOR, ANCHOR));
+        assertThatIllegalArgumentException()
+            .isThrownBy(() -> resolver.getAffectedStatsDayWindows(" ", ANCHOR, ANCHOR));
         verifyNoMoreInteractions(reader);
     }
 
