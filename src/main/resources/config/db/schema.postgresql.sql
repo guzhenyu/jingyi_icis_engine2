@@ -2392,6 +2392,7 @@ COMMENT ON COLUMN device_data.recorded_str IS '设备数据原始值';
 
 CREATE INDEX idx_device_data_device_id ON device_data(device_id);
 CREATE INDEX idx_device_data_recorded_at ON device_data(recorded_at);
+CREATE INDEX idx_device_data_device_id_recorded_at ON device_data(device_id, recorded_at);
 
 CREATE TABLE device_data_hourly (
     id BIGSERIAL PRIMARY KEY,

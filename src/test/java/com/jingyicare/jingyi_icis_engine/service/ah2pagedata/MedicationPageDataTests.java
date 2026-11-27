@@ -312,7 +312,7 @@ public class MedicationPageDataTests extends TestsBase {
 
         assertThat(monitoringRecordRepo.findByPidAndIsDeletedFalse(pid)).isNotEmpty();
         assertThat(monitoringStatsRepo.findByPidAndIsDeletedFalse(pid)).isNotEmpty();
-        assertThat(pnrRepo.findByPid(pid)).isNotEmpty();
+        assertThat(pnrRepo.findByPid(pid)).isEmpty();
 
         return exeRecord;
     }

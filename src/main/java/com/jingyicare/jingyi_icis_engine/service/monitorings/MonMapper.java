@@ -18,6 +18,7 @@ import com.jingyicare.jingyi_icis_engine.entity.monitorings.MonitoringParamHisto
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.PatientMonitoringGroupParam;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.DeptMonitoringParamPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringGroupBetaPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringGroupPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringGroupParamPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringParamPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.ValueMetaPB;
@@ -50,6 +51,27 @@ public final class MonMapper {
             .setCode(Objects.requireNonNullElse(code, ""))
             .setDisplayOrder(Objects.requireNonNullElse(displayOrder, 0))
             .build();
+    }
+
+    public static MonitoringGroupPB toMonitoringGroupPB(
+        DeptMonitoringGroup group, List<MonitoringGroupParamPB> params
+    ) {
+        if (group == null) return MonitoringGroupPB.getDefaultInstance();
+
+        MonitoringGroupPB.Builder builder = MonitoringGroupPB.newBuilder()
+            .setId(Objects.requireNonNullElse(group.getId(), 0))
+            .setName(Objects.requireNonNullElse(group.getName(), ""))
+            .setGroupType(Objects.requireNonNullElse(group.getGroupType(), 0))
+            .setDisplayOrder(Objects.requireNonNullElse(group.getDisplayOrder(), 0))
+            .addAllMonitoringParam(params);
+        Integer balanceRole = group.getBalanceRole();
+        if (Objects.equals(group.getGroupType(), MonEnums.GROUP_TYPE_BALANCE)
+            && balanceRole != null) {
+            builder.setBalanceRole(balanceRole);
+        }
+        ValueMetaPB sumValueMeta = ProtoUtils.decodeValueMeta(group.getSumTypePb());
+        if (sumValueMeta != null) builder.setSumValueMeta(sumValueMeta);
+        return builder.build();
     }
 
     public static MonitoringGroupBetaPB toMonitoringGroupBetaPB(
@@ -91,59 +113,84 @@ public final class MonMapper {
                 .sorted(Comparator.comparingInt(MonitoringGroupParamPB::getDisplayOrder)
                     .thenComparingInt(MonitoringGroupParamPB::getId))
                 .toList();
-            List<MonitoringParamPB> paramPbs = new ArrayList<>();
-            int nextDisplayOrder = 1;
-            for (MonitoringGroupParamPB groupParam : groupParams) {
-                String code = groupParam.getCode();
+            monitoringGroups.add(buildMonitoringGroupBetaPB(group.getDeptId(),
+                toMonitoringGroupPB(group, groupParams), paramsByCode, tubeParamCodes,
+                tubeDetailTemplates));
+        }
+        return monitoringGroups;
+    }
+
+    public static List<MonitoringGroupBetaPB> toMonitoringGroupBetaPBs(
+        String deptId, List<MonitoringGroupPB> groups, Map<String, MonitoringParam> paramsByCode,
+        List<String> tubeParamCodes, List<MonitoringParamPB> tubeDetailTemplates
+    ) {
+        List<MonitoringGroupBetaPB> result = new ArrayList<>();
+        for (MonitoringGroupPB group : groups) {
+            result.add(buildMonitoringGroupBetaPB(
+                deptId, group, paramsByCode, tubeParamCodes, tubeDetailTemplates));
+        }
+        return result;
+    }
+
+    private static MonitoringGroupBetaPB buildMonitoringGroupBetaPB(
+        String deptId, MonitoringGroupPB group, Map<String, MonitoringParam> paramsByCode,
+        List<String> tubeParamCodes, List<MonitoringParamPB> tubeDetailTemplates
+    ) {
+        List<MonitoringParamPB> paramPbs = new ArrayList<>();
+        int nextDisplayOrder = 1;
+        for (MonitoringGroupParamPB groupParam : group.getMonitoringParamList()) {
+            String code = groupParam.getCode();
+            MonitoringParam param = paramsByCode.get(code);
+            if (param == null) {
+                log.error("MonitoringParam not found for code: {}, deptId {}", code, deptId);
+                continue;
+            }
+            ValueMetaPB valueMeta = ProtoUtils.decodeValueMeta(param.getTypePb());
+            if (valueMeta == null) {
+                log.error("ValueMetaPB not found for code: {}, deptId {}", code, deptId);
+                continue;
+            }
+
+            int displayOrder = groupParam.getDisplayOrder();
+            paramPbs.add(toMonitoringParamPB(param, valueMeta).toBuilder()
+                .setId(groupParam.getId()).setDisplayOrder(displayOrder).build());
+            if (displayOrder >= nextDisplayOrder) nextDisplayOrder = displayOrder + 1;
+        }
+
+        boolean isBalanceOutGroup = group.getGroupType() == MonEnums.GROUP_TYPE_BALANCE
+            && group.getBalanceRole() == MonEnums.BALANCE_TYPE_OUT;
+        if (isBalanceOutGroup && tubeParamCodes != null) {
+            for (String code : tubeParamCodes) {
                 MonitoringParam param = paramsByCode.get(code);
                 if (param == null) {
-                    log.error("MonitoringParam not found for code: {}, deptId {}",
-                        code, group.getDeptId());
+                    log.error("MonitoringParam not found for balance out tube code: {}, deptId {}",
+                        code, deptId);
                     continue;
                 }
                 ValueMetaPB valueMeta = ProtoUtils.decodeValueMeta(param.getTypePb());
                 if (valueMeta == null) {
-                    log.error("ValueMetaPB not found for code: {}, deptId {}",
-                        code, group.getDeptId());
+                    log.error("ValueMetaPB not found for balance out tube code: {}, deptId {}",
+                        code, deptId);
                     continue;
                 }
-
-                int displayOrder = groupParam.getDisplayOrder();
                 paramPbs.add(toMonitoringParamPB(param, valueMeta).toBuilder()
-                    .setId(groupParam.getId()).setDisplayOrder(displayOrder).build());
-                if (displayOrder >= nextDisplayOrder) nextDisplayOrder = displayOrder + 1;
-            }
-
-            boolean isBalanceOutGroup =
-                Objects.equals(group.getGroupType(), MonEnums.GROUP_TYPE_BALANCE)
-                && Objects.equals(group.getBalanceRole(), MonEnums.BALANCE_TYPE_OUT);
-            if (isBalanceOutGroup && tubeParamCodes != null) {
-                for (String code : tubeParamCodes) {
-                    MonitoringParam param = paramsByCode.get(code);
-                    if (param == null) {
-                        log.error(
-                            "MonitoringParam not found for balance out tube code: {}, deptId {}",
-                            code, group.getDeptId());
-                        continue;
-                    }
-                    ValueMetaPB valueMeta = ProtoUtils.decodeValueMeta(param.getTypePb());
-                    if (valueMeta == null) {
-                        log.error("ValueMetaPB not found for balance out tube code: {}, deptId {}",
-                            code, group.getDeptId());
-                        continue;
-                    }
-                    paramPbs.add(toMonitoringParamPB(param, valueMeta).toBuilder()
-                        .setDisplayOrder(nextDisplayOrder++).build());
-                    for (MonitoringParamPB template : tubeDetailTemplates) {
-                        paramPbs.add(template.toBuilder()
-                            .setCode(code + "_" + template.getCode())
-                            .build());
-                    }
+                    .setDisplayOrder(nextDisplayOrder++).build());
+                for (MonitoringParamPB template : tubeDetailTemplates) {
+                    paramPbs.add(template.toBuilder().setCode(code + "_" + template.getCode())
+                        .build());
                 }
             }
-            monitoringGroups.add(toMonitoringGroupBetaPB(group, paramPbs));
         }
-        return monitoringGroups;
+
+        MonitoringGroupBetaPB.Builder builder = MonitoringGroupBetaPB.newBuilder()
+            .setId(group.getId())
+            .setName(group.getName())
+            .setGroupType(group.getGroupType())
+            .setDisplayOrder(group.getDisplayOrder())
+            .addAllParam(paramPbs);
+        if (group.hasBalanceRole()) builder.setBalanceRole(group.getBalanceRole());
+        if (group.hasSumValueMeta()) builder.setSumValueMeta(group.getSumValueMeta());
+        return builder.build();
     }
 
     public static MonitoringParamPB toMonitoringParamPB(

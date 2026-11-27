@@ -18,10 +18,26 @@ public interface PatientMonitoringGroupParamRepository extends JpaRepository<Pat
 
     List<PatientMonitoringGroupParam> findByPatientMonitoringGroupIdInAndIsDeletedFalse(List<Integer> patientMonitoringGroupIds);
 
+    @Query("""
+        SELECT g.deptMonitoringGroupId AS deptGroupId, p AS param
+        FROM PatientMonitoringGroupParam p
+        JOIN PatientMonitoringGroup g ON g.id = p.patientMonitoringGroupId
+        WHERE g.id IN :patientGroupIds AND g.isDeleted = false AND p.isDeleted = false
+        """)
+    List<DeptGroupParam> findActiveParamsWithDeptGroupId(
+        @Param("patientGroupIds") List<Integer> patientGroupIds
+    );
+
     Optional<PatientMonitoringGroupParam> findByPatientMonitoringGroupIdAndMonitoringParamCodeAndIsDeletedFalse(Integer patientMonitoringGroupId, String monitoringParamCode);
 
     @Query(value = "select pmgp.* from patient_monitoring_group_params pmgp " +
            "join patient_monitoring_groups pmg on pmgp.patient_monitoring_group_id = pmg.id " +
            "where pmg.pid = :pid and pmgp.is_deleted = :isDeleted", nativeQuery = true)
     List<PatientMonitoringGroupParam> findByPidAndIsDeleted(Long pid, Boolean isDeleted);
+
+    interface DeptGroupParam {
+        Integer getDeptGroupId();
+
+        PatientMonitoringGroupParam getParam();
+    }
 }

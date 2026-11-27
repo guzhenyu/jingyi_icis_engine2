@@ -2,7 +2,6 @@ package com.jingyicare.jingyi_icis_engine.service.monitorings.meta;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -31,6 +30,7 @@ import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.StatusCode;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.SyncPatientMonitoringGroupsFromDeptReq;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.UpdatePatientMonitoringGroupReq;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringGroupBetaPB;
+import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringGroupPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringGroupParamPB;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.MonitoringParamPB;
 import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.GenericResp;
@@ -135,7 +135,7 @@ public class PatientMonMetaService {
         Map<String, MonitoringParam> paramsByCode =
             deptMonMetaReader.listEffectiveMonitoringParams(deptId);
         // 报表等调用方可能已有事务，只在读取患者分组布局时暂挂该事务。
-        GroupLayout layout = suspendTransactionTemplate.execute(ignored ->
+        List<MonitoringGroupPB> groups = suspendTransactionTemplate.execute(ignored ->
             lockExecutor.execute(List.of(LockKeys.patientMonitoringGroups(pid)), () -> {
                 List<PatientMonitoringGroup> patientGroups =
                     patientMonMetaReader.listActiveGroups(pid);
@@ -143,7 +143,7 @@ public class PatientMonMetaService {
                     PatientRecord patient = patientReader.findById(pid).orElse(null);
                     if (patient == null || !Objects.equals(patient.getDeptId(), deptId)) {
                         log.warn("无法初始化患者观察项分组：pid={}，deptId={}", pid, deptId);
-                        return new GroupLayout(List.of(), Map.of());
+                        return List.of();
                     }
                     List<DeptMonitoringGroup> deptGroups =
                         deptMonMetaReader.listActiveGroups(deptId);
@@ -151,38 +151,17 @@ public class PatientMonMetaService {
                         pid, deptGroups, accountId, TimeUtils.getNowUtc());
                 }
 
-                Map<Integer, Integer> patientGroupIdsByDeptGroupId = patientGroups.stream()
-                    .collect(Collectors.toMap(PatientMonitoringGroup::getDeptMonitoringGroupId,
-                        PatientMonitoringGroup::getId));
-                List<DeptMonitoringGroup> groups = deptMonMetaReader
-                    .listGroupsByIdsAndTypeIncludingDeleted(
-                        List.copyOf(patientGroupIdsByDeptGroupId.keySet()), groupType);
-                List<Integer> deptGroupIds = groups.stream().map(DeptMonitoringGroup::getId)
-                    .toList();
-                Map<Integer, List<DeptMonitoringGroupParam>> deptParamsByGroupId =
-                    deptMonMetaReader.listActiveGroupParamsByGroupIds(deptGroupIds);
-                List<Integer> patientGroupIds = deptGroupIds.stream()
-                    .map(patientGroupIdsByDeptGroupId::get).toList();
-                Map<Integer, List<PatientMonitoringGroupParam>> patientParamsByGroupId =
-                    patientMonMetaReader.listActiveGroupParamsByGroupIds(patientGroupIds);
-
-                Map<Integer, List<MonitoringGroupParamPB>> paramsByDeptGroupId = new HashMap<>();
-                for (Integer deptGroupId : deptGroupIds) {
-                    int patientGroupId = patientGroupIdsByDeptGroupId.get(deptGroupId);
-                    List<PatientMonitoringGroupParam> customParams =
-                        patientParamsByGroupId.getOrDefault(patientGroupId, List.of());
-                    List<MonitoringGroupParamPB> params = customParams.isEmpty()
-                        ? deptParamsByGroupId.getOrDefault(deptGroupId, List.of())
-                            .stream().map(MonMapper::toMonitoringGroupParamPB).toList()
-                        : customParams.stream().map(MonMapper::toMonitoringGroupParamPB).toList();
-                    paramsByDeptGroupId.put(deptGroupId, params);
-                }
-                return new GroupLayout(groups, paramsByDeptGroupId);
+                List<Integer> deptGroupIds = patientGroups.stream()
+                    .map(PatientMonitoringGroup::getDeptMonitoringGroupId).toList();
+                List<DeptMonitoringGroup> deptGroups = deptMonMetaReader
+                    .listGroupsByIdsAndTypeIncludingDeleted(deptGroupIds, groupType);
+                return patientMonMetaReader.readMonitoringGroups(
+                    deptGroups, patientGroups, paramsByCode.keySet());
             })
         );
 
-        return MonMapper.toMonitoringGroupBetaPBs(layout.groups(), layout.paramsByDeptGroupId(),
-            paramsByCode, enableDrainage && tubeParamCodes != null ? tubeParamCodes : List.of(),
+        return MonMapper.toMonitoringGroupBetaPBs(deptId, groups, paramsByCode,
+            enableDrainage && tubeParamCodes != null ? tubeParamCodes : List.of(),
             enableDrainageParams ? tubeParamList : List.of());
     }
 
@@ -373,11 +352,6 @@ public class PatientMonMetaService {
             .toList();
         return patientGroupRepository.saveAll(patientGroups);
     }
-
-    private record GroupLayout(
-        List<DeptMonitoringGroup> groups,
-        Map<Integer, List<MonitoringGroupParamPB>> paramsByDeptGroupId
-    ) {}
 
     private final PatientMonMetaReader patientMonMetaReader;
     private final DeptMonMetaReader deptMonMetaReader;

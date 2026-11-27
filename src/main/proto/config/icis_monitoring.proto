@@ -73,7 +73,7 @@ message MonitoringGroupParamPB {
 }
 
 message MonitoringGroupPB {
-    int32 id = 1;
+    int32 id = 1;  // dept_monitoring_groups.id
     string name = 2;
     int32 group_type = 3;  // 对应于MonitoringEnumsPB.group_type_xx.id
     int32 display_order = 4;  // 分组间的次序

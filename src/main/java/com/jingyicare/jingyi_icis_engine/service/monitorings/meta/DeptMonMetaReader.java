@@ -151,10 +151,14 @@ public class DeptMonMetaReader {
         return groupRepo.findByIdAndDeptIdAndIsDeletedFalse(groupId, deptId);
     }
 
-    // findGroupByIdIncludingDeleted listGroupsByIdsAndTypeIncludingDeleted
-    // 用于查找患者的特殊化分组配置
+    // 患者已有绑定可能指向已软删的科室分组。
     public Optional<DeptMonitoringGroup> findGroupByIdIncludingDeleted(int groupId) {
         return groupRepo.findById(groupId);
+    }
+
+    public List<DeptMonitoringGroup> listGroupsByIdsIncludingDeleted(List<Integer> groupIds) {
+        if (groupIds.isEmpty()) return List.of();
+        return groupRepo.findByIdIn(groupIds);
     }
 
     public List<DeptMonitoringGroup> listGroupsByIdsAndTypeIncludingDeleted(
