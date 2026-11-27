@@ -1,6 +1,5 @@
 package com.jingyicare.jingyi_icis_engine.service.monitorings;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
@@ -25,6 +24,7 @@ import com.jingyicare.jingyi_icis_engine.repository.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.ConfigProtoService;
 import com.jingyicare.jingyi_icis_engine.service.patients.*;
 import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceBindingReader;
+import com.jingyicare.jingyi_icis_engine.service.settings.SettingService;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
 @Service
@@ -39,16 +39,11 @@ public class DeviceDataFetcher {
         @Autowired DeviceDataRepository devDataRepo,
         @Autowired DeviceDataHourlyRepository devDataHourlyRepo,
         @Autowired DeviceDataHourlyApproxRepository devDataHourlyApproxRepo,
-        @Value("${monitoring.enable_hourly_approx:false}") boolean enableHourlyApprox,
-        @Value("${monitoring.hourly_approx_boundary_minutes:10}") int hourlyApproxBoundaryMinutes
+        @Autowired SettingService settingService,
+        @Value("${monitoring.enable_hourly_approx:false}") boolean enableHourlyApprox
     ) {
         this.ZONE_ID = protoService.getConfig().getZoneId();
-        this.APPROX_SECONDS = protoService.getConfig().getDevice().getApproxSeconds();
         this.enableHourlyApprox = enableHourlyApprox;
-        this.hourlyApproxBoundaryMinutes = hourlyApproxBoundaryMinutes;
-        this.paramCodesToApprox = new HashSet<>(
-            protoService.getConfig().getDevice().getParamCodeToApproxList()
-        );
         aliasCodeMap = new HashMap<>();
         for (AltParamCodePairPB pair : protoService.getConfig().getDevice().getAlternativeCodePairList()) {
             String origCode = pair.getReplacingCode();
@@ -67,6 +62,7 @@ public class DeviceDataFetcher {
         this.devDataRepo = devDataRepo;
         this.devDataHourlyRepo = devDataHourlyRepo;
         this.devDataHourlyApproxRepo = devDataHourlyApproxRepo;
+        this.settingService = settingService;
     }
 
     public static class FetchContext {
@@ -93,6 +89,10 @@ public class DeviceDataFetcher {
             this.patientRecord = null;
             this.modifiedBy = modifiedBy;
         }
+
+        int hourlyApproxSeconds;
+        int paramApproxSeconds;
+        final Set<String> paramCodesToApprox = new HashSet<>();
     }
 
     @AllArgsConstructor
@@ -132,11 +132,6 @@ public class DeviceDataFetcher {
         String modifiedBy
     ) {
         if (!enableHourlyApprox) return new Pair<>(StatusCode.OK, Collections.emptyList());
-        if (hourlyApproxBoundaryMinutes <= 0) {
-            log.warn("Invalid monitoring.hourly_approx_boundary_minutes: {}, skip hourly approx",
-                hourlyApproxBoundaryMinutes);
-            return new Pair<>(StatusCode.OK, Collections.emptyList());
-        }
 
         FetchContext ctx = getFetchContext(
             pid, from, to, Collections.emptyList(), paramGroups, modifiedBy
@@ -148,13 +143,15 @@ public class DeviceDataFetcher {
             .toList();
         if (hourlyEffectiveTimes.isEmpty()) return new Pair<>(StatusCode.OK, Collections.emptyList());
 
-        LinkedHashSet<String> targetParamCodes = getHourlyApproxTargetParamCodes(paramGroups);
+        LinkedHashSet<String> targetParamCodes = getHourlyApproxTargetParamCodes(
+            paramGroups, ctx.paramCodesToApprox
+        );
         if (targetParamCodes.isEmpty()) return new Pair<>(StatusCode.OK, Collections.emptyList());
 
         LinkedHashSet<String> queryParamCodes = getHourlyApproxQueryParamCodes(targetParamCodes);
         if (queryParamCodes.isEmpty()) return new Pair<>(StatusCode.OK, Collections.emptyList());
 
-        long boundarySeconds = Duration.ofMinutes(hourlyApproxBoundaryMinutes).toSeconds();
+        long boundarySeconds = ctx.hourlyApproxSeconds;
         List<DevDataQuery> queries = getDeviceDataQueries(ctx, boundarySeconds);
 
         List<DeviceDataHourly> hourlyDataList = getHourlyDataForHourlyApprox(
@@ -227,6 +224,10 @@ public class DeviceDataFetcher {
         }
         ctx.deptId = patient.getDeptId();
         ctx.patientRecord = patient;
+        DeptMonitoringSettingsPB settings = settingService.getDeptMonitoringSettings(ctx.deptId);
+        ctx.hourlyApproxSeconds = settings.getHourlyApproxSeconds();
+        ctx.paramApproxSeconds = settings.getParamApproxSeconds();
+        ctx.paramCodesToApprox.addAll(settings.getParamCodeToApproxList());
 
         if (from.isBefore(patient.getAdmissionTime())) {
             ctx.from = patient.getAdmissionTime();
@@ -264,7 +265,7 @@ public class DeviceDataFetcher {
     }
 
     public List<DevDataQuery> getDeviceDataQueries(FetchContext ctx) {
-        return getDeviceDataQueries(ctx, APPROX_SECONDS);
+        return getDeviceDataQueries(ctx, ctx.paramApproxSeconds);
     }
 
     private List<DevDataQuery> getDeviceDataQueries(FetchContext ctx, long approxSeconds) {
@@ -322,7 +323,9 @@ public class DeviceDataFetcher {
         return queries;
     }
 
-    private LinkedHashSet<String> getHourlyApproxTargetParamCodes(List<MonitoringGroupBetaPB> paramGroups) {
+    private LinkedHashSet<String> getHourlyApproxTargetParamCodes(
+        List<MonitoringGroupBetaPB> paramGroups, Set<String> paramCodesToApprox
+    ) {
         LinkedHashSet<String> targetParamCodes = new LinkedHashSet<>();
         for (MonitoringGroupBetaPB group : paramGroups) {
             for (MonitoringParamPB param : group.getParamList()) {
@@ -485,11 +488,12 @@ public class DeviceDataFetcher {
         List<DeviceDataHourlyApprox> approxDataList = new ArrayList<>();
         List<DeviceDataHourly> hourlyDataList = new ArrayList<>();
         List<DeviceData> deviceDataList = new ArrayList<>();
+        List<String> approxParamCodes = List.copyOf(ctx.paramCodesToApprox);
         for (DevDataQuery query : deviceDataQueries) {
             if (query.devBedNum != null) {
                 approxDataList.addAll(devDataHourlyApproxRepo
                     .findByBedNumberAndRecordedAtAndParamCodeIn(
-                        query.devBedNum, query.approxStart, query.approxEnd, paramCodesToApprox.stream().toList()
+                        query.devBedNum, query.approxStart, query.approxEnd, approxParamCodes
                     )
                 );
                 hourlyDataList.addAll(devDataHourlyRepo
@@ -499,7 +503,7 @@ public class DeviceDataFetcher {
             } else if (query.devId != null) {
                 approxDataList.addAll(devDataHourlyApproxRepo
                     .findByDeviceIdAndRecordedAtAndParamCodeIn(
-                        query.devId, query.approxStart, query.approxEnd, paramCodesToApprox.stream().toList()
+                        query.devId, query.approxStart, query.approxEnd, approxParamCodes
                     )
                 );
                 hourlyDataList.addAll(devDataHourlyRepo
@@ -516,12 +520,14 @@ public class DeviceDataFetcher {
         approxDataList = approxDataList.stream().filter(data -> seenIds.add(data.getId())).toList();
         seenIds.clear();
         hourlyDataList = hourlyDataList.stream().filter(
-            data -> seenIds.add(data.getId()) && !paramCodesToApprox.contains(data.getParamCode())
+            data -> seenIds.add(data.getId())
+                && !ctx.paramCodesToApprox.contains(data.getParamCode())
         ).toList();
         seenIds.clear();
         List<DeviceData> uniqueDataList = new ArrayList<>();
         uniqueDataList.addAll(deviceDataList.stream().filter(
-            data -> seenIds.add(data.getId()) && !paramCodesToApprox.contains(data.getParamCode())
+            data -> seenIds.add(data.getId())
+                && !ctx.paramCodesToApprox.contains(data.getParamCode())
         ).toList());
 
         // 合并，返回
@@ -570,14 +576,14 @@ public class DeviceDataFetcher {
         Map<String/*paramCode*/, List<DeviceData>> approxDevDataMap = new HashMap<>();
         for (Map.Entry<String, List<DeviceData>> entry : uniqueDevDataMap.entrySet()) {
             String paramCode = entry.getKey();
-            if (!paramCodesToApprox.contains(paramCode)) continue;
+            if (!ctx.paramCodesToApprox.contains(paramCode)) continue;
 
             List<DeviceData> devDataList = entry.getValue();
             if (devDataList.isEmpty()) continue;
 
             // 4）按照就近原则，生成近似数据
             List<DeviceData> approxDataList = approxSeries(
-                devDataList, ctx.allTimes, APPROX_SECONDS,
+                devDataList, ctx.allTimes, ctx.paramApproxSeconds,
                 true /* rightOpen */ // 窗口右开
             );
             approxDevDataMap.put(paramCode, approxDataList);
@@ -876,27 +882,14 @@ public class DeviceDataFetcher {
         return recordsToAdd; // 返回生成的 PatientMonitoringRecord 列表
     }
 
-    public void resetApproxSecondsForTesting(Integer approxSeconds) {
-        this.APPROX_SECONDS = approxSeconds;
-    }
-    public void resetParamCodesToApproxForTesting(Set<String> paramCodes) {
-        this.paramCodesToApprox = paramCodes;
-    }
     public void resetAliasCodeMapForTesting(Map<String, List<String>> aliasCodeMap) {
         this.aliasCodeMap = aliasCodeMap;
-    }
-    public void resetHourlyApproxConfigForTesting(boolean enableHourlyApprox, int hourlyApproxBoundaryMinutes) {
-        this.enableHourlyApprox = enableHourlyApprox;
-        this.hourlyApproxBoundaryMinutes = hourlyApproxBoundaryMinutes;
     }
 
     private final String ZONE_ID;
 
-    private Integer APPROX_SECONDS;
-    private boolean enableHourlyApprox;
-    private int hourlyApproxBoundaryMinutes;
+    private final boolean enableHourlyApprox;
 
-    private Set<String> paramCodesToApprox;
     private Map<String, List<String>> aliasCodeMap;
 
     private ConfigProtoService protoService;
@@ -907,4 +900,5 @@ public class DeviceDataFetcher {
     private DeviceDataRepository devDataRepo;
     private DeviceDataHourlyRepository devDataHourlyRepo;
     private DeviceDataHourlyApproxRepository devDataHourlyApproxRepo;
+    private final SettingService settingService;
 }

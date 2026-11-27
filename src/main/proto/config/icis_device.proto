@@ -94,10 +94,11 @@ message DeviceCascadePB {
 }
 
 message DeviceConfigPB {
+    reserved 3, 4;
+    reserved "param_code_to_approx", "approx_seconds";
+
     DeviceEnumsPB enums = 1;
     repeated AltParamCodePairPB alternative_code_pair = 2;
-    repeated string param_code_to_approx = 3;
-    int32 approx_seconds = 4;  // 近似时间内的数据合并时间间隔，单位秒
     DeviceCascadePB device_cascade = 5;
 }
 

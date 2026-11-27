@@ -161,4 +161,7 @@ message DeptMonitoringSettingsPB {
     int32 head_custom_time_point_grace_minutes = 2;
     int32 tail_custom_time_point_grace_minutes = 3;
     bool keep_input_precision = 4;
+    int32 hourly_approx_seconds = 5;  // 普通参数缺失整点时的近似取值容差，单位秒
+    int32 param_approx_seconds = 6;  // 指定参数的近似取值容差，单位秒
+    repeated string param_code_to_approx = 7;  // 使用指定近似取值容差的观察项编码
 }

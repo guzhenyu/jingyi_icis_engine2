@@ -50,8 +50,6 @@ class ConfigProtoServiceDeviceTests {
         Config loaded = loadConfig(path, "").getConfig();
         DeviceConfigPB device = loaded.getDevice();
         assertThat(device).isEqualTo(readCommonDevice());
-        assertThat(device.getApproxSeconds()).isEqualTo(1800);
-        assertThat(device.getParamCodeToApproxList()).containsExactly("nibp_s", "nibp_d", "nibp_m");
         assertThat(device.getDeviceCascade().getEntryList())
             .extracting(DeviceTypeEntryPB::getDeviceTypeId)
             .containsExactly(DEVICE_TYPE_MONITOR, DEVICE_TYPE_VENTILATOR,
@@ -99,7 +97,6 @@ class ConfigProtoServiceDeviceTests {
         DeviceConfigPB loaded = loadConfig(TEST_CONFIG_PATH, "").getConfig().getDevice();
 
         assertThat(loaded).isEqualTo(expected);
-        assertThat(loaded.getApproxSeconds()).isEqualTo(300);
     }
 
     @Test
@@ -126,14 +123,13 @@ class ConfigProtoServiceDeviceTests {
         Files.writeString(externalConfig, """
             patient { enums_v2 { bed_type_fixed: "常设床" bed_type_temp: "临时加床" } }
             device {
-                approx_seconds: 42
                 enums { source_mode { id: 7 name: "外部模式" } %s }
             }
             """.formatted(legacyBedType), StandardCharsets.UTF_8);
 
         ProtoConfig protoConfig = loadConfig(DEFAULT_CONFIG_PATH, externalConfig.toString());
 
-        DeviceConfigPB.Builder expected = DeviceConfigPB.newBuilder().setApproxSeconds(42);
+        DeviceConfigPB.Builder expected = DeviceConfigPB.newBuilder();
         expected.getEnumsBuilder().addSourceModeBuilder().setId(7).setName("外部模式");
         TextFormat.getParser().merge(legacyBedType, expected.getEnumsBuilder());
         DeviceEnumsPB published = publicDeviceEnums(protoConfig);

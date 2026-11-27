@@ -27,6 +27,7 @@ import com.jingyicare.jingyi_icis_engine.proto.config.IcisJfk.JfkTemplatePB;
 import com.jingyicare.jingyi_icis_engine.service.ProtoConfig;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockExecutor;
 import com.jingyicare.jingyi_icis_engine.service.locks.LockKeys;
+import com.jingyicare.jingyi_icis_engine.service.monitorings.MonEnums;
 import com.jingyicare.jingyi_icis_engine.service.reports.JfkTemplateReader;
 import com.jingyicare.jingyi_icis_engine.service.users.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
@@ -247,6 +248,9 @@ public class SettingService {
             .setTailCustomTimeGraceMinutes(
                 monitoringSettingsPb.getTailCustomTimePointGraceMinutes())
             .setKeepInputPrecision(monitoringSettingsPb.getKeepInputPrecision())
+            .setHourlyApproxSeconds(monitoringSettingsPb.getHourlyApproxSeconds())
+            .setParamApproxSeconds(monitoringSettingsPb.getParamApproxSeconds())
+            .addAllParamCodeToApprox(monitoringSettingsPb.getParamCodeToApproxList())
             .setNursingRecordOverwriteCreatedBy(
                 nursingRecordSettingsPb.getEnableUpdatingCreatedBy())
             .setScoreAllowEditRecordedBy(scoreSettingsPb.getAllowEditRecordedBy())
@@ -286,7 +290,8 @@ public class SettingService {
             case AST_ENABLE_MEDICATION_SPEED ->
                 SettingsStore.GET_MEDICAL_ORDER_SETTINGS;
             case AST_HEAD_CUSTOM_TIME_GRACE_MINUTES, AST_TAIL_CUSTOM_TIME_GRACE_MINUTES,
-                AST_KEEP_INPUT_PRECISION ->
+                AST_KEEP_INPUT_PRECISION, AST_HOURLY_APPROX_SECONDS, AST_PARAM_APPROX_SECONDS,
+                AST_PARAM_CODE_TO_APPROX ->
                 SettingsStore.GET_DEPT_MONITORING_SETTINGS;
             case AST_NURSING_RECORD_OVERWRITE_CREATED_BY ->
                 SettingsStore.GET_DEPT_NURSING_RECORD_SETTINGS;
@@ -332,9 +337,12 @@ public class SettingService {
         if (settingTypes.contains(AppSettingTypeEnum.AST_HEAD_CUSTOM_TIME_GRACE_MINUTES)
             || settingTypes.contains(AppSettingTypeEnum.AST_TAIL_CUSTOM_TIME_GRACE_MINUTES)
             || settingTypes.contains(AppSettingTypeEnum.AST_KEEP_INPUT_PRECISION)
+            || settingTypes.contains(AppSettingTypeEnum.AST_HOURLY_APPROX_SECONDS)
+            || settingTypes.contains(AppSettingTypeEnum.AST_PARAM_APPROX_SECONDS)
+            || settingTypes.contains(AppSettingTypeEnum.AST_PARAM_CODE_TO_APPROX)
         ) {
             DeptMonitoringSettingsPB.Builder monitoringSettingsPbBuilder =
-                getDeptMonitoringSettings(deptId).toBuilder();
+                loadDeptMonitoringSettings(deptId).toBuilder();
             if (settingTypes.contains(AppSettingTypeEnum.AST_HEAD_CUSTOM_TIME_GRACE_MINUTES)) {
                 monitoringSettingsPbBuilder.setHeadCustomTimePointGraceMinutes(
                     appSettingsPb.getHeadCustomTimeGraceMinutes());
@@ -346,6 +354,18 @@ public class SettingService {
             if (settingTypes.contains(AppSettingTypeEnum.AST_KEEP_INPUT_PRECISION)) {
                 monitoringSettingsPbBuilder.setKeepInputPrecision(
                     appSettingsPb.getKeepInputPrecision());
+            }
+            if (settingTypes.contains(AppSettingTypeEnum.AST_HOURLY_APPROX_SECONDS)) {
+                monitoringSettingsPbBuilder.setHourlyApproxSeconds(
+                    appSettingsPb.getHourlyApproxSeconds());
+            }
+            if (settingTypes.contains(AppSettingTypeEnum.AST_PARAM_APPROX_SECONDS)) {
+                monitoringSettingsPbBuilder.setParamApproxSeconds(
+                    appSettingsPb.getParamApproxSeconds());
+            }
+            if (settingTypes.contains(AppSettingTypeEnum.AST_PARAM_CODE_TO_APPROX)) {
+                monitoringSettingsPbBuilder.clearParamCodeToApprox()
+                    .addAllParamCodeToApprox(appSettingsPb.getParamCodeToApproxList());
             }
             settingsStore.saveDeptMonitoringSettingsPB(
                 deptId, monitoringSettingsPbBuilder.build(), accountId);
@@ -391,6 +411,22 @@ public class SettingService {
     }
 
     public DeptMonitoringSettingsPB getDeptMonitoringSettings(String deptId) {
+        DeptMonitoringSettingsPB settings = loadDeptMonitoringSettings(deptId);
+        List<String> paramCodes = settings.getParamCodeToApproxList().stream()
+            .map(String::strip).filter(code -> !code.isEmpty()).distinct().toList();
+        return settings.toBuilder()
+            .setHourlyApproxSeconds(settings.getHourlyApproxSeconds() > 0
+                ? settings.getHourlyApproxSeconds() : MonEnums.DEFAULT_HOURLY_APPROX_SECONDS)
+            .setParamApproxSeconds(settings.getParamApproxSeconds() > 0
+                ? settings.getParamApproxSeconds() : MonEnums.DEFAULT_PARAM_APPROX_SECONDS)
+            .clearParamCodeToApprox()
+            .addAllParamCodeToApprox(paramCodes.isEmpty()
+                ? MonEnums.DEFAULT_PARAM_CODE_TO_APPROX : paramCodes)
+            .build();
+    }
+
+    private DeptMonitoringSettingsPB loadDeptMonitoringSettings(String deptId) {
+        if (StrUtils.isBlank(deptId)) return DeptMonitoringSettingsPB.getDefaultInstance();
         return loadSettingsOrDefault(() -> settingsStore.getDeptMonitoringSettingsPB(deptId),
             DeptMonitoringSettingsPB.getDefaultInstance());
     }

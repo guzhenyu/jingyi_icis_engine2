@@ -26,10 +26,6 @@ alternative_code_pair {
     replacing_code: "vent_respiratory_rate"
     replaced_code: "respiratory_rate"
 }
-param_code_to_approx: "nibp_s"
-param_code_to_approx: "nibp_d"
-param_code_to_approx: "nibp_m"
-approx_seconds: 1800
 device_cascade {
     entry {
         device_type_id: 1

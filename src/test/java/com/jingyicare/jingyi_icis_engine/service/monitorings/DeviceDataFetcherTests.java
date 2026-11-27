@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import com.jingyicare.jingyi_icis_engine.entity.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.entity.patients.*;
+import com.jingyicare.jingyi_icis_engine.entity.users.RbacDepartment;
 import com.jingyicare.jingyi_icis_engine.proto.IcisWebApi.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisDevice.*;
 import com.jingyicare.jingyi_icis_engine.proto.config.IcisMonitoring.*;
@@ -18,8 +19,10 @@ import com.jingyicare.jingyi_icis_engine.proto.shared.Shared.*;
 import com.jingyicare.jingyi_icis_engine.proto.shared.ValueMeta.*;
 import com.jingyicare.jingyi_icis_engine.repository.monitorings.*;
 import com.jingyicare.jingyi_icis_engine.repository.patients.*;
+import com.jingyicare.jingyi_icis_engine.repository.users.RbacDepartmentRepository;
 import com.jingyicare.jingyi_icis_engine.service.patients.PatientEnums;
 import com.jingyicare.jingyi_icis_engine.service.patients.device.DeviceEnums;
+import com.jingyicare.jingyi_icis_engine.service.settings.SettingsStore;
 import com.jingyicare.jingyi_icis_engine.testutils.*;
 import com.jingyicare.jingyi_icis_engine.utils.*;
 
@@ -34,7 +37,9 @@ public class DeviceDataFetcherTests extends TestsBase {
         @Autowired PatientMonitoringRecordRepository monRecRepo,
         @Autowired DeviceDataRepository devDataRepo,
         @Autowired DeviceDataHourlyRepository devDataHourlyRepo,
-        @Autowired DeviceDataHourlyApproxRepository devDataHourlyApproxRepo
+        @Autowired DeviceDataHourlyApproxRepository devDataHourlyApproxRepo,
+        @Autowired RbacDepartmentRepository departmentRepo,
+        @Autowired SettingsStore settingsStore
     ) {
         this.deptId = "10040";
 
@@ -48,6 +53,8 @@ public class DeviceDataFetcherTests extends TestsBase {
         this.devDataRepo = devDataRepo;
         this.devDataHourlyRepo = devDataHourlyRepo;
         this.devDataHourlyApproxRepo = devDataHourlyApproxRepo;
+        this.departmentRepo = departmentRepo;
+        this.settingsStore = settingsStore;
     }
 
     @Test
@@ -117,7 +124,7 @@ public class DeviceDataFetcherTests extends TestsBase {
         /*
         ctx.from = 2025-08-06T01:00
         ctx.to   = 2025-08-06T10:00
-        APPROX_SECONDS = 30
+        参数近似窗口为 30 秒
         approxFrom = 2025-08-06T00:59:30
         approxTo   = 2025-08-06T10:00:30
 
@@ -218,7 +225,8 @@ public class DeviceDataFetcherTests extends TestsBase {
             DevDataQuery.bedNum 仅床位有值，deviceId 为 null
             DevDataQuery.deviceId 仅设备有值，bedNum 为 null
             start / end 已被裁剪到 ctx.from / ctx.to 范围内
-            approxStart / approxEnd 在裁剪前的基础上扩展 APPROX_SECONDS，但也限制在 approxFrom / approxTo 范围
+            approxStart / approxEnd 在裁剪前的基础上扩展 30 秒，
+            但也限制在 approxFrom / approxTo 范围内
 
         DevDataQuery{devBedNum='deviceBedNumber2202', devId=null, start=2025-08-06T01:00, end=2025-08-06T03:00, approxStart=2025-08-06T00:59:30, approxEnd=2025-08-06T03:00}
         DevDataQuery{devBedNum='deviceBedNumber2203', devId=null, start=2025-08-06T03:00, end=2025-08-06T10:00, approxStart=2025-08-06T03:00, approxEnd=2025-08-06T10:00:30}
@@ -230,7 +238,7 @@ public class DeviceDataFetcherTests extends TestsBase {
             TimeUtils.getLocalTime(2025, 8, 6, 10, 0), "admin"
         );
         context.patientRecord = patient;
-        fetcher.resetApproxSecondsForTesting(30);
+        context.paramApproxSeconds = 30;
         List<DeviceDataFetcher.DevDataQuery> queries = fetcher.getDeviceDataQueries(context);
         assertThat(queries).hasSize(4);
 
@@ -309,7 +317,7 @@ public class DeviceDataFetcherTests extends TestsBase {
             .setCode("approxCode1")
             .setValueMeta(ValueMetaPB.newBuilder().setValueType(TypeEnumPB.STRING).build())
             .build());
-        fetcher.resetParamCodesToApproxForTesting(new HashSet<>(Arrays.asList("approxCode1")));
+        ctx.paramCodesToApprox.add("approxCode1");
         List<DeviceData> deviceDataList = new ArrayList<>();
         Map<String, List<DeviceData>> result = fetcher.getMergedDeviceData(ctx, deviceDataList);
         assertThat(result).isEmpty();
@@ -372,7 +380,7 @@ public class DeviceDataFetcherTests extends TestsBase {
         assertThat(StrUtils.isBlank(code2Data.get(1).getNotes())).isTrue();
 
         // 4) 近似：精确命中
-        fetcher.resetApproxSecondsForTesting(30);
+        ctx.paramApproxSeconds = 30;
         deviceDataList = new ArrayList<>();
         deviceDataList.add(new DeviceData(
             null, deptId, null, DeviceEnums.DEVICE_TYPE_MONITOR, "hisBedNumber2204", "approxCode1",
@@ -385,7 +393,6 @@ public class DeviceDataFetcherTests extends TestsBase {
         assertThat(approxCode1Data.get(0).getRecordedStr()).isEqualTo("approxCode1-val1");
 
         // 5) 近似：双侧包夹，取更近
-        fetcher.resetApproxSecondsForTesting(30);
         deviceDataList = new ArrayList<>();
         deviceDataList.add(new DeviceData(
             null, deptId, null, DeviceEnums.DEVICE_TYPE_MONITOR, "hisBedNumber2204", "approxCode1",
@@ -463,7 +470,7 @@ public class DeviceDataFetcherTests extends TestsBase {
         ctx.allTimes = new ArrayList<>();
         ctx.allTimes.add(TimeUtils.getLocalTime(2025, 8, 6, 1, 10));
         ctx.allTimes.add(TimeUtils.getLocalTime(2025, 8, 6, 1, 20));
-        fetcher.resetApproxSecondsForTesting(3600);
+        ctx.paramApproxSeconds = 3600;
         deviceDataList = new ArrayList<>();
         deviceDataList.add(new DeviceData(
             null, deptId, null, DeviceEnums.DEVICE_TYPE_MONITOR, "hisBedNumber2204", "approxCode1",
@@ -503,7 +510,7 @@ public class DeviceDataFetcherTests extends TestsBase {
 
         // 11) 非近似参数 + 近似参数并存
         fetcher.resetAliasCodeMapForTesting(new HashMap<>());
-        fetcher.resetApproxSecondsForTesting(1800);
+        ctx.paramApproxSeconds = 1800;
         ctx.allTimes = new ArrayList<>();
         ctx.allTimes.add(TimeUtils.getLocalTime(2025, 8, 6, 1, 0));
         ctx.allTimes.add(TimeUtils.getLocalTime(2025, 8, 6, 2, 0));
@@ -554,7 +561,7 @@ public class DeviceDataFetcherTests extends TestsBase {
     void testFetch() {
         // 综合测试
         /*
-        测试场景：fetcher.resetApproxSecondsForTesting(1800);
+        科室配置：approxCode1 使用 960 秒近似窗口
         病人：2025-08-06 00:30入科；未出科
         床位：hisBedNumber2206，2025-08-06 00:30入科
         设备：deviceSn-A，2025-08-06 02:00绑定，2025-08-06 05:00解绑
@@ -578,13 +585,16 @@ public class DeviceDataFetcherTests extends TestsBase {
             device_data_hourly_approx:
                 (deviceSn-A.id, approxCode1, "2025-08-06 01:55", "ddha-approxCode1-val1")  // 未绑定，被过滤
                 (deviceSn-A.id, approxCode1, "2025-08-06 02:55", "ddha-approxCode1-val2")
-                (deviceSn-A.id, approxCode1, "2025-08-06 03:10", "ddha-approxCode1-val3")
+                (deviceSn-A.id, approxCode1, "2025-08-06 02:17", "ddha-approxCode1-val3")
+                    // 超过 02:00 的 16 分钟近似窗口
                 (deviceSn-A.id, approxCode1, "2025-08-06 04:10", "ddha-approxCode1-val4")
         观察项数据:
             (hisBedNumber2206, code1, "2025-08-06 01:00", "dd-code1-val1", isDeleted = true)
         */
-        fetcher.resetApproxSecondsForTesting(1800);
-        fetcher.resetParamCodesToApproxForTesting(new HashSet<>(Arrays.asList("approxCode1")));
+        String deptId = "test-device-param-approx";
+        departmentRepo.save(new RbacDepartment(deptId, deptId));
+        settingsStore.saveDeptMonitoringSettingsPB(deptId, DeptMonitoringSettingsPB.newBuilder()
+            .setParamApproxSeconds(960).addParamCodeToApprox("approxCode1").build(), "admin");
         Long hisPid = 2206L;
         PatientRecord patient = PatientTestUtils.newPatientRecord(hisPid, 3, deptId);
         patient.setAdmissionTime(TimeUtils.getLocalTime(2025, 8, 6, 0, 30));  // shanghai: 2025-8-6 9:00
@@ -736,7 +746,7 @@ public class DeviceDataFetcherTests extends TestsBase {
             .deviceType(DeviceEnums.DEVICE_TYPE_VENTILATOR)
             .deviceBedNumber(null)
             .paramCode("approxCode1")
-            .recordedAt(TimeUtils.getLocalTime(2025, 8, 6, 3, 10))
+            .recordedAt(TimeUtils.getLocalTime(2025, 8, 6, 2, 17))
             .recordedStr("ddha-approxCode1-val3")
             .build());
         deviceDataHourlyApproxList.add(DeviceDataHourlyApprox.builder()
@@ -767,6 +777,7 @@ public class DeviceDataFetcherTests extends TestsBase {
         Pair<StatusCode, List<PatientMonitoringRecord>> resultPair = fetcher.fetch(
             patient.getId(), from, to, customTimePoints, paramGroups, "admin"
         );
+        assertThat(resultPair.getFirst()).isEqualTo(StatusCode.OK);
         List<PatientMonitoringRecord> recordsToAdd = resultPair.getSecond();
         assertThat(recordsToAdd).hasSize(5);
         assertThat(recordsToAdd.get(0).getEffectiveTime()).isEqualTo(TimeUtils.getLocalTime(2025, 8, 6, 2, 0));
@@ -788,10 +799,10 @@ public class DeviceDataFetcherTests extends TestsBase {
 
     @Test
     void testFetchHourlyApproxRecords() {
-        fetcher.resetHourlyApproxConfigForTesting(true, 10);
-        fetcher.resetParamCodesToApproxForTesting(Collections.emptySet());
         fetcher.resetAliasCodeMapForTesting(Collections.emptyMap());
 
+        String deptId = "test-device-hourly-approx";
+        departmentRepo.save(new RbacDepartment(deptId, deptId));
         Long hisPid = 2207L;
         PatientRecord patient = PatientTestUtils.newPatientRecord(hisPid, 3, deptId);
         patient.setAdmissionTime(TimeUtils.getLocalTime(2025, 8, 6, 0, 30));
@@ -823,7 +834,7 @@ public class DeviceDataFetcherTests extends TestsBase {
             .deviceType(DeviceEnums.DEVICE_TYPE_MONITOR)
             .deviceBedNumber("deviceBedNumber" + hisPid)
             .paramCode("code1")
-            .recordedAt(TimeUtils.getLocalTime(2025, 8, 6, 1, 55))
+            .recordedAt(TimeUtils.getLocalTime(2025, 8, 6, 1, 48))
             .recordedStr("raw-left")
             .build());
         devDataRepo.save(DeviceData.builder()
@@ -832,7 +843,7 @@ public class DeviceDataFetcherTests extends TestsBase {
             .deviceType(DeviceEnums.DEVICE_TYPE_MONITOR)
             .deviceBedNumber("deviceBedNumber" + hisPid)
             .paramCode("code1")
-            .recordedAt(TimeUtils.getLocalTime(2025, 8, 6, 2, 5))
+            .recordedAt(TimeUtils.getLocalTime(2025, 8, 6, 2, 12))
             .recordedStr("raw-right")
             .build());
 
@@ -855,12 +866,17 @@ public class DeviceDataFetcherTests extends TestsBase {
             )
             .build());
 
+        LocalDateTime from = TimeUtils.getLocalTime(2025, 8, 6, 1, 0);
+        LocalDateTime to = TimeUtils.getLocalTime(2025, 8, 6, 4, 0);
+        Pair<StatusCode, List<PatientMonitoringRecord>> defaultResult =
+            fetcher.fetchHourlyApproxRecords(patient.getId(), from, to, paramGroups, "admin");
+        assertThat(defaultResult.getFirst()).isEqualTo(StatusCode.OK);
+        assertThat(defaultResult.getSecond()).isEmpty();
+
+        settingsStore.saveDeptMonitoringSettingsPB(deptId, DeptMonitoringSettingsPB.newBuilder()
+            .setHourlyApproxSeconds(720).build(), "admin");
         Pair<StatusCode, List<PatientMonitoringRecord>> resultPair = fetcher.fetchHourlyApproxRecords(
-            patient.getId(),
-            TimeUtils.getLocalTime(2025, 8, 6, 1, 0),
-            TimeUtils.getLocalTime(2025, 8, 6, 4, 0),
-            paramGroups,
-            "admin"
+            patient.getId(), from, to, paramGroups, "admin"
         );
 
         assertThat(resultPair.getFirst()).isEqualTo(StatusCode.OK);
@@ -872,14 +888,12 @@ public class DeviceDataFetcherTests extends TestsBase {
         assertThat(record.getParamValueStr()).isEqualTo("raw-left");
         assertThat(record.getSource()).isEqualTo("dev-1");
         assertThat(record.getNote()).isEqualTo(
-            "device_data.recorded_at=" + TimeUtils.getLocalTime(2025, 8, 6, 1, 55)
+            "device_data.recorded_at=" + TimeUtils.getLocalTime(2025, 8, 6, 1, 48)
         );
     }
 
     @Test
     void testFetchHourlyApproxRecordsSkipsSoftDeletedRecord() {
-        fetcher.resetHourlyApproxConfigForTesting(true, 10);
-        fetcher.resetParamCodesToApproxForTesting(Collections.emptySet());
         fetcher.resetAliasCodeMapForTesting(Collections.emptyMap());
 
         Long hisPid = 2208L;
@@ -996,4 +1010,6 @@ public class DeviceDataFetcherTests extends TestsBase {
     private final DeviceDataRepository devDataRepo;
     private final DeviceDataHourlyRepository devDataHourlyRepo;
     private final DeviceDataHourlyApproxRepository devDataHourlyApproxRepo;
+    private final RbacDepartmentRepository departmentRepo;
+    private final SettingsStore settingsStore;
 }

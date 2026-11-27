@@ -2,6 +2,7 @@ package com.jingyicare.jingyi_icis_engine.service.monitorings;
 
 import static com.jingyicare.jingyi_icis_engine.utils.StrUtils.getStringOrDefault;
 
+import java.util.List;
 import java.util.Map;
 
 import org.springframework.stereotype.Component;
@@ -113,6 +114,11 @@ public final class MonEnums {
     public static final String DAILY_TOTAL_INTAKE_CODE = "daily_total_intake";
     public static final String DAILY_TOTAL_OUTPUT_CODE = "daily_total_output";
     public static final String DAILY_TOTAL_BALANCE_CODE = "daily_total_balance";
+
+    public static final int DEFAULT_HOURLY_APPROX_SECONDS = 600;
+    public static final int DEFAULT_PARAM_APPROX_SECONDS = 1800;
+    public static final List<String> DEFAULT_PARAM_CODE_TO_APPROX =
+        List.of("nibp_s", "nibp_d", "nibp_m");
 
     private final Map<Integer, String> groupTypeNames;
     private final Map<Integer, String> balanceRoleNames;

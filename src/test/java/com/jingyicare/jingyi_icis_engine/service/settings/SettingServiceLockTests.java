@@ -81,8 +81,10 @@ class SettingServiceLockTests extends TestsBase {
 
     @Test
     void updatesAllRequestedSettingsInOneTransaction() {
-        var settings = AppSettingsPB.newBuilder().setEnableMedicationSpeed(true)
+        AppSettingsPB settings = AppSettingsPB.newBuilder().setEnableMedicationSpeed(true)
             .setHeadCustomTimeGraceMinutes(7).setTailCustomTimeGraceMinutes(13)
+            .setHourlyApproxSeconds(720).setParamApproxSeconds(1500)
+            .addParamCodeToApprox("nibp_s")
             .setNursingRecordOverwriteCreatedBy(true).setScoreAllowEditRecordedBy(true)
             .setJfkUseNativePrint(true).setPrintAgentIpPort("10.0.0.8:9123")
             .setCheckFutureTime(true).setEnableCa(true).build();
@@ -90,11 +92,14 @@ class SettingServiceLockTests extends TestsBase {
         assertOk(updateApp(settings, AppSettingTypeEnum.AST_ENABLE_MEDICATION_SPEED,
             AppSettingTypeEnum.AST_HEAD_CUSTOM_TIME_GRACE_MINUTES,
             AppSettingTypeEnum.AST_TAIL_CUSTOM_TIME_GRACE_MINUTES,
+            AppSettingTypeEnum.AST_HOURLY_APPROX_SECONDS,
+            AppSettingTypeEnum.AST_PARAM_APPROX_SECONDS,
+            AppSettingTypeEnum.AST_PARAM_CODE_TO_APPROX,
             AppSettingTypeEnum.AST_NURSING_RECORD_OVERWRITE_CREATED_BY,
             AppSettingTypeEnum.AST_SCORE_ALLOW_EDIT_RECORDED_BY,
             AppSettingTypeEnum.AST_GENERAL, AppSettingTypeEnum.AST_ENABLE_CA));
 
-        var actual = service.getAppSettingsForService(DEPT_ID);
+        AppSettingsPB actual = service.getAppSettingsForService(DEPT_ID);
         assertThat(actual).isEqualTo(settings);
         assertThat(jdbcTemplate.queryForList("""
             SELECT function_id FROM dept_system_settings WHERE dept_id = ? ORDER BY function_id
@@ -225,13 +230,16 @@ class SettingServiceLockTests extends TestsBase {
         assertThat(service.getAppSettingsForService(DEPT_ID).getKeepInputPrecision()).isFalse();
 
         AppSettingsPB head = AppSettingsPB.newBuilder().setHeadCustomTimeGraceMinutes(7).build();
-        AppSettingsPB tailAndPrecision = AppSettingsPB.newBuilder()
-            .setTailCustomTimeGraceMinutes(13).setKeepInputPrecision(true).build();
+        AppSettingsPB tailPrecisionAndApprox = AppSettingsPB.newBuilder()
+            .setTailCustomTimeGraceMinutes(13).setKeepInputPrecision(true)
+            .setHourlyApproxSeconds(720).build();
         runContendingUpdates(
             LockKeys.deptSystemSettings(DEPT_ID, SettingsStore.GET_DEPT_MONITORING_SETTINGS),
             () -> updateApp(head, AppSettingTypeEnum.AST_HEAD_CUSTOM_TIME_GRACE_MINUTES),
-            () -> updateApp(tailAndPrecision, AppSettingTypeEnum.AST_TAIL_CUSTOM_TIME_GRACE_MINUTES,
-                AppSettingTypeEnum.AST_KEEP_INPUT_PRECISION));
+            () -> updateApp(tailPrecisionAndApprox,
+                AppSettingTypeEnum.AST_TAIL_CUSTOM_TIME_GRACE_MINUTES,
+                AppSettingTypeEnum.AST_KEEP_INPUT_PRECISION,
+                AppSettingTypeEnum.AST_HOURLY_APPROX_SECONDS));
 
         AppSettingsPB actual = service.getAppSettingsForService(DEPT_ID);
         assertThat(actual.getHeadCustomTimeGraceMinutes()).isEqualTo(7);
@@ -248,6 +256,43 @@ class SettingServiceLockTests extends TestsBase {
         assertThat(cleared.getHeadCustomTimeGraceMinutes()).isEqualTo(7);
         assertThat(cleared.getTailCustomTimeGraceMinutes()).isEqualTo(19);
         assertThat(cleared.getKeepInputPrecision()).isFalse();
+        assertThat(cleared.getHourlyApproxSeconds()).isEqualTo(720);
+    }
+
+    @Test
+    void monitoringApproximationSettingsUseDefaultsAndSupportPartialUpdates() {
+        String request = ProtoUtils.protoToJson(GetAppSettingsReq.newBuilder()
+            .setDeptId(DEPT_ID).build());
+        AppSettingsPB defaults = service.getAppSettings(request).getSettings();
+        assertThat(defaults.getHourlyApproxSeconds()).isEqualTo(600);
+        assertThat(defaults.getParamApproxSeconds()).isEqualTo(1800);
+        assertThat(defaults.getParamCodeToApproxList())
+            .containsExactly("nibp_s", "nibp_d", "nibp_m");
+
+        AppSettingsPB custom = AppSettingsPB.newBuilder().setHourlyApproxSeconds(90)
+            .setParamApproxSeconds(1200)
+            .addAllParamCodeToApprox(List.of(" spo2 ", "spo2", " ", "hr"))
+            .build();
+        assertOk(updateApp(custom, AppSettingTypeEnum.AST_HOURLY_APPROX_SECONDS,
+            AppSettingTypeEnum.AST_PARAM_APPROX_SECONDS,
+            AppSettingTypeEnum.AST_PARAM_CODE_TO_APPROX));
+
+        AppSettingsPB saved = service.getAppSettings(request).getSettings();
+        assertThat(saved.getHourlyApproxSeconds()).isEqualTo(90);
+        assertThat(saved.getParamApproxSeconds()).isEqualTo(1200);
+        assertThat(saved.getParamCodeToApproxList()).containsExactly("spo2", "hr");
+
+        assertOk(updateApp(AppSettingsPB.newBuilder().setParamApproxSeconds(-1).build(),
+            AppSettingTypeEnum.AST_PARAM_APPROX_SECONDS));
+        AppSettingsPB partialReset = service.getAppSettings(request).getSettings();
+        assertThat(partialReset.getHourlyApproxSeconds()).isEqualTo(90);
+        assertThat(partialReset.getParamApproxSeconds()).isEqualTo(1800);
+        assertThat(partialReset.getParamCodeToApproxList()).containsExactly("spo2", "hr");
+
+        assertOk(updateApp(AppSettingsPB.getDefaultInstance(),
+            AppSettingTypeEnum.AST_HOURLY_APPROX_SECONDS,
+            AppSettingTypeEnum.AST_PARAM_CODE_TO_APPROX));
+        assertThat(service.getAppSettings(request).getSettings()).isEqualTo(defaults);
     }
 
     @Test

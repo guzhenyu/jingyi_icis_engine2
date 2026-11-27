@@ -28,7 +28,7 @@ message DeptArchiveSettings {
     int32 ward_report_template_id = 2;  // 对应于 dragable_form_templates.id，0 表示未配置
 }
 
-// next id: 9
+// next id: 12
 enum AppSettingTypeEnum {
     AST_UNUSED = 0;
 
@@ -51,6 +51,9 @@ enum AppSettingTypeEnum {
 
     // 观察项录入
     AST_KEEP_INPUT_PRECISION = 8;
+    AST_HOURLY_APPROX_SECONDS = 9;
+    AST_PARAM_APPROX_SECONDS = 10;
+    AST_PARAM_CODE_TO_APPROX = 11;
 }
 
 message AppGeneralSettingsPB {
@@ -61,7 +64,7 @@ message AppGeneralSettingsPB {
     bool enable_ca = 4;  // 是否启用CA实时签名
 }
 
-// next id: 13
+// next id: 16
 message AppSettingsPB {
     // 执行用药
     bool enable_medication_speed = 1;  // 是否启用'药速'
@@ -87,4 +90,7 @@ message AppSettingsPB {
     bool enable_ca = 11;  // 是否启用CA实时签名
 
     bool keep_input_precision = 12;  // 保留观察项原始输入精度
+    int32 hourly_approx_seconds = 13;
+    int32 param_approx_seconds = 14;
+    repeated string param_code_to_approx = 15;
 }
